@@ -1,0 +1,3 @@
+This file marks the top of the Ironclad source repository.
+Its presence is used by the NuBuild system to orient itself
+to the src/, nuobj/, and nucache/ directories.

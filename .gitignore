@@ -1,0 +1,7 @@
+#
+# This file needs to exist to work-around a bug in Visual Studio 2013's Git.
+#
+# Without this file, VS doesn't read any .gitignore files in any subdirectories
+# of this directory, with the end result being that some should-be-ignored files
+# show up as "Untracked Files" in the "Team Explorer - Changes" panel.
+#

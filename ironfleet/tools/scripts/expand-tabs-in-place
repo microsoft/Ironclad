@@ -1,0 +1,4 @@
+#!/bin/sh
+expand -4 < $1 > $1.tmp
+cat < $1.tmp > $1
+rm $1.tmp

@@ -1,0 +1,23 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2012
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IronfleetTestDriver", "IronfleetTestDriver\IronfleetTestDriver.csproj", "{FC42BBAC-1DB5-4F8A-91C5-27D26C6CA343}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Manual|Any CPU = Manual|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{FC42BBAC-1DB5-4F8A-91C5-27D26C6CA343}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FC42BBAC-1DB5-4F8A-91C5-27D26C6CA343}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FC42BBAC-1DB5-4F8A-91C5-27D26C6CA343}.Manual|Any CPU.ActiveCfg = Manual|Any CPU
+		{FC42BBAC-1DB5-4F8A-91C5-27D26C6CA343}.Manual|Any CPU.Build.0 = Manual|Any CPU
+		{FC42BBAC-1DB5-4F8A-91C5-27D26C6CA343}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FC42BBAC-1DB5-4F8A-91C5-27D26C6CA343}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

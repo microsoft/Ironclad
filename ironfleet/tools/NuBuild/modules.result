@@ -1,0 +1,90 @@
+Can't resolve target Separation.ifc. Loop?
+Can't resolve target LogicalAddressing.ifc. Loop?
+
+Io_types.ifc imports 
+Interrupts.ifc imports 
+
+PCICP.ifc imports 
+base.ifc imports 
+Assembly.ifc imports 
+Io.ifc imports 
+IntSpec.ifc imports 
+MachineState.ifc imports 
+memory.ifc imports 
+# EntryImport.imp imports 
+* Partition.ifc imports Io.ifc,Io_types.ifc,MachineState.ifc,Memory.ifc,Assembly.ifc,Interrupts.ifc,Base.ifc
+* IntLemmasGc.ifc imports base.ifc,memory.ifc,IntSpec.ifc
+* BitVectorLemmasGc.ifc imports base.ifc,memory.ifc
+* BitVectorLemmasBase.ifc imports base.ifc,memory.ifc
+* BitVectorLemmasMain.ifc imports base.ifc,memory.ifc
+* BitVectorLemmasDevices.ifc imports base.ifc,memory.ifc
+* Partition.imp imports Partition.ifc
+* Core.ifc imports Partition.ifc
+# BitVectorLemmasBase.imp imports BitVectorLemmasBase.ifc
+* IntLemmasBase.ifc imports Io_types.ifc,BitVectorLemmasBase.ifc,Assembly.ifc,MachineState.ifc,IntSpec.ifc
+# BitVectorLemmasMain.imp imports BitVectorLemmasMain.ifc
+# BitVectorLemmasGc.imp imports BitVectorLemmasGc.ifc
+# IntLemmasGc.imp imports BitVectorLemmasGc.ifc,IntLemmasGc.ifc
+# BitVectorLemmasDevices.imp imports BitVectorLemmasDevices.ifc
+IntLemmasDevices.ifc imports Io_types.ifc,BitVectorLemmasDevices.ifc,Assembly.ifc,MachineState.ifc,IntSpec.ifc
+* IntLemmasMain.ifc imports BitVectorLemmasMain.ifc,IntSpec.ifc
+# IntLemmasDevices.imp imports IntLemmasDevices.ifc
+# Core.imp imports core.ifc
+* LogicalAddressing.ifc imports IntLemmasBase.ifc,Core.ifc
+* Separation.ifc imports Core.ifc
+# IntLemmasBase.imp imports IntLemmasBase.ifc
+# IntLemmasMain.imp imports IntLemmasMain.ifc
+* Util.ifc imports LogicalAddressing.ifc
+# LogicalAddressing.imp imports LogicalAddressing.ifc
+* Stacks.ifc imports Util.ifc
+# Util.imp imports LogicalAddressing.ifc,Util.ifc
+# Separation.imp imports Stacks.ifc
+Overflow.ifc imports Stacks.ifc
+# Stacks.imp imports Stacks.ifc
+# SimpleGcMemory.ifc imports overflow.ifc
+# Overflow.imp imports Overflow.ifc
+# SimpleGcMemory.imp imports SimpleGcMemory.ifc
+* SimpleCommon.ifc imports SimpleGcMemory.ifc,IntLemmasGc.ifc
+* SimpleCollector.ifc imports SimpleCommon.ifc
+# SimpleCommon.imp imports SimpleCommon.ifc
+* IntelNICCP.ifc imports PCICP.ifc,SimpleCollector.ifc,IntLemmasDevices.ifc,LogicalAddressing.ifc
+# PCICP.imp imports SimpleCollector.ifc,PCICP.ifc,LogicalAddressing.ifc
+# SimpleCollector.imp imports SimpleCollector.ifc
+* IoMainCP.ifc imports SimpleCollector.ifc,LogicalAddressing.ifc
+IntelNIC.ifc imports SimpleCollector.ifc
+* IoMain.ifc imports SimpleCollector.ifc
+Trusted.ifc imports IoMainCP.ifc
+* Main.ifc imports SimpleCollector.ifc,IoMain.ifc
+# IoMainCP.imp imports PCICP.ifc,IntLemmasDevices.ifc,IoMainCP.ifc
+* PCI.ifc imports IoMain.ifc,IntLemmasDevices.ifc
+# IntelNICCP.imp imports IntelNICCP.ifc
+# IoMain.imp imports PCI.ifc,SimpleCollector.ifc,LogicalAddressing.ifc
+# PCI.imp imports PCI.ifc,SimpleCollector.ifc
+Checked.ifc imports Trusted.ifc,IntLemmasMain.ifc
+dafny_DafnyPrelude.ifc imports Trusted.ifc
+# IntelNIC.imp imports IntelNIC.ifc,PCI.ifc,SimpleCollector.ifc
+dafny_base_s.ifc imports dafny_DafnyPrelude.ifc
+# Checked.imp imports Checked.ifc
+* HeapCP.ifc imports Checked.ifc
+dafny_relational_s.ifc imports dafny_DafnyPrelude.ifc
+# HeapCP.imp imports HeapCP.ifc
+Seq.ifc imports HeapCP.ifc
+dafny_power2_s.ifc imports dafny_base_s.ifc
+* DafnyAssembly.ifc imports dafny_DafnyPrelude.ifc,IoMain.ifc,Seq.ifc
+# Seq.imp imports Seq.ifc
+dafny_Base.ifc imports DafnyAssembly.ifc,dafny_base_s.ifc
+dafny_assembly_i.ifc imports DafnyAssembly.ifc,dafny_relational_s.ifc,dafny_base_s.ifc
+dafny_mul_nonlinear_i.ifc imports DafnyAssembly.ifc
+# DafnyAssembly.imp imports DafnyAssembly.ifc
+# dafny_Base.imp imports dafny_Base.ifc
+dafny_assembly.ifc imports dafny_assembly_i.ifc,IoMain.ifc
+dafny_mul_nonlinear.ifc imports dafny_mul_nonlinear_i.ifc
+* dafny_bit_vector_lemmas_i.ifc imports dafny_assembly_i.ifc
+dafny_mul_i.ifc imports dafny_mul_nonlinear_i.ifc
+dafny_mul.ifc imports dafny_mul_i.ifc
+dafny_bit_vector_lemmas.ifc imports IoMain.ifc,dafny_bit_vector_lemmas_i.ifc
+dafny_Cube.ifc imports dafny_mul_i.ifc,dafny_power2_s.ifc,dafny_bit_vector_lemmas_i.ifc
+EntryCP.ifc imports dafny_Cube.ifc
+# dafny_Cube.imp imports dafny_Cube.ifc
+# EntryCP.imp imports EntryCP.ifc
+# Entry.imp imports EntryCP.ifc,Main.ifc,EntryImport.imp
