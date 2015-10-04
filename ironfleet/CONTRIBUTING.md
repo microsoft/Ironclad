@@ -21,7 +21,7 @@ Your pull request should:
   - Requests need not be a single commit, but should be a linear sequence of commits (i.e.
     no merge commits in your private repository).
   - It is desirable, but not necessary, for the full BatchDafny verification to succeed at
-    each commit (see the [README](./blob/master/README.md) for instructions on running BatchDafny),
+    each commit (see the [README](./README.md) for instructions on running BatchDafny),
     but it must succeed for the final commit.
   - Have clear commit messages e.g. "Refactor feature" or "Fix issue"
   - Follow the code conventions described in the [STYLE](./STYLE.md) guidelines

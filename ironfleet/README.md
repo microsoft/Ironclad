@@ -27,7 +27,7 @@ See http://research.microsoft.com/ironclad for more details.
 
 # License
 
-IronFleet is licensed under the MIT license included in the [LICENSE](./blob/master/LICENSE) file.
+IronFleet is licensed under the MIT license included in the [LICENSE](./LICENSE) file.
 
 # Setup
 
@@ -156,11 +156,11 @@ which primarily logs the time needed for each request.
 
 # Code Layout
 
-See the [CODE](./blob/master/CODE.md) file for more details on the various files in the repository.
+See the [CODE](./CODE.md) file for more details on the various files in the repository.
 
 # Contributing
 
-See the [CONTRIBUTING](./blob/master/CONTRIBUTING.md) file for more details.
+See the [CONTRIBUTING](./CONTRIBUTING.md) file for more details.
 
 # Version History
 - v0.1:   Initial code release
