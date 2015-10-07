@@ -43,6 +43,8 @@ Each has a plugin:
   - For Visual Studio, open:
       `./tools/Dafny/DafnyIroncladVsPlugin.vsix`
     to install the Dafny plugin with our default settings.
+    If you're running on Windows Server, and you see an error message that says Z3 has crashed,
+    then you may need to install the [Microsoft Visual C++ runtime](http://www.microsoft.com/en-us/download/details.aspx?id=5555).
     
 These instructions assume you're running on Windows.  However, Dafny, and all of its
 dependencies, also run on Linux.  You can obtain Dafny sources from:
