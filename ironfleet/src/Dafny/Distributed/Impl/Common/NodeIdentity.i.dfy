@@ -359,16 +359,16 @@ lemma lemma_AbstractifyEndPointsToNodeIdentities_injective(s1:seq<EndPoint>, s2:
 // Reversing the process of refining a node identity
 //////////////////////////////////////////////////////////
 
-predicate NodeIdentityIsReverseRefinable(id:NodeIdentity)
+predicate NodeIdentityIsRefinable(id:NodeIdentity)
 {
     exists ep :: EndPointIsValidIPV4(ep) && AbstractifyEndPointToNodeIdentity(ep) == id
 }
 
 // Give Dafny a symbol handle for this choose (:|) expression
-function{:opaque} ReverseRefineNodeIdentityToEndPoint(id:NodeIdentity) : EndPoint
-    requires NodeIdentityIsReverseRefinable(id);
-    ensures  EndPointIsValidIPV4(ReverseRefineNodeIdentityToEndPoint(id));
-    ensures  AbstractifyEndPointToNodeIdentity(ReverseRefineNodeIdentityToEndPoint(id)) == id;
+function{:opaque} RefineNodeIdentityToEndPoint(id:NodeIdentity) : EndPoint
+    requires NodeIdentityIsRefinable(id);
+    ensures  EndPointIsValidIPV4(RefineNodeIdentityToEndPoint(id));
+    ensures  AbstractifyEndPointToNodeIdentity(RefineNodeIdentityToEndPoint(id)) == id;
 {
     var ep :| EndPointIsValidIPV4(ep) && AbstractifyEndPointToNodeIdentity(ep) == id; ep
 }

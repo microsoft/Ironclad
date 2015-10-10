@@ -68,7 +68,7 @@ method InitProposerState(constants:ReplicaConstantsState) returns (proposer:Prop
         Received1bProperties(proposer.received_1b_packets, proposer.constants);
     }
 
-    lemma_RefineCPacketsToPacketsPropertiesProposer(proposer.received_1b_packets);
+    lemma_AbstractifySetOfCPacketsToSetOfRslPackets_propertiesProposer(proposer.received_1b_packets);
 
     // Some subset of below is an OBSERVE?
     assert ref_proposer.constants == ref_constants;
@@ -77,7 +77,7 @@ method InitProposerState(constants:ReplicaConstantsState) returns (proposer:Prop
     assert ref_proposer.max_ballot_i_sent_1a == Ballot(0, ref_constants.my_index);
     assert ref_proposer.next_operation_number_to_propose == 0;
     assert ref_proposer.received_1b_packets == {};
-    lemma_RefineToMapOfSeqNumsProperties(proposer.highest_seqno_requested_by_client_this_view); 
+    lemma_AbstractifyMapOfSeqNums_properties(proposer.highest_seqno_requested_by_client_this_view); 
     assert ElectionStateInit(ref_proposer.election_state, ref_constants);
 }
 
@@ -112,7 +112,7 @@ method {:timeLimitMultiplier 2} ProposerProcessRequest(proposer:ProposerState, p
 
     ghost var ref_val := AbstractifyCRequestToRequest(val);
     ghost var ref_myOutstandingProposedValues := AbstractifyMapOfSeqNums(proposer.highest_seqno_requested_by_client_this_view);
-    lemma_RefineToMapOfSeqNumsProperties(proposer.highest_seqno_requested_by_client_this_view);
+    lemma_AbstractifyMapOfSeqNums_properties(proposer.highest_seqno_requested_by_client_this_view);
     assert forall e :: (e !in proposer.highest_seqno_requested_by_client_this_view && EndPointIsValidIPV4(e) ==> AbstractifyEndPointToNodeIdentity(e) !in AbstractifyMapOfSeqNums(proposer.highest_seqno_requested_by_client_this_view));
     assert EndPointIsValidIPV4(packet.src);
     assert packet.src !in proposer.highest_seqno_requested_by_client_this_view ==> AbstractifyEndPointToNodeIdentity(packet.src) !in AbstractifyMapOfSeqNums(proposer.highest_seqno_requested_by_client_this_view);
@@ -140,7 +140,7 @@ method {:timeLimitMultiplier 2} ProposerProcessRequest(proposer:ProposerState, p
                              [request_queue := proposer.request_queue + [val]]
                              [highest_seqno_requested_by_client_this_view := new_seqno_map];
         //var proposer_update_end_time := Time.GetDebugTimeTicks();
-        lemma_RefineToMapOfSeqNumsProperties(new_seqno_map);
+        lemma_AbstractifyMapOfSeqNums_properties(new_seqno_map);
         r_proposer := ref_proposer[election_state := AbstractifyCElectionStateToElectionState(newElectionState)]
                                   [request_queue := ref_proposer.request_queue + [ref_val]]
                                   [highest_seqno_requested_by_client_this_view := 
@@ -202,21 +202,20 @@ method ProposerMaybeEnterNewViewAndSend1a(proposer:ProposerState) returns (propo
         assert CPaxosConfigurationIsValid(proposer.constants.all.config);
         sent_packets := BuildBroadcastToEveryone(proposer.constants.all.config, proposer.constants.my_index, msg);
 
-        lemma_RefineCPacketsToPacketsPropertiesProposer(proposer.received_1b_packets);
+        lemma_AbstractifySetOfCPacketsToSetOfRslPackets_propertiesProposer(proposer.received_1b_packets);
 
         // Some subset of the below is an OBSERVE
         ghost var ref_proposer' := AbstractifyProposerStateToLProposer(proposer');
         assert ref_proposer'.current_state == 1;
         assert ref_proposer'.max_ballot_i_sent_1a == ref_proposer.election_state.current_view;
         assert ref_proposer'.received_1b_packets  == {};
-        lemma_RefineToMapOfSeqNumsProperties(proposer'.highest_seqno_requested_by_client_this_view); 
+        lemma_AbstractifyMapOfSeqNums_properties(proposer'.highest_seqno_requested_by_client_this_view); 
         assert LBroadcastToEveryone(ref_proposer.constants.all.config, ref_proposer.constants.my_index, RslMessage_1a(ref_proposer.election_state.current_view), AbstractifyCBroadcastToRlsPacketSeq(sent_packets));
         var end_time := Time.GetDebugTimeTicks();
         RecordTimingSeq("ProposerMaybeEnterNewViewAndSend1a_work", start_time, end_time);
     } else {
         proposer' := proposer;
         sent_packets := CBroadcastNop;
-        //lemma_RefineToBroadcast_properties_proposer(sent_packets);
         var end_time := Time.GetDebugTimeTicks();
         RecordTimingSeq("ProposerMaybeEnterNewViewAndSend1a_nada", start_time, end_time);
     }
@@ -424,7 +423,7 @@ method {:timeLimitMultiplier 8} ProposerMaybeEnterPhase2(proposer:ProposerState,
     var start_time := Time.GetDebugTimeTicks();
     assert SetOfInjectiveTypeCPackets(proposer.received_1b_packets);
     ghost var ref_proposer  := AbstractifyProposerStateToLProposer(proposer);
-    lemma_RefineCPacketsToPacketsPropertiesProposer(proposer.received_1b_packets);
+    lemma_AbstractifySetOfCPacketsToSetOfRslPackets_propertiesProposer(proposer.received_1b_packets);
     assert |proposer.received_1b_packets| == |AbstractifySetOfCPacketsToSetOfRslPackets(proposer.received_1b_packets)|;
     var quorum_size := MinCQuorumSize(proposer.constants.all.config);
     // The following is already true thanks to our IsValid invariant:
@@ -453,7 +452,7 @@ method {:timeLimitMultiplier 8} ProposerMaybeEnterPhase2(proposer:ProposerState,
     } else {
         proposer' := proposer;
         sent_packets := CBroadcastNop;
-        lemma_RefineCPacketsToPacketsPropertiesProposer({});
+        lemma_AbstractifySetOfCPacketsToSetOfRslPackets_propertiesProposer({});
         var end_time := Time.GetDebugTimeTicks();
         RecordTimingSeq("ProposerMaybeEnterPhase2_nada", start_time, end_time);
     }
@@ -477,7 +476,7 @@ predicate Proposer_CanNominateUsingOperationNumber(s:ProposerState, log_truncati
     && opn.n >= 0
 }
 
-lemma lemma_ProposerCanNominateUsingOperationNumberRefines(s:ProposerState, log_truncation_point:COperationNumber, opn:COperationNumber)
+lemma lemma_ProposerCanNominateUsingOperationNumberAbstractifies(s:ProposerState, log_truncation_point:COperationNumber, opn:COperationNumber)
     requires ProposerIsValid(s);
     requires COperationNumberIsAbstractable(log_truncation_point);
     requires Proposer_CanNominateUsingOperationNumber(s, log_truncation_point, opn);
@@ -485,12 +484,11 @@ lemma lemma_ProposerCanNominateUsingOperationNumberRefines(s:ProposerState, log_
                                                        AbstractifyCOperationNumberToOperationNumber(log_truncation_point),
                                                        AbstractifyCOperationNumberToOperationNumber(opn));
 {
-    lemma_RefineCPacketsToPacketsPropertiesProposer(s.received_1b_packets);
+    lemma_AbstractifySetOfCPacketsToSetOfRslPackets_propertiesProposer(s.received_1b_packets);
     reveal_AbstractifyCVotesToVotes();
-    //reveal_RefineToMapOfVals();
 }
 
-lemma {:timeLimitMultiplier 4} lemma_NotProposerCanNominateUsingOperationNumberRefines(s:ProposerState, log_truncation_point:COperationNumber, opn:COperationNumber)
+lemma {:timeLimitMultiplier 4} lemma_NotProposerCanNominateUsingOperationNumberAbstractifies(s:ProposerState, log_truncation_point:COperationNumber, opn:COperationNumber)
     requires ProposerIsValid(s);
     requires COperationNumberIsAbstractable(log_truncation_point);
     requires !Proposer_CanNominateUsingOperationNumber(s, log_truncation_point, opn);
@@ -498,14 +496,14 @@ lemma {:timeLimitMultiplier 4} lemma_NotProposerCanNominateUsingOperationNumberR
                                                         AbstractifyCOperationNumberToOperationNumber(log_truncation_point),
                                                         AbstractifyCOperationNumberToOperationNumber(opn));
 {
-    lemma_RefineCPacketsToPacketsPropertiesProposer(s.received_1b_packets);
+    lemma_AbstractifySetOfCPacketsToSetOfRslPackets_propertiesProposer(s.received_1b_packets);
 
     if !(s.election_state.current_view == s.max_ballot_i_sent_1a) {
     } else if !(s.current_state == 2) {
     } else if !(|s.received_1b_packets| >= LMinQuorumSize(AbstractifyCPaxosConfigurationToConfiguration(s.constants.all.config))) {
     } else if !(SetOfMessage1bAboutBallot(s.received_1b_packets, s.max_ballot_i_sent_1a)) {
     } else if !(IsAfterLogTruncationPoint(opn, s.received_1b_packets)) {
-        lemma_RefineCPacketsToPacketsPropertiesProposer(s.received_1b_packets);
+        lemma_AbstractifySetOfCPacketsToSetOfRslPackets_propertiesProposer(s.received_1b_packets);
     } else if !(int(opn.n) < UpperBoundedAddition(int(log_truncation_point.n), int(s.constants.all.params.max_log_length), UpperBoundFinite(int(s.constants.all.params.max_integer_val)))) {
         //assume false;
     } else if (!(opn.n >= 0)) {
@@ -515,7 +513,7 @@ lemma {:timeLimitMultiplier 4} lemma_NotProposerCanNominateUsingOperationNumberR
     
 }
 
-lemma lemma_AllAcceptorsHadNoProposalRefines(S:set<CPacket>, opn:COperationNumber)
+lemma lemma_AllAcceptorsHadNoProposalAbstractifies(S:set<CPacket>, opn:COperationNumber)
     requires CPacketsIsAbstractable(S);
     requires COperationNumberIsAbstractable(opn);
     requires SetOfMessage1b(S);
@@ -524,10 +522,10 @@ lemma lemma_AllAcceptorsHadNoProposalRefines(S:set<CPacket>, opn:COperationNumbe
     ensures  LAllAcceptorsHadNoProposal(AbstractifySetOfCPacketsToSetOfRslPackets(S),
                                         AbstractifyCOperationNumberToOperationNumber(opn));
 {
-    lemma_RefineCPacketsToPacketsPropertiesProposer(S);
+    lemma_AbstractifySetOfCPacketsToSetOfRslPackets_propertiesProposer(S);
 }
 
-lemma lemma_NotAllAcceptorsHadNoProposalRefines(S:set<CPacket>, opn:COperationNumber)
+lemma lemma_NotAllAcceptorsHadNoProposalAbstractifies(S:set<CPacket>, opn:COperationNumber)
     requires CPacketsIsAbstractable(S);
     requires SetOfMessage1b(S);
     requires COperationNumberIsAbstractable(opn);
@@ -536,7 +534,7 @@ lemma lemma_NotAllAcceptorsHadNoProposalRefines(S:set<CPacket>, opn:COperationNu
     ensures  !LAllAcceptorsHadNoProposal(AbstractifySetOfCPacketsToSetOfRslPackets(S),
                                          AbstractifyCOperationNumberToOperationNumber(opn));
 {
-    lemma_RefineCPacketsToPacketsPropertiesProposer(S);
+    lemma_AbstractifySetOfCPacketsToSetOfRslPackets_propertiesProposer(S);
     reveal_AbstractifySetOfCPacketsToSetOfRslPackets();
 
     var p :| p in S && opn in p.msg.votes.v;
@@ -579,11 +577,9 @@ method {:timeLimitMultiplier 7} ProposerNominateNewValueAndSend2a(proposer:Propo
     assert Marshallable(msg);
     sent_packets := BuildBroadcastToEveryone(proposer.constants.all.config, proposer.constants.my_index, msg);
     
-    lemma_ProposerCanNominateUsingOperationNumberRefines(proposer, log_truncation_point, COperationNumber(proposer.next_operation_number_to_propose));
-    lemma_RefineCPacketsToPacketsPropertiesProposer(proposer.received_1b_packets);
+    lemma_ProposerCanNominateUsingOperationNumberAbstractifies(proposer, log_truncation_point, COperationNumber(proposer.next_operation_number_to_propose));
+    lemma_AbstractifySetOfCPacketsToSetOfRslPackets_propertiesProposer(proposer.received_1b_packets);
 
-    //reveal_AbstractifyCVotesToVotes();
-//    reveal_RefineToMapOfVals();
     ghost var ref_proposer  := AbstractifyProposerStateToLProposer(proposer);
     ghost var ref_proposer' := AbstractifyProposerStateToLProposer(proposer');
     ghost var ref_logTruncationPoint := AbstractifyCOperationNumberToOperationNumber(log_truncation_point);
@@ -646,7 +642,7 @@ predicate CValIsHighestNumberedProposalAtBallot(v:CRequestBatch, c:CBallot, S:se
     requires CBallotIsAbstractable(c) && CPacketsIsAbstractable(S) && COperationNumberIsAbstractable(opn);
     requires SetOfMessage1b(S);
 {
-    lemma_RefineCPacketsToPacketsPropertiesProposer(S);
+    lemma_AbstractifySetOfCPacketsToSetOfRslPackets_propertiesProposer(S);
     LMaxBallotInS(AbstractifyCBallotToBallot(c), AbstractifySetOfCPacketsToSetOfRslPackets(S), AbstractifyCOperationNumberToOperationNumber(opn))
     && ExistsCBallotInS(v, c, S, opn)
 }
@@ -659,7 +655,7 @@ predicate CValIsHighestNumberedProposal(v:CRequestBatch, S:set<CPacket>, opn:COp
     exists c :: CBallotIsAbstractable(c) && CValIsHighestNumberedProposalAtBallot(v, c, S, opn)
 }
 
-lemma {:timeLimitMultiplier 3} lemma_CValIsHighestNumberedProposalRefines(v:CRequestBatch, bal:CBallot, S:set<CPacket>, opn:COperationNumber)
+lemma {:timeLimitMultiplier 3} lemma_CValIsHighestNumberedProposalAbstractifies(v:CRequestBatch, bal:CBallot, S:set<CPacket>, opn:COperationNumber)
     requires CRequestBatchIsAbstractable(v) && CBallotIsAbstractable(bal) && CPacketsIsAbstractable(S) && COperationNumberIsAbstractable(opn);
     requires SetOfMessage1b(S);
     requires CValIsHighestNumberedProposal(v, S, opn);
@@ -669,9 +665,7 @@ lemma {:timeLimitMultiplier 3} lemma_CValIsHighestNumberedProposalRefines(v:CReq
     ensures LValIsHighestNumberedProposalAtBallot(AbstractifyCRequestBatchToRequestBatch(v), AbstractifyCBallotToBallot(bal), AbstractifySetOfCPacketsToSetOfRslPackets(S), AbstractifyCOperationNumberToOperationNumber(opn));
 {
     reveal_AbstractifyCVotesToVotes();
-    //reveal_RefineToMapOfVals();
-    //reveal_RefineToBroadcast();
-    lemma_RefineCPacketsToPacketsPropertiesProposer(S);
+    lemma_AbstractifySetOfCPacketsToSetOfRslPackets_propertiesProposer(S);
 
     var c :| CBallotIsAbstractable(c) && CValIsHighestNumberedProposalAtBallot(v, c, S, opn);
     var ref_c := AbstractifyCBallotToBallot(c);
@@ -744,7 +738,6 @@ method {:timeLimitMultiplier 5} FindValWithHighestNumberedProposal(received_1b_p
     processedPackets := {pkt};
     reveal_AbstractifySetOfCPacketsToSetOfRslPackets();
     reveal_AbstractifyCVotesToVotes();
-    //reveal_RefineToMapOfVals();
     ghost var p := AbstractifyCPacketToRslPacket(pkt);
     ghost var S := AbstractifySetOfCPacketsToSetOfRslPackets(processedPackets);
     ghost var opn_s := AbstractifyCOperationNumberToOperationNumber(opn);
@@ -777,13 +770,12 @@ method {:timeLimitMultiplier 5} FindValWithHighestNumberedProposal(received_1b_p
         packets := packets - {pkt};
         processedPackets := processedPackets + {pkt};
         reveal_AbstractifyCVotesToVotes();
-        //reveal_RefineToMapOfVals();
     }
 
     assert processedPackets == received_1b_packets;
     p := AbstractifyCPacketToRslPacket(p_bal);
     assert CValIsHighestNumberedProposal(v, received_1b_packets, opn);
-    lemma_CValIsHighestNumberedProposalRefines(v, bal, received_1b_packets, opn);
+    lemma_CValIsHighestNumberedProposalAbstractifies(v, bal, received_1b_packets, opn);
     assert LValIsHighestNumberedProposalAtBallot(AbstractifyCRequestBatchToRequestBatch(v), AbstractifyCBallotToBallot(bal), AbstractifySetOfCPacketsToSetOfRslPackets(received_1b_packets), AbstractifyCOperationNumberToOperationNumber(opn));
 }
 
@@ -823,9 +815,9 @@ method ProposerNominateOldValueAndSend2a(proposer:ProposerState,log_truncation_p
     assert Marshallable(msg);
     sent_packets := BuildBroadcastToEveryone(proposer.constants.all.config, proposer.constants.my_index, msg);
 
-    lemma_ProposerCanNominateUsingOperationNumberRefines(proposer, log_truncation_point, COperationNumber(proposer.next_operation_number_to_propose));
-    lemma_NotAllAcceptorsHadNoProposalRefines(proposer.received_1b_packets, opn_op);
-    lemma_RefineCPacketsToPacketsPropertiesProposer(proposer.received_1b_packets);
+    lemma_ProposerCanNominateUsingOperationNumberAbstractifies(proposer, log_truncation_point, COperationNumber(proposer.next_operation_number_to_propose));
+    lemma_NotAllAcceptorsHadNoProposalAbstractifies(proposer.received_1b_packets, opn_op);
+    lemma_AbstractifySetOfCPacketsToSetOfRslPackets_propertiesProposer(proposer.received_1b_packets);
     reveal_AbstractifyCVotesToVotes();
 
     assert Eq_LProposer(r_proposer', AbstractifyProposerStateToLProposer(proposer'));
@@ -865,15 +857,15 @@ method ProposerNominateOldValueAndSend2a(proposer:ProposerState,log_truncation_p
 
     ghost var ref_proposer  := AbstractifyProposerStateToLProposer(proposer);
 
-    lemma_ProposerCanNominateUsingOperationNumberRefines(proposer, log_truncation_point, COperationNumber(proposer.next_operation_number_to_propose));
-    lemma_AllAcceptorsHadNoProposalRefines(proposer.received_1b_packets, opn_op);
+    lemma_ProposerCanNominateUsingOperationNumberAbstractifies(proposer, log_truncation_point, COperationNumber(proposer.next_operation_number_to_propose));
+    lemma_AllAcceptorsHadNoProposalAbstractifies(proposer.received_1b_packets, opn_op);
 
     ghost var e_opn:COperationNumber :| e_opn.n > proposer.next_operation_number_to_propose && !AllAcceptorsHadNoProposal(proposer.received_1b_packets, e_opn);
     ghost var ref_e_opn := AbstractifyCOperationNumberToOperationNumber(e_opn);
 
-    lemma_NotAllAcceptorsHadNoProposalRefines(proposer.received_1b_packets, e_opn);
+    lemma_NotAllAcceptorsHadNoProposalAbstractifies(proposer.received_1b_packets, e_opn);
     assert ref_e_opn > ref_proposer.next_operation_number_to_propose && !LAllAcceptorsHadNoProposal(ref_proposer.received_1b_packets, ref_e_opn);
-    lemma_RefineCPacketsToPacketsPropertiesProposer(proposer.received_1b_packets);
+    lemma_AbstractifySetOfCPacketsToSetOfRslPackets_propertiesProposer(proposer.received_1b_packets);
     reveal_AbstractifyCVotesToVotes();
 
     ghost var ref_proposer' := AbstractifyProposerStateToLProposer(proposer');
@@ -929,9 +921,9 @@ method Proposer_CanNominateUsingOperationNumberImpl(proposer:ProposerState,log_t
         assert b == Proposer_CanNominateUsingOperationNumber(proposer, log_truncation_point,
                                                              COperationNumber(proposer.next_operation_number_to_propose));
         if b {
-            lemma_ProposerCanNominateUsingOperationNumberRefines(proposer, log_truncation_point, COperationNumber(proposer.next_operation_number_to_propose));
+            lemma_ProposerCanNominateUsingOperationNumberAbstractifies(proposer, log_truncation_point, COperationNumber(proposer.next_operation_number_to_propose));
         } else {
-            lemma_NotProposerCanNominateUsingOperationNumberRefines(proposer, log_truncation_point, COperationNumber(proposer.next_operation_number_to_propose));
+            lemma_NotProposerCanNominateUsingOperationNumberAbstractifies(proposer, log_truncation_point, COperationNumber(proposer.next_operation_number_to_propose));
         }
     } else {
         b := false;
@@ -949,7 +941,6 @@ method {:timeLimitMultiplier 6} AllAcceptorsHadNoProposalImpl(proposer:ProposerS
 {
     reveal_AbstractifySetOfCPacketsToSetOfRslPackets();
     reveal_AbstractifyCVotesToVotes();
-    //reveal_RefineToMapOfVals();
     lemma_AbstractifyCPacketToRslPacket_isInjective();
     lemma_AbstractifyCOperationNumberToOperationNumber_isInjective();
     assert forall p :: p in proposer.received_1b_packets ==> CPacketIsInjectiveType(p);
@@ -970,7 +961,7 @@ method {:timeLimitMultiplier 6} AllAcceptorsHadNoProposalImpl(proposer:ProposerS
         RecordTimingSeq("AllAcceptorsHadNoProposalImpl_memoized", start_time, end_time);
         //print("AllAcceptorsHadNoProposalImpl_memoized: Memoized, nextOpnToPropose = ", proposer.next_operation_number_to_propose, " and maxOpnWithProposal = ", proposer.maxOpnWithProposal.n, "\n"); 
     }
-    lemma_RefineCPacketsToPacketsPropertiesProposer(proposer.received_1b_packets);
+    lemma_AbstractifySetOfCPacketsToSetOfRslPackets_propertiesProposer(proposer.received_1b_packets);
 }
 
 lemma {:timeLimitMultiplier 6} lemma_AllAcceptorsHadNoProposalImpl(proposer:ProposerState)
@@ -986,13 +977,12 @@ lemma {:timeLimitMultiplier 6} lemma_AllAcceptorsHadNoProposalImpl(proposer:Prop
 {
     reveal_AbstractifySetOfCPacketsToSetOfRslPackets();
     reveal_AbstractifyCVotesToVotes();
-    //reveal_RefineToMapOfVals();
     lemma_AbstractifyCPacketToRslPacket_isInjective();
     lemma_AbstractifyCOperationNumberToOperationNumber_isInjective();
     assert forall p :: p in proposer.received_1b_packets ==> CPacketIsInjectiveType(p);
     
     
-    lemma_RefineCPacketsToPacketsPropertiesProposer(proposer.received_1b_packets);
+    lemma_AbstractifySetOfCPacketsToSetOfRslPackets_propertiesProposer(proposer.received_1b_packets);
 }
 
 predicate ExistsPred(proposer:ProposerState, ref_proposer:LProposer, existsOpn:bool)
@@ -1026,7 +1016,7 @@ method DidSomeAcceptorHaveProposal(proposer:ProposerState) returns (b:bool) //, 
     reveal_AbstractifyCVotesToVotes();
     lemma_AbstractifyCPacketToRslPacket_isInjective();
     lemma_AbstractifyCOperationNumberToOperationNumber_isInjective();
-    lemma_RefineCPacketsToPacketsPropertiesProposer(proposer.received_1b_packets);
+    lemma_AbstractifySetOfCPacketsToSetOfRslPackets_propertiesProposer(proposer.received_1b_packets);
     assert forall p :: p in proposer.received_1b_packets ==> CPacketIsInjectiveType(p);
 
     if proposer.next_operation_number_to_propose >= proposer.maxOpnWithProposal.n {
@@ -1082,7 +1072,7 @@ lemma lemma_DidSomeAcceptorHaveProposal(proposer:ProposerState) //, opn:COperati
     reveal_AbstractifyCVotesToVotes();
     lemma_AbstractifyCPacketToRslPacket_isInjective();
     lemma_AbstractifyCOperationNumberToOperationNumber_isInjective();
-    lemma_RefineCPacketsToPacketsPropertiesProposer(proposer.received_1b_packets);
+    lemma_AbstractifySetOfCPacketsToSetOfRslPackets_propertiesProposer(proposer.received_1b_packets);
     assert forall p :: p in proposer.received_1b_packets ==> CPacketIsInjectiveType(p);
 
     var b := false;
@@ -1148,7 +1138,7 @@ method {:timeLimitMultiplier 12} ProposerMaybeNominateValueAndSend2a(proposer:Pr
     if !canNominate {
         proposer' := proposer;
         sent_packets := CBroadcastNop;
-        //lemma_RefineCPacketsToPacketsPropertiesProposer(sent_packets);
+        //lemma_AbstractifySetOfCPacketsToSetOfRslPackets_propertiesProposer(sent_packets);
         //var end_timeNotCanNominate:= Time.GetDebugTimeTicks();
         //RecordTimingSeq("ProposerMaybeNominateValueAndSend2a_unable", start_time, end_timeNotCanNominate);
     } else {
@@ -1159,7 +1149,7 @@ method {:timeLimitMultiplier 12} ProposerMaybeNominateValueAndSend2a(proposer:Pr
             //start_time := Time.GetDebugTimeTicks();
             proposer' := proposer;
             sent_packets := CBroadcastNop;
-            //lemma_RefineCPacketsToPacketsPropertiesProposer(sent_packets);
+            //lemma_AbstractifySetOfCPacketsToSetOfRslPackets_propertiesProposer(sent_packets);
             //var end_time4 := Time.GetDebugTimeTicks();
             //RecordTimingSeq("ProposerMaybeNominateValueAndSend2a_nada", start_time, end_time4);
             //print("ProposerMaybeNominateValueAndSend2a: proposer.next_operation_number_to_propose = ", proposer.next_operation_number_to_propose, ". NADA\n");
@@ -1253,7 +1243,7 @@ method {:timeLimitMultiplier 12} ProposerMaybeNominateValueAndSend2a(proposer:Pr
                         //    //start_time := Time.GetDebugTimeTicks();
                         //    proposer' := proposer;
                         //    sent_packets := CBroadcastNop;
-                        //    //lemma_RefineCPacketsToPacketsPropertiesProposer(sent_packets);
+                        //    //lemma_AbstractifySetOfCPacketsToSetOfRslPackets_propertiesProposer(sent_packets);
                         //    var end_time4 := Time.GetDebugTimeTicks();
                         //    RecordTimingSeq("ProposerMaybeNominateValueAndSend2a_nada_shouldneverhappen", start_time, end_time4);
                         //    //print("ProposerMaybeNominateValueAndSend2a: proposer.next_operation_number_to_propose = ", proposer.next_operation_number_to_propose, ". NADA\n");

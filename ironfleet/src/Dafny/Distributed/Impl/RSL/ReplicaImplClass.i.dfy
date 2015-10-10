@@ -58,7 +58,7 @@ class ReplicaImpl
         if udpClient!=null then udpClient.env else null
     }
 
-    function RefineReplica() : LReplica
+    function AbstractifyToLReplica() : LReplica
         reads this;
         requires ReplicaStateIsAbstractable(replica);
     {
@@ -132,7 +132,7 @@ class ReplicaImpl
         && PaxosEndPointIsValid(cpacket.src, replica.constants.all.config)
         && io0.LIoOpReceive?
         && UdpEventIsAbstractable(udpEvent0)
-        && io0 == RefineRawEventToIo(udpEvent0)
+        && io0 == AbstractifyUdpEventToRslIo(udpEvent0)
         && UdpEventIsAbstractable(udpEvent0)
         && udpEvent0.LIoOpReceive? && AbstractifyCPacketToRslPacket(cpacket) == AbstractifyUdpPacketToRslPacket(udpEvent0.r)
     }

@@ -77,7 +77,7 @@ method Replica_Next_Process_AppStateSupply(replica:ReplicaState, inp:CPacket)
         RecordTimingSeq("Replica_Next_Process_AppStateSupply_nada", start_time, end_time);
         replicaChanged := false;
     }
-    //lemma_RefineCPacketsToPacketsProperties(packets_sent);
+    //lemma_AbstractifySetOfCPacketsToSetOfRslPackets_properties(packets_sent);
 }
 
 method ReplicaNextSpontaneousMaybeExecuteIgnore(replica:ReplicaState) returns (replica':ReplicaState, packets_sent:OutboundPackets)
@@ -112,21 +112,13 @@ method ReplicaNextSpontaneousMaybeExecuteActual(
     ensures  replica'.executor.reply_cache == MutableMap.MapOf(reply_cache_mutable);
 {
     var val := replica.executor.next_op_to_execute.v;
-    //assert ValidRequestBatch(replica.executor.next_op_to_execute.v);
-    
-    //var end_time_proposer := Time.GetDebugTimeTicks();
-
-    //var start_time_learner := Time.GetDebugTimeTicks();
     var newLearner := LearnerModel_ForgetDecision(replica.learner, replica.executor.ops_complete);
     assert LLearnerForgetDecision(AbstractifyLearnerStateToLLearner(replica.learner), AbstractifyLearnerStateToLLearner(newLearner), 
                                    AbstractifyCOperationNumberToOperationNumber(replica.executor.ops_complete));
-    //var end_time_learner := Time.GetDebugTimeTicks();
 
-    //var start_time_executor := Time.GetDebugTimeTicks();
     var newExecutor, packets := ExecutorExecute(replica.executor, reply_cache_mutable);
     assert LExecutorExecute(AbstractifyExecutorStateToLExecutor(replica.executor), AbstractifyExecutorStateToLExecutor(newExecutor), 
                              AbstractifyOutboundCPacketsToSeqOfRslPackets(packets));
-    //var end_time_executor := Time.GetDebugTimeTicks();
 
     var newProposer := ProposerResetViewTimerDueToExecution(replica.proposer, val, cur_req_set, prev_req_set);
     assert LProposerResetViewTimerDueToExecution(AbstractifyProposerStateToLProposer(replica.proposer), 
@@ -200,7 +192,7 @@ method ReplicaNextReadClockMaybeSendHeartbeatSkip(
 {
     replica' := replica;
     packets_sent := Broadcast(CBroadcastNop);
-    //lemma_RefineCPacketsToPacketsProperties(packets_sent);
+    //lemma_AbstractifySetOfCPacketsToSetOfRslPackets_properties(packets_sent);
 }
 
 method ReplicaNextReadClockMaybeSendHeartbeatActual(
@@ -221,7 +213,7 @@ method ReplicaNextReadClockMaybeSendHeartbeatActual(
     var packets := BuildBroadcastToEveryone(replica.constants.all.config, replica.constants.my_index, msg);
     lemma_AbstractifySeqOfUint64sToSetOfInts_properties(replica.proposer.election_state.current_view_suspectors);
     packets_sent := Broadcast(packets);
-    //lemma_RefineCPacketsToPacketsProperties(packets_sent);
+    //lemma_AbstractifySetOfCPacketsToSetOfRslPackets_properties(packets_sent);
 }
 
 method Replica_Next_ReadClock_MaybeSendHeartbeat(
@@ -260,7 +252,7 @@ method ReplicaNextSpontaneousMaybeMakeDecisionSkip(replica:ReplicaState) returns
     packets_sent := Broadcast(CBroadcastNop);
 
     lemma_AbstractifyCOperationNumberToOperationNumber_isInjective();
-    lemma_RefineToLearnerTuplesProperties(replica.learner.unexecuted_ops);
+    lemma_AbstractifyCLearnerTuplesToLearnerTuples_properties(replica.learner.unexecuted_ops);
 
     ghost var s := AbstractifyReplicaStateToLReplica(replica);
     ghost var opn := replica.executor.ops_complete;
@@ -269,7 +261,7 @@ method ReplicaNextSpontaneousMaybeMakeDecisionSkip(replica:ReplicaState) returns
         assert AbstractifyCOperationNumberToOperationNumber(opn) in s.learner.unexecuted_learner_state;
         calc {
             |s.learner.unexecuted_learner_state[AbstractifyCOperationNumberToOperationNumber(opn)].received_2b_message_senders|;
-                { lemma_Received2bPacketsSameSizeAsRefinement(replica.learner.unexecuted_ops[opn], AbstractifyCLearnerTupleToLearnerTuple(replica.learner.unexecuted_ops[opn])); }
+                { lemma_Received2bPacketsSameSizeAsAbstraction(replica.learner.unexecuted_ops[opn], AbstractifyCLearnerTupleToLearnerTuple(replica.learner.unexecuted_ops[opn])); }
             |replica.learner.unexecuted_ops[opn].received_2b_message_senders|;
             < LMinQuorumSize(AbstractifyCPaxosConfigurationToConfiguration(replica.learner.rcs.all.config));
             LMinQuorumSize(s.learner.constants.all.config);
@@ -289,48 +281,21 @@ method ReplicaNextSpontaneousMaybeMakeDecisionActual(replica:ReplicaState) retur
 {
     lemma_AbstractifyCOperationNumberToOperationNumber_isInjective();
     lemma_AbstractifyCRequestToRequest_isInjective();
-    lemma_RefineToLearnerTuplesProperties(replica.learner.unexecuted_ops);
+    lemma_AbstractifyCLearnerTuplesToLearnerTuples_properties(replica.learner.unexecuted_ops);
     
     var opn := replica.executor.ops_complete;
 
-    lemma_Received2bPacketsSameSizeAsRefinement(replica.learner.unexecuted_ops[opn], AbstractifyCLearnerTupleToLearnerTuple(replica.learner.unexecuted_ops[opn]));
+    lemma_Received2bPacketsSameSizeAsAbstraction(replica.learner.unexecuted_ops[opn], AbstractifyCLearnerTupleToLearnerTuple(replica.learner.unexecuted_ops[opn]));
 
     var candValue:CRequestBatch := replica.learner.unexecuted_ops[opn].candidate_learned_value;
     assert CLearnerTupleIsValid(replica.learner.unexecuted_ops[opn]);
     assert ValidRequestBatch(replica.learner.unexecuted_ops[opn].candidate_learned_value);
     var newExecutor := ExecutorGetDecision(replica.executor, replica.learner.max_ballot_seen, opn, candValue);
 
-    /*
-    if (replica.learner.unexecuted_ops[opn].candidate_learned_value.CValue?) {
-        candValue := replica.learner.unexecuted_ops[opn].candidate_learned_value;
-        newExecutor := ExecutorGetDecision(replica.executor, opn, candValue);
-        assert LExecutorGetDecision(AbstractifyExecutorStateToLExecutor(replica.executor), AbstractifyExecutorStateToLExecutor(newExecutor), AbstractifyCOperationNumberToOperationNumber(opn), RefineToValue(candValue));
-    } else {
-        candValue := CValueNoOp();
-        newExecutor := ExecutorGetDecision(replica.executor, opn, candValue);
-        assert LExecutorGetDecision(AbstractifyExecutorStateToLExecutor(replica.executor), AbstractifyExecutorStateToLExecutor(newExecutor), AbstractifyCOperationNumberToOperationNumber(opn), RefineToValue(candValue));
-    }
-    */
-
-    //assert RefineToAppRequest(candValue) == 
     replica' := replica[executor := newExecutor];
 
     packets_sent := Broadcast(CBroadcastNop);
-    //lemma_RefineCPacketsToPacketsProperties(packets_sent);
     lemma_AbstractifyCRequestToRequest_isInjective();
-
-    /*
-    if (candValue.CValue?) {
-        assert !candValue.CValueNoOp?;
-        //assert RefineToAppRequest(candValue) == RefineToValue(replica.learner.unexecuted_ops[opn].candidate_learned_value);
-        assert Replica_Next_Spontaneous_MaybeMakeDecision_Postconditions(replica, replica', packets_sent);
-    } else {
-        //assert RefineToAppRequest(candValue) == AppValueNoOp();
-        assert candValue.CValueNoOp?;
-        assert RefineToAppRequest(CValueNoOp()) == ValueNoOp();
-        assert Replica_Next_Spontaneous_MaybeMakeDecision_Postconditions(replica, replica', packets_sent);
-    }
-     */
 
     ghost var s := AbstractifyReplicaStateToLReplica(replica);
     ghost var s' := AbstractifyReplicaStateToLReplica(replica');
@@ -402,7 +367,7 @@ method ReplicaNextSpontaneousTruncateLogBasedOnCheckpointsActual(
     var newAcceptor := NextAcceptorState_TruncateLog(replica.acceptor, newLogTruncationPoint);
     replica' := replica[acceptor := newAcceptor];
     packets_sent := Broadcast(CBroadcastNop);
-    //lemma_RefineCPacketsToPacketsProperties(packets_sent);
+    //lemma_AbstractifySetOfCPacketsToSetOfRslPackets_properties(packets_sent);
 }
 
 method Replica_Next_Spontaneous_TruncateLogBasedOnCheckpoints(replica:ReplicaState)

@@ -30,7 +30,6 @@ function method PaxosEndPointIsValid(endPoint:EndPoint, config:CPaxosConfigurati
     requires CPaxosConfigurationIsValid(config);
 {
     EndPointIsValidIPV4(endPoint)
-    //EndPointIsValid(endPoint, RefineCPaxosConfiguration(config))
 }
 
 

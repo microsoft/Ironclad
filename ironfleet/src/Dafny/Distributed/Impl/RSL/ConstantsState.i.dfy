@@ -31,12 +31,12 @@ predicate ConstantsStateIsValid(cs:ConstantsState)
     && 0 < int(cs.params.max_batch_size) <= RequestBatchSizeLimit()
 }
 
-function RefineConstantsState(constants:ConstantsState) : LConstants
+function AbstractifyConstantsStateToLConstants(constants:ConstantsState) : LConstants
     requires ConstantsStateIsAbstractable(constants);
 {
     LConstants(
         AbstractifyCPaxosConfigurationToConfiguration(constants.config),
-        RefineParametersState(constants.params))
+        AbstractifyParametersStateToLParameters(constants.params))
 }
 
 } 

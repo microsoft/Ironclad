@@ -47,7 +47,7 @@ function AbstractifyCMessageToRslMessage(msg:CMessage) : RslMessage
         case CMessage_StartingPhase2(bal_2, logTruncationPoint_2) => RslMessage_StartingPhase2(AbstractifyCBallotToBallot(bal_2), AbstractifyCOperationNumberToOperationNumber(logTruncationPoint_2))
 }
 
-function AbstractifyCMessageToPacket(sentTo:EndPoint, sentFrom:EndPoint, msg:CMessage) : RslPacket
+function AbstractifyCMessageToRslPacket(sentTo:EndPoint, sentFrom:EndPoint, msg:CMessage) : RslPacket
     requires CMessageIsAbstractable(msg);
     requires EndPointIsValidIPV4(sentTo);
     requires EndPointIsValidIPV4(sentFrom);
@@ -217,7 +217,7 @@ lemma lemma_AbstractifySetOfCPacketsToSetOfRslPackets_cardinality(cps:set<CPacke
 }
 
 
-lemma lemma_RefineCPacketsToPacketsProperties(cps:set<CPacket>)
+lemma lemma_AbstractifySetOfCPacketsToSetOfRslPackets_properties(cps:set<CPacket>)
     requires CPacketsIsAbstractable(cps);
     ensures  SetOfInjectiveTypeCPackets(cps) ==> |cps| == |AbstractifySetOfCPacketsToSetOfRslPackets(cps)|;
     ensures  AbstractifySetOfCPacketsToSetOfRslPackets({}) == {};

@@ -348,7 +348,7 @@ function {:opaque} AbstractifyCReplyCacheToReplyCache(m:CReplyCache) : ReplyCach
 {
     assert forall e :: e in m ==> EndPointIsValidIPV4(e);
     lemma_AbstractifyEndPointToNodeIdentity_injective_forall();
-    RefineToMap(m, AbstractifyEndPointToNodeIdentity, AbstractifyCReplyToReply, ReverseRefineNodeIdentityToEndPoint)
+    AbstractifyMap(m, AbstractifyEndPointToNodeIdentity, AbstractifyCReplyToReply, RefineNodeIdentityToEndPoint)
 }
 
 lemma lemma_AbstractifyCReplyCacheToReplyCache_properties(m:CReplyCache)
@@ -363,8 +363,8 @@ lemma lemma_AbstractifyCReplyCacheToReplyCache_properties(m:CReplyCache)
                 var rm' := AbstractifyCReplyCacheToReplyCache(m[e := r]);
                 rm' == AbstractifyCReplyCacheToReplyCache(m)[AbstractifyEndPointToNodeIdentity(e) := AbstractifyCReplyToReply(r)];
     ensures forall e {:trigger RemoveElt(m,e)} :: 
-                (EndPointIsValidIPV4(e) && NodeIdentityIsReverseRefinable(AbstractifyEndPointToNodeIdentity(e))
-                 && ReverseRefineNodeIdentityToEndPoint(AbstractifyEndPointToNodeIdentity(e)) == e && e in m) ==>
+                (EndPointIsValidIPV4(e) && NodeIdentityIsRefinable(AbstractifyEndPointToNodeIdentity(e))
+                 && RefineNodeIdentityToEndPoint(AbstractifyEndPointToNodeIdentity(e)) == e && e in m) ==>
             var rm  := AbstractifyCReplyCacheToReplyCache(m); 
             var rm' := AbstractifyCReplyCacheToReplyCache(RemoveElt(m, e));
             rm' == RemoveElt(rm, AbstractifyEndPointToNodeIdentity(e));
@@ -372,7 +372,7 @@ lemma lemma_AbstractifyCReplyCacheToReplyCache_properties(m:CReplyCache)
     assert forall e :: e in m ==> EndPointIsValidIPV4(e);
     lemma_AbstractifyEndPointToNodeIdentity_injective_forall();
     reveal_AbstractifyCReplyCacheToReplyCache();
-    lemma_RefineToMap_properties(m, AbstractifyEndPointToNodeIdentity, AbstractifyCReplyToReply, ReverseRefineNodeIdentityToEndPoint);
+    lemma_AbstractifyMap_properties(m, AbstractifyEndPointToNodeIdentity, AbstractifyCReplyToReply, RefineNodeIdentityToEndPoint);
 }
 
 
@@ -389,10 +389,10 @@ function {:opaque} AbstractifyMapOfSeqNums(m:map<EndPoint,uint64>) : map<NodeIde
     requires MapOfSeqNumsIsAbstractable(m);
 {
     lemma_AbstractifyEndPointToNodeIdentity_injective_forall();
-    RefineToMap(m, AbstractifyEndPointToNodeIdentity, uint64_to_int, ReverseRefineNodeIdentityToEndPoint)
+    AbstractifyMap(m, AbstractifyEndPointToNodeIdentity, uint64_to_int, RefineNodeIdentityToEndPoint)
 }
 
-lemma lemma_RefineToMapOfSeqNumsProperties(m:map<EndPoint,uint64>)
+lemma lemma_AbstractifyMapOfSeqNums_properties(m:map<EndPoint,uint64>)
     requires MapOfSeqNumsIsAbstractable(m);
     ensures  m == map [] ==> AbstractifyMapOfSeqNums(m) == map [];
     ensures  forall e :: (e in m <==> EndPointIsValidIPV4(e) && AbstractifyEndPointToNodeIdentity(e) in AbstractifyMapOfSeqNums(m));
@@ -408,7 +408,7 @@ lemma lemma_RefineToMapOfSeqNumsProperties(m:map<EndPoint,uint64>)
     assert forall ck1, ck2 :: AbstractifyEndPointToNodeIdentity.requires(ck1) && AbstractifyEndPointToNodeIdentity.requires(ck2) && AbstractifyEndPointToNodeIdentity(ck1) == AbstractifyEndPointToNodeIdentity(ck2) ==> ck1 == ck2;
 
     reveal_AbstractifyMapOfSeqNums();
-    lemma_RefineToMap_properties(m, AbstractifyEndPointToNodeIdentity, uint64_to_int, ReverseRefineNodeIdentityToEndPoint);
+    lemma_AbstractifyMap_properties(m, AbstractifyEndPointToNodeIdentity, uint64_to_int, RefineNodeIdentityToEndPoint);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -448,7 +448,7 @@ predicate CVotesIsAbstractable(votes:CVotes)
     forall i :: i in votes.v ==> COperationNumberIsAbstractable(i) && CVoteIsAbstractable(votes.v[i])
 }
 
-lemma lemma_RefineToMapOfThings<T>(m:map<COperationNumber,T>, newDomain:set<OperationNumber>)
+lemma lemma_AbstractifyMapOfThings<T>(m:map<COperationNumber,T>, newDomain:set<OperationNumber>)
     requires newDomain == set i | i in m :: AbstractifyCOperationNumberToOperationNumber(i);
     ensures forall o :: o in newDomain ==> 0<=o<0x10000000000000000;
     ensures forall o :: o in newDomain ==> COperationNumber(uint64(o)) in m;
@@ -466,7 +466,7 @@ function {:opaque} AbstractifyCVotesToVotes(votes:CVotes) : Votes
     requires CVotesIsAbstractable(votes);
 {
     var newDomain := set i | i in votes.v :: AbstractifyCOperationNumberToOperationNumber(i);
-    lemma_RefineToMapOfThings(votes.v, newDomain);
+    lemma_AbstractifyMapOfThings(votes.v, newDomain);
     map i | i in newDomain :: AbstractifyCVoteToVote(votes.v[COperationNumber(uint64(i))])
 }
 

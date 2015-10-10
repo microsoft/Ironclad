@@ -41,7 +41,7 @@ import opened LiveRSL__CClockReading_i
         requires CPacketIsAbstractable(cpacket);
         requires UdpEventIsAbstractable(receive_event);
         requires AbstractifyCPacketToRslPacket(cpacket) == AbstractifyUdpPacketToRslPacket(receive_event.r);
-        requires receive_io == RefineRawEventToIo(receive_event);
+        requires receive_io == AbstractifyUdpEventToRslIo(receive_event);
     
         // From DeliverOutboundPackets:
         requires AllIosAreSends(send_ios);
@@ -99,7 +99,7 @@ import opened LiveRSL__CClockReading_i
         requires cpacket.msg.CMessage_Invalid?;
         requires LReplica_Next_ProcessPacketWithoutReadingClock_preconditions([receive_io]);
         ensures  LReplica_Next_ProcessPacketWithoutReadingClock_preconditions(ios);
-        ensures  Q_LReplica_Next_ProcessPacketWithoutReadingClock(old(r.RefineReplica()), r.RefineReplica(), ios);
+        ensures  Q_LReplica_Next_ProcessPacketWithoutReadingClock(old(r.AbstractifyToLReplica()), r.AbstractifyToLReplica(), ios);
         ensures  RawIoConsistentWithSpecIO(udpEventLog, ios);
         ensures  old_udp_history + udpEventLog == r.Env().udp.history();
         ensures  OnlySentMarshallableData(udpEventLog);
@@ -113,7 +113,7 @@ import opened LiveRSL__CClockReading_i
         var sent_packets := OutboundPacket(None());
         assert AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets) == [];
 
-        assert Q_LReplica_Next_Process_Invalid(rreplica, r.RefineReplica(), lpacket, AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets));
+        assert Q_LReplica_Next_Process_Invalid(rreplica, r.AbstractifyToLReplica(), lpacket, AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets));
 
         ghost var send_events := [];
         ghost var send_ios := [];
@@ -163,7 +163,7 @@ import opened LiveRSL__CClockReading_i
                r.Valid()
             && r.nextActionIndex == old(r.nextActionIndex)
             && LReplica_Next_ProcessPacketWithoutReadingClock_preconditions(ios)
-            && Q_LReplica_Next_ProcessPacketWithoutReadingClock(old(r.RefineReplica()), r.RefineReplica(), ios)
+            && Q_LReplica_Next_ProcessPacketWithoutReadingClock(old(r.AbstractifyToLReplica()), r.AbstractifyToLReplica(), ios)
             && OnlySentMarshallableData(udpEventLog)
             && RawIoConsistentWithSpecIO(udpEventLog, ios)
             && r.Env() == old(r.Env())
@@ -242,7 +242,7 @@ import opened LiveRSL__CClockReading_i
                r.Valid()
             && r.nextActionIndex == old(r.nextActionIndex)
             && LReplica_Next_ProcessPacketWithoutReadingClock_preconditions(ios)
-            && Q_LReplica_Next_ProcessPacketWithoutReadingClock(old(r.RefineReplica()), r.RefineReplica(), ios)
+            && Q_LReplica_Next_ProcessPacketWithoutReadingClock(old(r.AbstractifyToLReplica()), r.AbstractifyToLReplica(), ios)
             && RawIoConsistentWithSpecIO(udpEventLog, ios)
             && OnlySentMarshallableData(udpEventLog)
             && r.Env() == old(r.Env())
@@ -321,7 +321,7 @@ import opened LiveRSL__CClockReading_i
                r.Valid()
             && r.nextActionIndex == old(r.nextActionIndex)
             && LReplica_Next_ProcessPacketWithoutReadingClock_preconditions(ios)
-            && Q_LReplica_Next_ProcessPacketWithoutReadingClock(old(r.RefineReplica()), r.RefineReplica(), ios)
+            && Q_LReplica_Next_ProcessPacketWithoutReadingClock(old(r.AbstractifyToLReplica()), r.AbstractifyToLReplica(), ios)
             && RawIoConsistentWithSpecIO(udpEventLog, ios)
             && OnlySentMarshallableData(udpEventLog)
             && r.Env() == old(r.Env())
@@ -400,7 +400,7 @@ import opened LiveRSL__CClockReading_i
                r.Valid()
             && r.nextActionIndex == old(r.nextActionIndex)
             && LReplica_Next_ProcessPacketWithoutReadingClock_preconditions(ios)
-            && Q_LReplica_Next_ProcessPacketWithoutReadingClock(old(r.RefineReplica()), r.RefineReplica(), ios)
+            && Q_LReplica_Next_ProcessPacketWithoutReadingClock(old(r.AbstractifyToLReplica()), r.AbstractifyToLReplica(), ios)
             && RawIoConsistentWithSpecIO(udpEventLog, ios)
             && OnlySentMarshallableData(udpEventLog)
             && r.Env() == old(r.Env())
@@ -479,7 +479,7 @@ import opened LiveRSL__CClockReading_i
                r.Valid()
             && r.nextActionIndex == old(r.nextActionIndex)
             && LReplica_Next_ProcessPacketWithoutReadingClock_preconditions(ios)
-            && Q_LReplica_Next_ProcessPacketWithoutReadingClock(old(r.RefineReplica()), r.RefineReplica(), ios)
+            && Q_LReplica_Next_ProcessPacketWithoutReadingClock(old(r.AbstractifyToLReplica()), r.AbstractifyToLReplica(), ios)
             && RawIoConsistentWithSpecIO(udpEventLog, ios)
             && OnlySentMarshallableData(udpEventLog)
             && r.Env() == old(r.Env())
@@ -558,7 +558,7 @@ import opened LiveRSL__CClockReading_i
                r.Valid()
             && r.nextActionIndex == old(r.nextActionIndex)
             && LReplica_Next_ProcessPacketWithoutReadingClock_preconditions(ios)
-            && Q_LReplica_Next_ProcessPacketWithoutReadingClock(old(r.RefineReplica()), r.RefineReplica(), ios)
+            && Q_LReplica_Next_ProcessPacketWithoutReadingClock(old(r.AbstractifyToLReplica()), r.AbstractifyToLReplica(), ios)
             && RawIoConsistentWithSpecIO(udpEventLog, ios)
             && OnlySentMarshallableData(udpEventLog)
             && r.Env() == old(r.Env())
@@ -616,7 +616,7 @@ import opened LiveRSL__CClockReading_i
         requires cpacket.msg.CMessage_Reply?;
         requires LReplica_Next_ProcessPacketWithoutReadingClock_preconditions([receive_io]);
         ensures  LReplica_Next_ProcessPacketWithoutReadingClock_preconditions(ios);
-        ensures  Q_LReplica_Next_ProcessPacketWithoutReadingClock(old(r.RefineReplica()), r.RefineReplica(), ios);
+        ensures  Q_LReplica_Next_ProcessPacketWithoutReadingClock(old(r.AbstractifyToLReplica()), r.AbstractifyToLReplica(), ios);
         ensures  RawIoConsistentWithSpecIO(udpEventLog, ios);
         ensures  OnlySentMarshallableData(udpEventLog);
         ensures  old_udp_history + udpEventLog == r.Env().udp.history();
@@ -630,7 +630,7 @@ import opened LiveRSL__CClockReading_i
         var sent_packets := Broadcast(CBroadcastNop);
         lemma_YesWeHaveNoPackets();
         reveal_Q_LReplica_Next_Process_Reply();
-        assert Q_LReplica_Next_Process_Reply(rreplica, r.RefineReplica(), lpacket, AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets));
+        assert Q_LReplica_Next_Process_Reply(rreplica, r.AbstractifyToLReplica(), lpacket, AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets));
 
         ghost var send_events := [];
         ghost var send_ios := [];
@@ -686,7 +686,7 @@ import opened LiveRSL__CClockReading_i
                r.Valid()
             && r.nextActionIndex == old(r.nextActionIndex)
             && LReplica_Next_ProcessPacketWithoutReadingClock_preconditions(ios)
-            && Q_LReplica_Next_ProcessPacketWithoutReadingClock(old(r.RefineReplica()), r.RefineReplica(), ios)
+            && Q_LReplica_Next_ProcessPacketWithoutReadingClock(old(r.AbstractifyToLReplica()), r.AbstractifyToLReplica(), ios)
             && RawIoConsistentWithSpecIO(udpEventLog, ios)
             && OnlySentMarshallableData(udpEventLog)
             && r.Env() == old(r.Env())
@@ -765,7 +765,7 @@ import opened LiveRSL__CClockReading_i
                r.Valid()
             && r.nextActionIndex == old(r.nextActionIndex)
             && LReplica_Next_ProcessPacketWithoutReadingClock_preconditions(ios)
-            && Q_LReplica_Next_ProcessPacketWithoutReadingClock(old(r.RefineReplica()), r.RefineReplica(), ios)
+            && Q_LReplica_Next_ProcessPacketWithoutReadingClock(old(r.AbstractifyToLReplica()), r.AbstractifyToLReplica(), ios)
             && RawIoConsistentWithSpecIO(udpEventLog, ios)
             && OnlySentMarshallableData(udpEventLog)
             && r.Env() == old(r.Env())
@@ -833,7 +833,7 @@ import opened LiveRSL__CClockReading_i
                r.Valid()
             && r.nextActionIndex == old(r.nextActionIndex)
             && LReplica_Next_ProcessPacketWithoutReadingClock_preconditions(ios)
-            && Q_LReplica_Next_ProcessPacketWithoutReadingClock(old(r.RefineReplica()), r.RefineReplica(), ios)
+            && Q_LReplica_Next_ProcessPacketWithoutReadingClock(old(r.AbstractifyToLReplica()), r.AbstractifyToLReplica(), ios)
             && RawIoConsistentWithSpecIO(udpEventLog, ios)
             && OnlySentMarshallableData(udpEventLog)
             && r.Env() == old(r.Env())

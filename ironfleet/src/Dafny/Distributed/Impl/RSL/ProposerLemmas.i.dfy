@@ -25,7 +25,7 @@ predicate AllAcceptorsHadNoProposal(S:set<CPacket>, opn:COperationNumber)
     forall p :: p in S ==> !(opn in p.msg.votes.v)
 }
 
-lemma lemma_RefineCPacketsToPacketsPropertiesProposer(cps:set<CPacket>)
+lemma lemma_AbstractifySetOfCPacketsToSetOfRslPackets_propertiesProposer(cps:set<CPacket>)
     requires CPacketsIsAbstractable(cps);
     ensures  SetOfInjectiveTypeCPackets(cps) ==> |cps| == |AbstractifySetOfCPacketsToSetOfRslPackets(cps)|;
     ensures  AbstractifySetOfCPacketsToSetOfRslPackets({}) == {};
@@ -40,7 +40,7 @@ lemma lemma_RefineCPacketsToPacketsPropertiesProposer(cps:set<CPacket>)
              (forall opn :: COperationNumberIsAbstractable(opn) ==> 
               !AllAcceptorsHadNoProposal(cps, opn) ==> !LAllAcceptorsHadNoProposal(AbstractifySetOfCPacketsToSetOfRslPackets(cps), AbstractifyCOperationNumberToOperationNumber(opn)));
 {
-    lemma_RefineCPacketsToPacketsProperties(cps);
+    lemma_AbstractifySetOfCPacketsToSetOfRslPackets_properties(cps);
     if SetOfInjectiveTypeCPackets(cps) {
         lemma_AbstractifySetOfCPacketsToSetOfRslPackets_cardinality(cps);
     }
@@ -92,7 +92,6 @@ lemma lemma_RefineCPacketsToPacketsPropertiesProposer(cps:set<CPacket>)
                 var ref_p := AbstractifyCPacketToRslPacket(p);
 
                 reveal_AbstractifyCVotesToVotes();
-                //reveal_RefineToMapOfVals();
 
                 assert ref_p in ref_cps;
             }

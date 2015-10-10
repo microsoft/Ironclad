@@ -40,9 +40,9 @@ import opened LiveRSL__CClockReading_i
         requires final_history == pre_delivery_history + send_events;
         requires all_events == [receive_event, clock_event] + send_events;
         requires UdpEventIsAbstractable(receive_event);
-        requires receive_io == RefineRawEventToIo(receive_event);
+        requires receive_io == AbstractifyUdpEventToRslIo(receive_event);
         requires UdpEventIsAbstractable(clock_event);
-        requires clock_io == RefineRawEventToIo(clock_event);
+        requires clock_io == AbstractifyUdpEventToRslIo(clock_event);
         requires RawIoConsistentWithSpecIO(send_events, send_ios);
         requires all_events == [receive_event, clock_event] + send_events;
         requires ios_head == [receive_io, clock_io];
@@ -89,7 +89,7 @@ import opened LiveRSL__CClockReading_i
             && r.nextActionIndex == old(r.nextActionIndex)
             && LReplica_Next_ReadClockAndProcessPacket_preconditions(ios)
             && ios[0] == receive_io
-            && Q_LReplica_Next_ProcessPacket(old(r.RefineReplica()), r.RefineReplica(), ios)
+            && Q_LReplica_Next_ProcessPacket(old(r.AbstractifyToLReplica()), r.AbstractifyToLReplica(), ios)
             && RawIoConsistentWithSpecIO(udp_event_log, ios)
             && OnlySentMarshallableData(udp_event_log)
             && old_udp_history + udp_event_log == r.Env().udp.history());
@@ -97,7 +97,7 @@ import opened LiveRSL__CClockReading_i
         var clock, clock_event := ReadClock(r.udpClient);
         ghost var clock_io := LIoOpReadClock(int(clock.t));
         assert int(clock.t) == clock_event.t; // OBSERVE uint64
-        assert clock_io == RefineRawEventToIo(clock_event);
+        assert clock_io == AbstractifyUdpEventToRslIo(clock_event);
 
         var sent_packets;
         r.replica, sent_packets := Replica_Next_Process_Heartbeat(r.replica, cpacket, clock.t, r.cur_req_set, r.prev_req_set);
@@ -116,8 +116,8 @@ import opened LiveRSL__CClockReading_i
 
         assert LReplica_Next_ReadClockAndProcessPacket_preconditions(ios);
 
-        assert LReplicaNextReadClockAndProcessPacket(old(r.RefineReplica()), r.RefineReplica(), ios);
-        assert LReplicaNextProcessPacket(old(r.RefineReplica()), r.RefineReplica(), ios);
+        assert LReplicaNextReadClockAndProcessPacket(old(r.AbstractifyToLReplica()), r.AbstractifyToLReplica(), ios);
+        assert LReplicaNextProcessPacket(old(r.AbstractifyToLReplica()), r.AbstractifyToLReplica(), ios);
         reveal_Q_LReplica_Next_ProcessPacket();
     }
 }

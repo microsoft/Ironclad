@@ -39,9 +39,9 @@ function AbstractifyHostStateToHost(host:HostState) : Host
 {
     Host(AbstractifyToConstants(host.constants),
         AbstractifyEndPointToNodeIdentity(host.me), 
-        RefineToDelegationMap(host.delegationMap),
+        AbstractifyCDelegationMapToDelegationMap(host.delegationMap),
         host.h,
-        RefineToSingleDeliveryAcct(host.sd),
+        AbstractifyCSingleDeliveryAcctToSingleDeliveryAcct(host.sd),
         AbstractifyOptionCPacketToOptionShtPacket(host.receivedPacket),
         int(host.numDelegations),
         host.receivedRequests)
@@ -174,7 +174,7 @@ predicate NextShardPreconditions(host:HostState, cpacket:CPacket)
     && CSingleDeliveryAccountIsValid(host.sd, host.constants.params)
     //&& cpacket.msg.m.recipient != host.constants.me
     //&& cpacket.msg.m.recipient in host.constants.hostIds
-    //&& DelegateForKeyRangeIsHost(RefineToDelegationMap(host.delegationMap), cpacket.msg.m.kr, AbstractifyEndPointToNodeIdentity(host.constants.me))
+    //&& DelegateForKeyRangeIsHost(AbstractifyCDelegationMapToDelegationMap(host.delegationMap), cpacket.msg.m.kr, AbstractifyEndPointToNodeIdentity(host.constants.me))
     && |host.delegationMap.lows| < 0xFFFF_FFFF_FFFF_FFFF - 2
     //&& !EmptyKeyRange(cpacket.msg.m.kr)
     /*&& ValidKeyRange(cpacket.msg.m.kr)*/

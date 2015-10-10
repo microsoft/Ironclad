@@ -32,11 +32,11 @@ predicate CTombstoneTableIsAbstractable(ts:CTombstoneTable)
     forall e :: e in ts ==> EndPointIsAbstractable(e)
 }
 
-function RefineToTombstoneTable(ts:CTombstoneTable) : TombstoneTable
+function AbstractifyCTombstoneTableToTombstoneTable(ts:CTombstoneTable) : TombstoneTable
     requires CTombstoneTableIsAbstractable(ts);
 {
     lemma_AbstractifyEndPointToNodeIdentity_injective_forall();
-    RefineToMap(ts, AbstractifyEndPointToNodeIdentity, uint64_to_nat_t, ReverseRefineNodeIdentityToEndPoint)
+    AbstractifyMap(ts, AbstractifyEndPointToNodeIdentity, uint64_to_nat_t, RefineNodeIdentityToEndPoint)
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -47,10 +47,10 @@ predicate CAckStateIsAbstractable(cas:CAckState)
     CSingleMessageSeqIsAbstractable(cas.unAcked)
 }
 
-function RefineToAckState(cas:CAckState) : AckState<Message>
+function AbstractifyCAskStateToAckState(cas:CAckState) : AckState<Message>
     requires CAckStateIsAbstractable(cas);                                          
 {
-    AckState(int(cas.numPacketsAcked), RefineToSingleMessageSeq(cas.unAcked))
+    AckState(int(cas.numPacketsAcked), AbstractifySeqOfCSingleMessageToSeqOfSingleMessage(cas.unAcked))
 }
 
 
@@ -94,13 +94,13 @@ predicate CAckStateIsValid(cas:CAckState, dst:EndPoint, params:CParameters)
 
 predicate CSendStateIsAbstractable(sendState:CSendState)
 {
-    MapIsAbstractable(sendState, AbstractifyEndPointToNodeIdentity, RefineToAckState, ReverseRefineNodeIdentityToEndPoint)
+    MapIsAbstractable(sendState, AbstractifyEndPointToNodeIdentity, AbstractifyCAskStateToAckState, RefineNodeIdentityToEndPoint)
 }
 
-function RefineToSendState(sendState:CSendState) : SendState<Message>
+function AbstractifyCSendStateToSendState(sendState:CSendState) : SendState<Message>
     requires CSendStateIsAbstractable(sendState);
 {
-    RefineToMap(sendState, AbstractifyEndPointToNodeIdentity, RefineToAckState, ReverseRefineNodeIdentityToEndPoint)
+    AbstractifyMap(sendState, AbstractifyEndPointToNodeIdentity, AbstractifyCAskStateToAckState, RefineNodeIdentityToEndPoint)
 }
 
 predicate CSendStateIsValid(sendState:CSendState, params:CParameters)
@@ -116,10 +116,10 @@ predicate CSingleDeliveryAcctIsAbstractable(acct:CSingleDeliveryAcct)
     CTombstoneTableIsAbstractable(acct.receiveState) && CSendStateIsAbstractable(acct.sendState)
 }
 
-function RefineToSingleDeliveryAcct(acct:CSingleDeliveryAcct) : SingleDeliveryAcct<Message>
+function AbstractifyCSingleDeliveryAcctToSingleDeliveryAcct(acct:CSingleDeliveryAcct) : SingleDeliveryAcct<Message>
     requires CSingleDeliveryAcctIsAbstractable(acct);
 {
-    SingleDeliveryAcct(RefineToTombstoneTable(acct.receiveState), RefineToSendState(acct.sendState))
+    SingleDeliveryAcct(AbstractifyCTombstoneTableToTombstoneTable(acct.receiveState), AbstractifyCSendStateToSendState(acct.sendState))
 } 
 
 predicate CSingleDeliveryAccountIsValid(acct:CSingleDeliveryAcct, params:CParameters) 

@@ -170,7 +170,7 @@ predicate CDelegationMapIsAbstractable(m:CDelegationMap)
     CDelegationMapIsValid(m)
 }
 
-function RefineToDelegationMap(m:CDelegationMap) : DelegationMap
+function AbstractifyCDelegationMapToDelegationMap(m:CDelegationMap) : DelegationMap
     requires CDelegationMapIsAbstractable(m);
     requires forall low :: low in m.lows ==> EndPointIsValidIPV4(low.id);
 {
@@ -234,7 +234,7 @@ lemma CDM_SubsequenceIsSorted(m:CDelegationMap, sm:CDelegationMap, lo:int, hi:in
 function CDelegationMapDelegate(m:CDelegationMap, k:Key) : NodeIdentity
     requires CDelegationMapIsAbstractable(m);
 {
-    RefineToDelegationMap(m)[k]
+    AbstractifyCDelegationMapToDelegationMap(m)[k]
 }
 
 predicate CDM_PrefixAgrees(m:CDelegationMap, dm:DelegationMap, klim:KeyPlus)
@@ -302,10 +302,10 @@ lemma {:timeLimitMultiplier 2} {:induction false} UpdateCDelegationMap_Part2(m:C
     requires new_right == if newkr.khi.KeyInf? then [] else [Mapping(newkr.khi, m.lows[right_index].id)] + m.lows[right_index+1..];
     requires m' == CDelegationMap(new_left + [Mapping(newkr.klo, id)] + new_right);
     requires CDelegationMapIsValid(m');
-    ensures  RefineToDelegationMap(m') == UpdateDelegationMap(RefineToDelegationMap(m), newkr, AbstractifyEndPointToNodeIdentity(id));
+    ensures  AbstractifyCDelegationMapToDelegationMap(m') == UpdateDelegationMap(AbstractifyCDelegationMapToDelegationMap(m), newkr, AbstractifyEndPointToNodeIdentity(id));
 {
-    var rm  := RefineToDelegationMap(m);
-    var rm' := RefineToDelegationMap(m');
+    var rm  := AbstractifyCDelegationMapToDelegationMap(m);
+    var rm' := AbstractifyCDelegationMapToDelegationMap(m');
     var updated_rm := UpdateDelegationMap(rm, newkr, AbstractifyEndPointToNodeIdentity(id));
 
     forall k:Key 
@@ -407,10 +407,10 @@ lemma {:timeLimitMultiplier 4} UpdateCDelegationMap_RHS(m:CDelegationMap, newkr:
     requires CDelegationMapIsValid(m');
     requires var k_index := int(CDM_IndexForKey(m', KeyPlus(k)));
              k_index > new_index;
-    ensures  RefineToDelegationMap(m')[k] == UpdateDelegationMap(RefineToDelegationMap(m), newkr, AbstractifyEndPointToNodeIdentity(id))[k];
+    ensures  AbstractifyCDelegationMapToDelegationMap(m')[k] == UpdateDelegationMap(AbstractifyCDelegationMapToDelegationMap(m), newkr, AbstractifyEndPointToNodeIdentity(id))[k];
 {
-    var rm  := RefineToDelegationMap(m);
-    var rm' := RefineToDelegationMap(m');
+    var rm  := AbstractifyCDelegationMapToDelegationMap(m);
+    var rm' := AbstractifyCDelegationMapToDelegationMap(m');
     var updated_rm := UpdateDelegationMap(rm, newkr, AbstractifyEndPointToNodeIdentity(id));
     var k_index := int(CDM_IndexForKey(m', KeyPlus(k)));
 
@@ -496,11 +496,11 @@ lemma UpdateCDelegationMap_Part1(m:CDelegationMap, newkr:KeyRange, id:EndPoint, 
     requires new_right == if newkr.khi.KeyInf? then [] else [Mapping(newkr.khi, m.lows[right_index].id)] + m.lows[right_index+1..];
     requires m' == CDelegationMap(new_left + [Mapping(newkr.klo, id)] + new_right);
     requires CDelegationMapIsValid(m');
-    ensures  RefineToDelegationMap(m') == UpdateDelegationMap(RefineToDelegationMap(m), newkr, AbstractifyEndPointToNodeIdentity(id));
+    ensures  AbstractifyCDelegationMapToDelegationMap(m') == UpdateDelegationMap(AbstractifyCDelegationMapToDelegationMap(m), newkr, AbstractifyEndPointToNodeIdentity(id));
     //ensures uint64(|m'.lows|) <= uint64(|m.lows|) + 1
 {
-    var rm  := RefineToDelegationMap(m);
-    var rm' := RefineToDelegationMap(m');
+    var rm  := AbstractifyCDelegationMapToDelegationMap(m);
+    var rm' := AbstractifyCDelegationMapToDelegationMap(m');
     var updated_rm := UpdateDelegationMap(rm, newkr, AbstractifyEndPointToNodeIdentity(id));
 
     forall k:Key 
@@ -602,7 +602,7 @@ method {:induction false} {:timeLimitMultiploer 4} UpdateCDelegationMap(m:CDeleg
     requires !EmptyKeyRange(newkr);
     ensures uint64(|m.lows|) < 0xFFFF_FFFF_FFFF_FFFF - 2 ==> ok == true;
     ensures  ok ==> CDelegationMapIsValid(m');
-    ensures  ok ==> RefineToDelegationMap(m') == UpdateDelegationMap(RefineToDelegationMap(m), newkr, AbstractifyEndPointToNodeIdentity(id));
+    ensures  ok ==> AbstractifyCDelegationMapToDelegationMap(m') == UpdateDelegationMap(AbstractifyCDelegationMapToDelegationMap(m), newkr, AbstractifyEndPointToNodeIdentity(id));
     ensures ok ==> (uint64(|m.lows|) < 0xFFFF_FFFF_FFFF_FFFF - 2) && (uint64(|m'.lows|) <= uint64(|m.lows|) + 2);
 {
     if uint64(|m.lows|) >= 0xFFFF_FFFF_FFFF_FFFF - 2 {
@@ -698,7 +698,7 @@ method {:induction false} {:timeLimitMultiploer 4} UpdateCDelegationMap(m:CDeleg
     if left_index > 0 {
         assert |m'.lows| > 0;
         assert m'.lows[0].klo == KeyZero();
-        //assert RefineToDelegationMap(m') == UpdateDelegationMap(RefineToDelegationMap(m), newkr, id);
+        //assert AbstractifyCDelegationMapToDelegationMap(m') == UpdateDelegationMap(AbstractifyCDelegationMapToDelegationMap(m), newkr, id);
     } else {
         assert m.lows[0].klo == KeyZero();
         if newkr.klo != KeyZero() {
@@ -708,7 +708,7 @@ method {:induction false} {:timeLimitMultiploer 4} UpdateCDelegationMap(m:CDeleg
             assert m'.lows[0].klo == newkr.klo;
         }
         assert m'.lows[0].klo == KeyZero();
-        //assert RefineToDelegationMap(m') == UpdateDelegationMap(RefineToDelegationMap(m), newkr, id);
+        //assert AbstractifyCDelegationMapToDelegationMap(m') == UpdateDelegationMap(AbstractifyCDelegationMapToDelegationMap(m), newkr, id);
     }
 
     if m.lows[left_index].klo != newkr.klo {

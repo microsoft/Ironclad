@@ -36,7 +36,6 @@ function method SHTEndPointIsValid(endPoint:EndPoint, config:SHTConcreteConfigur
     requires SHTConcreteConfigurationIsValid(config);
 {
     EndPointIsValidIPV4(endPoint)
-    //EndPointIsValid(endPoint, RefineSHTConcreteConfiguration(config))
 }
 
 

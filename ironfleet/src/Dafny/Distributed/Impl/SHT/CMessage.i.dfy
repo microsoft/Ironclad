@@ -79,7 +79,7 @@ predicate CSingleMessageSeqIsAbstractable(cs:seq<CSingleMessage>)
     forall i :: 0 <= i < |cs| ==> CSingleMessageIsAbstractable(cs[i])
 }
 
-function RefineToSingleMessageSeq(cs:seq<CSingleMessage>) : seq<SingleMessage<Message>>
+function AbstractifySeqOfCSingleMessageToSeqOfSingleMessage(cs:seq<CSingleMessage>) : seq<SingleMessage<Message>>
     requires CSingleMessageSeqIsAbstractable(cs);                                          
 {
     MapSeqToSeq(cs, AbstractifyCSingleMessageToSingleMessage)
@@ -107,9 +107,9 @@ predicate CPacketsIsAbstractable(cps:set<CPacket>)
     forall p :: p in cps ==> CPacketIsAbstractable(p)
 }
 
-function {:opaque} RefineCPacketsToPackets(cps:set<CPacket>) : set<Packet>
+function {:opaque} AbstractifyCPacketsToPackets(cps:set<CPacket>) : set<Packet>
     requires CPacketsIsAbstractable(cps);
-    ensures forall p :: p in cps ==> AbstractifyCPacketToShtPacket(p) in RefineCPacketsToPackets(cps);
+    ensures forall p :: p in cps ==> AbstractifyCPacketToShtPacket(p) in AbstractifyCPacketsToPackets(cps);
 {
     set p | p in cps :: AbstractifyCPacketToShtPacket(p)
 }

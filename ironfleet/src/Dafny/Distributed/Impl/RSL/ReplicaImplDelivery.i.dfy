@@ -128,7 +128,7 @@ import opened LiveRSL__CClockReading_i
                         {
                            calc {
                                AbstractifyRawLogToIos(udpEventLog)[i];
-                               RefineRawEventToIo(udpEventLog[i]);
+                               AbstractifyUdpEventToRslIo(udpEventLog[i]);
                                  { lemma_UdpEventLogToBroadcast(udpEventLog, broadcast, i); }
                                LIoOpSend(AbstractifyCBroadcastToRlsPacketSeq(broadcast)[i]);
                                LIoOpSend(BuildLBroadcast(AbstractifyEndPointToNodeIdentity(broadcast.src), 

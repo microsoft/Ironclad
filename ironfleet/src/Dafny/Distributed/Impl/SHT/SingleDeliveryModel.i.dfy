@@ -12,10 +12,10 @@ import opened SHT__PacketParsing_i
 method CTombstoneTableLookup(src:EndPoint, t:CTombstoneTable) returns (last_seqno:uint64)
     requires EndPointIsAbstractable(src);
     requires CTombstoneTableIsAbstractable(t);
-    ensures  int(last_seqno) == TombstoneTableLookup(AbstractifyEndPointToNodeIdentity(src), RefineToTombstoneTable(t));
+    ensures  int(last_seqno) == TombstoneTableLookup(AbstractifyEndPointToNodeIdentity(src), AbstractifyCTombstoneTableToTombstoneTable(t));
 {
     lemma_AbstractifyEndPointToNodeIdentity_injective_forall();
-    lemma_RefineToMap_properties(t, AbstractifyEndPointToNodeIdentity, uint64_to_nat_t, ReverseRefineNodeIdentityToEndPoint);
+    lemma_AbstractifyMap_properties(t, AbstractifyEndPointToNodeIdentity, uint64_to_nat_t, RefineNodeIdentityToEndPoint);
     if src in t {
         last_seqno := t[src];
     } else {
@@ -29,10 +29,10 @@ method CAckStateLookup(src:EndPoint, sendState:CSendState, ghost params:CParamet
     requires CSendStateIsValid(sendState, params);
     ensures  CAckStateIsAbstractable(ackState);
     ensures  CAckStateIsValid(ackState, src, params);
-    ensures  RefineToAckState(ackState) == AckStateLookup(AbstractifyEndPointToNodeIdentity(src), RefineToSendState(sendState));
+    ensures  AbstractifyCAskStateToAckState(ackState) == AckStateLookup(AbstractifyEndPointToNodeIdentity(src), AbstractifyCSendStateToSendState(sendState));
 {
     lemma_AbstractifyEndPointToNodeIdentity_injective_forall();
-    lemma_RefineToMap_properties(sendState, AbstractifyEndPointToNodeIdentity, RefineToAckState, ReverseRefineNodeIdentityToEndPoint);
+    lemma_AbstractifyMap_properties(sendState, AbstractifyEndPointToNodeIdentity, AbstractifyCAskStateToAckState, RefineNodeIdentityToEndPoint);
     if src in sendState {
         ackState := sendState[src];
     } else {
@@ -42,19 +42,19 @@ method CAckStateLookup(src:EndPoint, sendState:CSendState, ghost params:CParamet
 
 method CSingleDeliveryAcctInit(ghost params:CParameters) returns (acct:CSingleDeliveryAcct)
     ensures  CSingleDeliveryAccountIsValid(acct, params);
-    ensures  SingleDelivery_Init() == RefineToSingleDeliveryAcct(acct);
+    ensures  SingleDelivery_Init() == AbstractifyCSingleDeliveryAcctToSingleDeliveryAcct(acct);
 {
     acct := CSingleDeliveryAcct(map[], map[]);
     lemma_AbstractifyEndPointToNodeIdentity_injective_forall();
-    lemma_RefineToMap_properties(acct.receiveState, AbstractifyEndPointToNodeIdentity, uint64_to_nat_t, ReverseRefineNodeIdentityToEndPoint);
-    lemma_RefineToMap_properties(acct.sendState, AbstractifyEndPointToNodeIdentity, RefineToAckState, ReverseRefineNodeIdentityToEndPoint);
+    lemma_AbstractifyMap_properties(acct.receiveState, AbstractifyEndPointToNodeIdentity, uint64_to_nat_t, RefineNodeIdentityToEndPoint);
+    lemma_AbstractifyMap_properties(acct.sendState, AbstractifyEndPointToNodeIdentity, AbstractifyCAskStateToAckState, RefineNodeIdentityToEndPoint);
 }
 
 method MessageNotReceivedImpl(acct:CSingleDeliveryAcct, src:EndPoint, sm:CSingleMessage, ghost params:CParameters) returns (b:bool)
     requires CSingleDeliveryAccountIsValid(acct, params);
     requires EndPointIsAbstractable(src);
     requires CSingleMessageIsAbstractable(sm);
-    ensures  b == MessageNotReceived(RefineToSingleDeliveryAcct(acct), AbstractifyEndPointToNodeIdentity(src), AbstractifyCSingleMessageToSingleMessage(sm));
+    ensures  b == MessageNotReceived(AbstractifyCSingleDeliveryAcctToSingleDeliveryAcct(acct), AbstractifyEndPointToNodeIdentity(src), AbstractifyCSingleMessageToSingleMessage(sm));
 {
     var last_seqno := CTombstoneTableLookup(src, acct.receiveState);
     b := sm.CSingleMessage? && sm.seqno > last_seqno;
@@ -63,7 +63,7 @@ method MessageNotReceivedImpl(acct:CSingleDeliveryAcct, src:EndPoint, sm:CSingle
 method NewSingleMessageImpl(acct:CSingleDeliveryAcct, pkt:CPacket, ghost params:CParameters) returns (b:bool)
     requires CSingleDeliveryAccountIsValid(acct, params);
     requires CPacketIsAbstractable(pkt) && CSingleMessageIs64Bit(pkt.msg) && !pkt.msg.CInvalidMessage?; // CSingleMessageMarshallable(pkt.msg);
-    ensures  b == NewSingleMessage(RefineToSingleDeliveryAcct(acct), AbstractifyCPacketToShtPacket(pkt));
+    ensures  b == NewSingleMessage(AbstractifyCSingleDeliveryAcctToSingleDeliveryAcct(acct), AbstractifyCPacketToShtPacket(pkt));
 {
     if pkt.msg.CSingleMessage?
     {
@@ -87,12 +87,12 @@ method TruncateUnAckListImpl(unAcked:seq<CSingleMessage>, seqnoAcked:uint64, e:E
     ensures  CSingleMessageSeqIsAbstractable(truncated);
     ensures  CUnAckedListValidForDst(truncated, e);
     ensures  UnAckedListSequential(truncated);
-    ensures  RefineToSingleMessageSeq(truncated) == TruncateUnAckList(RefineToSingleMessageSeq(unAcked), int(seqnoAcked));
+    ensures  AbstractifySeqOfCSingleMessageToSeqOfSingleMessage(truncated) == TruncateUnAckList(AbstractifySeqOfCSingleMessageToSeqOfSingleMessage(unAcked), int(seqnoAcked));
     ensures (|truncated| > 0 ==> int(truncated[0].seqno) == int(seqnoAcked) + 1)
     ensures |truncated| + int(seqnoAcked) <= bound;
 {
     if |unAcked| > 0 && unAcked[0].CSingleMessage? && unAcked[0].seqno <= seqnoAcked {
-        assert RefineToSingleMessageSeq(unAcked[1..]) == RefineToSingleMessageSeq(unAcked)[1..];        // OBSERVE
+        assert AbstractifySeqOfCSingleMessageToSeqOfSingleMessage(unAcked[1..]) == AbstractifySeqOfCSingleMessageToSeqOfSingleMessage(unAcked)[1..];        // OBSERVE
         truncated := TruncateUnAckListImpl(unAcked[1..], seqnoAcked, e, old_seqno + 1, bound);
     } else {
         truncated := unAcked;
@@ -105,7 +105,7 @@ method ReceiveAckImpl(acct:CSingleDeliveryAcct, pkt:CPacket, ghost params:CParam
     requires pkt.msg.CAck?;
     requires CParametersIsValid(params);
     ensures  CSingleDeliveryAccountIsValid(acct', params);
-    ensures  ReceiveAck(RefineToSingleDeliveryAcct(acct), RefineToSingleDeliveryAcct(acct'), AbstractifyCPacketToShtPacket(pkt), {});
+    ensures  ReceiveAck(AbstractifyCSingleDeliveryAcctToSingleDeliveryAcct(acct), AbstractifyCSingleDeliveryAcctToSingleDeliveryAcct(acct'), AbstractifyCPacketToShtPacket(pkt), {});
 {
     var oldAckState := CAckStateLookup(pkt.src, acct.sendState, params);
     assert CUnAckedListValidForDst(oldAckState.unAcked, pkt.src);
@@ -117,10 +117,10 @@ method ReceiveAckImpl(acct:CSingleDeliveryAcct, pkt:CPacket, ghost params:CParam
         var newAckState := oldAckState[numPacketsAcked := pkt.msg.ack_seqno]
                                       [unAcked := newUnAcked];
         lemma_AbstractifyEndPointToNodeIdentity_injective_forall();
-        lemma_RefineToMap_properties(acct.sendState, AbstractifyEndPointToNodeIdentity, RefineToAckState, ReverseRefineNodeIdentityToEndPoint);
-        assert RefineToAckState(newAckState) == 
-               RefineToAckState(oldAckState)[numPacketsAcked := AbstractifyCPacketToShtPacket(pkt).msg.ack_seqno]
-                                            [unAcked := RefineToSingleMessageSeq(newUnAcked)];
+        lemma_AbstractifyMap_properties(acct.sendState, AbstractifyEndPointToNodeIdentity, AbstractifyCAskStateToAckState, RefineNodeIdentityToEndPoint);
+        assert AbstractifyCAskStateToAckState(newAckState) == 
+               AbstractifyCAskStateToAckState(oldAckState)[numPacketsAcked := AbstractifyCPacketToShtPacket(pkt).msg.ack_seqno]
+                                            [unAcked := AbstractifySeqOfCSingleMessageToSeqOfSingleMessage(newUnAcked)];
 //        if newAckState.unAcked == [] {
 //            assert int(pkt.msg.ack_seqno) < int(params.max_seqno);
 //            assert int(newAckState.numPacketsAcked) + |newAckState.unAcked| <= int(params.max_seqno);
@@ -136,7 +136,7 @@ method ReceiveAckImpl(acct:CSingleDeliveryAcct, pkt:CPacket, ghost params:CParam
 method ShouldAckSingleMessageImpl(acct:CSingleDeliveryAcct, pkt:CPacket, ghost params:CParameters) returns (b:bool)
     requires CSingleDeliveryAccountIsValid(acct, params);
     requires CPacketIsAbstractable(pkt);
-    ensures  b == ShouldAckSingleMessage(RefineToSingleDeliveryAcct(acct), AbstractifyCPacketToShtPacket(pkt));
+    ensures  b == ShouldAckSingleMessage(AbstractifyCSingleDeliveryAcctToSingleDeliveryAcct(acct), AbstractifyCPacketToShtPacket(pkt));
 {
     var last_seqno := CTombstoneTableLookup(pkt.src, acct.receiveState);
 
@@ -147,9 +147,9 @@ method SendAckImpl(acct:CSingleDeliveryAcct, pkt:CPacket, ghost params:CParamete
     requires CSingleDeliveryAccountIsValid(acct, params);
     requires CPacketIsAbstractable(pkt);
     requires pkt.msg.CSingleMessage?;
-    requires ShouldAckSingleMessage(RefineToSingleDeliveryAcct(acct), AbstractifyCPacketToShtPacket(pkt));
+    requires ShouldAckSingleMessage(AbstractifyCSingleDeliveryAcctToSingleDeliveryAcct(acct), AbstractifyCPacketToShtPacket(pkt));
     ensures  CPacketIsAbstractable(ack);
-    ensures  SendAck(RefineToSingleDeliveryAcct(acct), AbstractifyCPacketToShtPacket(pkt), AbstractifyCPacketToShtPacket(ack), { AbstractifyCPacketToShtPacket(ack) });
+    ensures  SendAck(AbstractifyCSingleDeliveryAcctToSingleDeliveryAcct(acct), AbstractifyCPacketToShtPacket(pkt), AbstractifyCPacketToShtPacket(ack), { AbstractifyCPacketToShtPacket(ack) });
     ensures ack.src == pkt.dst && ack.dst == pkt.src;
 {
     ack := CPacket(pkt.src,  pkt.dst, CAck(pkt.msg.seqno));
@@ -159,7 +159,7 @@ method MaybeAckPacketImpl(acct:CSingleDeliveryAcct, pkt:CPacket, ghost params:CP
     requires CSingleDeliveryAccountIsValid(acct, params);
     requires CPacketIsAbstractable(pkt);
     ensures  CPacketIsAbstractable(ack);
-    ensures  MaybeAckPacket(RefineToSingleDeliveryAcct(acct), AbstractifyCPacketToShtPacket(pkt), AbstractifyCPacketToShtPacket(ack), 
+    ensures  MaybeAckPacket(AbstractifyCSingleDeliveryAcctToSingleDeliveryAcct(acct), AbstractifyCPacketToShtPacket(pkt), AbstractifyCPacketToShtPacket(ack), 
                             if b then { AbstractifyCPacketToShtPacket(ack) } else {});
     ensures b ==> ack.src == pkt.dst && ack.dst == pkt.src;
 {
@@ -178,7 +178,7 @@ method ReceiveRealPacketImpl(acct:CSingleDeliveryAcct, pkt:CPacket, ghost params
     requires CPacketIsAbstractable(pkt) && CSingleMessageIs64Bit(pkt.msg) && !pkt.msg.CInvalidMessage?; // CSingleMessageMarshallable(pkt.msg); 
     requires pkt.msg.CSingleMessage?;
     ensures  CSingleDeliveryAccountIsValid(acct', params);
-    ensures  ReceiveRealPacket(RefineToSingleDeliveryAcct(acct), RefineToSingleDeliveryAcct(acct'), AbstractifyCPacketToShtPacket(pkt));
+    ensures  ReceiveRealPacket(AbstractifyCSingleDeliveryAcctToSingleDeliveryAcct(acct), AbstractifyCSingleDeliveryAcctToSingleDeliveryAcct(acct'), AbstractifyCPacketToShtPacket(pkt));
 {
     var b := NewSingleMessageImpl(acct, pkt, params);
     if b {
@@ -186,7 +186,7 @@ method ReceiveRealPacketImpl(acct:CSingleDeliveryAcct, pkt:CPacket, ghost params
         acct' := acct[receiveState := acct.receiveState[pkt.src := last_seqno + 1]];
 
         lemma_AbstractifyEndPointToNodeIdentity_injective_forall();
-        lemma_RefineToMap_properties(acct.receiveState, AbstractifyEndPointToNodeIdentity, uint64_to_nat_t, ReverseRefineNodeIdentityToEndPoint);
+        lemma_AbstractifyMap_properties(acct.receiveState, AbstractifyEndPointToNodeIdentity, uint64_to_nat_t, RefineNodeIdentityToEndPoint);
     } else {
         acct' := acct;
     }
@@ -199,7 +199,7 @@ method ReceiveSingleMessageImpl(acct:CSingleDeliveryAcct, pkt:CPacket, ghost par
     requires CParametersIsValid(params);
     ensures  CSingleDeliveryAccountIsValid(acct', params);
     ensures  CPacketIsAbstractable(ack);
-    ensures  ReceiveSingleMessage(RefineToSingleDeliveryAcct(acct), RefineToSingleDeliveryAcct(acct'), AbstractifyCPacketToShtPacket(pkt),
+    ensures  ReceiveSingleMessage(AbstractifyCSingleDeliveryAcctToSingleDeliveryAcct(acct), AbstractifyCSingleDeliveryAcctToSingleDeliveryAcct(acct'), AbstractifyCPacketToShtPacket(pkt),
                                   AbstractifyCPacketToShtPacket(ack), if b then { AbstractifyCPacketToShtPacket(ack) } else {});
     ensures b ==> ack.src == pkt.dst && ack.dst == pkt.src;
 {
@@ -232,11 +232,11 @@ method SendSingleCMessage(acct:CSingleDeliveryAcct, m:CMessage, dst:EndPoint, pa
     ensures  CSingleDeliveryAccountIsValid(acct', params);
     ensures  CSingleMessageIsAbstractable(sm);
     ensures  sm.CSingleMessage? ==> sm.dst == dst;
-    ensures  SendSingleMessage(RefineToSingleDeliveryAcct(acct), RefineToSingleDeliveryAcct(acct'),
+    ensures  SendSingleMessage(AbstractifyCSingleDeliveryAcctToSingleDeliveryAcct(acct), AbstractifyCSingleDeliveryAcctToSingleDeliveryAcct(acct'),
                                AbstractifyCMessageToRslMessage(m), AbstractifyCSingleMessageToSingleMessage(sm), AbstractifyCParametersToParameters(params), shouldSend);
 {
     lemma_AbstractifyEndPointToNodeIdentity_injective_forall();
-    lemma_RefineToMap_properties(acct.sendState, AbstractifyEndPointToNodeIdentity, RefineToAckState, ReverseRefineNodeIdentityToEndPoint);
+    lemma_AbstractifyMap_properties(acct.sendState, AbstractifyEndPointToNodeIdentity, AbstractifyCAskStateToAckState, RefineNodeIdentityToEndPoint);
 
     var oldAckState := CAckStateLookup(dst, acct.sendState, params);
     assert CAckStateIsValid(oldAckState, dst, params);
@@ -257,7 +257,7 @@ method SendSingleCMessage(acct:CSingleDeliveryAcct, m:CMessage, dst:EndPoint, pa
         acct' := acct[sendState := acctInt];
         sm := sm_new;
         shouldSend := true;
-        UnAckedListFinalEntry(RefineToSingleMessageSeq(oldAckState.unAcked), int(oldAckState.numPacketsAcked));
+        UnAckedListFinalEntry(AbstractifySeqOfCSingleMessageToSeqOfSingleMessage(oldAckState.unAcked), int(oldAckState.numPacketsAcked));
     }
 }
 
@@ -300,18 +300,18 @@ method ConcatenateSeqs<T(==)>(seqs:seq<seq<T>>) returns (combined:seq<T>)
 
 }
 
-lemma lemma_RefineCPacketsToPackets_reverse(cps:set<CPacket>, p:Packet) returns (cp:CPacket)
+lemma lemma_AbstractifyCPacketsToPackets_reverse(cps:set<CPacket>, p:Packet) returns (cp:CPacket)
     requires CPacketsIsAbstractable(cps);
-    requires p in RefineCPacketsToPackets(cps);
+    requires p in AbstractifyCPacketsToPackets(cps);
     ensures  CPacketIsAbstractable(cp);
     ensures  AbstractifyCPacketToShtPacket(cp) == p
     ensures  cp in cps;
 {
-    reveal_RefineCPacketsToPackets();
+    reveal_AbstractifyCPacketsToPackets();
     cp :| cp in cps && CPacketIsAbstractable(cp) && AbstractifyCPacketToShtPacket(cp) == p;
 }
 
-lemma lemma_RefineSeqToPacketSet_reverse(cps:seq<CPacket>, p:Packet) returns (cp:CPacket)
+lemma lemma_AbstractifySeqOfCPacketsToSetOfShtPackets_reverse(cps:seq<CPacket>, p:Packet) returns (cp:CPacket)
     requires CPacketSeqIsAbstractable(cps);
     requires p in AbstractifySeqOfCPacketsToSetOfShtPackets(cps);
     ensures  CPacketIsAbstractable(cp);
@@ -326,7 +326,7 @@ method RetransmitUnAckedPackets(acct:CSingleDeliveryAcct, src:EndPoint, ghost pa
     requires CSingleDeliveryAccountIsValid(acct, params);
     requires EndPointIsAbstractable(src);
     ensures  CPacketSeqIsAbstractable(pkts);
-    ensures  AbstractifySeqOfCPacketsToSetOfShtPackets(pkts) == UnAckedMessages(RefineToSingleDeliveryAcct(acct), AbstractifyEndPointToNodeIdentity(src));
+    ensures  AbstractifySeqOfCPacketsToSetOfShtPackets(pkts) == UnAckedMessages(AbstractifyCSingleDeliveryAcctToSingleDeliveryAcct(acct), AbstractifyEndPointToNodeIdentity(src));
     ensures (forall p :: p in pkts ==> p.src == src && p.msg.CSingleMessage? && CSingleMessageMarshallable(p.msg));
     ensures (forall i :: 0 <= i < |pkts| ==> CPacketIsSendable(pkts[i]));
     ensures (forall i :: 0 <= i < |pkts| ==> pkts[i].msg.CSingleMessage?);
@@ -339,10 +339,10 @@ method RetransmitUnAckedPackets(acct:CSingleDeliveryAcct, src:EndPoint, ghost pa
 
     // Prove that everything behaves as expected
     lemma_AbstractifyEndPointToNodeIdentity_injective_forall();
-    lemma_RefineToMap_properties(acct.sendState, AbstractifyEndPointToNodeIdentity, RefineToAckState, ReverseRefineNodeIdentityToEndPoint);
+    lemma_AbstractifyMap_properties(acct.sendState, AbstractifyEndPointToNodeIdentity, AbstractifyCAskStateToAckState, RefineNodeIdentityToEndPoint);
 
-    ghost var r_pkt_set := RefineCPacketsToPackets(pkt_set);
-    ghost var r_acct := RefineToSingleDeliveryAcct(acct);
+    ghost var r_pkt_set := AbstractifyCPacketsToPackets(pkt_set);
+    ghost var r_acct := AbstractifyCSingleDeliveryAcctToSingleDeliveryAcct(acct);
     ghost var r_src := AbstractifyEndPointToNodeIdentity(src);
     ghost var g_set := UnAckedMessages(r_acct, r_src);
 
@@ -363,7 +363,7 @@ method RetransmitUnAckedPackets(acct:CSingleDeliveryAcct, src:EndPoint, ghost pa
     forall p | p in r_pkt_set
         ensures p in g_set;
     {
-        var c_p := lemma_RefineCPacketsToPackets_reverse(pkt_set, p);
+        var c_p := lemma_AbstractifyCPacketsToPackets_reverse(pkt_set, p);
         var dst, i :| dst in acct.sendState && 0 <= i < |acct.sendState[dst].unAcked| && acct.sendState[dst].unAcked[i].CSingleMessage? && (var sm := acct.sendState[dst].unAcked[i]; c_p.dst == sm.dst && c_p.src == src && c_p.msg == sm); // Needed for the OBSERVE below
         var r_dst := AbstractifyEndPointToNodeIdentity(dst);
         var r_sm := r_acct.sendState[r_dst].unAcked[i];
@@ -377,14 +377,14 @@ method RetransmitUnAckedPackets(acct:CSingleDeliveryAcct, src:EndPoint, ghost pa
     forall p | p in r_pkt_set
         ensures p in r_pkt_set';
     {
-        var c_p := lemma_RefineCPacketsToPackets_reverse(pkt_set, p);
+        var c_p := lemma_AbstractifyCPacketsToPackets_reverse(pkt_set, p);
         assert c_p in pkt_set;
         assert c_p in pkts;      // OBSERVE
     }
     forall p | p in r_pkt_set'
         ensures p in r_pkt_set;
     {
-        var c_p := lemma_RefineSeqToPacketSet_reverse(pkts, p);
+        var c_p := lemma_AbstractifySeqOfCPacketsToSetOfShtPackets_reverse(pkts, p);
         assert c_p in pkts;
         assert c_p in pkt_set;      // OBSERVE
     }

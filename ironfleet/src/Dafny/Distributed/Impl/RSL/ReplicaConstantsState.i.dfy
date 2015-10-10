@@ -18,7 +18,7 @@ predicate ReplicaConstantsStateIsAbstractable(rc:ReplicaConstantsState)
 function AbstractifyReplicaConstantsStateToLReplicaConstants(rc:ReplicaConstantsState) : LReplicaConstants
     requires ReplicaConstantsStateIsAbstractable(rc);
 {
-    LReplicaConstants(int(rc.my_index), RefineConstantsState(rc.all))
+    LReplicaConstants(int(rc.my_index), AbstractifyConstantsStateToLConstants(rc.all))
 }
 
 predicate ReplicaConstantsState_IsValid(rcs:ReplicaConstantsState)

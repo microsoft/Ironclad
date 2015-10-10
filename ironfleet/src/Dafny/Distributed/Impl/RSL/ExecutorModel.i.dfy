@@ -331,15 +331,15 @@ method UpdateReplyCache(ghost reply_cache:CReplyCache, reply_cache_mutable:Mutab
     forall client | client in r_newReplyCache
         ensures (   (client in r_replyCache && r_newReplyCache[client] == r_replyCache[client])
                  || ExistsReqIdx(int(i)+1, replies, reply_cache, newReplyCache, client) );
-        ensures ReplyCacheUpdated(ReverseRefineNodeIdentityToEndPoint(client), reply_cache, newReplyCache, batch[..i+1], replies);
+        ensures ReplyCacheUpdated(RefineNodeIdentityToEndPoint(client), reply_cache, newReplyCache, batch[..i+1], replies);
     {
-        var e := ReverseRefineNodeIdentityToEndPoint(client);
+        var e := RefineNodeIdentityToEndPoint(client);
         if e == ep {
             assert AbstractifyCReplySeqToReplySeq(replies)[i].client == AbstractifyCReplyToReply(replies[i]).client;
             assert AbstractifyCReplySeqToReplySeq(replies)[i].client == client && r_newReplyCache[client] == AbstractifyCReplySeqToReplySeq(replies)[i];
             assert ExistsReqIdx(int(i)+1, replies, reply_cache, newReplyCache, client);
             assert ClientIndexMatches(int(i), e, newReplyCache, batch[..int(i)+1], replies);
-            assert ReplyCacheUpdated(ReverseRefineNodeIdentityToEndPoint(client), reply_cache, newReplyCache, batch[..int(i)+1], replies);
+            assert ReplyCacheUpdated(RefineNodeIdentityToEndPoint(client), reply_cache, newReplyCache, batch[..int(i)+1], replies);
         } else {
             assert e in reply_cache;
             if e == staleEntry && |reply_cache| == 0x1_0000_0000 - 1 {
@@ -356,7 +356,7 @@ method UpdateReplyCache(ghost reply_cache:CReplyCache, reply_cache_mutable:Mutab
             assert newReplyCache[e] == reply_cache[e];
             assert AbstractifyCReplyCacheToReplyCache(newReplyCache)[AbstractifyEndPointToNodeIdentity(e)] == AbstractifyCReplyToReply(newReplyCache[e]);
             assert AbstractifyCReplyCacheToReplyCache(reply_cache)[AbstractifyEndPointToNodeIdentity(e)] == AbstractifyCReplyToReply(reply_cache[e]);
-            assert ReplyCacheUpdated(ReverseRefineNodeIdentityToEndPoint(client), reply_cache, newReplyCache, batch[..int(i)+1], replies);
+            assert ReplyCacheUpdated(RefineNodeIdentityToEndPoint(client), reply_cache, newReplyCache, batch[..int(i)+1], replies);
         }
     }
 
@@ -367,7 +367,7 @@ method UpdateReplyCache(ghost reply_cache:CReplyCache, reply_cache_mutable:Mutab
         lemma_AbstractifyCReplyCacheToReplyCache_properties(newReplyCache);
         assert AbstractifyEndPointToNodeIdentity(client) in r_newReplyCache;
         lemma_AbstractifyEndPointToNodeIdentity_injective_forall();
-        assert client == ReverseRefineNodeIdentityToEndPoint(AbstractifyEndPointToNodeIdentity(client));
+        assert client == RefineNodeIdentityToEndPoint(AbstractifyEndPointToNodeIdentity(client));
     }
 }
 

@@ -1255,6 +1255,7 @@ module Main_i exclusively refines Main_s {
                     |sb_others|;
                     |sb| - 1;
                 }
+                assert forall i :: 0 <= i < |sb| - 1 ==> Service_Next(sb[i], sb[i+1]);
             } else {
                 assert ServiceStutter(s, s');
                 sb := sb_others;

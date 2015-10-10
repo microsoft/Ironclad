@@ -15,7 +15,7 @@ datatype ParametersState = ParametersState(
     max_batch_size:uint64,
     max_batch_delay:uint64)
 
-function RefineParametersState(params:ParametersState) : LParameters
+function AbstractifyParametersStateToLParameters(params:ParametersState) : LParameters
 {
     LParameters(int(params.max_log_length),
                 int(params.baseline_view_timeout_period),
