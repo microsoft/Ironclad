@@ -24,15 +24,15 @@ if(-not $Env:TF_BUILD -and -not ($Env:TF_BUILD_SOURCESDIRECTORY -and ($Env:TF_BU
 
 $sha = $Env:TF_BUILD_SOURCEGETVERSION.split(":")[2]
 
-cd $Env:TF_BUILD_SOURCESDIRECTORY\iron
-. .\build-tools.ps1
+#cd $Env:TF_BUILD_SOURCESDIRECTORY\iron
+#. .\build-tools.ps1
 
 # Run the cygwin make file to run Dafny on all the files
-C:\cygwin\bin\bash.exe --login -c "cd '$Env:TF_BUILD_SOURCESDIRECTORY'; cd iron/; ./bin_tools/NuBuild/NuBuild.exe -j 4 BatchDafny src/Dafny/Distributed/apps.dfy.batch --html summary.html; git log -1 > gitlog.txt; sed -i -b -e '/_VERIFICATION_RESULT_PLACEHOLDER/r gitlog.txt' -e 's/_VERIFICATION_RESULT_PLACEHOLDER//' summary.html"
+C:\cygwin\bin\bash.exe --login -c "cd '$Env:TF_BUILD_SOURCESDIRECTORY'; cd ironfleet/; ./bin_tools/NuBuild/NuBuild.exe -j 4 BatchDafny src/Dafny/Distributed/apps.dfy.batch --html summary.html; git log -1 > gitlog.txt; sed -i -b -e '/_VERIFICATION_RESULT_PLACEHOLDER/r gitlog.txt' -e 's/_VERIFICATION_RESULT_PLACEHOLDER//' summary.html"
 $cygwin_make_exit_code = $LASTEXITCODE   # Save the error code, so we can report it appropriately
 
 # Run the email generator
-C:\cygwin\bin\bash.exe --login -c "cd '$Env:TF_BUILD_SOURCESDIRECTORY'; cd iron/; email -html -f ironclad@microsoft.com -n Ironclad -subject 'Ironclad build summary $Env:TF_BUILD_BUILDNUMBER-$sha' ironclad@microsoft.com  < summary.html "
+C:\cygwin\bin\bash.exe --login -c "cd '$Env:TF_BUILD_SOURCESDIRECTORY'; cd ironfleet/; email -html -f ironclad@microsoft.com -n Ironclad -subject 'Ironclad build summary $Env:TF_BUILD_BUILDNUMBER-$sha' ironclad@microsoft.com  < summary.html "
 
 ## Attempt to collect any output that may have been produced
 #$target_dir_name = "C:\BuildLogs\$Env:TF_BUILD_BUILDNUMBER-$sha"

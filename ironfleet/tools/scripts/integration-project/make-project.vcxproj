@@ -39,13 +39,13 @@
     <NMakeBuildCommandLine>powershell ../integration-testing.ps1</NMakeBuildCommandLine>
     <NMakeOutput>
     </NMakeOutput>
-    <NMakeReBuildCommandLine>./iron/tools/scripts/integration-testing.ps1</NMakeReBuildCommandLine>
+    <NMakeReBuildCommandLine>./ironfleet/tools/scripts/integration-testing.ps1</NMakeReBuildCommandLine>
     <NMakePreprocessorDefinitions>WIN32;_DEBUG;$(NMakePreprocessorDefinitions)</NMakePreprocessorDefinitions>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <NMakeBuildCommandLine>./iron/tools/scripts/integration-testing.ps1</NMakeBuildCommandLine>
+    <NMakeBuildCommandLine>./ironfleet/tools/scripts/integration-testing.ps1</NMakeBuildCommandLine>
     <NMakeOutput>make-project.exe</NMakeOutput>
-    <NMakeReBuildCommandLine>./iron/tools/scripts/integration-testing.ps1</NMakeReBuildCommandLine>
+    <NMakeReBuildCommandLine>./ironfleet/tools/scripts/integration-testing.ps1</NMakeReBuildCommandLine>
     <NMakePreprocessorDefinitions>WIN32;NDEBUG;$(NMakePreprocessorDefinitions)</NMakePreprocessorDefinitions>
   </PropertyGroup>
   <ItemDefinitionGroup>
