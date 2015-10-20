@@ -1,4 +1,4 @@
-using System; // for Func
+﻿using System; // for Func
 using System.Numerics;
 
 namespace Dafny
@@ -1012,6 +1012,12 @@ namespace Dafny
         return pred(false) || pred(true);
       }
     }
+    public static bool QuantChar(bool frall, System.Predicate<char> pred) {
+      for (int i = 0; i < 0x10000; i++) {
+        if (pred((char)i) != frall) { return !frall; }
+      }
+      return frall;
+    }
     public static bool QuantInt(BigInteger lo, BigInteger hi, bool frall, System.Predicate<BigInteger> pred) {
       for (BigInteger i = lo; i < hi; i++) {
         if (pred(i) != frall) { return !frall; }
@@ -1051,6 +1057,13 @@ namespace Dafny
         yield return true;
       }
     }
+    public static IEnumerable<char> AllChars {
+      get {
+        for (int i = 0; i < 0x10000; i++) {
+          yield return (char)i;
+        }
+      }
+    }
     public static IEnumerable<BigInteger> AllIntegers {
       get {
         yield return new BigInteger(0);
@@ -1058,6 +1071,11 @@ namespace Dafny
           yield return j;
           yield return -j;
         }
+      }
+    }
+    public static IEnumerable<BigInteger> IntegerRange(BigInteger lo, BigInteger hi) {
+      for (var j = lo; j < hi; j++) {
+        yield return j;
       }
     }
     // pre: b != 0

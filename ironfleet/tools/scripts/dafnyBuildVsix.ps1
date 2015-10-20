@@ -1,4 +1,5 @@
-# Run this file from the iron directory (not from iron\tools or iron\tools\scripts or iron\tools\Dafny)
+# Run this file from the ironfleet directory 
+# (not from ironfleet\tools or ironfleet\tools\scripts or ironfleet\tools\Dafny)
 # This script assumes existence of:
 #   .\tools\Dafny\DafnyLanguageService.vsix
 #   .\tools\Dafny\DafnyOptions.txt
