@@ -1,4 +1,4 @@
-//- <NuBuild AddDafnyFlag /z3opt:NL_ARITH=true/>
+//- <NuBuild AddDafnyFlag /z3opt:smt.arith.nl=true/>
 //- WARNING: In general, you shouldn't need to call these directly.  Try
 //- to use the ones in div.i.dfy instead.  They're more full-featured anyway.
 
