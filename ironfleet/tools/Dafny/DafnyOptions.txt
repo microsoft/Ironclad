@@ -4,7 +4,7 @@
 
 /allowGlobals
 /noNLarith
-/stricterTriggers
-/z3opt:ARITH_RANDOM_SEED=1
+/autoTriggers:1
+/z3opt:nlsat.randomize=false
 /warnShadowing
 /ironDafny
