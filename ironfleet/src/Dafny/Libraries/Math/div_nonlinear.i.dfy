@@ -21,7 +21,7 @@ lemma lemma_div_by_self(d:int)
 { }
 
 lemma lemma_small_div()
-    ensures forall x, d :: 0 <= x < d && d > 0 ==> x / d == 0;
+    ensures forall x, d {:trigger x / d} :: 0 <= x < d && d > 0 ==> x / d == 0;
 { }
 
 lemma lemma_mod_of_zero_is_zero(m:int)
@@ -35,7 +35,7 @@ lemma lemma_fundamental_div_mod(x:int, d:int)
 { }
 
 lemma lemma_0_mod_anything()
-    ensures forall m:int :: m > 0 ==> 0 % m == 0;
+    ensures forall m:int {:trigger 0 % m} :: m > 0 ==> 0 % m == 0;
 { }
 
 lemma lemma_mod_yourself(m:int)

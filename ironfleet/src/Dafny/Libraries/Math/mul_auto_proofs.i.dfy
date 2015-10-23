@@ -6,8 +6,8 @@ import opened Math__mul_nonlinear_i
 lemma lemma_mul_induction_helper(f:imap<int,bool>, x:int)
     requires forall i :: i in f;
     requires f[0];
-    requires forall i :: i >= 0 && f[i] ==> f[i + 1];
-    requires forall i :: i <= 0 && f[i] ==> f[i - 1];
+    requires forall i {:trigger f[i], f[i + 1]} :: i >= 0 && f[i] ==> f[i + 1];
+    requires forall i {:trigger f[i], f[i - 1]} :: i <= 0 && f[i] ==> f[i - 1];
     ensures  f[x];
     decreases if x >= 0 then x else -x;
 {
@@ -26,15 +26,15 @@ lemma lemma_mul_induction_helper(f:imap<int,bool>, x:int)
 lemma lemma_mul_induction_forall(f:imap<int,bool>)
     requires forall i :: i in f;
     requires f[0];
-    requires forall i :: i >= 0 && f[i] ==> f[i + 1];
-    requires forall i :: i <= 0 && f[i] ==> f[i - 1];
+    requires forall i {:trigger f[i], f[i + 1]} :: i >= 0 && f[i] ==> f[i + 1];
+    requires forall i {:trigger f[i], f[i - 1]} :: i <= 0 && f[i] ==> f[i - 1];
     ensures  forall i :: f[i];
 {
     forall i ensures f[i] { lemma_mul_induction_helper(f, i); }
 }
 
 lemma lemma_mul_auto_commutes()
-    ensures  forall x:int, y:int :: x * y == y * x;
+    ensures  forall x:int, y:int {:trigger x * y} :: x * y == y * x;
 {
     forall x:int, y:int ensures x * y == y * x;
     {
@@ -43,8 +43,8 @@ lemma lemma_mul_auto_commutes()
 }
 
 lemma lemma_mul_auto_succ()
-    ensures  forall x:int, y:int :: (x + 1) * y == x * y + y;
-    ensures  forall x:int, y:int :: (x - 1) * y == x * y - y;
+    ensures  forall x:int, y:int {:trigger (x + 1) * y} :: (x + 1) * y == x * y + y;
+    ensures  forall x:int, y:int {:trigger (x - 1) * y} :: (x - 1) * y == x * y - y;
 {
     lemma_mul_auto_commutes();
     forall x:int, y:int
