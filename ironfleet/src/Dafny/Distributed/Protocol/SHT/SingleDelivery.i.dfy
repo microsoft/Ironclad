@@ -54,6 +54,7 @@ predicate NewSingleMessage(s:SingleDeliveryAcct, pkt:Packet)
 
 // Remove all packets implicitly ack'ed by seqnoAcked from the list of unacknowledged packets
 function TruncateUnAckList<MT>(unAcked:seq<SingleMessage<MT>>, seqnoAcked:nat) : seq<SingleMessage<MT>>
+    ensures forall m :: m in TruncateUnAckList(unAcked, seqnoAcked) ==> m in unAcked;
 {
     if |unAcked| > 0 && unAcked[0].SingleMessage? && unAcked[0].seqno <= seqnoAcked then 
         TruncateUnAckList(unAcked[1..], seqnoAcked)
