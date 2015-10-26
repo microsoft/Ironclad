@@ -1,11 +1,13 @@
 include "../../Protocol/Lock/Node.i.dfy"
 include "Message.i.dfy"
 include "../Common/UdpClient.i.dfy"
+include "../../Common/Logic/Option.i.dfy"
 
 module Impl_Node_i {
 import opened Protocol_Node_i
 import opened Message_i
 import opened Common__UdpClient_i
+import opened Logic__Option_i
 
 datatype CNode = CNode(held:bool, epoch:uint64, my_index:uint64, config:Config)
 
@@ -34,12 +36,13 @@ function AbstractifyCNode(n:CNode) : Node
 method NodeInitImpl(my_index:uint64, config:Config) returns (node:CNode)
     requires 0 < |config| < 0x1_0000_0000_0000_0000;
     requires 0 <= int(my_index) < |config|;
+    requires ValidConfig(config);
     ensures CNodeValid(node);
     ensures NodeInit(AbstractifyCNode(node), int(my_index), config);
     ensures node.my_index == my_index;
     ensures node.config == config;
 {
-    node := CNode(my_index == 0, 0, my_index, config);
+    node := CNode(my_index == 0, if my_index == 0 then 1 else 0, my_index, config);
 }
 
 method NodeGrantImpl(s:CNode) returns (s':CNode, packet:CLockPacket, ghost ios:seq<LockIo>)
@@ -61,13 +64,15 @@ method NodeGrantImpl(s:CNode) returns (s':CNode, packet:CLockPacket, ghost ios:s
 }
 
 method NodeAcceptImpl(s:CNode, transfer_packet:CLockPacket) 
-    returns (s':CNode, locked_packet:CLockPacket, ghost ios:seq<LockIo>)
+    returns (s':CNode, locked_packet:Option<CLockPacket>, ghost ios:seq<LockIo>)
     requires CNodeValid(s);
     ensures  NodeAccept(AbstractifyCNode(s), AbstractifyCNode(s'), ios);
     ensures  |ios| == 1 || |ios| == 2;
-    ensures  |ios| == 1 ==> ios[0].LIoOpReceive? && ios[0].r == AbstractifyCLockPacket(transfer_packet);
-    ensures  |ios| == 2 ==> ios == [LIoOpReceive(AbstractifyCLockPacket(transfer_packet)), 
-                                    LIoOpSend(AbstractifyCLockPacket(locked_packet))];
+    ensures  locked_packet.None? ==> |ios| == 1 && ios[0].LIoOpReceive? 
+                                  && ios[0].r == AbstractifyCLockPacket(transfer_packet);
+    ensures  locked_packet.Some? ==> |ios| == 2 
+                                  && ios == [LIoOpReceive(AbstractifyCLockPacket(transfer_packet)), 
+                                             LIoOpSend(AbstractifyCLockPacket(locked_packet.v))];
     ensures  CNodeValid(s');
 {
     ios := [LIoOpReceive(AbstractifyCLockPacket(transfer_packet))];
@@ -77,13 +82,14 @@ method NodeAcceptImpl(s:CNode, transfer_packet:CLockPacket)
        && transfer_packet.msg.CTransfer? 
        && transfer_packet.msg.transfer_epoch > s.epoch {
         s' := s[held := true][epoch := transfer_packet.msg.transfer_epoch];
-        locked_packet := LPacket(transfer_packet.src, 
-                                 s.config[s.my_index],
-                                 CLocked(transfer_packet.msg.transfer_epoch));
-        ios := ios + [LIoOpSend(AbstractifyCLockPacket(locked_packet))];
+        locked_packet := Some(LPacket(transfer_packet.src, 
+                                      s.config[s.my_index],
+                                      CLocked(transfer_packet.msg.transfer_epoch)));
+        ios := ios + [LIoOpSend(AbstractifyCLockPacket(locked_packet.v))];
         print "I hold the lock!\n";
     } else  {
         s' := s;
+        locked_packet := None();
     }
 }
 

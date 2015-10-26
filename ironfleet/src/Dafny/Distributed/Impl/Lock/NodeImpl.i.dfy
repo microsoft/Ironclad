@@ -64,7 +64,7 @@ class NodeImpl
         }
     }
 
-    method InitHost(config:Config, my_index:uint64, ghost env_:HostEnvironment) returns (ok:bool)
+    method InitNode(config:Config, my_index:uint64, ghost env_:HostEnvironment) returns (ok:bool)
         requires env_!=null && env_.Valid() && env_.ok.ok();
         requires ValidConfig(config) && ValidConfigIndex(config, my_index);
         modifies this, udpClient;
@@ -84,9 +84,64 @@ class NodeImpl
             
         }
     }
+
+
+    method NodeNextAccept() returns (ok:bool, ghost udpEventLog:seq<UdpEvent>, ghost ios:seq<LockIo>)
+        requires nextActionIndex == 0;
+        requires Valid();
+        modifies Repr;
+        ensures Repr == old(Repr);
+        ensures ok == UdpClientOk(udpClient);
+        ensures Env() == old(Env());
+        ensures ok ==> (
+               Valid()
+            && (   NodeAccept(AbstractifyCNode(s), AbstractifyCNode(s'), ios) )
+//                || (   IosReflectIgnoringUnDemarshallable(udpEventLog)
+//                    && old(AbstractifyToHost()) == AbstractifyToHost()) )
+//            && RawIoConsistentWithSpecIO(udpEventLog, ios)
+//            && OnlySentMarshallableData(udpEventLog) 
+//            && LIoOpSeqCompatibleWithReduction(ios)
+            && old(Env().udp.history()) + udpEventLog == Env().udp.history());
+    {
+        var rr;
+        ghost var udpEvent0;
+       
+        rr, udpEvent0 := Receive(udpClient, localAddr);
+        ghost var midHistory := Env().udp.history();
+        assert Env()==old(Env());
+        
+
+        if (rr.RRFail?) {
+            ok := false;
+            return;
+        } else if (rr.RRTimeout?) {
+            ok := true;
+            ios := [ LIoOpTimeoutReceive() ];
+            udpEventLog := [ udpEvent0 ];
+            return;
+        } else {
+            ok := true;
+            var cpacket := rr.cpacket;
+//            if cpacket.msg.CInvalidMessage? {
+//                ok := true;
+//                udpEventLog := [udpEvent0];
+//                ghost var receive_io := LIoOpReceive(AbstractifyUdpPacketToLSHTPacket(udpEvent0.r));
+//                ios := [receive_io];
+//            } else {
+                //ok, udpEventLog, ios := HostNextReceivePacket(old(Env().udp.history()), rr, udpEvent0); 
+                ok, locked_packet, ios := NodeAcceptImpl(node, cpacket);
+
+                if locked_packet.Some? {
+                    ok, udpEvent := SendPacket(udpClient, locked_packet, localAddr); 
+                }
+
+            }
+        }
+    }
+
     /*
 
-    static lemma lemma_ExtractSentPacketsFromIos(ios:seq<LSHTIo>)
+    static lemma lemma_ExtractSentPacketsFromIos(ios:seq<LockIo>)
         requires AllIosAreSends(ios);
         ensures  |ExtractSentPacketsFromIos(ios)| == |ios|;
         ensures  forall i {:auto_trigger} :: 0 <= i < |ios| ==> ExtractSentPacketsFromIos(ios)[i] == ios[i].s;
@@ -94,7 +149,7 @@ class NodeImpl
         reveal_ExtractSentPacketsFromIos();
     }
 
-    predicate ReceivedPacketProperties(cpacket:CPacket, udpEvent0:UdpEvent, io0:LSHTIo)
+    predicate ReceivedPacketProperties(cpacket:CPacket, udpEvent0:UdpEvent, io0:LockIo)
         reads this;
         //requires SHTConcreteConfigurationIsValid(host.constants.all.config);
     {
@@ -102,12 +157,12 @@ class NodeImpl
         && EndPointIsValidIPV4(node.me)
         && io0.LIoOpReceive?
         && UdpEventIsAbstractable(udpEvent0)
-        && io0 == AbstractifyUdpEventToLSHTIo(udpEvent0)
+        && io0 == AbstractifyUdpEventToLockIo(udpEvent0)
         && UdpEventIsAbstractable(udpEvent0)
         && udpEvent0.LIoOpReceive? && AbstractifyCPacketToShtPacket(cpacket) == AbstractifyUdpPacketToShtPacket(udpEvent0.r)
     }
 
-    static lemma ExtractSentPacketsFromIos_DoesNotMindSomeClutter(ios_head:seq<LSHTIo>, ios_tail:seq<LSHTIo>)
+    static lemma ExtractSentPacketsFromIos_DoesNotMindSomeClutter(ios_head:seq<LockIo>, ios_tail:seq<LockIo>)
         requires forall i :: 0<=i<|ios_head| ==> !ios_head[i].LIoOpSend?;
         ensures ExtractSentPacketsFromIos(ios_tail) == ExtractSentPacketsFromIos(ios_head + ios_tail);
     {
@@ -131,7 +186,7 @@ class NodeImpl
         }
     }
 
-    method Host_NoReceive_NoClock_Next() returns (ok:bool, ghost udpEventLog:seq<UdpEvent>, ghost ios:seq<LSHTIo>)
+    method Host_NoReceive_NoClock_Next() returns (ok:bool, ghost udpEventLog:seq<UdpEvent>, ghost ios:seq<LockIo>)
         requires nextActionIndex == 2;
         requires Valid();
         modifies Repr;
@@ -187,16 +242,16 @@ class NodeImpl
     {
     }
     
-     static lemma Combine_AbstractifyUdpEventToLSHTIo(ios_head:seq<LSHTIo>, ios_tail:seq<LSHTIo>, ios:seq<LSHTIo>, log_head:seq<UdpEvent>, log_tail:seq<UdpEvent>, log:seq<UdpEvent>)
+     static lemma Combine_AbstractifyUdpEventToLockIo(ios_head:seq<LockIo>, ios_tail:seq<LockIo>, ios:seq<LockIo>, log_head:seq<UdpEvent>, log_tail:seq<UdpEvent>, log:seq<UdpEvent>)
         requires |log_head| == |ios_head|;
         requires forall i :: 0<=i<|log_head|
-            ==> UdpEventIsAbstractable(log_head[i]) && ios_head[i] == AbstractifyUdpEventToLSHTIo(log_head[i]);
+            ==> UdpEventIsAbstractable(log_head[i]) && ios_head[i] == AbstractifyUdpEventToLockIo(log_head[i]);
         requires |log_tail| == |ios_tail|;
         requires forall i :: 0<=i<|log_tail|
-            ==> UdpEventIsAbstractable(log_tail[i]) && ios_tail[i] == AbstractifyUdpEventToLSHTIo(log_tail[i]);
+            ==> UdpEventIsAbstractable(log_tail[i]) && ios_tail[i] == AbstractifyUdpEventToLockIo(log_tail[i]);
         requires ios == ios_head+ios_tail;
         requires log == log_head+log_tail;
-        ensures forall i :: 0<=i<|log| ==> ios[i] == AbstractifyUdpEventToLSHTIo(log[i]);
+        ensures forall i :: 0<=i<|log| ==> ios[i] == AbstractifyUdpEventToLockIo(log[i]);
     {
     }
 
@@ -208,7 +263,7 @@ class NodeImpl
     {
     }
 
-    static lemma EstablishCombineIos(ios_head:seq<LSHTIo>, ios_tail:seq<LSHTIo>, ios:seq<LSHTIo>)
+    static lemma EstablishCombineIos(ios_head:seq<LockIo>, ios_tail:seq<LockIo>, ios:seq<LockIo>)
         requires ios == ios_head+ios_tail;
         requires |ios_head| == 1;
         requires forall i :: 0<=i<|ios_tail| ==> ios_tail[i].LIoOpSend?;
@@ -223,7 +278,7 @@ class NodeImpl
     {
     }
     
-    method HostNextReceivePacket(ghost udpEventLogOld:seq<UdpEvent>, rr:ReceiveResult, ghost receive_event:UdpEvent) returns (ok:bool, ghost udpEventLog:seq<UdpEvent>, ghost ios:seq<LSHTIo>)
+    method HostNextReceivePacket(ghost udpEventLogOld:seq<UdpEvent>, rr:ReceiveResult, ghost receive_event:UdpEvent) returns (ok:bool, ghost udpEventLog:seq<UdpEvent>, ghost ios:seq<LockIo>)
         requires nextActionIndex == 0;
         requires Valid();
         requires Env().udp.history() == udpEventLogOld + [receive_event];
@@ -288,8 +343,8 @@ class NodeImpl
 
         assert Env() == old(Env());
 
-        assert io0 == AbstractifyUdpEventToLSHTIo(receive_event);
-        forall i | 0<=i<|log_head| ensures UdpEventIsAbstractable(log_head[i]) && ios_head[i] == AbstractifyUdpEventToLSHTIo(log_head[i]);
+        assert io0 == AbstractifyUdpEventToLockIo(receive_event);
+        forall i | 0<=i<|log_head| ensures UdpEventIsAbstractable(log_head[i]) && ios_head[i] == AbstractifyUdpEventToLockIo(log_head[i]);
         {
             assert log_head[i] == receive_event;
             assert ios_head[i] == io0;
@@ -299,7 +354,7 @@ class NodeImpl
         assert ios_tail == ios[1..];
         assert AllIosAreSends(ios_tail);
         assert forall i{:trigger ios_tail[i].LIoOpSend?} :: 0<=i<|ios_tail| ==> ios_tail[i].LIoOpSend?;
-        Combine_AbstractifyUdpEventToLSHTIo(ios_head, ios_tail, ios, log_head, log_tail, udpEventLog);
+        Combine_AbstractifyUdpEventToLockIo(ios_head, ios_tail, ios, log_head, log_tail, udpEventLog);
 
         assert AbstractifyOutboundPacketsToSeqOfLSHTPackets(sent_packets) == ExtractSentPacketsFromIos(ios);
         UdpEventLogIsAbstractable_Extend(log_head, log_tail, udpEventLog);
@@ -326,7 +381,7 @@ class NodeImpl
         assert LHost_ReceivePacket_Next(old(AbstractifyToHost()), AbstractifyToHost(), ios);
     }
     
-    method Host_ReceivePacket_Next() returns (ok:bool, ghost udpEventLog:seq<UdpEvent>, ghost ios:seq<LSHTIo>)
+    method Host_ReceivePacket_Next() returns (ok:bool, ghost udpEventLog:seq<UdpEvent>, ghost ios:seq<LockIo>)
         requires nextActionIndex == 0;
         requires Valid();
         modifies Repr;
@@ -423,8 +478,8 @@ class NodeImpl
 
             assert Env() == old(Env());
 
-            assert io0 == AbstractifyUdpEventToLSHTIo(udpEvent0);
-            forall i | 0<=i<|log_head| ensures UdpEventIsAbstractable(log_head[i]) && ios_head[i] == AbstractifyUdpEventToLSHTIo(log_head[i]);
+            assert io0 == AbstractifyUdpEventToLockIo(udpEvent0);
+            forall i | 0<=i<|log_head| ensures UdpEventIsAbstractable(log_head[i]) && ios_head[i] == AbstractifyUdpEventToLockIo(log_head[i]);
             {
                 assert log_head[i] == udpEvent0;
                 assert ios_head[i] == io0;
@@ -434,7 +489,7 @@ class NodeImpl
             assert ios_tail == ios[1..];
             assert AllIosAreSends(ios_tail);
             assert forall i{:trigger ios_tail[i].LIoOpSend?} :: 0<=i<|ios_tail| ==> ios_tail[i].LIoOpSend?;
-            Combine_AbstractifyUdpEventToLSHTIo(ios_head, ios_tail, ios, log_head, log_tail, udpEventLog);
+            Combine_AbstractifyUdpEventToLockIo(ios_head, ios_tail, ios, log_head, log_tail, udpEventLog);
 
             assert AbstractifyOutboundPacketsToSeqOfLSHTPackets(sent_packets) == ExtractSentPacketsFromIos(ios);
             UdpEventLogIsAbstractable_Extend(log_head, log_tail, udpEventLog);
@@ -468,7 +523,7 @@ class NodeImpl
     {
     }
 
-    method{:timeLimitMultiplier 2} Host_ProcessReceivedPacket_Next() returns (ok:bool, ghost udpEventLog:seq<UdpEvent>, ghost ios:seq<LSHTIo>)
+    method{:timeLimitMultiplier 2} Host_ProcessReceivedPacket_Next() returns (ok:bool, ghost udpEventLog:seq<UdpEvent>, ghost ios:seq<LockIo>)
         requires nextActionIndex == 1;
         requires Valid();
         modifies Repr;
@@ -582,7 +637,7 @@ class NodeImpl
     
     
     method {:timeLimitMultiplier 2} Host_Next_main()
-        returns (ok:bool, ghost udpEventLog:seq<UdpEvent>, ghost ios:seq<LSHTIo>)
+        returns (ok:bool, ghost udpEventLog:seq<UdpEvent>, ghost ios:seq<LockIo>)
         requires Valid();
         modifies Repr;
         ensures Repr == old(Repr);
