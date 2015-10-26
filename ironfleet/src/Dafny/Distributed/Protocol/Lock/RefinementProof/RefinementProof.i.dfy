@@ -13,15 +13,7 @@ module RefinementProof_i {
         requires LS_Init(ls, config);
         ensures  Service_Init(AbstractifyLS_State(ls), UniqueSeqToSet(config));
     {
-        var s := AbstractifyLS_State(ls);
-        calc {
-            s.hosts;
-            mapdomain(ls.servers);
-            UniqueSeqToSet(config);
-        }
-
-        assert config[0] in config; // OBSERVE
-        assert config[0] in UniqueSeqToSet(config);
+        assert config[0] in config; // OBSERVE: triggers the exists in Service_Init
     }
 
     predicate IsValidBehavior(lb:seq<LS_State>, config:Config)
