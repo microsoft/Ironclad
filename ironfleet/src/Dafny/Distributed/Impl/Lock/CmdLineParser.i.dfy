@@ -1,6 +1,6 @@
 include "../Common/CmdLineParser.i.dfy"
 
-module ShtCmdLineParser_i {
+module LockCmdLineParser_i {
 
 import opened CmdLineParser_i
 
