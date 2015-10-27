@@ -35,11 +35,6 @@ lemma lemma_EstablishAbstractifyRawLogToIos(rawlog:seq<UdpEvent>, ios:seq<LockIo
     reveal_AbstractifyRawLogToIos();
 }
 
-predicate RawIoConsistentWithSpecIO(rawlog:seq<UdpEvent>, ios:seq<LockIo>)
-{
-    AbstractifyRawLogToIos(rawlog) == ios
-}
-
 predicate OnlySentMarshallableData(rawlog:seq<UdpEvent>)
 {
     forall io :: io in rawlog && io.LIoOpSend? ==> UdpPacketBound(io.s.msg)

@@ -94,7 +94,6 @@ module Host_i exclusively refines Host_s {
         while i < |events| 
             invariant 0 <= i <= |events|;
             invariant forall e :: e in recvs ==> e.LIoOpReceive?;
-            //invariant events == recvs + events[i..];
             invariant recvs == events[0..i];
         {
             if !events[i].LIoOpReceive? {
@@ -110,7 +109,6 @@ module Host_i exclusively refines Host_s {
     {
         forall i :: 0 <= i < |events| - 1 ==> events[i].LIoOpReceive? || events[i+1].LIoOpSend?
     }
-
 
     lemma RemainingEventsAreSends(events:seq<UdpEvent>)
         requires UdpEventsReductionCompatible(events);
@@ -148,12 +146,11 @@ module Host_i exclusively refines Host_s {
 
     lemma UdpEventsRespectReduction(s:Node, s':Node, ios:seq<LockIo>, events:seq<UdpEvent>)
         requires LIoOpSeqCompatibleWithReduction(ios);
-        requires RawIoConsistentWithSpecIO(events, ios);
+        requires AbstractifyRawLogToIos(events) == ios;
         ensures UdpEventsReductionCompatible(events);
     {
         reveal_AbstractifyRawLogToIos();
     }
-
 
     method HostNextImpl(ghost env:HostEnvironment, host_state:HostState) 
         returns (ok:bool, host_state':HostState, 
@@ -162,15 +159,9 @@ module Host_i exclusively refines Host_s {
     {
         var okay, udpEventLog, abstract_ios := host_state.node_impl.HostNextMain();
         if okay {
-            //assert AbstractifyRawLogToIos(udpEventLog) == abstract_ios;
-//            if LScheduler_Next(host_state.node, host_state.node_impl.AbstractifyToLScheduler(), abstract_ios)
-//            {
-//                //ProtocolIosRespectReduction(host_state.node, host_state.node_impl.AbstractifyToLScheduler(), abstract_ios);
-//                assert LIoOpSeqCompatibleWithReduction(abstract_ios);
-//            }
             UdpEventsRespectReduction(host_state.node, AbstractifyCNode(host_state.node_impl.node), abstract_ios, udpEventLog);
             recvs, clocks, sends := PartitionEvents(udpEventLog);
-            ios := recvs + clocks + sends; //abstract_ios;
+            ios := recvs + clocks + sends; 
             assert ios == udpEventLog;
             host_state' := CScheduler(AbstractifyCNode(host_state.node_impl.node), host_state.node_impl);
         } else {

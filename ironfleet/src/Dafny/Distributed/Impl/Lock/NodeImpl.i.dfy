@@ -89,6 +89,7 @@ class NodeImpl
         ensures ok ==> (
                Valid()
             && NodeGrant(old(AbstractifyCNode(node)), AbstractifyCNode(node), ios)
+            && AbstractifyRawLogToIos(udpEventLog) == ios
             && old(Env().udp.history()) + udpEventLog == Env().udp.history());
     {
         var transfer_packet;
@@ -113,6 +114,7 @@ class NodeImpl
         ensures ok ==> (
                Valid()
             && NodeAccept(old(AbstractifyCNode(node)), AbstractifyCNode(node), ios)
+            && AbstractifyRawLogToIos(udpEventLog) == ios
             && old(Env().udp.history()) + udpEventLog == Env().udp.history());
     {
         var rr;
@@ -151,6 +153,7 @@ class NodeImpl
         ensures  ok ==> (
                    Valid()
                 && NodeNext(old(AbstractifyCNode(node)), AbstractifyCNode(node), ios)
+                && AbstractifyRawLogToIos(udpEventLog) == ios
                 && old(Env().udp.history()) + udpEventLog == Env().udp.history()
                 );
     {
