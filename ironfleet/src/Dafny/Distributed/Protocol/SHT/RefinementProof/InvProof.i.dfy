@@ -478,7 +478,7 @@ lemma ReceivePacket_UnsentSeqnos(s:SHT_State, s':SHT_State, id:NodeIdentity, rec
     }
 }
 
-lemma {:timeLimitMultiplier 2} ReceivePacket_EachKeyClaimed(s:SHT_State, s':SHT_State, id:NodeIdentity, recv:set<Packet>, rpkt:Packet, out:set<Packet>, ack:Packet)
+lemma ReceivePacket_EachKeyClaimed(s:SHT_State, s':SHT_State, id:NodeIdentity, recv:set<Packet>, rpkt:Packet, out:set<Packet>, ack:Packet)
     requires Inv(s);
     requires MapComplete(s');
     requires SHT_Next(s, s');
