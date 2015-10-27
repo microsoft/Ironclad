@@ -115,6 +115,20 @@ predicate PacketSentBetweenHosts<IdType, MessageType>(
     && p.dst in destinations
 }
 
+predicate PacketsSynchronousForHosts<IdType, MessageType>(
+    b:Behavior<LEnvironment<IdType, MessageType>>,
+    i:int,
+    latency_bound:int,
+    sources:set<IdType>,
+    destinations:set<IdType>
+    )
+    requires imaptotal(b);
+{
+    forall p {:trigger PacketSentBetweenHosts(b[i], p, sources, destinations)} ::
+        PacketSentBetweenHosts(b[i], p, sources, destinations) ==>
+        sat(i, next(eventuallynextwithin(PacketDeliveredTemporal(b, p), latency_bound, BehaviorToTimeMap(b))))
+}
+
 function{:opaque} PacketsSynchronousForHostsTemporal<IdType, MessageType>(
     b:Behavior<LEnvironment<IdType, MessageType>>,
     latency_bound:int,
@@ -123,14 +137,10 @@ function{:opaque} PacketsSynchronousForHostsTemporal<IdType, MessageType>(
     ):temporal
     requires imaptotal(b);
     ensures  forall i {:trigger sat(i, PacketsSynchronousForHostsTemporal(b, latency_bound, sources, destinations))} ::
-                 sat(i, PacketsSynchronousForHostsTemporal(b, latency_bound, sources, destinations)) <==>
-                 (forall p {:trigger PacketSentBetweenHosts(b[i], p, sources, destinations)} ::
-                   PacketSentBetweenHosts(b[i], p, sources, destinations) ==>
-                   sat(i, next(eventuallynextwithin(PacketDeliveredTemporal(b, p), latency_bound, BehaviorToTimeMap(b)))));
+        sat(i, PacketsSynchronousForHostsTemporal(b, latency_bound, sources, destinations)) <==>
+        PacketsSynchronousForHosts(b, i, latency_bound, sources, destinations);
 {
-    stepmap(imap i :: forall p {:trigger PacketSentBetweenHosts(b[i], p, sources, destinations)} ::
-                   PacketSentBetweenHosts(b[i], p, sources, destinations) ==>
-                   sat(i, next(eventuallynextwithin(PacketDeliveredTemporal(b, p), latency_bound, BehaviorToTimeMap(b)))))
+    stepmap(imap i :: PacketsSynchronousForHosts(b, i, latency_bound, sources, destinations))
 }
 
 predicate NetworkSynchronousForHosts<IdType, MessageType>(
