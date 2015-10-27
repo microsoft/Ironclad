@@ -179,7 +179,7 @@ lemma lemma_RefineToMap_properties<CKT,CVT,KT,VT>(cm:map<CKT,CVT>, RefineKey:CKT
     ensures  forall ck :: ck !in cm && RefineKey.requires(ck) ==> RefineKey(ck) !in RefineToMap(cm, RefineKey, RefineValue, ReverseKey);
     ensures  var rm  := RefineToMap(cm, RefineKey, RefineValue, ReverseKey);
              forall k :: k in rm ==> (exists ck :: ck in cm && RefineKey(ck) == k);
-    ensures forall ck, cval :: (RefineKey.requires(ck) && RefineValue.requires(cval) 
+    ensures forall ck, cval {:trigger cm[ck := cval]} {:trigger RefineKey(ck), RefineValue(cval)} :: (RefineKey.requires(ck) && RefineValue.requires(cval) 
                                 && ReverseKey.requires(RefineKey(ck)) && ReverseKey(RefineKey(ck)) == ck) ==>
             var rm  := RefineToMap(cm, RefineKey, RefineValue, ReverseKey);
             var rm' := RefineToMap(cm[ck := cval], RefineKey, RefineValue, ReverseKey);
