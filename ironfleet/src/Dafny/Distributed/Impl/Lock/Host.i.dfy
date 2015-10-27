@@ -1,108 +1,78 @@
 include "../../Common/Framework/Host.s.dfy"
+include "../../Common/Collections/Sets.i.dfy"
 include "NodeImpl.i.dfy"
 include "CmdLineParser.i.dfy"
 
 module Host_i exclusively refines Host_s {
+    import opened Collections__Sets_i
     import opened NodeImpl_i
-    //import opened LockCmdLineParser_i
+    import opened LockCmdLineParser_i
 
-
-    datatype CScheduler = CScheduler(ghost sched:Node, scheduler_impl:NodeImpl)
+    datatype CScheduler = CScheduler(ghost node:Node, node_impl:NodeImpl)
 
     type HostState = CScheduler
     type ConcreteConfiguration = Config
 
-    /*predicate ConcreteConfigurationInvariants(config:ConcreteConfiguration) 
+    predicate ConcreteConfigurationInvariants(config:ConcreteConfiguration) 
     {
-        ConstantsStateIsValid(config)
+        ValidConfig(config)
     }
 
     predicate HostStateInvariants(host_state:HostState, env:HostEnvironment)
     {
-        host_state.scheduler_impl != null 
-     && host_state.scheduler_impl.Valid() 
-     && host_state.scheduler_impl.Env() == env
-     && host_state.sched == host_state.scheduler_impl.AbstractifyToLScheduler()
+        host_state.node_impl != null 
+     && host_state.node_impl.Valid() 
+     && host_state.node_impl.Env() == env
+     && host_state.node == AbstractifyCNode(host_state.node_impl.node)
     }
 
     predicate HostInit(host_state:HostState, config:ConcreteConfiguration, id:EndPoint)
     {
-        host_state.scheduler_impl != null && host_state.scheduler_impl.Valid()
-     && host_state.scheduler_impl.host.constants == config
-     && host_state.scheduler_impl.host.me == id
-     && LScheduler_Init(host_state.sched, 
-                        AbstractifyEndPointToNodeIdentity(host_state.scheduler_impl.host.me), 
-                        AbstractifyEndPointToNodeIdentity(config.rootIdentity), 
-                        AbstractifyEndPointsToNodeIdentities(config.hostIds), 
-                        AbstractifyCParametersToParameters(config.params))
+        host_state.node_impl != null && host_state.node_impl.Valid()
+     && host_state.node_impl.node.config == config
+     && host_state.node_impl.node.config[host_state.node_impl.node.my_index] == id
+     && NodeInit(host_state.node, 
+                 int(host_state.node_impl.node.my_index),
+                 config)
     }
 
     predicate HostNext(host_state:HostState, host_state':HostState, ios:seq<LIoOp<EndPoint, seq<byte>>>)
     {
-           UdpEventLogIsAbstractable(ios)
-        && OnlySentMarshallableData(ios)
-        && (   LScheduler_Next(host_state.sched, host_state'.sched, AbstractifyRawLogToIos(ios))
-            || HostNextIgnoreUnsendable(host_state.sched, host_state'.sched, ios))
+        NodeNext(host_state.node, host_state'.node, AbstractifyRawLogToIos(ios))
     }
 
     predicate ConcreteConfigInit(config:ConcreteConfiguration, servers:set<EndPoint>, clients:set<EndPoint>)
     {
-        ConstantsStateIsValid(config)
-     && config.rootIdentity in config.hostIds
-     //&& (forall i :: 0 <= i < |config.hostIds| ==> c
-     && MapSeqToSet(config.hostIds, x=>x) == servers
-     && (forall e :: e in servers ==> EndPointIsAbstractable(e))
-     && (forall e :: e in clients ==> EndPointIsAbstractable(e))
+        ValidConfig(config)
+     && MapSeqToSet(config, x=>x) == servers
     }
 
     function ParseCommandLineConfiguration(args:seq<seq<uint16>>) : (ConcreteConfiguration, set<EndPoint>, set<EndPoint>)
     {
-        var sht_config := sht_config_parsing(args);
-        var endpoints_set := (set e{:trigger e in sht_config.hostIds} | e in sht_config.hostIds);
-        (sht_config, endpoints_set, {})
+        var lock_config := lock_config_parsing(args);
+        var endpoints_set := (set e{:trigger e in lock_config} | e in lock_config);
+        (lock_config, endpoints_set, {})
     }
 
     function ParseCommandLineId(ip:seq<uint16>, port:seq<uint16>) : EndPoint
     {
-        sht_parse_id(ip, port)
+        lock_parse_id(ip, port)
     }
     
-    method {:timeLimitMultiplier 4} HostInitImpl(ghost env:HostEnvironment) returns (ok:bool, host_state:HostState, config:ConcreteConfiguration, ghost servers:set<EndPoint>, ghost clients:set<EndPoint>, id:EndPoint)
+    method HostInitImpl(ghost env:HostEnvironment) returns (ok:bool, host_state:HostState, config:ConcreteConfiguration, ghost servers:set<EndPoint>, ghost clients:set<EndPoint>, id:EndPoint)
     {
-        var init_config:ConstantsState, my_index;
-        ok, init_config, my_index := parse_cmd_line(env);
+        var my_index;
+        ok, config, my_index := ParseCmdLine(env);
         if !ok { return; }
-        assert env.constants == old(env.constants);
-        id := init_config.hostIds[my_index];
-        config := init_config;
+        id := config[my_index];
         
-        var scheduler := new SchedulerImpl;
-//        calc {
-//            int(constants.myIndex);
-//                { reveal_SeqIsUnique(); }
-//            int(my_index);
-//        }
-
-        assert env!=null && env.Valid() && env.ok.ok();
-        
-        ok := scheduler.Host_Init_Impl(config, id, env);
+        var node_impl := new NodeImpl;
+        ok := node_impl.InitNode(config, my_index, env);
         
         if !ok { return; }
-        host_state := CScheduler(scheduler.AbstractifyToLScheduler(), scheduler);
-        servers := set e | e in config.hostIds;
+        host_state := CScheduler(AbstractifyCNode(node_impl.node), node_impl);
+        servers := set e | e in config;
         clients := {};
-        assert env.constants == old(env.constants);
-        ghost var args := env.constants.CommandLineArgs();
-        ghost var tuple := ParseCommandLineConfiguration(args[0..|args|-2]);
-        ghost var parsed_config, parsed_servers, parsed_clients := tuple.0, tuple.1, tuple.2;
-        //assert config.config == parsed_config.config;
-        assert config.params == parsed_config.params;
-        //assert config == parsed_config[me := parsed_config.hostIds[my_index]];
-        assert servers == parsed_servers; 
-        assert clients == parsed_clients;
-        assert ConcreteConfigInit(parsed_config, parsed_servers, parsed_clients);
-        assert HostInit(host_state, config, id);
-        assert config == parsed_config && servers == parsed_servers && clients == parsed_clients && ConcreteConfigInit(parsed_config, parsed_servers, parsed_clients);
     }
     
     predicate EventsConsistent(recvs:seq<UdpEvent>, clocks:seq<UdpEvent>, sends:seq<UdpEvent>) 
@@ -176,14 +146,7 @@ module Host_i exclusively refines Host_s {
         }
     }
 
-    /*lemma ProtocolIosRespectReduction(s:LScheduler, s':LScheduler, ios:seq<LSHTIo>)
-        requires LScheduler_Next(s, s', ios);
-        ensures  LIoOpSeqCompatibleWithReduction(ios);
-    {
-    }*/
-
-    lemma UdpEventsRespectReduction(s:LScheduler, s':LScheduler, 
-                                    ios:seq<LSHTIo>, events:seq<UdpEvent>)
+    lemma UdpEventsRespectReduction(s:Node, s':Node, ios:seq<LockIo>, events:seq<UdpEvent>)
         requires LIoOpSeqCompatibleWithReduction(ios);
         requires RawIoConsistentWithSpecIO(events, ios);
         ensures UdpEventsReductionCompatible(events);
@@ -191,36 +154,30 @@ module Host_i exclusively refines Host_s {
         reveal_AbstractifyRawLogToIos();
     }
 
-    method {:timeLimitMultiplier 3} HostNextImpl(ghost env:HostEnvironment, host_state:HostState) 
+
+    method HostNextImpl(ghost env:HostEnvironment, host_state:HostState) 
         returns (ok:bool, host_state':HostState, 
                  ghost recvs:seq<UdpEvent>, ghost clocks:seq<UdpEvent>, ghost sends:seq<UdpEvent>, 
                  ghost ios:seq<LIoOp<EndPoint, seq<byte>>>)
     {
-        var okay, udpEventLog, abstract_ios := host_state.scheduler_impl.Host_Next_main();
+        var okay, udpEventLog, abstract_ios := host_state.node_impl.HostNextMain();
         if okay {
-//            calc { 
-//                Q_LScheduler_Next(host_state.sched, host_state.replica_impl.AbstractifyToLScheduler(), abstract_ios);
-//                    { reveal_Q_LScheduler_Next(); }
-//                LScheduler_Next(host_state.sched, host_state.replica_impl.AbstractifyToLScheduler(), abstract_ios);
+            //assert AbstractifyRawLogToIos(udpEventLog) == abstract_ios;
+//            if LScheduler_Next(host_state.node, host_state.node_impl.AbstractifyToLScheduler(), abstract_ios)
+//            {
+//                //ProtocolIosRespectReduction(host_state.node, host_state.node_impl.AbstractifyToLScheduler(), abstract_ios);
+//                assert LIoOpSeqCompatibleWithReduction(abstract_ios);
 //            }
-
-            assert AbstractifyRawLogToIos(udpEventLog) == abstract_ios;
-            if LScheduler_Next(host_state.sched, host_state.scheduler_impl.AbstractifyToLScheduler(), abstract_ios)
-            {
-                //ProtocolIosRespectReduction(host_state.sched, host_state.scheduler_impl.AbstractifyToLScheduler(), abstract_ios);
-                assert LIoOpSeqCompatibleWithReduction(abstract_ios);
-            }
-            UdpEventsRespectReduction(host_state.sched, host_state.scheduler_impl.AbstractifyToLScheduler(), abstract_ios, udpEventLog);
+            UdpEventsRespectReduction(host_state.node, AbstractifyCNode(host_state.node_impl.node), abstract_ios, udpEventLog);
             recvs, clocks, sends := PartitionEvents(udpEventLog);
             ios := recvs + clocks + sends; //abstract_ios;
             assert ios == udpEventLog;
-            host_state' := CScheduler(host_state.scheduler_impl.AbstractifyToLScheduler(), host_state.scheduler_impl);
+            host_state' := CScheduler(AbstractifyCNode(host_state.node_impl.node), host_state.node_impl);
         } else {
             recvs := [];
             clocks := [];
             sends := [];
         }
         ok := okay;
-    }*/
-
+    }
 }

@@ -76,7 +76,7 @@ method GetHostIndex(host:EndPoint, hosts:seq<EndPoint>) returns (found:bool, ind
     found := false;
 }
 
-method parse_cmd_line(ghost env:HostEnvironment) returns (ok:bool, host_ids:seq<EndPoint>, my_index:uint64)
+method ParseCmdLine(ghost env:HostEnvironment) returns (ok:bool, host_ids:seq<EndPoint>, my_index:uint64)
     requires HostEnvironmentIsValid(env);
     ensures ok ==> |host_ids| == 2;
     ensures ok ==> 0 <= int(my_index) < |host_ids|;
