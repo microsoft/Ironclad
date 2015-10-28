@@ -23,6 +23,20 @@ import opened Liveness__EnvironmentSynchronyLemmas_i
 import opened Math__mul_i
 import opened Math__mul_auto_i
 
+predicate AllPacketsProcessedWithin(
+    b:Behavior<RslState>,
+    i:int,
+    processing_period:int,
+    sources:set<NodeIdentity>,
+    destinations:set<NodeIdentity>
+    )
+    requires imaptotal(b);
+{
+    forall p {:trigger PacketSentBetweenHosts(b[i].environment, p, sources, destinations)} ::
+        PacketSentBetweenHosts(b[i].environment, p, sources, destinations) ==>
+        sat(i, eventuallynextwithin(PacketProcessedTemporal(b, p), processing_period, PaxosTimeMap(b)))
+}
+
 function{:opaque} AllPacketsProcessedWithinTemporal(
     b:Behavior<RslState>,
     processing_period:int,
@@ -31,14 +45,10 @@ function{:opaque} AllPacketsProcessedWithinTemporal(
     ):temporal
     requires imaptotal(b);
     ensures  forall i {:trigger sat(i, AllPacketsProcessedWithinTemporal(b, processing_period, sources, destinations))} ::
-                 sat(i, AllPacketsProcessedWithinTemporal(b, processing_period, sources, destinations)) <==>
-                 (forall p {:trigger PacketSentBetweenHosts(b[i].environment, p, sources, destinations)} ::
-                   PacketSentBetweenHosts(b[i].environment, p, sources, destinations) ==>
-                   sat(i, eventuallynextwithin(PacketProcessedTemporal(b, p), processing_period, PaxosTimeMap(b))));
+        sat(i, AllPacketsProcessedWithinTemporal(b, processing_period, sources, destinations)) <==>
+        AllPacketsProcessedWithin(b, i, processing_period, sources, destinations);
 {
-    stepmap(imap i :: forall p {:trigger PacketSentBetweenHosts(b[i].environment, p, sources, destinations)} ::
-                   PacketSentBetweenHosts(b[i].environment, p, sources, destinations) ==>
-                   sat(i, eventuallynextwithin(PacketProcessedTemporal(b, p), processing_period, PaxosTimeMap(b))))
+    stepmap(imap i :: AllPacketsProcessedWithin(b, i, processing_period, sources, destinations))
 }
 
 
@@ -195,21 +205,22 @@ lemma lemma_AllPacketsReceivedInTime(
     lemma_AssumptionsMakeValidEnvironmentBehavior(b, asp.c);
     assert LEnvironment_BehaviorSatisfiesSpec(eb);
 
-    TemporalAssist();
+    assert NetworkSynchronousForHosts(eb, asp.synchrony_start, asp.latency_bound, sources, sources);
     lemma_IfPacketsSynchronousForHostsThenSynchronousForFewerHosts(eb, asp.synchrony_start, asp.latency_bound, sources, sources, sources, destinations);
+    assert NetworkSynchronousForHosts(eb, asp.synchrony_start, asp.latency_bound, sources, destinations);
     assert sat(asp.synchrony_start, always(PacketsSynchronousForHostsTemporal(eb, asp.latency_bound, sources, destinations)));
-    assert sat(0, eventual(always(PacketsSynchronousForHostsTemporal(eb, asp.latency_bound, sources, destinations))));
+    TemporalEventually(0, asp.synchrony_start, always(PacketsSynchronousForHostsTemporal(eb, asp.latency_bound, sources, destinations)));
 
     forall host | host in destinations
-        ensures sat(0, eventual(always(NetworkDeliveryRateForHostBoundedTemporal(eb, asp.burst_size, burst_period, host))));
+        ensures sat(0, eventual(always(NetworkDeliveryRateForHostBoundedTemporal(eb, asp.burst_size, asp.burst_size * receive_period + 1, host))));
     {
         var replica_index :| replica_index in asp.live_quorum && host == asp.c.config.replica_ids[replica_index];
         assert sat(asp.synchrony_start, always(NetworkDeliveryRateForHostBoundedTemporal(eb, asp.burst_size, burst_period, host)));
-        assert sat(0, eventual(always(NetworkDeliveryRateForHostBoundedTemporal(eb, asp.burst_size, burst_period, host))));
+        TemporalEventually(0, asp.synchrony_start, always(NetworkDeliveryRateForHostBoundedTemporal(eb, asp.burst_size, burst_period, host)));
     }
-
+    
     lemma_mul_is_associative(asp.burst_size, asp.host_period, LReplicaNumActions());
-    assert forall host :: host in destinations ==> sat(0, eventual(always(NetworkDeliveryRateForHostBoundedTemporal(eb, asp.burst_size, asp.burst_size * receive_period + 1, host))));
+//    assert forall host :: host in destinations ==> sat(0, eventual(always(NetworkDeliveryRateForHostBoundedTemporal(eb, asp.burst_size, asp.burst_size * receive_period + 1, host))));
 
     forall host | host in destinations
         ensures sat(asp.synchrony_start, always(eventuallynextwithin(ReceiveAttemptedTemporal(eb, host), receive_period, real_time_fun)));
@@ -223,6 +234,20 @@ lemma lemma_AllPacketsReceivedInTime(
     processing_sync_start, processing_bound := Lemma_EventuallyAllPacketsAlwaysReceivedInTime(asp.synchrony_start, asp.latency_bound, sources, destinations, eb, asp.burst_size, receive_period);
 }
 
+predicate PacketProcessingSynchronousOneStep(
+    b:Behavior<RslState>,
+    i:int,
+    processing_bound:int,
+    sources:set<NodeIdentity>,
+    destinations:set<NodeIdentity>
+    )
+    requires imaptotal(b);
+{
+    forall p {:trigger PacketSentDuringAction(b[i], p)} ::
+        PacketSentDuringAction(b[i], p) && p.src in sources && p.dst in destinations
+    ==> sat(i, next(eventuallynextwithin(PacketProcessedTemporal(b, p), processing_bound, PaxosTimeMap(b))))
+}
+
 function{:opaque} PacketProcessingSynchronousTemporal(
     b:Behavior<RslState>,
     processing_bound:int,
@@ -231,14 +256,10 @@ function{:opaque} PacketProcessingSynchronousTemporal(
     ):temporal
     requires imaptotal(b);
     ensures  forall i{:trigger sat(i, PacketProcessingSynchronousTemporal(b, processing_bound, sources, destinations))} ::
-             sat(i, PacketProcessingSynchronousTemporal(b, processing_bound, sources, destinations)) <==>
-                    (forall p{:trigger PacketSentDuringAction(b[i], p)} ::
-                         PacketSentDuringAction(b[i], p) && p.src in sources && p.dst in destinations
-                     ==> sat(i+1, eventuallynextwithin(PacketProcessedTemporal(b, p), processing_bound, PaxosTimeMap(b))));
+        sat(i, PacketProcessingSynchronousTemporal(b, processing_bound, sources, destinations)) <==>
+        PacketProcessingSynchronousOneStep(b, i, processing_bound, sources, destinations);
 {
-    stepmap(imap i :: forall p{:trigger PacketSentDuringAction(b[i], p)} ::
-                         PacketSentDuringAction(b[i], p) && p.src in sources && p.dst in destinations
-                     ==> sat(i+1, eventuallynextwithin(PacketProcessedTemporal(b, p), processing_bound, PaxosTimeMap(b))))
+    stepmap(imap i :: PacketProcessingSynchronousOneStep(b, i, processing_bound, sources, destinations))
 }
 
 predicate PacketProcessingSynchronous(
@@ -385,7 +406,8 @@ lemma lemma_PacketSentToIndexProcessedByIt(
     var actor := b[processing_step].environment.nextStep.actor;
     assert p.dst == actor;
     assert RslNext(b[processing_step], b[processing_step+1]);
-    if exists idx', ios' :: RslNextOneReplica(b[processing_step], b[processing_step+1], idx', ios')
+    if exists idx', ios' {:trigger RslNextOneReplica(b[processing_step], b[processing_step+1], idx', ios')} ::
+                     RslNextOneReplica(b[processing_step], b[processing_step+1], idx', ios')
     {
         var idx', ios' :| RslNextOneReplica(b[processing_step], b[processing_step+1], idx', ios');
         assert ReplicasDistinct(asp.c.config.replica_ids, idx, idx');
@@ -395,7 +417,8 @@ lemma lemma_PacketSentToIndexProcessedByIt(
         lemma_SchedulerActionThatReceivesReceivesFirst(b[processing_step].replicas[idx], b[processing_step+1].replicas[idx], p, ios);
         assert PacketProcessedViaIos(b[processing_step], b[processing_step+1], p, idx, ios);
     }
-    else if exists eid, ios' :: RslNextOneExternal(b[processing_step], b[processing_step+1], eid, ios')
+    else if exists eid, ios' {:trigger RslNextOneExternal(b[processing_step], b[processing_step+1], eid, ios')} ::
+                         RslNextOneExternal(b[processing_step], b[processing_step+1], eid, ios')
     {
         var eid, ios' :| RslNextOneExternal(b[processing_step], b[processing_step+1], eid, ios');
         assert false;
