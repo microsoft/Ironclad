@@ -269,7 +269,7 @@ lemma ThereCanBeOnlyOneInFlightPacket(s:SHT_State, s':SHT_State, k:Key, pkt:Pack
     PacketClaimsKey_forces_FindHashTable(s', pkt, k);
 }
 
-lemma NondelegatingReadonlyStepPreservesRefinement_guts(s:SHT_State, s':SHT_State, id:NodeIdentity, recv:set<Packet>, out:set<Packet>)
+lemma {:timeLimitMultiplier 2} NondelegatingReadonlyStepPreservesRefinement_guts(s:SHT_State, s':SHT_State, id:NodeIdentity, recv:set<Packet>, out:set<Packet>)
     requires HiddenInv(s) && InvBasics(s);
     requires HiddenInv(s') && InvBasics(s');
     requires SHT_Next(s, s');
@@ -1438,7 +1438,7 @@ lemma NextShardPreservesRefinement_main(s:SHT_State, s':SHT_State, id:NodeIdenti
     assert InvRefinementNormalized(s');
 }
 
-lemma {:timeLimitMultiplier 2} Next_Process_Message_Refines(s:SHT_State, s':SHT_State, id:NodeIdentity, recv:set<Packet>, out:set<Packet>)
+lemma {:timeLimitMultiplier 3} Next_Process_Message_Refines(s:SHT_State, s':SHT_State, id:NodeIdentity, recv:set<Packet>, out:set<Packet>)
     requires Inv(s);
     requires MapComplete(s');
     requires SHT_Next(s, s');
@@ -1893,6 +1893,8 @@ lemma NextExternalRefines(s:SHT_State, s':SHT_State, id:NodeIdentity, recv:set<P
 
             var id_old := HostClaimsKey_forces_FindHostHashTable(s, k);
             var id_new := HostClaimsKey_forces_FindHostHashTable(s', k);
+            
+            assert UniqueHostClaimsKey(s', k);
             assert OnlyOneHostClaimsKey(s,k);
             assert OnlyOneHostClaimsKey(s',k);
 
