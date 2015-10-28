@@ -170,12 +170,18 @@ predicate CDelegationMapIsAbstractable(m:CDelegationMap)
     CDelegationMapIsValid(m)
 }
 
+function RefineToDelegationMapEntry(m:CDelegationMap, k:Key) : NodeIdentity
+    requires CDelegationMapIsAbstractable(m);
+    requires forall low :: low in m.lows ==> EndPointIsValidIPV4(low.id);
+{
+    AbstractifyEndPointToNodeIdentity(m.lows[CDM_IndexForKey(m,KeyPlus(k))].id)
+}
+
 function RefineToDelegationMap(m:CDelegationMap) : DelegationMap
     requires CDelegationMapIsAbstractable(m);
     requires forall low :: low in m.lows ==> EndPointIsValidIPV4(low.id);
 {
-    imap k:Key {:trigger CDM_IndexForKey(m,KeyPlus(k))} :: 
-        AbstractifyEndPointToNodeIdentity(m.lows[CDM_IndexForKey(m,KeyPlus(k))].id)
+    imap k:Key {:trigger CDM_IndexForKey(m,KeyPlus(k))} :: RefineToDelegationMapEntry(m, k)
 }
 
 lemma CDM_KeyRangesAreOrdered(m:CDelegationMap, i1:int, i2:int)

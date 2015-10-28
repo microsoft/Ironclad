@@ -232,6 +232,13 @@ method DelegateForKeyRangeIsHostImpl(m:CDelegationMap, kr:KeyRange, id:EndPoint)
     return;
 }
 
+lemma lemma_CDM_Defragment_equivalence(m:CDelegationMap, m':CDelegationMap)
+    requires CDelegationMapIsValid(m);
+    requires  CDelegationMapIsValid(m');
+    requires forall k:Key :: true ==> m.lows[CDM_IndexForKey(m,KeyPlus(k))].id == m'.lows[CDM_IndexForKey(m',KeyPlus(k))].id;
+    ensures  RefineToDelegationMap(m) == RefineToDelegationMap(m');
+{
+}
 
 // TODO: Call this from update, not lookup (and add the last ensures to IsValid)
 // TODO: Defragment more aggressively
@@ -273,7 +280,7 @@ method CDM_Defragment(m:CDelegationMap) returns (m':CDelegationMap)
     }
     assert KeyPlusLt(m'.lows[|m'.lows|-1].klo, KeyInf());
     assert CDelegationMapIsSorted(m');
-
+    
     // Prove equivalent refinements
     forall k:Key 
         ensures m.lows[CDM_IndexForKey(m,KeyPlus(k))].id == m'.lows[CDM_IndexForKey(m',KeyPlus(k))].id;
@@ -317,6 +324,6 @@ method CDM_Defragment(m:CDelegationMap) returns (m':CDelegationMap)
             }
         } 
     }
+    lemma_CDM_Defragment_equivalence(m, m');
 }
-
 }
