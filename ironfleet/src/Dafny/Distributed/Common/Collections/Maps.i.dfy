@@ -51,7 +51,6 @@ lemma lemma_MapSizeIsDomainSize<S,T>(dom:set<S>, m:map<S,T>)
     requires dom == domain(m);
     ensures |m| == |dom|;
 {
-    var dom := set s | s in m;
     if |m| == 0 {
         assert |dom| == 0;
     } else {

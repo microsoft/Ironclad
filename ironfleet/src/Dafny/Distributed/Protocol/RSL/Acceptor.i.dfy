@@ -55,7 +55,7 @@ predicate LAcceptorProcess1a(s:LAcceptor, s':LAcceptor, inp:RslPacket, sent_pack
     var m := inp.msg;
     if inp.src in s.constants.all.config.replica_ids && BalLt(s.max_bal, m.bal_1a) && LReplicaConstantsValid(s.constants) then
            sent_packets == [ LPacket(inp.src, s.constants.all.config.replica_ids[s.constants.my_index], RslMessage_1b(m.bal_1a, s.log_truncation_point, s.votes)) ]
-        && s' == s[max_bal := m.bal_1a]
+        && s' == s.(max_bal := m.bal_1a)
     else
         s' == s && sent_packets == []
 }
@@ -109,8 +109,7 @@ predicate LAcceptorTruncateLog(s:LAcceptor, s':LAcceptor, opn:OperationNumber)
         s' == s
     else
         (   RemoveVotesBeforeLogTruncationPoint(s.votes, s'.votes, opn)
-         && s' == s[log_truncation_point := opn]
-                   [votes := s'.votes]
+         && s' == s.(log_truncation_point := opn, votes := s'.votes)
         )
 }
 }

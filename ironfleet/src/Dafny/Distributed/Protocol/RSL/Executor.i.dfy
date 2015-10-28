@@ -42,7 +42,7 @@ predicate LExecutorGetDecision(s:LExecutor, s':LExecutor, bal:Ballot, opn:Operat
     requires opn == s.ops_complete;
     requires s.next_op_to_execute.OutstandingOpUnknown?;
 {
-    s' == s[next_op_to_execute := OutstandingOpKnown(v, bal)]
+    s' == s.(next_op_to_execute := OutstandingOpKnown(v, bal))
 }
 
 function GetPacketsFromReplies(me:NodeIdentity, requests:seq<Request>, replies:seq<Reply>) : seq<RslPacket>
@@ -113,11 +113,11 @@ predicate LExecutorProcessAppStateSupply(s:LExecutor, s':LExecutor, inp:RslPacke
     requires inp.src in s.constants.all.config.replica_ids && inp.msg.opn_state_supply > s.ops_complete;
 {
     var m := inp.msg;
-       s' == s[app := m.app_state]
-              [ops_complete := m.opn_state_supply]
-              [max_bal_reflected := m.bal_state_supply]
-              [next_op_to_execute := OutstandingOpUnknown()]
-              [reply_cache := m.reply_cache]
+       s' == s.(app := m.app_state,
+                ops_complete := m.opn_state_supply,
+                max_bal_reflected := m.bal_state_supply,
+                next_op_to_execute := OutstandingOpUnknown(),
+                reply_cache := m.reply_cache)
 }
 
 predicate LExecutorProcessAppStateRequest(s:LExecutor, s':LExecutor, inp:RslPacket, sent_packets:seq<RslPacket>)
