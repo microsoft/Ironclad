@@ -639,6 +639,12 @@ import opened Math__mul_i
             }
             else if (sat(i1, decr))
             {
+                forall j | i1 <= j < i1 + 1 && sat(j, decr)
+                    ensures j == i1;
+                {
+                }
+                assert i1 in actionsWithin(i1, i1 + 1, decr);
+                assert actionsWithin(i1, i1 + 1, decr) <= {i1};
                 assert actionsWithin(i1, i1 + 1, decr) == {i1};
                 Lemma_CountIncrDecrHelper(i1 + 1, i2, d, nIncr, nDecr - 1, incr, decr);
             }
