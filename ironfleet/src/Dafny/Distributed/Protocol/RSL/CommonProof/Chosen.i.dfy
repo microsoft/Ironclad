@@ -205,9 +205,9 @@ lemma lemma_DecidedOperationWasChosen(
     while sender_idx < |c.config.replica_ids|
         invariant 0 <= sender_idx <= |c.config.replica_ids|;
         invariant |packets| == sender_idx;
-        invariant forall idx :: idx in indices ==>    0 <= idx < sender_idx
-                                             && var p := packets[idx];
-                                                   p.src == b[i].constants.config.replica_ids[idx]
+        invariant forall sidx :: sidx in indices ==>    0 <= sidx < sender_idx
+                                             && var p := packets[sidx];
+                                                   p.src == b[i].constants.config.replica_ids[sidx]
                                                 && p.msg.RslMessage_2b?
                                                 && p.msg.opn_2b == opn
                                                 && p.msg.val_2b == v
