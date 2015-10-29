@@ -387,7 +387,11 @@ lemma {:timeLimitMultiplier 4} {:induction false} UpdateCDelegationMap_Part2(m:C
                     assert KeyPlusLe(m.lows[k_index].klo, KeyPlus(k));
                     assert KeyPlusLt(KeyPlus(k), newkr.klo);
                     assert KeyPlusLt(KeyPlus(k), m.lows[left_index].klo);
-                    assert KeyRangeContains(CDM_IndexToKeyRange(m, k_index), KeyPlus(k));
+
+                    var range := CDM_IndexToKeyRange(m, k_index);
+
+                    assert KeyPlusLe(range.klo, KeyPlus(k)) && KeyPlusLt(KeyPlus(k), range.khi);
+                    assert KeyRangeContains(range, KeyPlus(k));
                     CDM_Partitioned(m, KeyPlus(k), k_index);
                     assert int(CDM_IndexForKey(m, KeyPlus(k))) == k_index;
                     assert rm'[k] == AbstractifyEndPointToNodeIdentity(m.lows[k_index].id);
@@ -617,11 +621,12 @@ lemma UpdateCDelegationMap_Part1(m:CDelegationMap, newkr:KeyRange, id:EndPoint, 
             }
         }
     }
+    lemma_UpdateCDelegationMap_Part2_Helper(m, m', newkr, id);
 }
 
 // After the update, every key in newkr should point at id
 // TODO: Need to convert ok check into an invariant that we don't grow too large!
-method {:induction false} {:timeLimitMultiploer 4} UpdateCDelegationMap(m:CDelegationMap, newkr:KeyRange, id:EndPoint) returns (ok:bool, m':CDelegationMap)
+method {:induction false} {:timeLimitMultiplier 4} UpdateCDelegationMap(m:CDelegationMap, newkr:KeyRange, id:EndPoint) returns (ok:bool, m':CDelegationMap)
     requires CDelegationMapIsValid(m);
     requires EndPointIsValidIPV4(id);
     requires !EmptyKeyRange(newkr);
