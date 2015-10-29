@@ -38,7 +38,7 @@ lemma lemma_small_div_converse()
 {
     forall x, d | 0<=x && 0<d && x/d==0 ensures x < d;
     {
-        lemma_div_auto_induction(d, x, imap x :: 0<=x && 0<d && x/d==0 ==> x < d);
+        lemma_div_auto_induction(d, x, imap u :: 0<=u && 0<d && u/d==0 ==> u < d);
     }
 }
 
@@ -50,7 +50,7 @@ lemma lemma_div_is_ordered_by_denominator(x:int, y:int, z:int)
     decreases x;
 {
     lemma_div_is_div_recursive_forall();
-    assert forall x:int, d:int {:trigger x / d}{:trigger my_div_recursive(x, d)} :: d > 0 ==> my_div_recursive(x, d) == x / d;
+    assert forall u:int, d:int {:trigger u / d}{:trigger my_div_recursive(u, d)} :: d > 0 ==> my_div_recursive(u, d) == u / d;
 
     if (x < z)
     {
@@ -69,7 +69,7 @@ lemma lemma_div_is_strictly_ordered_by_denominator(x:int, d:int)
     ensures x/d < x;
     decreases x;
 {
-    lemma_div_auto_induction(d, x, imap x :: 0 < x ==> x / d < x);
+    lemma_div_auto_induction(d, x, imap u :: 0 < u ==> u / d < u);
 }
 
 lemma lemma_dividing_sums(a:int, b:int, d:int, R:int)
@@ -118,7 +118,7 @@ lemma lemma_div_pos_is_pos(x:int, divisor:int)
     requires 0 < divisor;
     ensures x / divisor >= 0;
 {
-    lemma_div_auto_induction(divisor, x, imap x :: 0 <= x ==> x / divisor >= 0);
+    lemma_div_auto_induction(divisor, x, imap u :: 0 <= u ==> u / divisor >= 0);
 }
 //-////////////////////////////////////////////////////////////////////////////
 //-
@@ -252,7 +252,7 @@ lemma lemma_mod_multiples_vanish(a:int, b:int, m:int)
     ensures (m*a + b) % m == b % m;
 {
     lemma_mod_auto(m);
-    lemma_mul_auto_induction(a, imap a :: (m*a + b) % m == b % m);
+    lemma_mul_auto_induction(a, imap u :: (m*u + b) % m == b % m);
 }
 
 lemma lemma_add_mod_noop(x:int, y:int, m:int)
@@ -323,8 +323,8 @@ lemma lemma_fundamental_div_mod_converse(x:int, d:int, q:int, r:int)
     ensures r == x%d;
 {
     lemma_div_auto(d);
-    lemma_mul_auto_induction(q, imap q :: q == (q * d + r) / d);
-    lemma_mul_auto_induction(q, imap q :: r == (q * d + r) % d);
+    lemma_mul_auto_induction(q, imap u :: u == (u * d + r) / d);
+    lemma_mul_auto_induction(q, imap u :: r == (u * d + r) % d);
 
 // REVIEW: this is a plausible alternative, but it times out:
 //    lemma_mul_auto();
@@ -346,7 +346,7 @@ lemma lemma_mul_mod_noop_left(x:int, y:int, m:int)
     ensures (x % m)*y % m == x*y % m;
 {
     lemma_mod_auto(m);
-    lemma_mul_auto_induction(y, imap y :: (x % m)*y % m == x*y % m);
+    lemma_mul_auto_induction(y, imap u :: (x % m)*u % m == x*u % m);
 }
 
 lemma lemma_mul_mod_noop_right(x:int, y:int, m:int)
@@ -354,7 +354,7 @@ lemma lemma_mul_mod_noop_right(x:int, y:int, m:int)
     ensures x*(y % m) % m == (x*y) % m;
 {
     lemma_mod_auto(m);
-    lemma_mul_auto_induction(x, imap x :: x*(y % m) % m == (x*y) % m);
+    lemma_mul_auto_induction(x, imap u :: u*(y % m) % m == (u*y) % m);
 }
 
 lemma lemma_mul_mod_noop_general(x:int, y:int, m:int)
@@ -450,7 +450,7 @@ lemma lemma_mod_multiples_basic(x:int, m:int)
     ensures  (x * m) % m == 0;
 {
     lemma_mod_auto(m);
-    lemma_mul_auto_induction(x, imap x :: (x * m) % m == 0);
+    lemma_mul_auto_induction(x, imap u :: (u * m) % m == 0);
 }
 
 //-
@@ -506,7 +506,7 @@ lemma lemma_div_is_div_recursive(x:int, d:int)
     requires d > 0;
     ensures my_div_recursive(x, d) == x / d;
 {
-    lemma_div_auto_induction(d, x, imap x :: my_div_recursive(x, d) == x / d);
+    lemma_div_auto_induction(d, x, imap u :: my_div_recursive(u, d) == u / d);
 
 // Omitted rather than prove lemma_negative_divisor
 //
@@ -610,7 +610,7 @@ lemma lemma_div_decreases(x:int, d:int)
     requires 1<d;
     ensures x/d < x;
 {
-    lemma_div_auto_induction(d, x, imap x :: 0<x ==> x/d < x);
+    lemma_div_auto_induction(d, x, imap u :: 0<u ==> u/d < u);
 }
 
 lemma lemma_div_nonincreasing(x:int, d:int)
@@ -618,7 +618,7 @@ lemma lemma_div_nonincreasing(x:int, d:int)
     requires 0<d;
     ensures x/d <= x;
 {
-    lemma_div_auto_induction(d, x, imap x :: 0<=x ==> x/d <= x);
+    lemma_div_auto_induction(d, x, imap u :: 0<=u ==> u/d <= u);
 }
 
 lemma lemma_breakdown(a:int, b:int, c:int)
@@ -690,7 +690,7 @@ lemma lemma_remainder_upper(x:int, divisor:int)
     ensures   x - divisor < x / divisor * divisor;
 {
     lemma_mul_auto();
-    lemma_div_auto_induction(divisor, x, imap x :: 0 <= x ==> x - divisor < x / divisor * divisor);
+    lemma_div_auto_induction(divisor, x, imap u :: 0 <= u ==> u - divisor < u / divisor * divisor);
 }
 
 lemma lemma_remainder_lower(x:int, divisor:int)
@@ -699,7 +699,7 @@ lemma lemma_remainder_lower(x:int, divisor:int)
     ensures  x >= x / divisor * divisor;
 {
     lemma_mul_auto();
-    lemma_div_auto_induction(divisor, x, imap x :: 0 <= x ==> x >= x / divisor * divisor);
+    lemma_div_auto_induction(divisor, x, imap u :: 0 <= u ==> u >= u / divisor * divisor);
 }
 
 lemma lemma_remainder(x:int, divisor:int)
@@ -708,7 +708,7 @@ lemma lemma_remainder(x:int, divisor:int)
     ensures  0 <= x - x / divisor * divisor < divisor;
 {
     lemma_mul_auto();
-    lemma_div_auto_induction(divisor, x, imap x :: 0 <= x - x / divisor * divisor < divisor);
+    lemma_div_auto_induction(divisor, x, imap u :: 0 <= u - u / divisor * divisor < divisor);
 }
 
 
@@ -838,7 +838,7 @@ lemma lemma_indistinguishable_quotients(a:int, b:int, d:int)
     requires 0 <= a - a%d <= b < a + d - a%d;
     ensures a/d == b/d;
 {
-    lemma_div_auto_induction(d, a - b, imap ab :: var a := ab + b; 0 <= a - a%d <= b < a + d - a%d ==> a/d == b/d);
+    lemma_div_auto_induction(d, a - b, imap ab :: var u := ab + b; 0 <= u - u%d <= b < u + d - u%d ==> u/d == b/d);
 }
 
 lemma lemma_truncate_middle(x:int, b:int, c:int)
@@ -897,7 +897,7 @@ lemma lemma_round_down(a:int, r:int, d:int)
     ensures a==d*((a+r)/d);
 {
     lemma_mul_auto();
-    lemma_div_auto_induction(d, a, imap a :: a%d == 0 ==> a==d*((a+r)/d));
+    lemma_div_auto_induction(d, a, imap u :: u%d == 0 ==> u==d*((u+r)/d));
 }
 
 
@@ -907,7 +907,7 @@ lemma lemma_div_multiples_vanish_fancy(x:int, b:int, d:int)
     ensures (d*x + b)/d == x;
 {
     lemma_div_auto(d);
-    lemma_mul_auto_induction(x, imap x :: (d*x + b)/d == x);
+    lemma_mul_auto_induction(x, imap u :: (d*u + b)/d == u);
 }
 
 lemma lemma_div_multiples_vanish(x:int, d:int)
@@ -934,7 +934,7 @@ lemma lemma_div_by_multiple_is_strongly_ordered(x:int, y:int, m:int, z:int)
     ensures     x / z < y / z;
 {
     lemma_mod_multiples_basic(m, z);
-    lemma_div_auto_induction(z, y - x, imap yx :: var y := yx + x; x < y && y % z == 0 ==> x / z < y / z);
+    lemma_div_auto_induction(z, y - x, imap yx :: var u := yx + x; x < u && u % z == 0 ==> x / z < u / z);
 }
 
 lemma lemma_multiply_divide_le(a:int, b:int, c:int)
@@ -962,7 +962,7 @@ lemma lemma_hoist_over_denominator(x:int, j:int, d:nat)
     ensures x/d + j == (x+j*d) / d;
 {
     lemma_div_auto(d);
-    lemma_mul_auto_induction(j, imap j :: x/d + j == (x+j*d) / d);
+    lemma_mul_auto_induction(j, imap u :: x/d + u == (x+u*d) / d);
 }
 
 lemma lemma_part_bound1(a:int, b:int, c:int)

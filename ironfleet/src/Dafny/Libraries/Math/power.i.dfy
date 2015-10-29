@@ -183,7 +183,7 @@ lemma lemma_power_positive(b:int, e:nat)
     ensures 0<power(b,e);
 {
     lemma_power_auto();
-    lemma_mul_auto_induction(e, imap e :: 0 <= e ==> 0 < power(b, e));
+    lemma_mul_auto_induction(e, imap u :: 0 <= u ==> 0 < power(b, u));
 }
 
 lemma lemma_power_increases(b:nat,e1:nat,e2:nat)
