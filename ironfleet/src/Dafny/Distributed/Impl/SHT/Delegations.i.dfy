@@ -19,11 +19,17 @@ predicate CDelegationMapBoundedSize(m:CDelegationMap)
     0 < |m.lows| < 0x1_0000_0000_0000_0000 - 1
 }
 
+predicate CDelegationMapIsSorted_Helper(m:CDelegationMap)
+    requires CDelegationMapBoundedSize(m)
+{
+    forall i :: 0<=i<|m.lows|-1
+        ==> KeyPlusLt(m.lows[i].klo, m.lows[i+1].klo)
+}
+
 predicate CDelegationMapIsSorted(m:CDelegationMap)
 {
        CDelegationMapBoundedSize(m)
-    && (forall i :: 0<=i<|m.lows|-1
-        ==> KeyPlusLt(m.lows[i].klo, m.lows[i+1].klo))
+    && CDelegationMapIsSorted_Helper(m)
     && KeyPlusLt(m.lows[|m.lows|-1].klo, KeyInf())
 }
 
@@ -250,6 +256,7 @@ predicate CDM_PrefixAgrees(m:CDelegationMap, dm:DelegationMap, klim:KeyPlus)
     forall k:Key :: KeyPlusLt(KeyPlus(k), klim) ==> CDelegationMapDelegate(m,k)==dm[k]
 }
 
+
 lemma CDM_IndexForKey_Ordering(m:CDelegationMap)
     requires CDelegationMapIsValid(m);
     ensures  forall k1, k2 :: KeyPlusLe(k1, k2) ==> CDM_IndexForKey(m, k1) <= CDM_IndexForKey(m, k2);
@@ -295,7 +302,18 @@ lemma CDM_IndexForKey_Ordering(m:CDelegationMap)
     }
 }
 
-lemma {:timeLimitMultiplier 2} {:induction false} UpdateCDelegationMap_Part2(m:CDelegationMap, newkr:KeyRange, id:EndPoint, m':CDelegationMap,
+lemma lemma_UpdateCDelegationMap_Part2_Helper(m:CDelegationMap, m':CDelegationMap, newkr:KeyRange, id:EndPoint)
+    requires CDelegationMapIsValid(m);
+    requires CDelegationMapIsValid(m');
+    requires EndPointIsValidIPV4(id);
+    requires !EmptyKeyRange(newkr);
+    requires forall k:Key :: k in RefineToDelegationMap(m') <==> k in UpdateDelegationMap(RefineToDelegationMap(m), newkr, AbstractifyEndPointToNodeIdentity(id));
+    requires forall k:Key :: true ==> RefineToDelegationMap(m')[k] == UpdateDelegationMap(RefineToDelegationMap(m), newkr, AbstractifyEndPointToNodeIdentity(id))[k];
+    ensures  RefineToDelegationMap(m') == UpdateDelegationMap(RefineToDelegationMap(m), newkr, AbstractifyEndPointToNodeIdentity(id));
+{
+}
+
+lemma {:timeLimitMultiplier 4} {:induction false} UpdateCDelegationMap_Part2(m:CDelegationMap, newkr:KeyRange, id:EndPoint, m':CDelegationMap,
                                  left_index:int, right_index:int, new_left:seq<Mapping>, new_right:seq<Mapping>)
     requires CDelegationMapIsValid(m);
     requires EndPointIsValidIPV4(id);
@@ -386,6 +404,7 @@ lemma {:timeLimitMultiplier 2} {:induction false} UpdateCDelegationMap_Part2(m:C
             }
         }
     }
+    lemma_UpdateCDelegationMap_Part2_Helper(m, m', newkr, id);
 }
 
 lemma SequenceIndexingHelper<T>(a:seq<T>, b:seq<T>, c:seq<T>, d:seq<T>, combined:seq<T>, index:int)
