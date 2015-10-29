@@ -48,6 +48,7 @@ lemma lemma_IfLiveReplicasReadyForAnOperationAndLearnerHas2bsFromAllLiveReplicas
     lemma_ConstantsAllConsistent(b, asp.c, i+1);
     var s := b[i].replicas[learner_idx].replica;
     var s' := b[i+1].replicas[learner_idx].replica;
+    assert SpecificSpontaneousRslActionOccurs(b[i], b[i+1], LReplicaNextSpontaneousMaybeMakeDecision, learner_idx);
     var ios :|    RslNextOneReplica(b[i], b[i+1], learner_idx, ios)
                && LReplicaNextSpontaneousMaybeMakeDecision(s, s', ExtractSentPacketsFromIos(ios));
     lemma_ConstantsAllConsistent(b, asp.c, prev_step);

@@ -189,6 +189,7 @@ lemma lemma_IfProposerHasCertainNextOpAndNonemptyRequestQueueThenProposerEventua
             }
             if sat(i, Action)
             {
+                assert SpecificClockReadingRslActionOccurs(b[i], b[i+1], LReplicaNextReadClockMaybeNominateValueAndSend2a, idx);
                 var ios :|    RslNextOneReplica(b[i], b[i+1], idx, ios)
                            && SpontaneousIos(ios, 1)
                            && LReplicaNextReadClockMaybeNominateValueAndSend2a(b[i].replicas[idx].replica,
@@ -336,6 +337,7 @@ lemma lemma_IfProposerHasCertainNextOpAndNonemptyRequestQueueAndBatchTimerThenPr
             }
             if sat(i, nextafter(Action, timerExpiration + asp.max_clock_ambiguity, f))
             {
+                assert SpecificClockReadingRslActionOccurs(b[i], b[i+1], LReplicaNextReadClockMaybeNominateValueAndSend2a, idx);
                 var ios :|    RslNextOneReplica(b[i], b[i+1], idx, ios)
                            && SpontaneousIos(ios, 1)
                            && LReplicaNextReadClockMaybeNominateValueAndSend2a(b[i].replicas[idx].replica,
