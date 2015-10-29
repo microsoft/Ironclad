@@ -1194,13 +1194,14 @@ module Main_i exclusively refines Main_s {
     lemma InvHolds(config:SHTConfiguration, db:seq<SHT_State>) 
         requires |db| > 0;
         requires SHT_Init(config, db[0]);
-        requires forall i :: 0 <= i < |db| - 1 ==> SHT_Next(db[i], db[i+1]);
-        ensures  forall i :: 0 <= i < |db| ==> Inv(db[i]);
+        requires forall i {:trigger SHT_Next(db[i], db[i+1])} :: 0 <= i < |db| - 1 ==> SHT_Next(db[i], db[i+1]);
+        ensures  forall i {:trigger Inv(db[i])} :: 0 <= i < |db| ==> Inv(db[i]);
     {
         if |db| == 1 {
             InitInv(config, db[0]);
         } else {
             InvHolds(config, all_but_last(db));
+            assert forall i :: 0 <= i < |all_but_last(db)| ==> Inv(all_but_last(db)[i]);
             var d  := last(all_but_last(db));
             var d' := last(db);
             var penultimate_index := |db| - 2;
@@ -1210,6 +1211,7 @@ module Main_i exclusively refines Main_s {
             }
             NextInv(d, d');
             assert Inv(d');
+            assert forall i :: 0 <= i < |db| ==> Inv(db[i]);
         }
     }
 
@@ -1239,13 +1241,14 @@ module Main_i exclusively refines Main_s {
             var d  := last(all_but_last(db));
             var d' := last(db);
             var s  := Refinement(d);
-            var s' := Refinement(d');
+            
             var penultimate_index := |db| - 2;
             calc {
                 SHT_Next(db[penultimate_index], db[penultimate_index + 1]); // OBSERVE: +1 needed for trigger
                 SHT_Next(d, d');
             }
             NextRefinesService(d, d');
+            var s' := Refinement(d');
             if Service_Next(s, s') {
                 sb := sb_others + [s'];
                 cm := cm_others + [|sb_others|];
