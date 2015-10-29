@@ -285,6 +285,7 @@ lemma lemma_IfLiveReplicasReadyForAnOperationThenExecutorEventuallyExecutesIt(
                 lemma_ConstantsAllConsistent(b, asp.c, i+1);
                 var s := b[i].replicas[executor_idx].replica;
                 var s' := b[i+1].replicas[executor_idx].replica;
+                assert SpecificSpontaneousRslActionOccurs(b[i], b[i+1], LReplicaNextSpontaneousMaybeExecute, executor_idx);
                 var ios :|    RslNextOneReplica(b[i], b[i+1], executor_idx, ios)
                            && LReplicaNextSpontaneousMaybeExecute(s, s', ExtractSentPacketsFromIos(ios));
                 lemma_OverflowProtectionNotUsedForReplica(b, asp, i, executor_idx);
