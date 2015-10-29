@@ -173,7 +173,7 @@ lemma lemma_IfPacketsSynchronousForHostsThenSynchronousForFewerHosts<IdType, Mes
     TemporalAlways(sync_start, PacketsSynchronousForHostsTemporal(b, latency_bound, sources', destinations'));
 }
 
-lemma{:timeLimitMultiplier 6} lemma_AllPacketsReceivedInTime(
+lemma lemma_AllPacketsReceivedInTime(
     b:Behavior<RslState>,
     asp:AssumptionParameters
     ) returns
@@ -196,7 +196,7 @@ lemma{:timeLimitMultiplier 6} lemma_AllPacketsReceivedInTime(
 
     lemma_mul_is_associative(asp.burst_size, asp.host_period, LReplicaNumActions());
     
-    forall i
+    forall i {:trigger real_time_fun[i]} {:trigger BehaviorToTimeMap(eb)[i]}
         ensures real_time_fun[i] == BehaviorToTimeMap(eb)[i];
     {
     }
