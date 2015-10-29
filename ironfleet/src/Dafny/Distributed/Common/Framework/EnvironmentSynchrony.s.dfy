@@ -8,10 +8,12 @@ import opened Environment_s
 import opened Temporal__Time_s
 import opened Collections__Multisets_s
 
-function BehaviorToTimeMap<IdType, MessageType>(
+function{:opaque} BehaviorToTimeMap<IdType, MessageType>(
     b:Behavior<LEnvironment<IdType, MessageType>>
     ):imap<int, int>
     requires imaptotal(b);
+    ensures  imaptotal(BehaviorToTimeMap(b));
+    ensures  forall i {:trigger BehaviorToTimeMap(b)[i]} :: BehaviorToTimeMap(b)[i] == b[i].time;
 {
     imap i :: b[i].time
 }
