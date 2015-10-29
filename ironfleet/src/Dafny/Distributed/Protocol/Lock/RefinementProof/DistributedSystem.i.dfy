@@ -26,8 +26,8 @@ module DistributedSystem_i {
     
     datatype LS_State = LS_State(
         environment:LockEnvironment,
-        servers:map<EndPoint,Node>,
-        history:seq<EndPoint>
+        servers:map<EndPoint,Node>
+        //history:seq<EndPoint>
         )
 
     predicate LS_Init(s:LS_State, config:Config)
@@ -37,7 +37,7 @@ module DistributedSystem_i {
         && SeqIsUnique(config)
         && (forall e :: e in config <==> e in s.servers)
         && (forall index :: 0 <= index < |config| ==> NodeInit(s.servers[config[index]], index, config))
-        && s.history == [config[0]]
+        //&& s.history == [config[0]]
     }
     
     predicate LS_NextOneServer(s:LS_State, s':LS_State, id:EndPoint, ios:seq<LockIo>)
@@ -58,15 +58,38 @@ module DistributedSystem_i {
            LEnvironment_Next(s.environment, s'.environment)
         //&& ValidPhysicalEnvironmentStep(s.environment.nextStep)
         //&& s'.history == s.history + [FindLock(s.servers, s.history)]
-        && (if exists e :: NodeAcquiresLock(e, s, s') then
+        /*&& (if exists e :: NodeAcquiresLock(e, s, s') then
                 var e :| NodeAcquiresLock(e, s, s');
                 s'.history == s.history + [e]
             else
-                s'.history == s.history)
+                s'.history == s.history)*/
         && if s.environment.nextStep.LEnvStepHostIos? && s.environment.nextStep.actor in s.servers then
                LS_NextOneServer(s, s', s.environment.nextStep.actor, s.environment.nextStep.ios)
            else
                s'.servers == s.servers
     }
-}
+
+    datatype GLS_State = GLS_State(
+        ls:LS_State,
+        history:seq<EndPoint>
+    )
+
+    predicate GLS_Init(s:GLS_State, config:Config)
+    {
+           LS_Init(s.ls, config)
+        && s.history == [config[0]]
+    }
+
+    predicate GLS_Next(s:GLS_State, s':GLS_State)
+    {
+           LS_Next(s.ls, s'.ls)
+        && (if    s.ls.environment.nextStep.LEnvStepHostIos? && s.ls.environment.nextStep.actor in s.ls.servers
+               && NodeGrant(s.ls.servers[s.ls.environment.nextStep.actor], s'.ls.servers[s.ls.environment.nextStep.actor], s.ls.environment.nextStep.ios)
+               && s.ls.servers[s.ls.environment.nextStep.actor].held && s.ls.servers[s.ls.environment.nextStep.actor].epoch < 0xFFFF_FFFF_FFFF_FFFF then
+               s'.history == s.history + [s.ls.servers[s.ls.environment.nextStep.actor].config[(s.ls.servers[s.ls.environment.nextStep.actor].my_index + 1) % |s.ls.servers[s.ls.environment.nextStep.actor].config|]]
+            else
+               s'.history == s.history
+            )
+    }
+}   
 
