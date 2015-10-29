@@ -320,7 +320,7 @@ lemma lemma_FirstStepWithLiveReplicaInQuorumHasNoLiveReplicaSuspectingBeforeIfHe
     lemma_ClockAmbiguityLimitApplies(b, asp, step-1, ahead_idx, ios[1]);
 }
 
-lemma lemma_FirstStepWithLiveReplicaInQuorumHasNoLiveReplicaSuspectingBefore(
+lemma{:timeLimitMultiplier 2} lemma_FirstStepWithLiveReplicaInQuorumHasNoLiveReplicaSuspectingBefore(
     b:Behavior<RslState>,
     asp:AssumptionParameters,
     view:Ballot,
@@ -371,18 +371,18 @@ lemma lemma_FirstStepWithLiveReplicaInQuorumHasNoLiveReplicaSuspectingBefore(
             lemma_OverflowProtectionNotUsedForReplica(b, asp, step, idx);
             assert EpochLengthEqualOrGreater(ps, idx, duration);
         
-            var ios := lemma_ActionThatChangesReplicaIsThatReplicasAction(b, asp.c, step-1, idx);
-            var sent_packets := ExtractSentPacketsFromIos(ios);
-            if |ios| > 1 && ios[1].LIoOpReadClock? && LReplicaNextProcessHeartbeat(s, s', ios[0].r, ios[1].t, sent_packets) && ios[0].r.src in asp.c.config.replica_ids
+            var ios2 := lemma_ActionThatChangesReplicaIsThatReplicasAction(b, asp.c, step-1, idx);
+            var sent_packets := ExtractSentPacketsFromIos(ios2);
+            if |ios2| > 1 && ios2[1].LIoOpReadClock? && LReplicaNextProcessHeartbeat(s, s', ios2[0].r, ios2[1].t, sent_packets) && ios2[0].r.src in asp.c.config.replica_ids
             {
-                lemma_FirstStepWithLiveReplicaInQuorumHasNoLiveReplicaSuspectingBeforeIfHeartbeat(b, asp, view, duration, step, ios, ahead_idx);
-                lemma_ClockAmbiguityLimitApplies(b, asp, step-1, idx, ios[1]);
+                lemma_FirstStepWithLiveReplicaInQuorumHasNoLiveReplicaSuspectingBeforeIfHeartbeat(b, asp, view, duration, step, ios2, ahead_idx);
+                lemma_ClockAmbiguityLimitApplies(b, asp, step-1, idx, ios2[1]);
             }
-            else if LReplicaNextReadClockCheckForQuorumOfViewSuspicions(s, s', SpontaneousClock(ios), sent_packets)
+            else if LReplicaNextReadClockCheckForQuorumOfViewSuspicions(s, s', SpontaneousClock(ios2), sent_packets)
             {
                 assert es'.current_view == ComputeSuccessorView(es.current_view, asp.c);
                 lemma_NothingBetweenViewAndSuccessor(es.current_view, view, asp.c);
-                lemma_ClockAmbiguityLimitApplies(b, asp, step-1, idx, ios[0]);
+                lemma_ClockAmbiguityLimitApplies(b, asp, step-1, idx, ios2[0]);
             }
         }
     }
