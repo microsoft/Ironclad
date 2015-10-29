@@ -109,6 +109,7 @@ lemma lemma_ReplicaEventuallySendsSuspicionOrLeavesViewWF1Req2(
         {
             lemma_ConstantsAllConsistent(b, asp.c, i);
             lemma_ConstantsAllConsistent(b, asp.c, i+1);
+            assert SpecificClockReadingRslActionOccurs(b[i], b[i+1], LReplicaNextReadClockMaybeSendHeartbeat, suspector_idx);
             var ios :|    RslNextOneReplica(b[i], b[i+1], suspector_idx, ios)
                        && SpontaneousIos(ios, 1)
                        && LReplicaNextReadClockMaybeSendHeartbeat(b[i].replicas[suspector_idx].replica, b[i+1].replicas[suspector_idx].replica,
