@@ -38,9 +38,12 @@ function{:opaque} ProposerSends2asForOperationTemporal(
     ):temporal
     requires imaptotal(b);
     ensures  forall i{:trigger sat(i, ProposerSends2asForOperationTemporal(b, idx, opn))} ::
-             sat(i, ProposerSends2asForOperationTemporal(b, idx, opn)) == exists ios :: ProposerSends2asForOperation(b[i], b[i+1], idx, opn, ios);
+             sat(i, ProposerSends2asForOperationTemporal(b, idx, opn)) <==>
+             exists ios {:trigger ProposerSends2asForOperation(b[i], b[i+1], idx, opn, ios)} ::
+                    ProposerSends2asForOperation(b[i], b[i+1], idx, opn, ios);
 {
-    stepmap(imap i :: exists ios :: ProposerSends2asForOperation(b[i], b[i+1], idx, opn, ios))
+    stepmap(imap i :: exists ios {:trigger ProposerSends2asForOperation(b[i], b[i+1], idx, opn, ios)} ::
+                            ProposerSends2asForOperation(b[i], b[i+1], idx, opn, ios))
 }
 
 predicate LearnerHas2bFromAcceptorInView(
@@ -457,14 +460,14 @@ lemma lemma_IfLiveReplicasReadyForAnOperationThenLearnerEventuallyLearnsItFromAl
     
     forall acceptor_idx | acceptor_idx in asp.live_quorum
         ensures var a := or(LearnerHas2bFromAcceptorInViewTemporal(b, acceptor_idx, learner_idx, h.view, opn), or(x2, not(z)));
-                           sat(h.start_step + 1, eventuallywithin(always(a), t, f));
+                sat(h.start_step + 1, eventuallywithin(always(a), t, f));
     {
-        var step := lemma_IfLiveReplicasReadyForAnOperationThenLearnerEventuallyLearnsIt(b, asp, h, opn, prev_step, acceptor_idx, learner_idx);
-        assert f[step] <= f[h.start_step+1] + t;
+        var learn_step := lemma_IfLiveReplicasReadyForAnOperationThenLearnerEventuallyLearnsIt(b, asp, h, opn, prev_step, acceptor_idx, learner_idx);
+        assert f[learn_step] <= f[h.start_step+1] + t;
         var x1 := LearnerHas2bFromAcceptorInViewTemporal(b, acceptor_idx, learner_idx, h.view, opn);
         var a := or(x1, or(x2, not(z)));
-        assert sat(step, or(x1, or(x2, or(y, not(z)))));
-        if sat(step, y)
+        assert sat(learn_step, or(x1, or(x2, or(y, not(z)))));
+        if sat(learn_step, y)
         {
             TemporalEventually(h.start_step + 1, step, beforeabsolutetime(y, f[h.start_step + 1] + t, f));
             assert sat(h.start_step + 1, eventuallywithin(y, t, f));
@@ -472,7 +475,7 @@ lemma lemma_IfLiveReplicasReadyForAnOperationThenLearnerEventuallyLearnsItFromAl
         }
         else
         {
-            lemma_IfLearnerHas2bFromAcceptorItKeepsIt(b, asp, h, opn, acceptor_idx, learner_idx, step);
+            lemma_IfLearnerHas2bFromAcceptorItKeepsIt(b, asp, h, opn, acceptor_idx, learner_idx, learn_step);
             TemporalEventually(h.start_step + 1, step, beforeabsolutetime(always(a), f[h.start_step + 1] + t, f));
             assert sat(h.start_step + 1, eventuallywithin(always(a), t, f));
         }
