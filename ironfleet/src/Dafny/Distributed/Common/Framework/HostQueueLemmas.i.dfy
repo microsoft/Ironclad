@@ -32,17 +32,17 @@ lemma Lemma_HostQueuePerformIosProducesTail<IdType, MessageType>(
     hostQueue':seq<LPacket<IdType, MessageType>>,
     ios:seq<LIoOp<IdType, MessageType>>
     )
+    returns (i:int)
     requires HostQueue_PerformIos(hostQueue, hostQueue', ios);
-    ensures  exists i :: 0 <= i <= |hostQueue| && hostQueue' == hostQueue[i..];
+    ensures  0 <= i <= |hostQueue|;
+    ensures  hostQueue' == hostQueue[i..];
 {
     if |ios| > 0 && ios[0].LIoOpReceive? {
-        Lemma_HostQueuePerformIosProducesTail(hostQueue[1..], hostQueue', ios[1..]);
-        var i :| 0 <= i <= |hostQueue[1..]| && hostQueue' == hostQueue[1..][i..];
-        var j := i + 1;
-        assert 0 <= j <= |hostQueue| && hostQueue' == hostQueue[j..];
+        var j := Lemma_HostQueuePerformIosProducesTail(hostQueue[1..], hostQueue', ios[1..]);
+        i := j + 1;
     }
     else {
-        assert hostQueue' == hostQueue == hostQueue[0..];
+        i := 0;
     }
 }
 
@@ -66,7 +66,7 @@ lemma Lemma_LEnvironmentNextPreservesInvariant<IdType, MessageType>(
             assert id in e.hostInfo;
             if (id == actor) {
                 assert HostQueue_PerformIos(e.hostInfo[id].queue, e'.hostInfo[id].queue, ios);
-                Lemma_HostQueuePerformIosProducesTail(e.hostInfo[id].queue, e'.hostInfo[id].queue, ios);
+                var i := Lemma_HostQueuePerformIosProducesTail(e.hostInfo[id].queue, e'.hostInfo[id].queue, ios);
                 assert p in e'.hostInfo[id].queue ==> p in e.hostInfo[id].queue;
                 assert p in e'.sentPackets;
             }
@@ -142,11 +142,8 @@ lemma{:timeLimitMultiplier 2} Lemma_ReceiveRemovesPacketFromHostQueue<IdType, Me
     if ios[0].r == p
     {
         assert hostQueue[0] == p;       
-        forall ensures exists j :: 0 <= j <= |hostQueue[1..]| && hostQueue' == hostQueue[1..][j..];
-        {
-            Lemma_HostQueuePerformIosProducesTail(hostQueue[1..], hostQueue', ios[1..]);
-        }
-        var j :| 0 <= j <= |hostQueue[1..]| && hostQueue' == hostQueue[1..][j..];
+        var j := Lemma_HostQueuePerformIosProducesTail(hostQueue[1..], hostQueue', ios[1..]);
+        assert 0 <= j <= |hostQueue[1..]| && hostQueue' == hostQueue[1..][j..];
         var s1 := [];
         var s2 := hostQueue[1..j+1];
         calc {
@@ -162,8 +159,8 @@ lemma{:timeLimitMultiplier 2} Lemma_ReceiveRemovesPacketFromHostQueue<IdType, Me
         Lemma_IfOpSeqIsCompatibleWithReductionThenSoIsSuffix(ios, 1);
         Lemma_ReceiveRemovesPacketFromHostQueue(hostQueue[1..], hostQueue', ios[1..], p);
         var s1', s2 :| hostQueue[1..] == s1' + [p] + s2 + hostQueue';
-        Lemma_HostQueuePerformIosProducesTail(hostQueue[1..], hostQueue', ios[1..]);
-        var j :| 0 <= j <= |hostQueue[1..]| && hostQueue' == hostQueue[1..][j..];
+        var j := Lemma_HostQueuePerformIosProducesTail(hostQueue[1..], hostQueue', ios[1..]);
+        assert 0 <= j <= |hostQueue[1..]| && hostQueue' == hostQueue[1..][j..];
         calc {
             hostQueue;
             [hostQueue[0]] + hostQueue[1..];
