@@ -173,7 +173,7 @@ lemma lemma_IfPacketsSynchronousForHostsThenSynchronousForFewerHosts<IdType, Mes
     TemporalAlways(sync_start, PacketsSynchronousForHostsTemporal(b, latency_bound, sources', destinations'));
 }
 
-lemma lemma_AllPacketsReceivedInTime(
+lemma{:timeLimitMultiplier 6} lemma_AllPacketsReceivedInTime(
     b:Behavior<RslState>,
     asp:AssumptionParameters
     ) returns
@@ -212,7 +212,7 @@ lemma lemma_AllPacketsReceivedInTime(
     TemporalEventually(0, asp.synchrony_start, always(PacketsSynchronousForHostsTemporal(eb, asp.latency_bound, sources, destinations)));
 
     forall host | host in destinations
-        ensures sat(0, eventual(always(NetworkDeliveryRateForHostBoundedTemporal(eb, asp.burst_size, asp.burst_size * receive_period + 1, host))));
+        ensures sat(0, eventual(always(NetworkDeliveryRateForHostBoundedTemporal(eb, asp.burst_size, burst_period, host))));
     {
         var replica_index :| replica_index in asp.live_quorum && host == asp.c.config.replica_ids[replica_index];
         assert sat(asp.synchrony_start, always(NetworkDeliveryRateForHostBoundedTemporal(eb, asp.burst_size, burst_period, host)));
@@ -220,7 +220,7 @@ lemma lemma_AllPacketsReceivedInTime(
     }
     
     lemma_mul_is_associative(asp.burst_size, asp.host_period, LReplicaNumActions());
-//    assert forall host :: host in destinations ==> sat(0, eventual(always(NetworkDeliveryRateForHostBoundedTemporal(eb, asp.burst_size, asp.burst_size * receive_period + 1, host))));
+    assert forall host :: host in destinations ==> sat(0, eventual(always(NetworkDeliveryRateForHostBoundedTemporal(eb, asp.burst_size, asp.burst_size * receive_period + 1, host))));
 
     forall host | host in destinations
         ensures sat(asp.synchrony_start, always(eventuallynextwithin(ReceiveAttemptedTemporal(eb, host), receive_period, real_time_fun)));
