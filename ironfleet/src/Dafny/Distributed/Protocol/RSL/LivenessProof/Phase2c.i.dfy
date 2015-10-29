@@ -204,6 +204,7 @@ lemma lemma_IfExecutorCaughtUpThenExecutorEventuallyExecutesItAndTellsPrimary(
             
             if sat(i, nextafter(Action, nextHeartbeatTime + asp.max_clock_ambiguity, f))
             {
+                assert SpecificClockReadingRslActionOccurs(b[i], b[i+1], LReplicaNextReadClockMaybeSendHeartbeat, executor_idx);
                 var ios :|    RslNextOneReplica(b[i], b[i+1], executor_idx, ios)
                            && SpontaneousIos(ios, 1)
                            && LReplicaNextReadClockMaybeSendHeartbeat(s, s', SpontaneousClock(ios), ExtractSentPacketsFromIos(ios));
