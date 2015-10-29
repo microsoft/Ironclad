@@ -469,14 +469,14 @@ lemma lemma_IfLiveReplicasReadyForAnOperationThenLearnerEventuallyLearnsItFromAl
         assert sat(learn_step, or(x1, or(x2, or(y, not(z)))));
         if sat(learn_step, y)
         {
-            TemporalEventually(h.start_step + 1, step, beforeabsolutetime(y, f[h.start_step + 1] + t, f));
+            TemporalEventually(h.start_step + 1, learn_step, beforeabsolutetime(y, f[h.start_step + 1] + t, f));
             assert sat(h.start_step + 1, eventuallywithin(y, t, f));
             assert false;
         }
         else
         {
             lemma_IfLearnerHas2bFromAcceptorItKeepsIt(b, asp, h, opn, acceptor_idx, learner_idx, learn_step);
-            TemporalEventually(h.start_step + 1, step, beforeabsolutetime(always(a), f[h.start_step + 1] + t, f));
+            TemporalEventually(h.start_step + 1, learn_step, beforeabsolutetime(always(a), f[h.start_step + 1] + t, f));
             assert sat(h.start_step + 1, eventuallywithin(always(a), t, f));
         }
     }
