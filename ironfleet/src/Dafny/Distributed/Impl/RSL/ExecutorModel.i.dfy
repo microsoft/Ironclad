@@ -192,11 +192,11 @@ method {:timeLimitMultiplier 2} HandleRequestBatchImpl(state:CAppState, batch:CR
                 assert AbstractifyCReplySeqToReplySeq(old_replies) == g_replies[..i-1];
             } else {
                 assert k == int(i) - 1;
-                ghost var reply := AppHandleRequest(AbstractifyCAppStateToAppState(states[i-1]), AbstractifyCAppMessageToAppMessage(batch[i-1].request)).1;
+                ghost var reply' := AppHandleRequest(AbstractifyCAppStateToAppState(states[i-1]), AbstractifyCAppMessageToAppMessage(batch[i-1].request)).1;
                 calc {
                     AbstractifyCReplySeqToReplySeq(replies)[k];
                     AbstractifyCReplyToReply(replies[k]);
-                    Reply(AbstractifyEndPointToNodeIdentity(batch[i-1].client), int(batch[i-1].seqno), reply);
+                    Reply(AbstractifyEndPointToNodeIdentity(batch[i-1].client), int(batch[i-1].seqno), reply');
                     Reply(AbstractifyCRequestBatchToRequestBatch(batch)[i-1].client, AbstractifyCRequestBatchToRequestBatch(batch)[i-1].seqno, 
                           AppHandleRequest(g_states[i-1], AbstractifyCRequestBatchToRequestBatch(batch)[i-1].request).1);
                         { lemma_HandleBatchRequestProperties(AbstractifyCAppStateToAppState(state),
@@ -218,8 +218,8 @@ method {:timeLimitMultiplier 2} HandleRequestBatchImpl(state:CAppState, batch:CR
 
             if client in old_newReplyCache {
                 assert ReplyCacheUpdated(client, reply_cache, old_newReplyCache, batch[..i-1], old_replies);
-                assert  (client in reply_cache && old_newReplyCache[client] == reply_cache[client])
-                     || (exists req_idx :: ClientIndexMatches(req_idx, client, old_newReplyCache, batch[..i-1], old_replies));
+//                assert  (client in reply_cache && old_newReplyCache[client] == reply_cache[client])
+//                     || (exists req_idx :: ClientIndexMatches(req_idx, client, old_newReplyCache, batch[..i-1], old_replies));
                 if client in reply_cache && old_newReplyCache[client] == reply_cache[client] {
                     if client in old_newReplyCache && newReplyCache[client] == old_newReplyCache[client] {
                         assert client in reply_cache && newReplyCache[client] == reply_cache[client];
@@ -280,7 +280,7 @@ method UpdateReplyCache(ghost reply_cache:CReplyCache, reply_cache_mutable:Mutab
     requires newReply.client == ep;
     requires ValidReplyCache(reply_cache);
     requires CReplyCacheIsAbstractable(reply_cache);
-    requires forall i :: i in replies ==> CReplyIsAbstractable(i);
+    requires forall r :: r in replies ==> CReplyIsAbstractable(r);
     requires newReply == CReply(batch[i].client, batch[i].seqno, reply);
     requires reply_cache_mutable != null && MutableMap.MapOf(reply_cache_mutable) == reply_cache;
     modifies reply_cache_mutable;
@@ -544,16 +544,16 @@ method GetPacketsFromRepliesImpl(me:EndPoint, requests:CRequestBatch, replies:se
             { lemma_SizeOfGetPacketsFromReplies(r_me, r_requests, r_replies, r_cout'); }
         |r_cout'|;
     }
-    forall i | 0 <= i < |r_cout| 
-        ensures r_cout[i] == r_cout'[i];
+    forall j | 0 <= j < |r_cout| 
+        ensures r_cout[j] == r_cout'[j];
     {
         calc {
-            r_cout[i];
-            AbstractifyCPacketToRslPacket(cout[i]);
-            AbstractifyCPacketToRslPacket(CPacket(requests[i].client, me, CMessage_Reply(requests[i].seqno, replies[i].reply)));
-            LPacket(r_requests[i].client, r_me, RslMessage_Reply(r_requests[i].seqno, r_replies[i].reply));
-                { lemma_SpecificPacketInGetPacketsFromReplies(r_me, r_requests, r_replies, r_cout', i); }
-            r_cout'[i];
+            r_cout[j];
+            AbstractifyCPacketToRslPacket(cout[j]);
+            AbstractifyCPacketToRslPacket(CPacket(requests[j].client, me, CMessage_Reply(requests[j].seqno, replies[j].reply)));
+            LPacket(r_requests[j].client, r_me, RslMessage_Reply(r_requests[j].seqno, r_replies[j].reply));
+                { lemma_SpecificPacketInGetPacketsFromReplies(r_me, r_requests, r_replies, r_cout', j); }
+            r_cout'[j];
         }
     }
     cout_seq := coutArr[..];
