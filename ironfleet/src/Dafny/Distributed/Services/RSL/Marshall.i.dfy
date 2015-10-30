@@ -235,6 +235,7 @@ module MarshallProof_i {
 
             // Walk through the generic parsing process
             var msgCaseId, msgCaseVal, rest0 := lemma_ParseValCorrectVCase(data, v, g);
+            assert msgCaseId == 6;
             var seqnoVal, appVal, rest1 := lemma_ParseValCorrectTuple2(rest0, msgCaseVal, g.cases[msgCaseId]);
             var appCaseId, appCaseVal, rest2 := lemma_ParseValCorrectVCase(rest1, appVal, g.cases[msgCaseId].t[1]);
 
