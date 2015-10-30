@@ -453,10 +453,8 @@ method ExecutorGetDecision(cs:ExecutorState, cbal:CBallot, copn:COperationNumber
     ghost var v := AbstractifyCRequestBatchToRequestBatch(ca);
     ghost var opn := AbstractifyCOperationNumberToOperationNumber(copn);
     ghost var bal := AbstractifyCBallotToBallot(cbal);
-    ghost var s' := s
-        [next_op_to_execute := OutstandingOpKnown(v, bal)];
-    cs' := cs
-        [next_op_to_execute := COutstandingOpKnown(ca, cbal)];
+    ghost var s' := s.(next_op_to_execute := OutstandingOpKnown(v, bal));
+    cs' := cs.(next_op_to_execute := COutstandingOpKnown(ca, cbal));
 
     assert Eq_ExecutorState(s', AbstractifyExecutorStateToLExecutor(cs'));
 }
@@ -624,11 +622,11 @@ method {:timeLimitMultiplier 4} ExecutorExecute(cs:ExecutorState, reply_cache_mu
                                                                 || (exists req_idx :: 0 <= req_idx < |cv| && creplies[req_idx].client == client && newReplyCache[client] == creplies[req_idx]) );
 
     var newMaxBalReflected := (if CBallotIsNotGreaterThan(cs.max_bal_reflected, cs.next_op_to_execute.bal) then cs.next_op_to_execute.bal else cs.max_bal_reflected);
-    cs' := cs[app := final_state]
-             [ops_complete := COperationNumber(cs.ops_complete.n + 1)]
-             [max_bal_reflected := newMaxBalReflected]
-             [next_op_to_execute := COutstandingOpUnknown()]
-             [reply_cache := newReplyCache]; 
+    cs' := cs.(app := final_state,
+               ops_complete := COperationNumber(cs.ops_complete.n + 1),
+               max_bal_reflected := newMaxBalReflected,
+               next_op_to_execute := COutstandingOpUnknown())
+              [reply_cache := newReplyCache];
    
     assert cs'.ops_complete.COperationNumber?;
     assert COperationNumberIsAbstractable(cs'.ops_complete);
@@ -735,19 +733,19 @@ method ExecutorProcessAppStateSupply(cs:ExecutorState, cinp:CPacket) returns(cs'
     ghost var s := AbstractifyExecutorStateToLExecutor(cs);
     ghost var inp := AbstractifyCPacketToRslPacket(cinp);
     ghost var m := inp.msg;
-    ghost var s' := s
-        [app := m.app_state]
-        [ops_complete := m.opn_state_supply]
-        [max_bal_reflected := m.bal_state_supply]
-        [next_op_to_execute := OutstandingOpUnknown()]
-        [reply_cache := m.reply_cache];
+    ghost var s' := s.(
+        app := m.app_state,
+        ops_complete := m.opn_state_supply,
+        max_bal_reflected := m.bal_state_supply,
+        next_op_to_execute := OutstandingOpUnknown(),
+        reply_cache := m.reply_cache);
     var cm := cinp.msg;
-    cs' := cs
-        [app := cm.app_state]
-        [ops_complete := cm.opn_state_supply]
-        [max_bal_reflected := cm.bal_state_supply]
-        [next_op_to_execute := COutstandingOpUnknown()]
-        [reply_cache := cm.reply_cache];
+    cs' := cs.(
+        app := cm.app_state,
+        ops_complete := cm.opn_state_supply,
+        max_bal_reflected := cm.bal_state_supply,
+        next_op_to_execute := COutstandingOpUnknown(),
+        reply_cache := cm.reply_cache);
 
     reply_cache_mutable := MutableMap.FromMap(cm.reply_cache);
     assert Eq_ExecutorState(s', AbstractifyExecutorStateToLExecutor(cs'));

@@ -30,7 +30,7 @@ method Replica_Next_Process_AppStateRequest(
 {
     var start_time := Time.GetDebugTimeTicks();
     var newExecutor, packets := ExecutorProcessAppStateRequest(replica.executor, inp, reply_cache_mutable);
-    replica' := replica[executor := newExecutor];
+    replica' := replica.(executor := newExecutor);
     packets_sent := packets;
     //lemma_RefineCPacketsToPacketsProperties(packets_sent);
     //lemma_AbstractifyCPacketToRslPacket_src(packets_sent, replica.constants.all.config.replica_ids[replica.constants.my_index]);
@@ -68,8 +68,7 @@ method Replica_Next_Process_Heartbeat(
     assert OutboundPacketsIsValid(packets_sent);
     var newProposer := ProposerProcessHeartbeat(replica.proposer, inp, clock, cur_req_set, prev_req_set);
     var newAcceptor := NextAcceptorState_ProcessHeartbeat(replica.acceptor, inp.msg, inp.src);
-    replica' := replica[proposer := newProposer]
-                       [acceptor := newAcceptor];
+    replica' := replica.(proposer := newProposer, acceptor := newAcceptor);
     //lemma_RefineCPacketsToPacketsProperties(packets_sent);
     var end_time := Time.GetDebugTimeTicks();
     RecordTimingSeq("Replica_Next_Process_Heartbeat", start_time, end_time);
@@ -101,7 +100,7 @@ method {:timeLimitMultiplier 2} Replica_Next_ReadClock_CheckForViewTimeout(
 {
     var start_time := Time.GetDebugTimeTicks();
     var newProposer := ProposerCheckForViewTimeout(replica.proposer, clock.t, cur_req_set, prev_req_set);
-    replica' := replica[proposer := newProposer];
+    replica' := replica.(proposer := newProposer);
     packets_sent := Broadcast(CBroadcastNop);
     assert OutboundPacketsIsValid(packets_sent);
     assert OutboundPacketsHasCorrectSrc(packets_sent, replica.constants.all.config.replica_ids[replica.constants.my_index]);
@@ -135,7 +134,7 @@ method {:timeLimitMultiplier 2} Replica_Next_ReadClock_CheckForQuorumOfViewSuspi
 {
     var start_time := Time.GetDebugTimeTicks();
     var newProposer := ProposerCheckForQuorumOfViewSuspicions(replica.proposer, clock.t, cur_req_set, prev_req_set);
-    replica' := replica[proposer := newProposer];
+    replica' := replica.(proposer := newProposer);
     packets_sent := Broadcast(CBroadcastNop);
     assert OutboundPacketsIsValid(packets_sent);
     assert OutboundPacketsHasCorrectSrc(packets_sent, replica.constants.all.config.replica_ids[replica.constants.my_index]);

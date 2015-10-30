@@ -81,8 +81,8 @@ method ReplicaNextProcess1bActual(replica:ReplicaState, inp:CPacket) returns (re
     lemma_AbstractifySetOfCPacketsToSetOfRslPackets_srcMembership(replica.proposer.received_1b_packets, inp.src);
     var newProposer := ProposerProcess1b(replica.proposer, inp);
     var newAcceptor:= NextAcceptorState_TruncateLog(replica.acceptor, inp.msg.log_truncation_point);
-    replica' := replica[proposer := newProposer]
-                       [acceptor := newAcceptor];
+    replica' := replica.(proposer := newProposer,
+                         acceptor := newAcceptor);
     assert LProposerProcess1b(AbstractifyReplicaStateToLReplica(replica).proposer, AbstractifyReplicaStateToLReplica(replica').proposer, AbstractifyCPacketToRslPacket(inp));
 }
 
@@ -126,7 +126,7 @@ method Replica_Next_Process_StartingPhase2(replica:ReplicaState, inp:CPacket) re
 {
     var start_time := Time.GetDebugTimeTicks();
     var newExecutor, packets := ExecutorProcessStartingPhase2(replica.executor, inp);
-    replica' := replica[executor := newExecutor];
+    replica' := replica.(executor := newExecutor);
     packets_sent := Broadcast(packets);
     //lemma_RefineCPacketsToPacketsProperties(packets_sent);
     //lemma_AbstractifyCPacketToRslPacket_src(packets_sent, replica.constants.all.config.replica_ids[replica.constants.my_index]);
@@ -167,7 +167,7 @@ method ReplicaNextProcess2aActual(replica:ReplicaState, inp:CPacket) returns (re
     //}
 
     var newAcceptor, packets := NextAcceptorState_Phase2(replica.acceptor, inp.msg, inp.src);
-    replica' := replica[acceptor := newAcceptor];
+    replica' := replica.(acceptor := newAcceptor);
     packets_sent := Broadcast(packets);
 }
 

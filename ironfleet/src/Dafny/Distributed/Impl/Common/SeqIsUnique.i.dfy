@@ -147,9 +147,9 @@ lemma EstablishAppendToUniqueSeq<X>(xs:seq<X>, x:X, xs':seq<X>)
     ensures SeqIsUnique(xs');
     ensures x in xs';
 {
-    var xs' := xs + [x];
+    var xs'' := xs + [x];
     reveal_SeqIsUnique();
-    assert SeqIsUnique(xs');
+    assert SeqIsUnique(xs'');
 }
 
 function method AppendToUniqueSeq<X>(xs:seq<X>, x:X):seq<X>

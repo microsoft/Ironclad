@@ -35,7 +35,7 @@ predicate ValInGrammar(val:V, grammar:G)
         case VTuple(t)  => grammar.GTuple? && |t| == |grammar.t|
                               && forall i :: 0 <= i < |t| ==> ValInGrammar(t[i], grammar.t[i])
         case VByteArray(b) => grammar.GByteArray?
-        case VCase(c, val) => grammar.GTaggedUnion? && int(c) < |grammar.cases| && ValInGrammar(val, grammar.cases[c])
+        case VCase(c, v) => grammar.GTaggedUnion? && int(c) < |grammar.cases| && ValInGrammar(v, grammar.cases[c])
 }
 
 // We only support reasonably sized grammars
@@ -57,7 +57,7 @@ predicate ValidVal(val:V)
         case VArray(a)     => |a| < 0x1_0000_0000_0000_0000 && forall v :: v in a ==> ValidVal(v)
         case VTuple(t)     => |t| < 0x1_0000_0000_0000_0000 && forall v :: v in t ==> ValidVal(v)
         case VByteArray(b) => |b| < 0x1_0000_0000_0000_0000
-        case VCase(c, val) => ValidVal(val)
+        case VCase(c, v) => ValidVal(v)
 
 }
 
@@ -76,7 +76,7 @@ function SizeOfV(val:V) : int
         case VArray(a)      => 8 + SeqSum(a)     // 8 bytes for length
         case VTuple(t)      => SeqSum(t)
         case VByteArray(b)  => 8 + |b|          // 8 bytes for a length field
-        case VCase(c, val)  => 8 + SizeOfV(val) // 8 bytes for the case identifier
+        case VCase(c, v)  => 8 + SizeOfV(v)     // 8 bytes for the case identifier
 }
 
 function method parse_Uint64(data:seq<byte>) : (Option<V>, seq<byte>)
@@ -1180,8 +1180,8 @@ method ComputeSizeOf(val:V) returns (size:uint64)
                                }
         case VTuple(t)      => size := ComputeSeqSum(t);
         case VByteArray(b)  => size := 8 + uint64(|b|);
-        case VCase(c, val)  => var v := ComputeSizeOf(val);
-                               size := 8 + v;
+        case VCase(c, v)    => var vs := ComputeSizeOf(v);
+                               size := 8 + vs;
 }
 
 method MarshallUint64(n:uint64, data:array<byte>, index:uint64)
@@ -1333,10 +1333,10 @@ method{:timeLimitMultiplier 4} MarshallArrayContents(contents:seq<V>, eltType:G,
             int(index) + SeqSum(contents);
             //data.Length;
         }
-        var size := MarshallVal(contents[i], eltType, data, cur_index);
-        //var size := ComputeSizeOf(contents[uint64(i)]);
+        var item_size := MarshallVal(contents[i], eltType, data, cur_index);
+        //var item_size := ComputeSizeOf(contents[uint64(i)]);
 
-        ghost var fresh_bytes := data[cur_index..cur_index + size];
+        ghost var fresh_bytes := data[cur_index..cur_index + item_size];
         marshalled_bytes := marshalled_bytes + fresh_bytes;
         forall () 
             ensures var (val, rest) := parse_Val(fresh_bytes, eltType);
@@ -1350,7 +1350,7 @@ method{:timeLimitMultiplier 4} MarshallArrayContents(contents:seq<V>, eltType:G,
         trace := trace + [fresh_bytes];
 
         ghost var old_cur_index := cur_index;
-        cur_index := cur_index + size;
+        cur_index := cur_index + item_size;
         i := i + 1;
 
         // Prove the invariant that we stay within bounds
@@ -1565,10 +1565,10 @@ method{:timeLimitMultiplier 2} MarshallTupleContents(contents:seq<V>, eltTypes:s
             int(index) + SeqSum(contents);
             //data.Length;
         }
-        var size := MarshallVal(contents[i], eltTypes[i], data, cur_index);
-        //var size := ComputeSizeOf(contents[uint64(i)]);
+        var item_size := MarshallVal(contents[i], eltTypes[i], data, cur_index);
+        //var item_size := ComputeSizeOf(contents[uint64(i)]);
 
-        ghost var fresh_bytes := data[cur_index..cur_index + size];
+        ghost var fresh_bytes := data[cur_index..cur_index + item_size];
         marshalled_bytes := marshalled_bytes + fresh_bytes;
         forall () 
             ensures var (val, rest) := parse_Val(fresh_bytes, eltTypes[i]);
@@ -1582,7 +1582,7 @@ method{:timeLimitMultiplier 2} MarshallTupleContents(contents:seq<V>, eltTypes:s
         trace := trace + [fresh_bytes];
 
         ghost var old_cur_index := cur_index;
-        cur_index := cur_index + size;
+        cur_index := cur_index + item_size;
         i := i + 1;
         
         assert {:split_here} true;

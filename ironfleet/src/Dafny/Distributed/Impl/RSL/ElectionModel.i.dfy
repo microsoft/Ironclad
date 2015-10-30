@@ -45,8 +45,8 @@ method CComputeSuccessorView(cb:CBallot, constants:ConstantsState) returns(cb':C
 
 function ElectionStateUpdateValueSetsToReflectNextEpoch(es:ElectionState):ElectionState
 {
-    es[requests_received_this_epoch := []]
-      [requests_received_prev_epochs := es.requests_received_prev_epochs + es.requests_received_this_epoch]
+    es.(requests_received_this_epoch := [],
+        requests_received_prev_epochs := es.requests_received_prev_epochs + es.requests_received_this_epoch)
 }
 
 //function method CElectionStateValueSetsReflectNewView(es:CElectionState):CElectionState
@@ -240,15 +240,15 @@ method{:timeLimitMultiplier 4} RemoveFirstMatchingCRequestInSequenceIter(s:seq<C
         assert headers' + { header } == headers;
         assert |headers'| == |headers| - 1;
         assert {:split_here} true;
-        forall r | r in s' 
-            ensures CRequestHeader(r.client, r.seqno) in headers';
+        forall r' | r' in s' 
+            ensures CRequestHeader(r'.client, r'.seqno) in headers';
         {
-            ghost var h := CRequestHeader(r.client, r.seqno); 
-            assert r in s;
+            ghost var h := CRequestHeader(r'.client, r'.seqno); 
+            assert r' in s;
             if h != header {
                 assert h in headers';
             } else {
-                ghost var j :| 0 <= j < |s'| && s'[j] == r;
+                ghost var j :| 0 <= j < |s'| && s'[j] == r';
                 ghost var k :| 0 <= k < |s| && s[k] == s'[j];
                 if int(i) < k {
                     assert CRequestsMatch(s[i], s[k]);
@@ -272,8 +272,8 @@ method{:timeLimitMultiplier 4} RemoveFirstMatchingCRequestInSequenceIter(s:seq<C
             }
         }
 
-        forall i,j | 0 <= i < j < |s'| && CRequestsMatch(s'[i], s'[j]) 
-            ensures i == j;
+        forall i',j' | 0 <= i' < j' < |s'| && CRequestsMatch(s'[i'], s'[j']) 
+            ensures i' == j';
         {
         }
 
@@ -471,21 +471,20 @@ method {:timeLimitMultiplier 3} ElectionProcessHeartbeat(ces:CElectionState, cp:
         ghost var p := AbstractifyCPacketToRslPacket(cp);
         ghost var sender_index := GetReplicaIndex(p.src, es.constants.all.config);
         if cp.msg.bal_heartbeat == ces.current_view && cp.msg.suspicious {
-            es' := es[current_view_suspectors := es.current_view_suspectors + {sender_index}];
-            ces' := ces[current_view_suspectors := AppendToUniqueSeqMaybe(ces.current_view_suspectors, index)];
+            es' := es.(current_view_suspectors := es.current_view_suspectors + {sender_index});
+            ces' := ces.(current_view_suspectors := AppendToUniqueSeqMaybe(ces.current_view_suspectors, index));
             lemma_AbstractifySeqOfUint64sToSetOfInts_append(ces.current_view_suspectors, index);
             assert Eq_ElectionState(es', AbstractifyCElectionStateToElectionState(ces'));
         } else {
             var cmp := CBalLt(ces.current_view, cp.msg.bal_heartbeat);
             if cmp {
                 ghost var new_epoch_length := UpperBoundedAddition(es.epoch_length, es.epoch_length, es.constants.all.params.max_integer_val);
-                es' := es
-                    [current_view := p.msg.bal_heartbeat]
-                    [current_view_suspectors := (if p.msg.suspicious then {sender_index} else {})]
-                    [epoch_length := new_epoch_length]
-                    [epoch_end_time := UpperBoundedAddition(int(clock), new_epoch_length, es.constants.all.params.max_integer_val)]
-                    [requests_received_prev_epochs := BoundRequestSequence(es.requests_received_prev_epochs + es.requests_received_this_epoch, es.constants.all.params.max_integer_val)]
-                    [requests_received_this_epoch := []];
+                es' := es.(current_view := p.msg.bal_heartbeat,
+                           current_view_suspectors := (if p.msg.suspicious then {sender_index} else {}),
+                           epoch_length := new_epoch_length,
+                           epoch_end_time := UpperBoundedAddition(int(clock), new_epoch_length, es.constants.all.params.max_integer_val),
+                           requests_received_prev_epochs := BoundRequestSequence(es.requests_received_prev_epochs + es.requests_received_this_epoch, es.constants.all.params.max_integer_val),
+                           requests_received_this_epoch := []);
 
                 var cnewEpochLength := UpperBoundedAdditionImpl(ces.epoch_length, ces.epoch_length, ces.constants.all.params.max_integer_val);
                 var cnewEpochEndTime := UpperBoundedAdditionImpl(clock, cnewEpochLength, ces.constants.all.params.max_integer_val);
@@ -500,15 +499,15 @@ method {:timeLimitMultiplier 3} ElectionProcessHeartbeat(ces:CElectionState, cp:
                 if bounded { // Should never happen
                     new_set := BoundCRequestHeaders(new_seq, new_set, ces.constants.all.params.max_integer_val, prev_req_set);
                 }
-                ces' := ces //CElectionStateValueSetsReflectNewView(ces)
-                    [current_view := cp.msg.bal_heartbeat]
-                    [current_view_suspectors := (if cp.msg.suspicious then [index] else [])]
-                    [epoch_length := cnewEpochLength]
-                    [epoch_end_time := cnewEpochEndTime]
-                    [requests_received_prev_epochs := bounded_seq]
-                    [requests_received_this_epoch := []]
-                    [cur_req_set := {}]
-                    [prev_req_set := new_set]; 
+                ces' := ces.( //CElectionStateValueSetsReflectNewView(ces)
+                    current_view := cp.msg.bal_heartbeat,
+                    current_view_suspectors := (if cp.msg.suspicious then [index] else []),
+                    epoch_length := cnewEpochLength,
+                    epoch_end_time := cnewEpochEndTime,
+                    requests_received_prev_epochs := bounded_seq,
+                    requests_received_this_epoch := [],
+                    cur_req_set := {})
+                    [prev_req_set := new_set];
 
                 lemma_AbstractifyCRequestsSeqToRequestsSeq_concat(ces.requests_received_prev_epochs, ces.requests_received_this_epoch);
                 lemma_BoundCRequestSequence(ces.requests_received_prev_epochs + ces.requests_received_this_epoch, ces.constants.all.params.max_integer_val);
@@ -559,28 +558,28 @@ method {:timeLimitMultiplier 3} ElectionCheckForViewTimeout(ces:CElectionState, 
         assert Eq_ElectionState(es', AbstractifyCElectionStateToElectionState(ces'));
     } else if |ces.requests_received_prev_epochs| == 0 {
         ghost var new_epoch_length := es.constants.all.params.baseline_view_timeout_period;
-        es' := es[epoch_length := new_epoch_length]
-                 [epoch_end_time := UpperBoundedAddition(int(clock), new_epoch_length, es.constants.all.params.max_integer_val)]
-                 [requests_received_prev_epochs := es.requests_received_this_epoch]
-                 [requests_received_this_epoch := []];
+        es' := es.(epoch_length := new_epoch_length,
+                   epoch_end_time := UpperBoundedAddition(int(clock), new_epoch_length, es.constants.all.params.max_integer_val),
+                   requests_received_prev_epochs := es.requests_received_this_epoch,
+                   requests_received_this_epoch := []);
 
         var cnewEpochLength := ces.constants.all.params.baseline_view_timeout_period;
         var cnewEpochEndTime := UpperBoundedAdditionImpl(clock, cnewEpochLength, ces.constants.all.params.max_integer_val);
-        ces' := ces[epoch_length := cnewEpochLength]
-                   [epoch_end_time := cnewEpochEndTime]
-                   [requests_received_prev_epochs := ces.requests_received_this_epoch]
-                   [requests_received_this_epoch := []]
-                   [cur_req_set := {}]
-                   [prev_req_set := ces.cur_req_set];
+        ces' := ces.(epoch_length := cnewEpochLength,
+                     epoch_end_time := cnewEpochEndTime,
+                     requests_received_prev_epochs := ces.requests_received_this_epoch,
+                     requests_received_this_epoch := [],
+                     cur_req_set := {})
+                     [prev_req_set := ces.cur_req_set];
         prev_req_set.TransferSet(cur_req_set);
         assert Eq_ElectionState(es', AbstractifyCElectionStateToElectionState(ces'));
         var end_time := Time.GetDebugTimeTicks();
         RecordTimingSeq("ElectionCheckForViewTimeout_noprev", start_time, end_time);
     } else {
-        es' := es[current_view_suspectors := es.current_view_suspectors + {es.constants.my_index}]
-                 [epoch_end_time := UpperBoundedAddition(int(clock), es.epoch_length, es.constants.all.params.max_integer_val)]
-                 [requests_received_prev_epochs := BoundRequestSequence(es.requests_received_prev_epochs + es.requests_received_this_epoch, es.constants.all.params.max_integer_val)]
-                 [requests_received_this_epoch := []];
+        es' := es.(current_view_suspectors := es.current_view_suspectors + {es.constants.my_index},
+                   epoch_end_time := UpperBoundedAddition(int(clock), es.epoch_length, es.constants.all.params.max_integer_val),
+                   requests_received_prev_epochs := BoundRequestSequence(es.requests_received_prev_epochs + es.requests_received_this_epoch, es.constants.all.params.max_integer_val),
+                   requests_received_this_epoch := []);
 
         var cnewEpochEndTime := UpperBoundedAdditionImpl(clock, ces.epoch_length, ces.constants.all.params.max_integer_val);
 
@@ -595,12 +594,12 @@ method {:timeLimitMultiplier 3} ElectionCheckForViewTimeout(ces:CElectionState, 
             new_set := BoundCRequestHeaders(new_seq, new_set, ces.constants.all.params.max_integer_val, prev_req_set);
         }
 
-        ces' := ces[current_view_suspectors := AppendToUniqueSeqMaybe(ces.current_view_suspectors, ces.constants.my_index)]
-                 [epoch_end_time := cnewEpochEndTime]
-                 [requests_received_prev_epochs := bounded_seq]
-                 [requests_received_this_epoch := []]
-                 [cur_req_set := {}]
-                 [prev_req_set := new_set];
+        ces' := ces.(current_view_suspectors := AppendToUniqueSeqMaybe(ces.current_view_suspectors, ces.constants.my_index),
+                     epoch_end_time := cnewEpochEndTime,
+                     requests_received_prev_epochs := bounded_seq,
+                     requests_received_this_epoch := [],
+                     cur_req_set := {})
+                     [prev_req_set := new_set];
 
         lemma_AbstractifyCRequestsSeqToRequestsSeq_concat(ces.requests_received_prev_epochs, ces.requests_received_this_epoch);
         lemma_BoundCRequestSequence(ces.requests_received_prev_epochs + ces.requests_received_this_epoch, ces.constants.all.params.max_integer_val);
@@ -641,13 +640,13 @@ method {:timeLimitMultiplier 3} ElectionCheckForQuorumOfViewSuspicions(ces:CElec
         ces' := ces;
     } else {
         ghost var new_epoch_length := UpperBoundedAddition(es.epoch_length, es.epoch_length, es.constants.all.params.max_integer_val);
-        es' := es
-            [current_view := ComputeSuccessorView(es.current_view, es.constants.all)]
-            [current_view_suspectors := {}]
-            [epoch_length := new_epoch_length]
-            [epoch_end_time := UpperBoundedAddition(int(clock), new_epoch_length, es.constants.all.params.max_integer_val)]
-            [requests_received_prev_epochs := BoundRequestSequence(es.requests_received_prev_epochs + es.requests_received_this_epoch, es.constants.all.params.max_integer_val)]
-            [requests_received_this_epoch := []];
+        es' := es.(
+            current_view := ComputeSuccessorView(es.current_view, es.constants.all),
+            current_view_suspectors := {},
+            epoch_length := new_epoch_length,
+            epoch_end_time := UpperBoundedAddition(int(clock), new_epoch_length, es.constants.all.params.max_integer_val),
+            requests_received_prev_epochs := BoundRequestSequence(es.requests_received_prev_epochs + es.requests_received_this_epoch, es.constants.all.params.max_integer_val),
+            requests_received_this_epoch := []);
 
         var cview := CComputeSuccessorView(ces.current_view, ces.constants.all);
         var cnewEpochLength := UpperBoundedAdditionImpl(ces.epoch_length, ces.epoch_length, ces.constants.all.params.max_integer_val);
@@ -664,14 +663,14 @@ method {:timeLimitMultiplier 3} ElectionCheckForQuorumOfViewSuspicions(ces:CElec
             new_set := BoundCRequestHeaders(new_seq, new_set, ces.constants.all.params.max_integer_val, prev_req_set);
         }
 
-        ces' := ces
-            [current_view := cview]
-            [current_view_suspectors := []]
-            [epoch_length := cnewEpochLength]
-            [epoch_end_time := cnewEpochEndTime]
-            [requests_received_prev_epochs := bounded_seq]
-            [requests_received_this_epoch := []]
-            [cur_req_set := {}]
+        ces' := ces.(
+            current_view := cview,
+            current_view_suspectors := [],
+            epoch_length := cnewEpochLength,
+            epoch_end_time := cnewEpochEndTime,
+            requests_received_prev_epochs := bounded_seq,
+            requests_received_this_epoch := [],
+            cur_req_set := {})
             [prev_req_set := new_set];
         lemma_AbstractifyCRequestsSeqToRequestsSeq_concat(ces.requests_received_prev_epochs, ces.requests_received_this_epoch);
         lemma_BoundCRequestSequence(ces.requests_received_prev_epochs + ces.requests_received_this_epoch, ces.constants.all.params.max_integer_val);
@@ -830,15 +829,15 @@ lemma lemma_AddNewReqPreservesHeaderMatches(s1:seq<CRequest>,  headers1:set<CReq
         i := i + 1;
     }
     
-    forall i, j | 0 <= i < |header_seq| && 0 <= j < |header_seq| && header_seq[i] == header_seq[j]
-        ensures i == j;
+    forall i', j' | 0 <= i' < |header_seq| && 0 <= j' < |header_seq| && header_seq[i'] == header_seq[j']
+        ensures i' == j';
     {
-        assert header_seq[i] == ExtractHeader(total_s[i]);
-        assert header_seq[j] == ExtractHeader(total_s[j]);
-        if i < j {
-            assert CRequestsMatch(total_s[i], total_s[j]);  // OBSERVE
-        } else if j < i {
-            assert CRequestsMatch(total_s[j], total_s[i]);  // OBSERVE
+        assert header_seq[i'] == ExtractHeader(total_s[i']);
+        assert header_seq[j'] == ExtractHeader(total_s[j']);
+        if i' < j' {
+            assert CRequestsMatch(total_s[i'], total_s[j']);  // OBSERVE
+        } else if j' < i' {
+            assert CRequestsMatch(total_s[j'], total_s[i']);  // OBSERVE
         }
     }
     calc {
@@ -907,7 +906,7 @@ method {:timeLimitMultiplier 10} ElectionReflectReceivedRequest(ces:CElectionSta
         ces' := ces;
     } else {
         //var update_start_time := Time.GetDebugTimeTicks();
-        es' := es[requests_received_this_epoch := BoundRequestSequence(es.requests_received_this_epoch + [req], es.constants.all.params.max_integer_val)];
+        es' := es.(requests_received_this_epoch := BoundRequestSequence(es.requests_received_this_epoch + [req], es.constants.all.params.max_integer_val));
         var new_seq := ces.requests_received_this_epoch + [creq];
         var header := CRequestHeader(creq.client, creq.seqno);
         ghost var new_set := ces.cur_req_set + { header };
@@ -919,7 +918,7 @@ method {:timeLimitMultiplier 10} ElectionReflectReceivedRequest(ces:CElectionSta
         if bounded { // Should never happen
             new_set := BoundCRequestHeaders(new_seq, new_set, ces.constants.all.params.max_integer_val, cur_req_set);
         }
-        ces' := ces[requests_received_this_epoch := bounded_seq][cur_req_set := new_set];
+        ces' := ces.(requests_received_this_epoch := bounded_seq)[cur_req_set := new_set];
 
         lemma_AddNewReqPreservesHeaderMatches(ces.requests_received_prev_epochs, ces.prev_req_set,
                                                 ces.requests_received_this_epoch,  ces.cur_req_set,
@@ -987,10 +986,8 @@ method {:timeLimitMultiplier 3} ElectionReflectExecutedRequestBatch(ces:CElectio
         lemma_RemoveFirstMatchingCRequestInSequenceProperties(tempces'.requests_received_this_epoch, creq);
 
         assert ElectionStateReflectExecutedRequestBatch(es, AbstractifyCElectionStateToElectionState(tempces'), AbstractifyCRequestBatchToRequestBatch(creqb[..i]));
-        ghost var es'' := es'[requests_received_prev_epochs := 
-                    RemoveFirstMatchingRequestInSequence(es'.requests_received_prev_epochs, req)]
-                 [requests_received_this_epoch := 
-                    RemoveFirstMatchingRequestInSequence(es'.requests_received_this_epoch, req)];
+        ghost var es'' := es'.(requests_received_prev_epochs := RemoveFirstMatchingRequestInSequence(es'.requests_received_prev_epochs, req),
+                               requests_received_this_epoch := RemoveFirstMatchingRequestInSequence(es'.requests_received_this_epoch, req));
 
         var prevEpoch;
         ghost var prevEpochSet;
@@ -1004,10 +1001,10 @@ method {:timeLimitMultiplier 3} ElectionReflectExecutedRequestBatch(ces:CElectio
                                                           prevEpoch, prevEpochSet,
                                                           thisEpoch, thisEpochSet,
                                                           creq);
-        tempces' := tempces'[requests_received_prev_epochs := prevEpoch]
-                            [requests_received_this_epoch := thisEpoch]
-                            [prev_req_set := prevEpochSet]
-                            [cur_req_set := thisEpochSet];
+        tempces' := tempces'.(requests_received_prev_epochs := prevEpoch,
+                              requests_received_this_epoch := thisEpoch)
+                              [cur_req_set := thisEpochSet]
+                              [prev_req_set := prevEpochSet];
         assert {:split_here} true;
         assert AbstractifyCRequestBatchToRequestBatch(creqb[..i]) == AbstractifyCRequestBatchToRequestBatch(creqb)[..i];
         assert AbstractifyCRequestBatchToRequestBatch(creqb[..i+1]) == AbstractifyCRequestBatchToRequestBatch(creqb)[..i+1];

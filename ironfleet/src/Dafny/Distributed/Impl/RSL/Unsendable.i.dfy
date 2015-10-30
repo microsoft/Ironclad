@@ -16,7 +16,7 @@ module LiveRSL__Unsendable_i {
     predicate HostNextIgnoreUnsendable(s:LScheduler, s':LScheduler, ios:seq<LIoOp<EndPoint, seq<byte>>>)
     {
            s.nextActionIndex == 0
-        && s' == s[nextActionIndex := 1]
+        && s' == s.(nextActionIndex := 1)
         && IosReflectIgnoringUnsendable(ios)
     }
 }

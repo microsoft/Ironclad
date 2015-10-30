@@ -453,7 +453,7 @@ module Main_i exclusively refines Main_s {
         ios:seq<RslIo>
         )
         requires s.nextActionIndex == 0;
-        requires s' == s[nextActionIndex := (s.nextActionIndex + 1) % LReplicaNumActions()];
+        requires s' == s.(nextActionIndex := (s.nextActionIndex + 1) % LReplicaNumActions());
         requires |ios| == 1;
         requires ios[0].LIoOpReceive?;
         requires ios[0].r.msg.RslMessage_Invalid?;
@@ -482,7 +482,7 @@ module Main_i exclusively refines Main_s {
         requires s == db[i].servers[id].sched;
         requires s' == db[i+1].servers[id].sched;
         requires s.nextActionIndex == 0;
-        requires s' == s[nextActionIndex := (s.nextActionIndex + 1) % LReplicaNumActions()];
+        requires s' == s.(nextActionIndex := (s.nextActionIndex + 1) % LReplicaNumActions());
         requires |ios| == 1;
         requires ios[0].LIoOpReceive?;
         requires    ios[0].r.msg.RslMessage_1b?
@@ -855,11 +855,11 @@ module Main_i exclusively refines Main_s {
         ensures  forall i :: 0 <= i < |db'| - 1 ==> DS_Next(db'[i], db'[i+1]);
         ensures  last(db').environment.nextStep.LEnvStepStutter?;
         ensures  forall i :: 0 <= i < |db'| - 1 ==> db'[i] == db[i];
-        ensures  last(db') == last(db)[environment := last(db').environment];
-        ensures  last(db').environment == last(db).environment[nextStep := LEnvStepStutter()];
+        ensures  last(db') == last(db).(environment := last(db').environment);
+        ensures  last(db').environment == last(db).environment.(nextStep := LEnvStepStutter());
     {
         var sz := |db|;
-        db' := all_but_last(db) + [last(db)[environment := last(db).environment[nextStep := LEnvStepStutter()]]];
+        db' := all_but_last(db) + [last(db).(environment := last(db).environment.(nextStep := LEnvStepStutter()))];
         assert |db'| == |db|;
         forall i | 0 <= i < |db'| - 1
             ensures DS_Next(db'[i], db'[i+1]);

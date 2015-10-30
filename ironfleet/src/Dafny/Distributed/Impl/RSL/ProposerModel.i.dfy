@@ -136,16 +136,16 @@ method {:timeLimitMultiplier 2} ProposerProcessRequest(proposer:ProposerState, p
         //RecordTimingSeq("ProposerProcessRequest_MapUpdate", map_update_start_time, map_update_end_time);
 
         //var proposer_update_start_time := Time.GetDebugTimeTicks();
-        proposer' := proposer[election_state := newElectionState]
-                             [request_queue := proposer.request_queue + [val]]
-                             [highest_seqno_requested_by_client_this_view := new_seqno_map];
+        proposer' := proposer.(election_state := newElectionState,
+                               request_queue := proposer.request_queue + [val],
+                               highest_seqno_requested_by_client_this_view := new_seqno_map);
         //var proposer_update_end_time := Time.GetDebugTimeTicks();
         lemma_RefineToMapOfSeqNumsProperties(new_seqno_map);
-        r_proposer := ref_proposer[election_state := AbstractifyCElectionStateToElectionState(newElectionState)]
-                                  [request_queue := ref_proposer.request_queue + [ref_val]]
-                                  [highest_seqno_requested_by_client_this_view := 
+        r_proposer := ref_proposer.(election_state := AbstractifyCElectionStateToElectionState(newElectionState),
+                                    request_queue := ref_proposer.request_queue + [ref_val],
+                                    highest_seqno_requested_by_client_this_view := 
                                    ref_proposer.highest_seqno_requested_by_client_this_view
-                                      [r_packet.src := r_packet.msg.seqno_req]];
+                                      [r_packet.src := r_packet.msg.seqno_req]);
         ghost var ref_proposer' := AbstractifyProposerStateToLProposer(proposer');
         assert Eq_LProposer(r_proposer, ref_proposer');
         assert LProposerProcessRequest(ref_proposer, r_proposer, r_packet);
@@ -154,8 +154,8 @@ method {:timeLimitMultiplier 2} ProposerProcessRequest(proposer:ProposerState, p
         //var lookup_end_time := Time.GetDebugTimeTicks();
         //RecordTimingSeq("ProposerProcessRequest_Lookup", lookup_start_time, lookup_end_time);
         //print("Processing request with seqno ", packet.msg.seqno, ". Inside else.\n");
-        proposer' := proposer[election_state := newElectionState];
-        r_proposer := ref_proposer[election_state := AbstractifyCElectionStateToElectionState(newElectionState)];
+        proposer' := proposer.(election_state := newElectionState);
+        r_proposer := ref_proposer.(election_state := AbstractifyCElectionStateToElectionState(newElectionState));
         ghost var ref_proposer' := AbstractifyProposerStateToLProposer(proposer');
         assert Eq_LProposer(r_proposer, ref_proposer');
         assert LProposerProcessRequest(ref_proposer, r_proposer, r_packet);
@@ -187,11 +187,11 @@ method ProposerMaybeEnterNewViewAndSend1a(proposer:ProposerState) returns (propo
                               + proposer.election_state.requests_received_this_epoch;
 
         assert |new_requestQueue| == |proposer.election_state.requests_received_prev_epochs| + |proposer.election_state.requests_received_this_epoch|;
-        proposer' := proposer[current_state := 1]
-                             [max_ballot_i_sent_1a := proposer.election_state.current_view]
-                             [received_1b_packets := {}]
-                             [highest_seqno_requested_by_client_this_view := map[]]
-                             [request_queue := new_requestQueue];
+        proposer' := proposer.(current_state := 1,
+                               max_ballot_i_sent_1a := proposer.election_state.current_view,
+                               received_1b_packets := {},
+                               highest_seqno_requested_by_client_this_view := map[],
+                               request_queue := new_requestQueue);
         calc ==> {
             true;
                 { reveal_Received1bProperties(); }
@@ -240,7 +240,7 @@ method ProposerProcess1b(proposer:ProposerState, packet:CPacket) returns (propos
     ensures proposer'.election_state.prev_req_set == proposer.election_state.prev_req_set;
 {
     //print("Proposer processing a 1b message about ballot", packet.msg.bal_1b, "\n");
-    proposer' := proposer[received_1b_packets := proposer.received_1b_packets + { packet }];
+    proposer' := proposer.(received_1b_packets := proposer.received_1b_packets + { packet });
 
     // Prove Received1bProperties
     reveal_Received1bProperties();
@@ -444,7 +444,7 @@ method {:timeLimitMultiplier 8} ProposerMaybeEnterPhase2(proposer:ProposerState,
         
         var maxLogTP := getMaxLogTruncationPoint(proposer.received_1b_packets);
         //print("Proposer starting phase 2 for ballot", proposer.max_ballot_i_sent_1a, ". Setting maxOpnWithProposal to ", maxOpn, " and maxLogTruncationPoint to", maxLogTP, "\n");
-        proposer' := proposer[current_state := 2][next_operation_number_to_propose := log_truncation_point.n][maxOpnWithProposal := maxOpn][maxLogTruncationPoint := maxLogTP];
+        proposer' := proposer.(current_state := 2, next_operation_number_to_propose := log_truncation_point.n, maxOpnWithProposal := maxOpn, maxLogTruncationPoint := maxLogTP);
         var msg := CMessage_StartingPhase2(proposer.max_ballot_i_sent_1a, log_truncation_point);
         assert Marshallable(msg);
         sent_packets := BuildBroadcastToEveryone(proposer.constants.all.config, proposer.constants.my_index, msg);
@@ -572,9 +572,9 @@ method {:timeLimitMultiplier 7} ProposerNominateNewValueAndSend2a(proposer:Propo
     var newTimer:CIncompleteBatchTimer := if |proposer.request_queue| > int(batchSize) then CIncompleteBatchTimerOn(clock_sum) else CIncompleteBatchTimerOff();
     //print("Proposer sending 2a about new value in ballot", proposer.max_ballot_i_sent_1a, "operation", opn_op, "value", v, "\n");
 
-    proposer' := proposer[request_queue := proposer.request_queue[batchSize..]]
-                         [next_operation_number_to_propose := opn + 1]
-                         [incomplete_batch_timer := newTimer];
+    proposer' := proposer.(request_queue := proposer.request_queue[batchSize..],
+                           next_operation_number_to_propose := opn + 1,
+                           incomplete_batch_timer := newTimer);
     var msg := CMessage_2a(proposer.max_ballot_i_sent_1a, opn_op, v);
     assert Marshallable(msg);
     sent_packets := BuildBroadcastToEveryone(proposer.constants.all.config, proposer.constants.my_index, msg);
@@ -812,12 +812,11 @@ method ProposerNominateOldValueAndSend2a(proposer:ProposerState,log_truncation_p
     var sum := opn + 1;
     //print("Proposer sending 2a about old value in ballot", proposer.max_ballot_i_sent_1a, "operation", opn_op, "value", val, "\n");
     
-    proposer' := proposer[next_operation_number_to_propose := sum];
+    proposer' := proposer.(next_operation_number_to_propose := sum);
 
     // Update the protocol version too
     ghost var L_opn := r_proposer.next_operation_number_to_propose;
-    ghost var r_proposer' := r_proposer
-        [next_operation_number_to_propose := UpperBoundedAddition(r_proposer.next_operation_number_to_propose, 1, r_proposer.constants.all.params.max_integer_val)];
+    ghost var r_proposer' := r_proposer.(next_operation_number_to_propose := UpperBoundedAddition(r_proposer.next_operation_number_to_propose, 1, r_proposer.constants.all.params.max_integer_val));
 
     var msg := CMessage_2a(proposer.max_ballot_i_sent_1a, opn_op, val);
     assert Marshallable(msg);
@@ -1235,7 +1234,7 @@ method {:timeLimitMultiplier 12} ProposerMaybeNominateValueAndSend2a(proposer:Pr
                 } else {
                     if ( queueSize > 0 && proposer.incomplete_batch_timer.CIncompleteBatchTimerOff? ) {
                         var sum := UpperBoundedAdditionImpl(clock, proposer.constants.all.params.max_batch_delay, proposer.constants.all.params.max_integer_val);
-                        proposer' := proposer[incomplete_batch_timer := CIncompleteBatchTimerOn(sum)];
+                        proposer' := proposer.(incomplete_batch_timer := CIncompleteBatchTimerOn(sum));
                         sent_packets := CBroadcastNop;
                     } else {
                         proposer' := proposer;
@@ -1294,7 +1293,7 @@ method ProposerProcessHeartbeat(proposer:ProposerState, packet:CPacket, clock:ui
         request_queue' := proposer.request_queue;
     }
 
-    proposer' := proposer[election_state := election_state'][current_state := current_state'][request_queue := request_queue'];
+    proposer' := proposer.(election_state := election_state', current_state := current_state', request_queue := request_queue');
 }
 
 method ProposerCheckForViewTimeout(proposer:ProposerState, clock:uint64, cur_req_set:MutableSet<CRequestHeader>, prev_req_set:MutableSet<CRequestHeader>) returns (proposer':ProposerState)
@@ -1310,7 +1309,7 @@ method ProposerCheckForViewTimeout(proposer:ProposerState, clock:uint64, cur_req
     ensures  MutableSet.SetOf(prev_req_set) == proposer'.election_state.prev_req_set;
 {
     var election_state' := ElectionCheckForViewTimeout(proposer.election_state, clock, cur_req_set, prev_req_set);
-    proposer' := proposer[election_state := election_state'];
+    proposer' := proposer.(election_state := election_state');
 }
 
 method ProposerCheckForQuorumOfViewSuspicions(proposer:ProposerState, clock:uint64, cur_req_set:MutableSet<CRequestHeader>, prev_req_set:MutableSet<CRequestHeader>) returns (proposer':ProposerState)
@@ -1339,7 +1338,7 @@ method ProposerCheckForQuorumOfViewSuspicions(proposer:ProposerState, clock:uint
         request_queue' := proposer.request_queue;
     }
 
-    proposer' := proposer[election_state := election_state'][current_state := current_state'][request_queue := request_queue'];
+    proposer' := proposer.(election_state := election_state', current_state := current_state', request_queue := request_queue');
     var end_time := Time.GetDebugTimeTicks();
     if lt {
         RecordTimingSeq("ProposerCheckForQuorumOfViewSuspicions_changed", start_time, end_time);
@@ -1363,7 +1362,7 @@ method ProposerResetViewTimerDueToExecution(proposer:ProposerState, val:CRequest
     ensures  MutableSet.SetOf(prev_req_set) == proposer'.election_state.prev_req_set;
 {
     var election_state' := ElectionReflectExecutedRequestBatch(proposer.election_state, val, cur_req_set, prev_req_set);
-    proposer' := proposer[election_state := election_state'];
+    proposer' := proposer.(election_state := election_state');
 }
 
 } 

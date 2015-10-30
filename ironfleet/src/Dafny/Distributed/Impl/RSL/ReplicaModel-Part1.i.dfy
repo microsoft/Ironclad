@@ -70,7 +70,7 @@ method ReplicaNextProcessRequestImplCaseUncached(
 
     assert received_packet.src !in s.executor.reply_cache;
     var newProposer := ProposerProcessRequest(replica.proposer, inp, cur_req_set, prev_req_set);
-    replica' := replica[proposer := newProposer];
+    replica' := replica.(proposer := newProposer);
     ghost var s' := AbstractifyReplicaStateToLReplica(replica');
     packets_sent := Broadcast(CBroadcastNop);
     assert OutboundPacketsIsValid(packets_sent);
@@ -110,7 +110,7 @@ method ReplicaNextProcessRequestImplCaseCachedNonReply(
 
     assert !s.executor.reply_cache[received_packet.src].Reply?;
     var newProposer := ProposerProcessRequest(replica.proposer, inp, cur_req_set, prev_req_set);
-    replica' := replica[proposer := newProposer];
+    replica' := replica.(proposer := newProposer);
     packets_sent := Broadcast(CBroadcastNop);
     assert OutboundPacketsIsValid(packets_sent);
     var notReplyTime := Time.GetDebugTimeTicks();
@@ -150,7 +150,7 @@ method ReplicaNextProcessRequestImplCaseCachedOld(
     assert AbstractifyCReplyToReply(replica.executor.reply_cache[inp.src]) == AbstractifyReplicaStateToLReplica(replica).executor.reply_cache[received_packet.src];
     assert received_packet.msg.seqno_req > s.executor.reply_cache[received_packet.src].seqno;
     var newProposer := ProposerProcessRequest(replica.proposer, inp, cur_req_set, prev_req_set);
-    replica' := replica[proposer := newProposer];
+    replica' := replica.(proposer := newProposer);
     packets_sent := Broadcast(CBroadcastNop);
     assert OutboundPacketsIsValid(packets_sent);
     var seqnoIsBeyondTime := Time.GetDebugTimeTicks();
@@ -235,7 +235,7 @@ method Replica_Next_Process_1a(replica:ReplicaState, inp:CPacket) returns (repli
     //print("Replica_Next_Process_1a: Calling NextAcceptorState_Phase1\n");
     //var start_time := Time.GetDebugTimeTicks();
     var newAcceptor, packets := NextAcceptorState_Phase1(replica.acceptor, inp.msg, inp.src);
-    replica' := replica[acceptor := newAcceptor];
+    replica' := replica.(acceptor := newAcceptor);
     assert ConstantsStayConstant(replica.acceptor, newAcceptor);
     assert AbstractifyAcceptorStateToAcceptor(replica.acceptor).constants == AbstractifyAcceptorStateToAcceptor(newAcceptor).constants;
     assert AbstractifyAcceptorStateToAcceptor(replica.acceptor).constants == AbstractifyAcceptorStateToAcceptor(replica'.acceptor).constants;

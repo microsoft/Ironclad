@@ -974,7 +974,7 @@ method MarshallMessage_2a(c:CMessage) returns (val:V)
     var op := MarshallOperationNumber(c.opn_2a);
     var v := MarshallRequestBatch(c.val_2a);
     val := VTuple([bal, op, v]);
-    assert forall v :: v in val.t ==> ValidVal(v);  // OBSERVE
+    assert forall u :: u in val.t ==> ValidVal(u);  // OBSERVE
     assert ValInGrammar(bal, CMessage_2a_grammar().t[0]);    // OBSERVE
     assert ValInGrammar(op,  CMessage_2a_grammar().t[1]);    // OBSERVE
     assert ValInGrammar(v, CMessage_2a_grammar().t[2]);    // OBSERVE
