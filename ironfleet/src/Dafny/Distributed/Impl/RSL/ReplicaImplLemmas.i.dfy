@@ -410,7 +410,6 @@ static lemma lemma_ReplicaNoReceiveReadClockNextHelper(
 
     lemma_ExtractSentPacketsFromIosDoesNotMindSomeClutter(ios_head, ios_tail);
     assert forall io :: io in ios[1..] ==> io.LIoOpSend?;   // OBSERVE trigger
-    ghost var log_head := [udpEvent0];
     lemma_CombineRefineRawEventToIo(ios_head, ios_tail, ios, log_head, log_tail, udpEventLog);
 
     assert AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets) == ExtractSentPacketsFromIos(ios);

@@ -357,7 +357,7 @@ method getMaxOpnWithProposalFromSet(s:set<CPacket>) returns (maxOpn:COperationNu
             ensures x.msg.CMessage_1b? && ValidVotes(x.msg.votes);
         {
             assert x in s;
-            assert forall p :: p in s ==> p.msg.CMessage_1b? && ValidVotes(p.msg.votes);
+            assert forall q :: q in s ==> q.msg.CMessage_1b? && ValidVotes(q.msg.votes);
         }
         
         var restMaxOpn, foundTemp  := getMaxOpnWithProposalFromSet(rest);
@@ -398,7 +398,7 @@ method getMaxLogTruncationPoint(s:set<CPacket>) returns (maxLogTruncationPoint:C
             ensures x.msg.CMessage_1b?;
         {
             assert x in s;
-            assert forall p :: p in s ==> p.msg.CMessage_1b?;
+            assert forall q :: q in s ==> q.msg.CMessage_1b?;
         }
 
         var restMaxOpn := getMaxLogTruncationPoint(rest);
@@ -754,7 +754,7 @@ method {:timeLimitMultiplier 5} FindValWithHighestNumberedProposal(received_1b_p
         invariant packets + processedPackets == received_1b_packets;
         invariant processedPackets == received_1b_packets - packets;
         invariant CRequestBatchIsAbstractable(v) && CBallotIsAbstractable(bal) && CPacketIsAbstractable(p_bal) && p_bal in processedPackets && opn in p_bal.msg.votes.v && v == p_bal.msg.votes.v[opn].max_val && bal == p_bal.msg.votes.v[opn].max_value_bal;
-        invariant forall p :: p in processedPackets && opn in p.msg.votes.v ==> CCBalLeq(p.msg.votes.v[opn].max_value_bal, p_bal.msg.votes.v[opn].max_value_bal);
+        invariant forall q :: q in processedPackets && opn in q.msg.votes.v ==> CCBalLeq(q.msg.votes.v[opn].max_value_bal, p_bal.msg.votes.v[opn].max_value_bal);
         invariant p_bal in processedPackets
                 && opn in p_bal.msg.votes.v
                 && p_bal.msg.votes.v[opn].max_value_bal==bal
@@ -995,11 +995,11 @@ lemma {:timeLimitMultiplier 6} lemma_AllAcceptorsHadNoProposalImpl(proposer:Prop
 }
 
 predicate ExistsPred(proposer:ProposerState, ref_proposer:LProposer, existsOpn:bool)
+    requires ref_proposer == AbstractifyProposerStateToLProposer(proposer);
     requires LSetOfMessage1b(ref_proposer.received_1b_packets);
     requires ProposerIsValid(proposer);
 {
-    existsOpn <==> var ref_proposer := AbstractifyProposerStateToLProposer(proposer);
-                   (exists opn :: opn > ref_proposer.next_operation_number_to_propose 
+    existsOpn <==> (exists opn :: opn > ref_proposer.next_operation_number_to_propose 
                                && LSetOfMessage1b(ref_proposer.received_1b_packets)
                                && !LAllAcceptorsHadNoProposal(ref_proposer.received_1b_packets, opn))
 }
@@ -1062,8 +1062,7 @@ method DidSomeAcceptorHaveProposal(proposer:ProposerState) returns (b:bool) //, 
     }
 
     assert b <==>
-        (var ref_proposer := AbstractifyProposerStateToLProposer(proposer);
-            (exists opn :: gt(opn, ref_proposer.next_operation_number_to_propose) && !LAllAcceptorsHadNoProposal(ref_proposer.received_1b_packets, opn)));
+            (exists opn :: gt(opn, ref_proposer.next_operation_number_to_propose) && !LAllAcceptorsHadNoProposal(ref_proposer.received_1b_packets, opn));
 }
 
 lemma lemma_DidSomeAcceptorHaveProposal(proposer:ProposerState) //, opn:COperationNumber)
@@ -1113,8 +1112,7 @@ lemma lemma_DidSomeAcceptorHaveProposal(proposer:ProposerState) //, opn:COperati
     }
 
     assert b <==>
-        (var ref_proposer := AbstractifyProposerStateToLProposer(proposer);
-            (exists opn :: gt(opn, ref_proposer.next_operation_number_to_propose) && !LAllAcceptorsHadNoProposal(ref_proposer.received_1b_packets, opn)));
+            (exists opn :: gt(opn, ref_proposer.next_operation_number_to_propose) && !LAllAcceptorsHadNoProposal(ref_proposer.received_1b_packets, opn));
 }
 
 method {:timeLimitMultiplier 12} ProposerMaybeNominateValueAndSend2a(proposer:ProposerState, clock:uint64, log_truncation_point:COperationNumber) returns (proposer':ProposerState, sent_packets:CBroadcast)
@@ -1193,7 +1191,7 @@ method {:timeLimitMultiplier 12} ProposerMaybeNominateValueAndSend2a(proposer:Pr
                     //ghost var opn :| opn > ref_proposer.next_operation_number_to_propose &&
                     //               !LAllAcceptorsHadNoProposal(ref_proposer.received_1b_packets, opn);
                 } else {
-                    assert ghost var ref_proposer := AbstractifyProposerStateToLProposer(proposer); forall opn :: !(opn > ref_proposer.next_operation_number_to_propose &&
+                    assert forall opn :: !(opn > ref_proposer.next_operation_number_to_propose &&
                                    !LAllAcceptorsHadNoProposal(ref_proposer.received_1b_packets, opn));
                 }
                 //assert existsOpn <==> var ref_proposer := AbstractifyProposerStateToLProposer(proposer);(exists opn :: opn > ref_proposer.next_operation_number_to_propose &&

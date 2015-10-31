@@ -36,7 +36,7 @@ lemma lemma_Received2bPacketsSameSizeAsRefinement(l_learner_tuple:CLearnerTuple,
             assert x == l_learner_tuple.received_2b_message_senders[idx+1];
             assert x in l_learner_tuple.received_2b_message_senders[1..];
             assert AbstractifyEndPointToNodeIdentity(x) in AbstractifyEndPointsToNodeIdentities(l_learner_tuple.received_2b_message_senders[1..]);
-            assert AbstractifyEndPointToNodeIdentity(x) in MapSeqToSet(AbstractifyEndPointsToNodeIdentities(l_learner_tuple.received_2b_message_senders[1..]), x=>x);
+            assert AbstractifyEndPointToNodeIdentity(x) in MapSeqToSet(AbstractifyEndPointsToNodeIdentities(l_learner_tuple.received_2b_message_senders[1..]), u=>u);
         }
 
         forall x | EndPointIsValidIPV4(x) && AbstractifyEndPointToNodeIdentity(x) in h_learner_tuple'.received_2b_message_senders
@@ -58,7 +58,7 @@ lemma lemma_Received2bPacketsSameSizeAsRefinement(l_learner_tuple:CLearnerTuple,
             {
                 assert src in l_learner_tuple.received_2b_message_senders;
                 assert x in AbstractifyEndPointsToNodeIdentities(l_learner_tuple.received_2b_message_senders);
-                assert x in MapSeqToSet(AbstractifyEndPointsToNodeIdentities(l_learner_tuple.received_2b_message_senders), x=>x);
+                assert x in MapSeqToSet(AbstractifyEndPointsToNodeIdentities(l_learner_tuple.received_2b_message_senders), u=>u);
                 assert x in h_learner_tuple.received_2b_message_senders;
             }
             else

@@ -277,22 +277,22 @@ lemma lemma_UdpEventLogAppend(broadcast:CBroadcast, udpEventLog:seq<UdpEvent>, u
 
     var new_log := udpEventLog + [udpEvent];
 
-    forall i | 0 <= i < |new_log|
-        ensures SendLogMatchesRefinement(new_log, broadcast, i);
+    forall i' | 0 <= i' < |new_log|
+        ensures SendLogMatchesRefinement(new_log, broadcast, i');
     {
-        if i < |udpEventLog| {
-            assert new_log[i] == udpEventLog[i];
-            assert SendLogMatchesRefinement(udpEventLog, broadcast, i);
-            assert SendLogMatchesRefinement(new_log, broadcast, i);
+        if i' < |udpEventLog| {
+            assert new_log[i'] == udpEventLog[i'];
+            assert SendLogMatchesRefinement(udpEventLog, broadcast, i');
+            assert SendLogMatchesRefinement(new_log, broadcast, i');
         } else {
-            assert new_log[i] == udpEvent;
-            assert SendLogMatchesRefinement(new_log, broadcast, i);
+            assert new_log[i'] == udpEvent;
+            assert SendLogMatchesRefinement(new_log, broadcast, i');
         }
     }
 
     calc ==> {
         true;
-        forall i :: 0 <= i < |new_log| ==> SendLogMatchesRefinement(new_log, broadcast, i);
+        forall i' :: 0 <= i' < |new_log| ==> SendLogMatchesRefinement(new_log, broadcast, i');
         SendLogReflectsBroadcastPrefix(new_log, broadcast);
         SendLogReflectsBroadcastPrefix(udpEventLog + [udpEvent], broadcast);
     }
