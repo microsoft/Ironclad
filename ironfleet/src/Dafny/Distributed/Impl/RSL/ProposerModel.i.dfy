@@ -995,6 +995,7 @@ lemma {:timeLimitMultiplier 6} lemma_AllAcceptorsHadNoProposalImpl(proposer:Prop
 }
 
 predicate ExistsPred(proposer:ProposerState, ref_proposer:LProposer, existsOpn:bool)
+    requires ProposerIsAbstractable(proposer);
     requires ref_proposer == AbstractifyProposerStateToLProposer(proposer);
     requires LSetOfMessage1b(ref_proposer.received_1b_packets);
     requires ProposerIsValid(proposer);
