@@ -198,7 +198,7 @@ function {:opaque} ConvertBehaviorSeqToImap<T>(s:seq<T>):imap<int, T>
     ensures  imaptotal(ConvertBehaviorSeqToImap(s));
     ensures  forall i :: 0 <= i < |s| ==> ConvertBehaviorSeqToImap(s)[i] == s[i];
 {
-    imap i {:auto_trigger} :: if i < 0 then s[0] else if 0 <= i < |s| then s[i] else last(s)
+    imap i {:trigger s[i]} :: if i < 0 then s[0] else if 0 <= i < |s| then s[i] else last(s)
 }
 
 predicate RslSystemBehaviorRefinementCorrectImap(
@@ -211,12 +211,12 @@ predicate RslSystemBehaviorRefinementCorrectImap(
        imaptotal(b)
     && |refinement_mapping| == prefix_len
     && (forall i :: 0 <= i < |refinement_mapping| ==> 0 <= refinement_mapping[i] < |high_level_behavior|)
-    && (forall i :: 0 <= i < prefix_len - 1 ==> refinement_mapping[i] <= refinement_mapping[i+1])
+    && (forall i {:trigger refinement_mapping[i], refinement_mapping[i+1]} :: 0 <= i < prefix_len - 1 ==> refinement_mapping[i] <= refinement_mapping[i+1])
     && (forall i :: 0 <= i < prefix_len ==> RslSystemRefinement(b[i], high_level_behavior[refinement_mapping[i]]))
     && |high_level_behavior| > 0
     && (|refinement_mapping| > 0 ==> refinement_mapping[0] == 0)
     && RslSystemInit(high_level_behavior[0], MapSeqToSet(b[0].constants.config.replica_ids, x=>x))
-    && (forall i :: 0 <= i < |high_level_behavior| - 1 ==> RslSystemNext(high_level_behavior[i], high_level_behavior[i+1]))
+    && (forall i {:trigger RslSystemNext(high_level_behavior[i], high_level_behavior[i+1])} :: 0 <= i < |high_level_behavior| - 1 ==> RslSystemNext(high_level_behavior[i], high_level_behavior[i+1]))
 }
 
 lemma lemma_GetBehaviorRefinementForBehaviorOfOneStep(
@@ -257,13 +257,13 @@ lemma lemma_ExtendBehaviorWithExtraRequests(
     (high_level_behavior':seq<RSLSystemState>)
     requires |high_level_behavior| > 0;
     requires RslSystemInit(high_level_behavior[0], server_addresses);
-    requires forall i :: 0 <= i < |high_level_behavior| - 1 ==> RslSystemNext(high_level_behavior[i], high_level_behavior[i+1]);
+    requires forall i {:trigger RslSystemNext(high_level_behavior[i], high_level_behavior[i+1])} :: 0 <= i < |high_level_behavior| - 1 ==> RslSystemNext(high_level_behavior[i], high_level_behavior[i+1]);
     requires |batches| > 0;
     requires 0 <= reqs_in_last_batch <= |last(batches)|;
     requires last(high_level_behavior) == ProduceAbstractState(server_addresses, all_but_last(batches));
     ensures  |high_level_behavior| <= |high_level_behavior'|;
     ensures  high_level_behavior'[..|high_level_behavior|] == high_level_behavior;
-    ensures  forall i :: 0 <= i < |high_level_behavior'| - 1 ==> RslSystemNext(high_level_behavior'[i], high_level_behavior'[i+1]);
+    ensures  forall i {:trigger RslSystemNext(high_level_behavior'[i], high_level_behavior'[i+1])} :: 0 <= i < |high_level_behavior'| - 1 ==> RslSystemNext(high_level_behavior'[i], high_level_behavior'[i+1]);
     ensures  last(high_level_behavior') == ProduceIntermediateAbstractState(server_addresses, batches, reqs_in_last_batch);
 {
     if reqs_in_last_batch == 0
@@ -289,13 +289,13 @@ lemma lemma_ExtendBehaviorWithExtraRequestBatches(
     (high_level_behavior':seq<RSLSystemState>)
     requires |high_level_behavior| > 0;
     requires RslSystemInit(high_level_behavior[0], server_addresses);
-    requires forall i :: 0 <= i < |high_level_behavior| - 1 ==> RslSystemNext(high_level_behavior[i], high_level_behavior[i+1]);
+    requires forall i {:trigger RslSystemNext(high_level_behavior[i], high_level_behavior[i+1])} :: 0 <= i < |high_level_behavior| - 1 ==> RslSystemNext(high_level_behavior[i], high_level_behavior[i+1]);
     requires last(high_level_behavior) == ProduceAbstractState(server_addresses, batches);
     requires |batches| <= |batches'|;
     requires batches'[..|batches|] == batches;
     ensures  |high_level_behavior| <= |high_level_behavior'|;
     ensures  high_level_behavior'[..|high_level_behavior|] == high_level_behavior;
-    ensures  forall i :: 0 <= i < |high_level_behavior'| - 1 ==> RslSystemNext(high_level_behavior'[i], high_level_behavior'[i+1]);
+    ensures  forall i {:trigger RslSystemNext(high_level_behavior'[i], high_level_behavior'[i+1])} :: 0 <= i < |high_level_behavior'| - 1 ==> RslSystemNext(high_level_behavior'[i], high_level_behavior'[i+1]);
     ensures  last(high_level_behavior') == ProduceAbstractState(server_addresses, batches');
 {
     if |batches'| == |batches|
@@ -362,7 +362,7 @@ lemma lemma_GetBehaviorRefinement(
      refinement_mapping:seq<int>)
     requires |low_level_behavior| > 0;
     requires RslInit(c, low_level_behavior[0]);
-    requires forall i :: 0 <= i < |low_level_behavior| - 1 ==> RslNext(low_level_behavior[i], low_level_behavior[i+1]);
+    requires forall i {:trigger RslNext(low_level_behavior[i], low_level_behavior[i+1])} :: 0 <= i < |low_level_behavior| - 1 ==> RslNext(low_level_behavior[i], low_level_behavior[i+1]);
     ensures  RslSystemBehaviorRefinementCorrect(MapSeqToSet(c.config.replica_ids, x=>x), low_level_behavior, high_level_behavior, refinement_mapping);
 {
     var b := ConvertBehaviorSeqToImap(low_level_behavior);

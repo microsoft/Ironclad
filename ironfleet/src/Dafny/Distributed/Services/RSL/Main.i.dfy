@@ -17,7 +17,7 @@ module Main_i exclusively refines Main_s {
     {
            |db| > 0
         && DS_Init(db[0], config)
-        && forall i :: 0 <= i < |db| - 1 ==> DS_Next(db[i], db[i+1])
+        && forall i {:trigger DS_Next(db[i], db[i+1])} :: 0 <= i < |db| - 1 ==> DS_Next(db[i], db[i+1])
     }
 
     predicate LPacketIsAbstractable(cp:LPacket<EndPoint,seq<byte>>)
@@ -120,7 +120,7 @@ module Main_i exclusively refines Main_s {
     lemma lemma_DsNextOffset(db:seq<DS_State>, index:int)
         requires |db| > 0;
         requires 0 < index < |db|;
-        requires forall i :: 0 <= i < |db| - 1 ==> DS_Next(db[i], db[i+1]);
+        requires forall i {:trigger DS_Next(db[i], db[i+1])} :: 0 <= i < |db| - 1 ==> DS_Next(db[i], db[i+1]);
         ensures  DS_Next(db[index-1], db[index]);
     {
         var i := index - 1;
@@ -632,7 +632,7 @@ module Main_i exclusively refines Main_s {
         ensures RslInit(c, protocol_behavior[0]);
         ensures forall i :: 0 <= i < |db| ==> DsStateIsAbstractable(db[i]) 
                                            && protocol_behavior[i] == AbstractifyDsState(db[i]);
-        ensures forall i :: 0 <= i < |protocol_behavior| - 1 ==> RslNext(protocol_behavior[i], protocol_behavior[i+1]);
+        ensures forall i {:trigger RslNext(protocol_behavior[i], protocol_behavior[i+1])} :: 0 <= i < |protocol_behavior| - 1 ==> RslNext(protocol_behavior[i], protocol_behavior[i+1]);
     {
         c := RefineConstantsState(config);
         if |db| == 1 {
@@ -669,7 +669,7 @@ module Main_i exclusively refines Main_s {
             lemma_DsIsAbstractable(config, db, |db|-2);
 
             var ls' := AbstractifyDsState(last(db));
-            var rest, c := lemma_GetImplBehaviorRefinement(config, all_but_last(db));
+            var rest, c' := lemma_GetImplBehaviorRefinement(config, all_but_last(db));
             protocol_behavior := rest + [ls'];
 
             // Help with sequence indexing
@@ -755,7 +755,7 @@ module Main_i exclusively refines Main_s {
     lemma lemma_ServiceStateServerAddressesNeverChange(sb:seq<ServiceState>, server_addresses:set<NodeIdentity>, i:int)
         requires |sb| > 0;
         requires Service_Init(sb[0], server_addresses);
-        requires forall j :: 0 <= j < |sb| - 1 ==> Service_Next(sb[j], sb[j+1]);
+        requires forall j {:trigger Service_Next(sb[j], sb[j+1])} :: 0 <= j < |sb| - 1 ==> Service_Next(sb[j], sb[j+1]);
         requires 0 <= i < |sb|;
         ensures  sb[i].serverAddresses == server_addresses;
     {
@@ -777,9 +777,9 @@ module Main_i exclusively refines Main_s {
         ensures  |db| == |cm|;
         ensures  cm[0] == 0;                                            // Beginnings match
         ensures  forall i :: 0 <= i < |cm| ==> 0 <= cm[i] < |sb|;       // Mappings are in bounds
-        ensures  forall i :: 0 <= i < |cm| - 1 ==> cm[i] <= cm[i+1];    // Mapping is monotonic
+        ensures  forall i {:trigger cm[i], cm[i+1]} :: 0 <= i < |cm| - 1 ==> cm[i] <= cm[i+1];    // Mapping is monotonic
         ensures  Service_Init(sb[0], mapdomain(db[0].servers));
-        ensures  forall i :: 0 <= i < |sb| - 1 ==> Service_Next(sb[i], sb[i+1]);
+        ensures  forall i {:trigger Service_Next(sb[i], sb[i+1])} :: 0 <= i < |sb| - 1 ==> Service_Next(sb[i], sb[i+1]);
         ensures  forall i :: 0 <= i < |db| ==> Service_Correspondence(db[i].environment.sentPackets, sb[cm[i]]);
     {
         var protocol_behavior, lconstants := lemma_GetImplBehaviorRefinement(config, db);
@@ -852,7 +852,7 @@ module Main_i exclusively refines Main_s {
         requires IsValidBehavior(config, db);
         ensures  |db'| == |db|;
         ensures  DS_Init(db'[0], config);
-        ensures  forall i :: 0 <= i < |db'| - 1 ==> DS_Next(db'[i], db'[i+1]);
+        ensures  forall i {:trigger DS_Next(db'[i], db'[i+1])} :: 0 <= i < |db'| - 1 ==> DS_Next(db'[i], db'[i+1]);
         ensures  last(db').environment.nextStep.LEnvStepStutter?;
         ensures  forall i :: 0 <= i < |db'| - 1 ==> db'[i] == db[i];
         ensures  last(db') == last(db).(environment := last(db').environment);
