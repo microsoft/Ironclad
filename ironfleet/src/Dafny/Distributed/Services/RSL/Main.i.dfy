@@ -511,13 +511,17 @@ module Main_i exclusively refines Main_s {
         requires db[i].environment.nextStep == LEnvStepHostIos(id, ios);
         requires id in db[i].servers;
         requires id in db[i+1].servers;
+        requires LEnvironment_Next(db[i].environment, db[i+1].environment);
+        requires ValidPhysicalEnvironmentStep(db[i].environment.nextStep);
         requires HostNextIgnoreUnsendable(db[i].servers[id].sched, db[i+1].servers[id].sched, ios);
+        requires UdpEventLogIsAbstractable(ios);
         ensures  LSchedulerNext(db[i].servers[id].sched, db[i+1].servers[id].sched, AbstractifyRawLogToIos(ios));
     {
         var p := ios[0].r;
         var rp := AbstractifyUdpPacketToRslPacket(p);
         var g := CMessage_grammar();
         assert !Demarshallable(p.msg, g) || !Marshallable(parse_Message(DemarshallFunc(p.msg, g)));
+        assert IsValidLIoOp(ios[0], id, db[i].environment);
 
         if p.src in config.config.replica_ids
         {
@@ -527,6 +531,7 @@ module Main_i exclusively refines Main_s {
 
         lemma_UdpEventIsAbstractable(config, db, i, ios[0]);
         lemma_CMessageGrammarValid();
+        assert ValidPhysicalIo(ios[0]);
         assert |p.msg| < 0x1_0000_0000_0000_0000;
         assert ValidGrammar(g);
 
