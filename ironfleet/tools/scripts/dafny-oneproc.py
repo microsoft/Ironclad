@@ -35,5 +35,6 @@ def main():
         sys.exit(-1)
             
     docmd("dafny", "/allowGlobals", "/z3opt:nlsat.randomize=false", "/z3opt:pi.warnings=true", "/proverWarnings:1", "/compile:0", "/noCheating:1", "/autoTriggers:1", "/ironDafny", "/noNLarith", "/proc:%s" % mangledProcName, dfyfile)
+    docmd("rm", boogieFile)
 
 main()
