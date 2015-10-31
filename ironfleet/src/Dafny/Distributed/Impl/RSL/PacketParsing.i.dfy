@@ -811,6 +811,7 @@ method MarshallReplyCache(c:CReplyCache) returns (val:V)
         var marshalled_ep := MarshallEndPoint(ep);
         var marshalled_reply := MarshallReply(c[ep]);
         var remainder := RemoveElt(c, ep);
+        assert forall e :: e in remainder ==> ValidReply(remainder[e]);
         var marshalled_remainder := MarshallReplyCache(remainder);
         assert parse_ReplyCache(marshalled_remainder) == remainder;
         val := VArray([VTuple([marshalled_ep, marshalled_reply])] + marshalled_remainder.a);
