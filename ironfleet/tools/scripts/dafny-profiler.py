@@ -29,6 +29,7 @@ def main():
             if procedureName.find(escapedProcName) > -1:
                 mangledProcName = procedureName
                 break
+    boogieFileHandle.close()
     if len(mangledProcName) == 0:
         print 'Could not find procedure with substring %s in %s' % (escapedProcName, boogieFile)
         sys.exit(-1)
