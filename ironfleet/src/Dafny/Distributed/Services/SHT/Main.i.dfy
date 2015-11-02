@@ -1196,6 +1196,8 @@ module Main_i exclusively refines Main_s {
         requires SHT_Init(config, db[0]);
         requires forall i {:trigger SHT_Next(db[i], db[i+1])} :: 0 <= i < |db| - 1 ==> SHT_Next(db[i], db[i+1]);
         ensures  forall i {:trigger Inv(db[i])} :: 0 <= i < |db| ==> Inv(db[i]);
+        ensures  forall i {:trigger MapComplete(db[i])} :: 0 <= i < |db| ==> MapComplete(db[i]);
+        ensures  forall i {:trigger AllDelegationsToKnownHosts(db[i])} :: 0 <= i < |db| ==> AllDelegationsToKnownHosts(db[i]);
     {
         if |db| == 1 {
             InitInv(config, db[0]);
@@ -1215,21 +1217,21 @@ module Main_i exclusively refines Main_s {
         }
     }
 
-    lemma {:timeLimitMultiplier 4} RefinementToServiceStateSequence(config:SHTConfiguration, db:seq<SHT_State>) returns (sb:seq<ServiceState>, cm:seq<int>)
+    lemma RefinementToServiceStateSequence(config:SHTConfiguration, db:seq<SHT_State>) returns (sb:seq<ServiceState>, cm:seq<int>)
         requires |db| > 0;
         requires SHT_Init(config, db[0]);
-        requires forall i :: 0 <= i < |db| - 1 ==> SHT_Next(db[i], db[i+1]);
+        requires forall i {:trigger SHT_Next(db[i], db[i+1])} :: 0 <= i < |db| - 1 ==> SHT_Next(db[i], db[i+1]);
         ensures  |cm| == |db|;
         ensures  cm[0] == 0;                                            // Beginnings match
-        ensures  forall i :: 0 <= i < |cm| ==> 0 <= cm[i] < |sb|;       // Mappings are in bounds
-        ensures  forall i :: 0 <= i < |cm| - 1 ==> cm[i] <= cm[i+1];    // Mapping is monotonic
+        ensures  forall i {:trigger cm[i]} :: 0 <= i < |cm| ==> 0 <= cm[i] < |sb|;       // Mappings are in bounds
+        ensures  forall i {:trigger cm[i], cm[i+1]} :: 0 <= i < |cm| - 1 ==> cm[i] <= cm[i+1];    // Mapping is monotonic
         ensures  last(cm) == |sb| - 1;  // No extra values dangling at the end of sb
-        ensures  forall i :: 0 <= i < |db| ==> MapComplete(db[i]);
-        ensures  forall i :: 0 <= i < |db| ==> PacketsHaveSaneHeaders(db[i]);
-        ensures  forall i :: 0 <= i < |db| ==> AllDelegationsToKnownHosts(db[i]);
-        ensures  forall i :: 0 <= i < |db| ==> Refinement(db[i]) == sb[cm[i]];
+        ensures  forall i {:trigger MapComplete(db[i])} :: 0 <= i < |db| ==> MapComplete(db[i]);
+        ensures  forall i {:trigger PacketsHaveSaneHeaders(db[i])} :: 0 <= i < |db| ==> PacketsHaveSaneHeaders(db[i]);
+        ensures  forall i {:trigger AllDelegationsToKnownHosts(db[i])} :: 0 <= i < |db| ==> AllDelegationsToKnownHosts(db[i]);
+        ensures  forall i {:trigger Refinement(db[i])} :: 0 <= i < |db| ==> Refinement(db[i]) == sb[cm[i]];
         ensures  Service_Init(sb[0], MapSeqToSet(config.hostIds, x => x));
-        ensures  forall i :: 0 <= i < |sb| - 1 ==> Service_Next(sb[i], sb[i+1]);
+        ensures  forall i {:trigger Service_Next(sb[i], sb[i+1])} :: 0 <= i < |sb| - 1 ==> Service_Next(sb[i], sb[i+1]);
         //ensures  forall i :: 0 <= i < |db| ==> Service_Correspondence(db[i].environment.sentPackets, sb[i]);
     {
         if |db| == 1 {
@@ -1238,6 +1240,7 @@ module Main_i exclusively refines Main_s {
         } else {
             InvHolds(config, db);
             var sb_others, cm_others := RefinementToServiceStateSequence(config, all_but_last(db));
+            assert forall i :: 0 <= i < |all_but_last(db)| ==> Refinement(all_but_last(db)[i]) == sb_others[cm_others[i]];
             var d  := last(all_but_last(db));
             var d' := last(db);
             var s  := Refinement(d);
@@ -1320,6 +1323,7 @@ module Main_i exclusively refines Main_s {
         ensures  forall i :: 0 <= i < |db| ==> LSHTState_RefinementInvariant(db[i]);    
     {
     }
+
     lemma {:timeLimitMultiplier 3} RefinementToSHTSequence(config:SHTConfiguration, db:seq<LSHT_State>) returns (sb:seq<SHT_State>, cm:seq<int>)
         requires |db| > 0;
         requires LSHT_Init(config, db[0]);
@@ -1482,14 +1486,14 @@ module Main_i exclusively refines Main_s {
     lemma {:timeLimitMultiplier 2} RefinementProofForFixedBehavior(config:ConcreteConfiguration, db:seq<DS_State>) returns (sb:seq<ServiceState>, cm:seq<int>)
         requires |db| > 0;
         requires DS_Init(db[0], config);
-        requires forall i :: 0 <= i < |db| - 1 ==> DS_Next(db[i], db[i+1]);
+        requires forall i {:trigger DS_Next(db[i], db[i+1])} :: 0 <= i < |db| - 1 ==> DS_Next(db[i], db[i+1]);
         requires last(db).environment.nextStep.LEnvStepStutter?;
         ensures  |db| == |cm|;
         ensures  cm[0] == 0;                                            // Beginnings match
         ensures  forall i :: 0 <= i < |cm| ==> 0 <= cm[i] < |sb|;       // Mappings are in bounds
-        ensures  forall i :: 0 <= i < |cm| - 1 ==> cm[i] <= cm[i+1];    // Mapping is monotonic
+        ensures  forall i {:trigger cm[i], cm[i+1]} :: 0 <= i < |cm| - 1 ==> cm[i] <= cm[i+1];    // Mapping is monotonic
         ensures  Service_Init(sb[0], Collections__Maps2_s.mapdomain(db[0].servers));
-        ensures  forall i :: 0 <= i < |sb| - 1 ==> Service_Next(sb[i], sb[i+1]);
+        ensures  forall i {:trigger Service_Next(sb[i], sb[i+1])} :: 0 <= i < |sb| - 1 ==> Service_Next(sb[i], sb[i+1]);
         ensures  forall i :: 0 <= i < |db| ==> Service_Correspondence(db[i].environment.sentPackets, sb[cm[i]]);
     {
         var sht_config := AbstractifyConcreteConfiguration(config);
