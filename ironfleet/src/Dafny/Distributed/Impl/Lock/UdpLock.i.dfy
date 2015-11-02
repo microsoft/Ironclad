@@ -37,7 +37,8 @@ lemma lemma_EstablishAbstractifyRawLogToIos(rawlog:seq<UdpEvent>, ios:seq<LockIo
 
 predicate OnlySentMarshallableData(rawlog:seq<UdpEvent>)
 {
-    forall io :: io in rawlog && io.LIoOpSend? ==> UdpPacketBound(io.s.msg)
+    forall io :: io in rawlog && io.LIoOpSend? ==> 
+        UdpPacketBound(io.s.msg) && Demarshallable(io.s.msg, CMessageGrammar())
 }
 
 //////////////////////////////////////////////////////////////////////////////

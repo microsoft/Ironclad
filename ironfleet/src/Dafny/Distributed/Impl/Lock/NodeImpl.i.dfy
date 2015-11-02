@@ -90,6 +90,7 @@ class NodeImpl
                Valid()
             && NodeGrant(old(AbstractifyCNode(node)), AbstractifyCNode(node), ios)
             && AbstractifyRawLogToIos(udpEventLog) == ios
+            && OnlySentMarshallableData(udpEventLog)
             && old(Env().udp.history()) + udpEventLog == Env().udp.history());
     {
         var transfer_packet;
@@ -102,6 +103,7 @@ class NodeImpl
             udpEventLog := sendEventLog;
         } else {
             udpEventLog := [];
+            assert AbstractifyRawLogToIos(udpEventLog) == ios;
         }
     }
 
@@ -115,6 +117,7 @@ class NodeImpl
                Valid()
             && NodeAccept(old(AbstractifyCNode(node)), AbstractifyCNode(node), ios)
             && AbstractifyRawLogToIos(udpEventLog) == ios
+            && OnlySentMarshallableData(udpEventLog)
             && old(Env().udp.history()) + udpEventLog == Env().udp.history());
     {
         var rr;
@@ -154,6 +157,7 @@ class NodeImpl
                    Valid()
                 && NodeNext(old(AbstractifyCNode(node)), AbstractifyCNode(node), ios)
                 && AbstractifyRawLogToIos(udpEventLog) == ios
+                && OnlySentMarshallableData(udpEventLog)
                 && old(Env().udp.history()) + udpEventLog == Env().udp.history()
                 );
     {

@@ -38,7 +38,8 @@ module Host_i exclusively refines Host_s {
 
     predicate HostNext(host_state:HostState, host_state':HostState, ios:seq<LIoOp<EndPoint, seq<byte>>>)
     {
-        NodeNext(host_state.node, host_state'.node, AbstractifyRawLogToIos(ios))
+         NodeNext(host_state.node, host_state'.node, AbstractifyRawLogToIos(ios))
+      && OnlySentMarshallableData(ios)
     }
 
     predicate ConcreteConfigInit(config:ConcreteConfiguration, servers:set<EndPoint>, clients:set<EndPoint>)

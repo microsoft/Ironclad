@@ -394,6 +394,7 @@ module Main_i exclusively refines Main_s {
         ensures  Service_Init(sb[0], MapSeqToSet(config, x=>x));
         ensures  forall i :: 0 <= i < |sb| - 1 ==> Service_Next(sb[i], sb[i+1]);// || AbstractifyGLS_State(db[i]) == AbstractifyGLS_State(db[i+1]);
         ensures  forall i :: 0 <= i < |db| ==> sb[cm[i]] == AbstractifyGLS_State(db[i]);
+        ensures  forall i :: 0 <= i < |sb| ==> sb[i].hosts == sb[0].hosts;
         ensures  sb[|sb|-1] == AbstractifyGLS_State(db[|db|-1]);
     {
         if |db| == 1 {
@@ -484,6 +485,31 @@ module Main_i exclusively refines Main_s {
         }
     }
 
+    lemma lemma_PacketSentByServerIsDemarshallable(
+        config:ConcreteConfiguration,
+        db:seq<DS_State>,
+        i:int,
+        p:LPacket<EndPoint, seq<byte>>
+        )
+        requires IsValidBehavior(config, db);
+        requires 0 <= i < |db|;
+        requires p.src in config;
+        requires p in db[i].environment.sentPackets;
+        ensures  Demarshallable(p.msg, CMessageGrammar());
+    {
+        if i == 0 {
+            return;
+        }
+
+        if p in db[i-1].environment.sentPackets {
+            lemma_PacketSentByServerIsDemarshallable(config, db, i-1, p);
+            return;
+        }
+
+        lemma_DeduceTransitionFromDsBehavior(config, db, i-1);
+        lemma_DsConsistency(config, db, i-1);
+    }
+
     lemma RefinementProof(config:ConcreteConfiguration, db:seq<DS_State>) returns (sb:seq<ServiceState>, cm:seq<int>)
         /*requires |db| > 0;
         requires DS_Init(db[0], config);
@@ -519,6 +545,8 @@ module Main_i exclusively refines Main_s {
                      && p.src == ss.history[epoch-1];
             {
                 var ap := AbstractifyConcretePacket(p);
+                assert p.src in sb[0].hosts;//MapSeqToSet(config, x=>x)
+                lemma_PacketSentByServerIsDemarshallable(config, db, i, p);
                 assert Demarshallable(p.msg, CMessageGrammar());
                 lemma_ParseMarshallLockedAbstract(p.msg, epoch, ap.msg);
                 assert ap.msg.Locked?;

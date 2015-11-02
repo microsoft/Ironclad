@@ -59,6 +59,7 @@ method NodeGrantImpl(s:CNode) returns (s':CNode, packet:Option<CLockPacket>, gho
                            && ios[0].s == AbstractifyCLockPacket(packet.v);
     ensures    OptionCLockPacketValid(packet) 
             && (packet.Some? ==> packet.v.src == s.config[s.my_index]); 
+    ensures  packet.None? ==> ios == [] && s' == s;
     ensures  CNodeValid(s');
 {
     if s.held && s.epoch < 0xFFFF_FFFF_FFFF_FFFF {
