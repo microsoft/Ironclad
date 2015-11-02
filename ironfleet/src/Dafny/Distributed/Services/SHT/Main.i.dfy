@@ -1306,25 +1306,33 @@ module Main_i exclusively refines Main_s {
         requires cm[0] == 0;                                            // Beginnings match
         requires  forall i :: 0 <= i < |cm| ==> 0 <= cm[i] < |sb|;       // Mappings are in bounds
         requires  forall i :: 0 <= i < |cm| - 1 ==> cm[i] <= cm[i+1];
-        requires  forall i :: 0 <= i < |db| ==> LSHT_MapsComplete(db[i]) && LSHTState_RefinementInvariant(db[i]);
+        requires  forall i :: 0 <= i < |db| ==> LSHTState_RefinementInvariant(db[i]);
         requires forall i :: 0 <= i < |db|-1 ==> LSHTState_Refine(db[i]) == sb[cm[i]] 
         requires LSHTState_Refine(db[|db|-1]) == sb[last(cm)];
         ensures forall i :: 0 <= i < |db| ==> LSHTState_Refine(db[i]) == sb[cm[i]];
     {
     }    
 
-    lemma {:timeLimitMultiplier 2} RefinementToSHTSequence(config:SHTConfiguration, db:seq<LSHT_State>) returns (sb:seq<SHT_State>, cm:seq<int>)
+    lemma lemma_SHTRefinementInvariantAppend(db:seq<LSHT_State>)
+        requires |db| > 0;
+        requires forall i :: 0 <= i < |db|-1 ==> LSHTState_RefinementInvariant(db[i]);    
+        requires LSHTState_RefinementInvariant(db[|db|-1]);
+        ensures  forall i :: 0 <= i < |db| ==> LSHTState_RefinementInvariant(db[i]);    
+    {
+    }
+    lemma {:timeLimitMultiplier 3} RefinementToSHTSequence(config:SHTConfiguration, db:seq<LSHT_State>) returns (sb:seq<SHT_State>, cm:seq<int>)
         requires |db| > 0;
         requires LSHT_Init(config, db[0]);
-        requires forall i :: 0 <= i < |db| - 1 ==> LSHT_Next(db[i], db[i+1]);
-        ensures forall i :: 0 <= i < |db| ==> LSHTState_RefinementInvariant(db[i]);
+        requires forall i {:trigger LSHT_Next(db[i], db[i+1])} :: 0 <= i < |db| - 1 ==> LSHT_Next(db[i], db[i+1]);
+        ensures forall i {:trigger LSHTState_RefinementInvariant(db[i])} :: 0 <= i < |db| ==> LSHTState_RefinementInvariant(db[i]);
+        ensures forall i {:trigger LSHT_MapsComplete(db[i])} :: 0 <= i < |db| ==> LSHT_MapsComplete(db[i]);
         ensures  |cm| == |db|;
         ensures  cm[0] == 0;                                            // Beginnings match
-        ensures  forall i :: 0 <= i < |cm| ==> 0 <= cm[i] < |sb|;       // Mappings are in bounds
-        ensures  forall i :: 0 <= i < |cm| - 1 ==> cm[i] <= cm[i+1];    // Mapping is monotonic
-        ensures  forall i :: 0 <= i < |db| ==> LSHTState_Refine(db[i]) == sb[cm[i]];
+        ensures  forall i {:trigger cm[i]} :: 0 <= i < |cm| ==> 0 <= cm[i] < |sb|;       // Mappings are in bounds
+        ensures  forall i {:trigger cm[i], cm[i+1]} :: 0 <= i < |cm| - 1 ==> cm[i] <= cm[i+1];    // Mapping is monotonic
+        ensures  forall i {:trigger LSHTState_Refine(db[i])} :: 0 <= i < |db| ==> LSHTState_Refine(db[i]) == sb[cm[i]];
         ensures  SHT_Init(config, sb[0]);
-        ensures  forall i :: 0 <= i < |sb| - 1 ==> SHT_Next(sb[i], sb[i+1]);
+        ensures  forall i {:trigger SHT_Next(sb[i], sb[i+1])} :: 0 <= i < |sb| - 1 ==> SHT_Next(sb[i], sb[i+1]);
         ensures sb[|sb|-1] == LSHTState_Refine(db[|db|-1])
         //ensures  forall i :: 0 <= i < |db| ==> Service_Correspondence(db[i].environment.sentPackets, sb[i]);
     {
@@ -1353,7 +1361,8 @@ module Main_i exclusively refines Main_s {
             var d  := last(all_but_last(db));
             var d' := last(db);
             var penultimate_index := |db| - 2;
-            
+            assert forall i :: 0 <= i < |all_but_last(db)| ==> LSHTState_RefinementInvariant(all_but_last(db)[i]);
+
             calc {
                 LSHT_Next(db[penultimate_index], db[penultimate_index + 1]); // OBSERVE: +1 needed for trigger
                 LSHT_Next(d, d');
@@ -1367,6 +1376,14 @@ module Main_i exclusively refines Main_s {
             cm := cm_others + [|sb|-1];
             
             lemma_SHTSeqAppend(sb_others, s, sb);
+            assert LSHTState_RefinementInvariant(db[|db|-1]);
+            lemma_SHTRefinementInvariantAppend(db);
+            assert forall i :: 0 <= i < |db| ==> LSHTState_RefinementInvariant(db[i]);
+            assert   forall i :: 0 <= i < |cm| ==> 0 <= cm[i] < |sb|;       // Mappings are in bounds
+            assert  forall i :: 0 <= i < |cm| - 1 ==> cm[i] <= cm[i+1];
+            assert  forall i :: 0 <= i < |all_but_last(db)| ==> LSHTState_Refine(all_but_last(db)[i]) == sb_others[cm_others[i]];
+            assert forall i :: 0 <= i < |db|-1 ==> LSHTState_Refine(db[i]) == sb[cm[i]]; 
+            assert LSHTState_Refine(db[|db|-1]) == sb[last(cm)];
             lemma_SHTCmSeqAppend(sb, cm, db);
                 
         }
