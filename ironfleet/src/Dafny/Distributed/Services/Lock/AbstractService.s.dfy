@@ -15,7 +15,7 @@ predicate Service_Init(s:ServiceState, serverAddresses:set<EndPoint>)
     && (exists e :: e in serverAddresses && s.history == [e])
 }
 
-predicate ServiceNext(s:ServiceState, s':ServiceState)
+predicate Service_Next(s:ServiceState, s':ServiceState)
 {
        s'.hosts == s.hosts
     && (exists new_lock_holder :: 
@@ -52,8 +52,8 @@ predicate Service_Correspondence(concretePkts:set<LPacket<EndPoint, seq<byte>>>,
      && p.dst in serviceState.hosts 
      && p.msg == MarshallLockMsg(epoch) 
      ==>
-        0 <= epoch < |serviceState.history|
-     && p.src == serviceState.history[epoch]               
+        2 <= epoch <= |serviceState.history|
+     && p.src == serviceState.history[epoch-1]               
 }
 
 }

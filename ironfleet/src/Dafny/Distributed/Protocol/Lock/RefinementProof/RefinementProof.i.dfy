@@ -155,7 +155,7 @@ module RefinementProof_i {
     lemma lemma_LS_NextAbstract(glb:seq<GLS_State>, config:Config, i:int)
         requires IsValidBehavior(glb, config);
         requires 0 <= i < |glb| - 1;
-        ensures  ServiceNext(AbstractifyGLS_State(glb[i]), AbstractifyGLS_State(glb[i+1]))
+        ensures  Service_Next(AbstractifyGLS_State(glb[i]), AbstractifyGLS_State(glb[i+1]))
                || AbstractifyGLS_State(glb[i]) == AbstractifyGLS_State(glb[i+1]);
     {
         lemma_LSConsistent(glb, config, i);
@@ -171,7 +171,7 @@ module RefinementProof_i {
             /*if exists e :: NodeAcquiresLock(e, glb[i].ls, glb[i+1].ls) {
                 var e :| NodeAcquiresLock(e, lb[i], lb[i+1]);
                 assert e in AbstractifyLS_State(lb[i]).hosts;
-                assert ServiceNext(AbstractifyLS_State(lb[i]), AbstractifyLS_State(lb[i+1]));
+                assert Service_Next(AbstractifyLS_State(lb[i]), AbstractifyLS_State(lb[i+1]));
             } else {
                 assert AbstractifyLS_State(lb[i]) == AbstractifyLS_State(lb[i+1]);
             }*/
@@ -186,7 +186,7 @@ module RefinementProof_i {
 
     lemma MakeLockHistory(glb:seq<GLS_State>, config:Config, i:int) returns (history:seq<EndPoint>)
         requires IsValidBehavior(glb, config);
-        requires 0 <= i < |glb|-1;
+        requires 0 <= i < |glb|;
         ensures |history| > 0;
         ensures forall p :: p in glb[i].ls.environment.sentPackets && p.msg.Transfer? && p.src in glb[i].ls.servers 
                         ==> 2 <= p.msg.transfer_epoch <= |history|;

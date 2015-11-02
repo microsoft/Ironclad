@@ -10,7 +10,7 @@ function lock_config_parsing(args:seq<seq<uint16>>) : seq<EndPoint>
 {
     if args != [] && |args[1..]| % 2 == 0 then 
         var (ok, endpoints) := parse_end_points(args[1..]);
-        if ok && |endpoints| == 2 then 
+        if ok && |endpoints| > 0 && |endpoints| < 0x1_0000_0000_0000_0000 then 
             endpoints 
         else 
             []
@@ -78,10 +78,11 @@ method GetHostIndex(host:EndPoint, hosts:seq<EndPoint>) returns (found:bool, ind
 
 method ParseCmdLine(ghost env:HostEnvironment) returns (ok:bool, host_ids:seq<EndPoint>, my_index:uint64)
     requires HostEnvironmentIsValid(env);
-    ensures ok ==> |host_ids| == 2;
+    ensures ok ==> |host_ids| > 0;
     ensures ok ==> 0 <= int(my_index) < |host_ids|;
     ensures var (host_ids', my_ep') := lock_cmd_line_parsing(env);
             ok ==> host_ids == host_ids' && host_ids[my_index] == my_ep';
+    ensures ok ==> SeqIsUnique(host_ids);
 {
     ok := false;
     var num_args := HostConstants.NumCommandLineArgs(env);
@@ -97,7 +98,7 @@ method ParseCmdLine(ghost env:HostEnvironment) returns (ok:bool, host_ids:seq<En
     var tuple1 := parse_end_points(args[1..|args|-2]);
     ok := tuple1.0;
     var endpoints := tuple1.1;
-    if !ok || |endpoints| != 2 {
+    if !ok || |endpoints| == 0 || |endpoints| >= 0x1_0000_0000_0000_0000 {
         ok := false;
         return;
     }
