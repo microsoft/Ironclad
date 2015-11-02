@@ -70,7 +70,6 @@ module Main_i exclusively refines Main_s {
     }
 
     function AbstractifyConcreteSentPackets(sent:set<LPacket<EndPoint,seq<byte>>>) : set<LPacket<NodeIdentity, LockMessage>>
-        //requires forall p :: p in sent ==> LPacketIsAbstractable(p);
     {
         set p | p in sent :: AbstractifyConcretePacket(p)
     }
@@ -149,7 +148,6 @@ module Main_i exclusively refines Main_s {
         requires 0 <= i < |db|;
         ensures  db[i].config == config;
         ensures  Collections__Maps2_s.mapdomain(db[i].servers) == Collections__Maps2_s.mapdomain(db[0].servers);
-        //ensures  db[i].clients == db[0].clients;
     {
         if i == 0 {
         } else {
@@ -200,12 +198,9 @@ module Main_i exclusively refines Main_s {
 
     lemma lemma_IosRelations(ios:seq<LIoOp<EndPoint, seq<byte>>>, r_ios:seq<LIoOp<NodeIdentity, LockMessage>>)
         returns (sends:set<LPacket<EndPoint, seq<byte>>>, r_sends:set<LPacket<NodeIdentity, LockMessage>>) 
-        //requires UdpEventLogIsAbstractable(ios);
-        //requires forall io :: io in ios && io.LIoOpSend? ==> LPacketIsAbstractable(io.s);
         requires r_ios == AbstractifyRawLogToIos(ios);
         ensures    sends == (set io | io in ios && io.LIoOpSend? :: io.s);
         ensures  r_sends == (set io | io in r_ios && io.LIoOpSend? :: io.s);
-        //ensures  forall send :: send in sends ==> LPacketIsAbstractable(send);
         ensures  r_sends == AbstractifyConcreteSentPackets(sends);
     {
           sends := (set io | io in ios && io.LIoOpSend? :: io.s);
@@ -278,7 +273,7 @@ module Main_i exclusively refines Main_s {
             var ls := AbstractifyDsState(db[|db|-2]);
             var ls' := AbstractifyDsState(last(db));
             var rest := RefinementToLSState(config, all_but_last(db));
-            //assert forall i :: 0 <= i < |rest| - 1 ==> LSHT_Next(rest[i], rest[i+1]);
+            
             sb := rest + [ls'];
             forall i | 0 <= i < |sb| - 1 
                 ensures LS_Next(sb[i], sb[i+1]);
@@ -313,7 +308,6 @@ module Main_i exclusively refines Main_s {
         requires 0 <= i < |lb|;
         ensures  Collections__Maps2_s.mapdomain(lb[i].servers) == Collections__Maps2_s.mapdomain(lb[0].servers);
         ensures forall e :: e in lb[i].servers ==> e in lb[0].servers && lb[i].servers[e].config == lb[0].servers[e].config;
-        //ensures  lb[i].clients == lb[0].clients;
     {
         if i == 0 {
         } else {
@@ -336,10 +330,6 @@ module Main_i exclusively refines Main_s {
                 assert server in lb[i].servers;
                 assert server in lb[i-1].servers;
             }
-            //assert lb[i-1].servers == AbstractifyConcreteReplicas(db[i-1].servers, db[i-1].config);
-            //assert lb[i].servers == AbstractifyConcreteReplicas(db[i].servers, db[i].config);
-            //lemma_DsConsistency(config, db, i-1);
-            //lemma_DsConsistency(config, db, i);
         }
     }
     lemma {:timeLimitMultiplier 2} MakeGLSBehaviorFromLS(config:ConcreteConfiguration, db:seq<LS_State>) returns (sb:seq<GLS_State>)
@@ -382,32 +372,31 @@ module Main_i exclusively refines Main_s {
         }
     }
 
-    lemma {:timeLimitMultiplier 2} RefinementToServiceState(config:ConcreteConfiguration, db:seq<GLS_State>) returns (sb:seq<ServiceState>, cm:seq<int>)
-        requires |db| > 0;
-        requires GLS_Init(db[0], config);
-        requires forall i :: 0 <= i < |db| - 1 ==> GLS_Next(db[i], db[i+1]);
-        //ensures  |sb| == |db|;
-        ensures  |cm| == |db|;
+    lemma {:timeLimitMultiplier 2} RefinementToServiceState(config:ConcreteConfiguration, glb:seq<GLS_State>) returns (sb:seq<ServiceState>, cm:seq<int>)
+        requires |glb| > 0;
+        requires GLS_Init(glb[0], config);
+        requires forall i :: 0 <= i < |glb| - 1 ==> GLS_Next(glb[i], glb[i+1]);
+        ensures  |cm| == |glb|;
         ensures  cm[0] == 0;                                            // Beginnings match
         ensures  forall i :: 0 <= i < |cm| ==> 0 <= cm[i] < |sb|;       // Mappings are in bounds
         ensures  forall i :: 0 <= i < |cm| - 1 ==> cm[i] <= cm[i+1];    // Mapping is monotonic
         ensures  Service_Init(sb[0], MapSeqToSet(config, x=>x));
-        ensures  forall i :: 0 <= i < |sb| - 1 ==> Service_Next(sb[i], sb[i+1]);// || AbstractifyGLS_State(db[i]) == AbstractifyGLS_State(db[i+1]);
-        ensures  forall i :: 0 <= i < |db| ==> sb[cm[i]] == AbstractifyGLS_State(db[i]);
+        ensures  forall i :: 0 <= i < |sb| - 1 ==> Service_Next(sb[i], sb[i+1]);
+        ensures  forall i :: 0 <= i < |glb| ==> sb[cm[i]] == AbstractifyGLS_State(glb[i]);
         ensures  forall i :: 0 <= i < |sb| ==> sb[i].hosts == sb[0].hosts;
-        ensures  sb[|sb|-1] == AbstractifyGLS_State(db[|db|-1]);
+        ensures  sb[|sb|-1] == AbstractifyGLS_State(glb[|glb|-1]);
     {
-        if |db| == 1 {
-            sb := [AbstractifyGLS_State(db[0])];
+        if |glb| == 1 {
+            sb := [AbstractifyGLS_State(glb[0])];
             cm := [0];
-            lemma_InitRefines(db[0], config);
-            assert Service_Init(AbstractifyGLS_State(db[0]), MapSeqToSet(config, x=>x));
+            lemma_InitRefines(glb[0], config);
+            assert Service_Init(AbstractifyGLS_State(glb[0]), MapSeqToSet(config, x=>x));
         } else {
-            var rest, rest_cm := RefinementToServiceState(config, all_but_last(db));
-            var gls := last(all_but_last(db));
-            var gls' := last(db);
+            var rest, rest_cm := RefinementToServiceState(config, all_but_last(glb));
+            var gls := last(all_but_last(glb));
+            var gls' := last(glb);
 
-            lemma_LS_NextAbstract(db, config, |db|-2);
+            lemma_LS_NextAbstract(glb, config, |glb|-2);
             if (AbstractifyGLS_State(gls) == AbstractifyGLS_State(gls')) {
                 sb := rest;
                 cm := rest_cm + [last(rest_cm)];
@@ -415,19 +404,6 @@ module Main_i exclusively refines Main_s {
                 sb := rest + [AbstractifyGLS_State(gls')];
                 cm := rest_cm + [|sb|-1];
             }
-        }
-    }
-
-    lemma MakeSequence(size:int) returns (s:seq<int>)
-        requires size > 0;
-        ensures |s| == size;
-        ensures forall i :: 0 <= i < |s| ==> s[i] == i;
-    {
-        if size == 1 {
-            s := [0];
-        } else {
-            var rest := MakeSequence(size-1);
-            s := rest + [size-1];
         }
     }
 
@@ -545,20 +521,16 @@ module Main_i exclusively refines Main_s {
                      && p.src == ss.history[epoch-1];
             {
                 var ap := AbstractifyConcretePacket(p);
-                assert p.src in sb[0].hosts;//MapSeqToSet(config, x=>x)
+                assert p.src in sb[0].hosts;
                 lemma_PacketSentByServerIsDemarshallable(config, db, i, p);
                 assert Demarshallable(p.msg, CMessageGrammar());
                 lemma_ParseMarshallLockedAbstract(p.msg, epoch, ap.msg);
-                assert ap.msg.Locked?;
-                assert ap in ls.environment.sentPackets;
-                assert ap in gls.ls.environment.sentPackets;
                 lemma_LockedPacketImpliesTransferPacket(config, lsb, i, ap);
                 var q :| q in ls.environment.sentPackets
                          && q.msg.Transfer?
                          && q.msg.transfer_epoch == ap.msg.locked_epoch
                          && q.dst == p.src;
                 assert q in gls.ls.environment.sentPackets;
-                
             }
         }
     }

@@ -54,48 +54,6 @@ module MarshallProof_i {
     {
     }
 
-    lemma lemma_ParseMarshallLockConcrete(bytes:seq<byte>, msg:LockMessage)
-        requires msg.Locked?;
-        requires AbstractifyCMessage(DemarshallData(bytes)) == msg;
-        ensures  bytes == MarshallLockMsg(msg.locked_epoch);
-    {
-        var cmsg := DemarshallData(bytes);
-        assert cmsg.CLocked?;
-        assert int(cmsg.locked_epoch) == msg.locked_epoch;
-
-        var data := bytes;
-        var g := CMessageGrammar();
-        var v := DemarshallFunc(data, g);
-
-        // Walk through the generic parsing process
-        var msgCaseId, msgCaseVal, rest0 := lemma_ParseValCorrectVCase(data, v, g);
-
-        // Prove that the first 8 bytes are correct
-        assert msgCaseId == 1;
-        assert 1 == SeqByteToUint64(bytes[..8]);
-        assert bytes[..8] == [ 0, 0, 0, 0, 0, 0, 0, 1];
-
-        // Prove that the next 8 bytes are correct
-        var u, rest := lemma_ParseValCorrectVUint64(rest0, msgCaseVal, GUint64);
-        assert SeqByteToUint64(rest0[..8]) == u;
-        assert Uint64ToSeqByte(u) == Uint64ToBytes(u);
-        lemma_BEByteSeqToInt_BEUintToSeqByte_invertability();
-        assert rest0[..8] == Uint64ToSeqByte(uint64(msg.locked_epoch));
-        assert data[8..16] == rest0[..8];
-
-        reveal_parse_Val();
-
-        lemma_SizeOfCMessageLocked(v);
-        assert SizeOfV(v) == 16;
-        if |data| > 16 {
-            assert data[0..|data|] == data[..];
-            lemma_parse_Val_view_specific_size(data, v, CMessageGrammar(), 0, |data|);
-            lemma_parse_Val_view_specific(data, v, CMessageGrammar(), 0, |data|);
-            assert false;
-        }
-
-    }
-
     lemma lemma_ParseMarshallLockedAbstract(bytes:seq<byte>, epoch:int, msg:LockMessage)
         requires AbstractifyCMessage(DemarshallData(bytes)) == msg;
         requires bytes == MarshallLockMsg(epoch);

@@ -52,7 +52,7 @@ predicate Service_Correspondence(concretePkts:set<LPacket<EndPoint, seq<byte>>>,
      && p.dst in serviceState.hosts 
      && p.msg == MarshallLockMsg(epoch) 
      ==>
-        2 <= epoch <= |serviceState.history|
+        1 <= epoch <= |serviceState.history|
      && p.src == serviceState.history[epoch-1]               
 }
 
