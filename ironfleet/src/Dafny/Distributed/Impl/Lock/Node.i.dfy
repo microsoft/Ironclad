@@ -48,6 +48,9 @@ method NodeInitImpl(my_index:uint64, config:Config) returns (node:CNode)
     ensures node.config == config;
 {
     node := CNode(my_index == 0, if my_index == 0 then 1 else 0, my_index, config);
+    if node.held {
+        print "I start holding the lock\n";
+    }
 }
 
 method NodeGrantImpl(s:CNode) returns (s':CNode, packet:Option<CLockPacket>, ghost ios:seq<LockIo>)
@@ -67,6 +70,7 @@ method NodeGrantImpl(s:CNode) returns (s':CNode, packet:Option<CLockPacket>, gho
         var dst_index := (s.my_index + 1) % uint64(|s.config|);
         packet := Some(LPacket(s.config[dst_index], s.config[s.my_index], CTransfer(s.epoch + 1)));
         ios := [LIoOpSend(AbstractifyCLockPacket(packet.v))];
+        print "I grant the lock ", s.epoch, "\n";
     } else {
         s' := s;
         ios := [];

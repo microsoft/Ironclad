@@ -161,7 +161,7 @@ class NodeImpl
                 && old(Env().udp.history()) + udpEventLog == Env().udp.history()
                 );
     {
-        if * {  // Non-deterministically choose
+        if node.held {
             ok, udpEventLog, ios := NodeNextGrant();
         } else {
             ok, udpEventLog, ios := NodeNextAccept();
