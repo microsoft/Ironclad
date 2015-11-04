@@ -378,7 +378,7 @@ import opened LiveRSL__CClockReading_i
         reveal_Q_LReplica_Next_Process_StartingPhase2();
     }
 
-    method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,0,0} {:timeLimitMultiplier 3} ReplicaNextProcessPacketStartingPhase2(
+    method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,0,0} {:timeLimitMultiplier 5} ReplicaNextProcessPacketStartingPhase2(
         r:ReplicaImpl,
         cpacket:CPacket,
         ghost old_udp_history:seq<UdpEvent>,
@@ -743,7 +743,7 @@ import opened LiveRSL__CClockReading_i
         reveal_Q_LReplica_Next_Process_AppStateSupply();
     }
 
-    method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,0,0} {:timeLimitMultiplier 3} ReplicaNextProcessPacketAppStateSupply(
+    method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,0,0} {:timeLimitMultiplier 5} ReplicaNextProcessPacketAppStateSupply(
         r:ReplicaImpl,
         cpacket:CPacket,
         ghost old_udp_history:seq<UdpEvent>,
@@ -806,6 +806,7 @@ import opened LiveRSL__CClockReading_i
                                                                                     old_udp_history, old(r.Env().udp.history()),
                                                                                     r.Env().udp.history(),
                                                                                     receive_event, send_events, receive_io, send_ios);
+
         lemma_EstablishQLReplicaNextProcessPacketWithoutReadingClock(rreplica, AbstractifyReplicaStateToLReplica(r.replica),
                                                                    lpacket, AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets), ios);
         //print ("Replica_Next_ProcessPacketWithoutReadingClock_body: Exit\n");

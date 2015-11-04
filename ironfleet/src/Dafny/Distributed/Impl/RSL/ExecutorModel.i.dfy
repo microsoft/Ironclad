@@ -246,7 +246,7 @@ method {:timeLimitMultiplier 2} HandleRequestBatchImpl(state:CAppState, batch:CR
                  || (exists req_idx :: ClientIndexMatches(req_idx, client, newReplyCache, batch[..i], replies));
         }
     }
-
+    
     replies_seq := repliesArr[..];
     
     // Connect the while-loop invariant to the ensures
@@ -259,6 +259,9 @@ method {:timeLimitMultiplier 2} HandleRequestBatchImpl(state:CAppState, batch:CR
         assert batch[..i] == batch;
     }
     
+    assert replies_seq == replies;
+    assert forall j :: 0 <= j < |batch| ==> j < |replies_seq| && HelperPredicateHRBI(j, batch, states, replies_seq, g_states);
+    
     calc {
         AbstractifyCAppStateToAppState(state);
             { lemma_HandleBatchRequestSizes(AbstractifyCAppStateToAppState(state), 
@@ -270,7 +273,7 @@ method {:timeLimitMultiplier 2} HandleRequestBatchImpl(state:CAppState, batch:CR
     lemma_CReplyCacheUpdate(batch, reply_cache, replies, newReplyCache);
 }
 
-method UpdateReplyCache(ghost reply_cache:CReplyCache, reply_cache_mutable:MutableMap<EndPoint, CReply>, ep:EndPoint, newReply:CReply, reply:CAppMessage, i:uint64, batch:CRequestBatch, ghost replies:seq<CReply>) returns (ghost newReplyCache:CReplyCache)
+method {:timeLimitMultiplier 4} UpdateReplyCache(ghost reply_cache:CReplyCache, reply_cache_mutable:MutableMap<EndPoint, CReply>, ep:EndPoint, newReply:CReply, reply:CAppMessage, i:uint64, batch:CRequestBatch, ghost replies:seq<CReply>) returns (ghost newReplyCache:CReplyCache)
     requires EndPointIsValidIPV4(ep);
     requires ValidReply(newReply);
     requires CReplyIsAbstractable(newReply);
@@ -321,6 +324,7 @@ method UpdateReplyCache(ghost reply_cache:CReplyCache, reply_cache_mutable:Mutab
 
         }
     }
+    assert forall e {:trigger EndPointIsValidIPV4(e)} :: e in newReplyCache ==> EndPointIsValidIPV4(e) && CReplyIsAbstractable(newReplyCache[e]);
     assert CReplyCacheIsAbstractable(newReplyCache);
     lemma_AbstractifyCReplyCacheToReplyCache_properties(newReplyCache);
     assert EndPointIsValidIPV4(ep);
