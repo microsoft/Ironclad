@@ -108,6 +108,25 @@ To build the unverified C# clients for IronRSL and IronKV, open and build (in Re
 
 # Running
 
+## IronLock
+
+IronLock is the simplest of the protocols we have verified, so it may be a good starting point.
+It consists of N processes passing around a lock. To run it, you need to supply each process
+with the IP-port pairs of all processes, as well as its own IP-pair. For example, this is a 
+configuration with three processes:
+
+  `./nuobj/Dafny//Distributed/Services/Lock/Main_i.exe 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4002'
+  `./nuobj/Dafny//Distributed/Services/Lock/Main_i.exe 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4003'
+  `./nuobj/Dafny//Distributed/Services/Lock/Main_i.exe 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4001'
+
+It is important that you start the "first" process last, as it initially holds the lock and will
+immediately start passing it around. As this is a toy example, message retransmission is not implemented.
+Therefore, if the other processes are not running by the time the first process sends a grant message, 
+the message will be lost and the protocol will stop. 
+
+If started properly, the processes will pass the lock among them as fast as they can, printing a message 
+everytime they accept or grant the lock.
+
 ## IronRSL
 
 To run IronRSL, you should ideally use four different machines, but in a pinch you can use
@@ -117,12 +136,12 @@ we're using 3, but more is feasible).  Each server instance also needs to be tol
 IP-port pair belongs to it.  The client also needs to know it's own IP, how many threads
 to use when generating requests, and how long to run for (in seconds).
 
-`./nuobj/Dafny/Distributed/Services/RSL/Main_i.exe 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4001`
-`./nuobj/Dafny/Distributed/Services/RSL/Main_i.exe 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4002`
-`./nuobj/Dafny/Distributed/Services/RSL/Main_i.exe 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4003`
-`./src/IronfleetClient/IronfleetClient/bin/Release/IronfleetClient.exe 127.0.0.1 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 1 10`
+  `./nuobj/Dafny/Distributed/Services/RSL/Main_i.exe 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4001`
+  `./nuobj/Dafny/Distributed/Services/RSL/Main_i.exe 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4002`
+  `./nuobj/Dafny/Distributed/Services/RSL/Main_i.exe 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4003`
+  `./src/IronfleetClient/IronfleetClient/bin/Release/IronfleetClient.exe 127.0.0.1 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 1 10`
 
-The client will print out a GUID, but all of it's interesting output goes to:
+The client will print out a GUID, but all of its interesting output goes to:
 
   `/tmp/IronfleetOutput/Job-GUID/client.txt`
 
@@ -138,11 +157,11 @@ require a list of IP-port pairs. Additionally, the IronKV client also
 needs a few parameters to generate a stream of Get/Set requests
 (details below).
 
-`./nuobj/Dafny/Distributed/Services/SHT/Main_i.exe 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4001`
-`./nuobj/Dafny/Distributed/Services/SHT/Main_i.exe 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4002`
-`./nuobj/Dafny/Distributed/Services/SHT/Main_i.exe 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4003`
+  `./nuobj/Dafny/Distributed/Services/SHT/Main_i.exe 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4001`
+  `./nuobj/Dafny/Distributed/Services/SHT/Main_i.exe 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4002`
+  `./nuobj/Dafny/Distributed/Services/SHT/Main_i.exe 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4003`
 
-`./src/IronKVClient/IronfleetClient/bin/Release/IronfleetClient.exe 127.0.0.1 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 1 10 [OPERATION] [NUM-KEYS] [VAL-SIZE]`
+  `./src/IronKVClient/IronfleetClient/bin/Release/IronfleetClient.exe 127.0.0.1 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 1 10 [OPERATION] [NUM-KEYS] [VAL-SIZE]`
 where OPERATION specifies the workload to use (e.g., g for Gets or s
 Sets), and NUMKEYS tells the client to preload the server with an
 initial set of values (of size VALSIZE bytes) for keys from 0 to

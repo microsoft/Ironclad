@@ -58,6 +58,9 @@ should be a `.i.dfy` file and will be verified for correctness.
           The core implementation of IronKV (KV = Key-Value, SHT = Sharded Hashtable).  
         - `LiveSHT`
           SHT's scheduler and functionality for sending and receiving packets.  
+        - `Lock`
+          The core implementation for IronLock. This includes the command line parser,
+          the message definitions, parsing and marshalling, a simple scheduler, etc. 
       + `Protocol`
         - `Common`
           Common files shared by all of our protocols
@@ -67,7 +70,7 @@ should be a `.i.dfy` file and will be verified for correctness.
               Proof of safety, in the form of a proof that the implementation
           refines the specification given that it refines the protocol.
             + `LivenessProof`
-               Proof of liveness, specifically that if a client submits a request
+              Proof of liveness, specifically that if a client submits a request
           repeatedly he eventually receives a reply.  It requires
           various assumptions codified in Assumptions.i.dfy, e.g.,
           a quorum of replicas is live and the network
@@ -80,7 +83,7 @@ should be a `.i.dfy` file and will be verified for correctness.
           Defines the protocol layer of our SHT system
             + `RefinementProof`
               Proof of safety, in the form of a proof that the implementation
-          refines the specification given that it refines the protocol.
+              refines the specification given that it refines the protocol.
         - `LiveSHT`
           Defines a small additional layer that adds a scheduler to SHT and maps
           the low level Environment to SHT's notion of a Network.
@@ -95,6 +98,14 @@ should be a `.i.dfy` file and will be verified for correctness.
                 e.g., a message sent infinitely often
                 is eventually delivered.  The ultimate
                 liveness proof is in LivenessProof.i.dfy.
+        - `Lock`
+          Defines the protocol layer of our Lock service
+            + `RefinementProof`
+               Proof that the implementation refines the specification. The proof
+               uses two intermediate layers of states beyond the implementation and 
+               the specification. The LS_State layer represents the protocol states, 
+               while the GLS_State layer augments each protocol state with a history
+               variable, which is used to prove refinement to the high-level specification.
       + `Services`
         These directories tie the implementation, protocol, and specifications together.
         Each service has a directory with `.s.dfy` files that define the service-specific
