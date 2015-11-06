@@ -255,7 +255,7 @@ static lemma lemma_YesWeHaveNoPackets()
 {
 }
 
-static lemma lemma_ReplicaNextProcessPacketWithoutReadingClockHelper(
+static lemma {:timeLimitMultiplier 3} lemma_ReplicaNextProcessPacketWithoutReadingClockHelper(
     replica:ReplicaState, replica':ReplicaState, cpacket:CPacket, sent_packets:OutboundPackets,
     ios:seq<RslIo>, io0:RslIo, ios_head:seq<RslIo>, ios_tail:seq<RslIo>, 
     udpEvent0:UdpEvent, log_head:seq<UdpEvent>, log_tail:seq<UdpEvent>, udpEventLog:seq<UdpEvent>)
