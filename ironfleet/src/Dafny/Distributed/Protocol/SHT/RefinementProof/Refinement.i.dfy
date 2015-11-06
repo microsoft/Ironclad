@@ -63,7 +63,7 @@ function Refinement(s:SHT_State) : ServiceState
     // be sure the domains match, which probably means ensuring that
     // we don't store empty values explicitly in either system (and then
     // making sure that's an invariant).
-    var reqs := set h,i {:auto_trigger} | h in maprange(s.hosts) && 0 <= i < |h.receivedRequests| :: h.receivedRequests[i];
+    var reqs := set h,i {:trigger h.receivedRequests[i]} | h in maprange(s.hosts) && 0 <= i < |h.receivedRequests| :: h.receivedRequests[i];
     var ss := ServiceState'(
                  MapSeqToSet(s.config.hostIds, x => x),
                  map k | k in RefinedDomain(s) :: FindHashTable(s,k)[k],

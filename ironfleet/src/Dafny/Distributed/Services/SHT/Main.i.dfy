@@ -21,7 +21,7 @@ module Main_i exclusively refines Main_s {
     {
            |db| > 0
         && DS_Init(db[0], config)
-        && forall i :: 0 <= i < |db| - 1 ==> DS_Next(db[i], db[i+1])
+        && (forall i {:trigger DS_Next(db[i], db[i+1])} :: 0 <= i < |db| - 1 ==> DS_Next(db[i], db[i+1]))
     }
 
     predicate LPacketIsAbstractable(cp:LPacket<EndPoint,seq<byte>>)
@@ -134,7 +134,7 @@ module Main_i exclusively refines Main_s {
     lemma lemma_DsNextOffset(db:seq<DS_State>, index:int)
         requires |db| > 0;
         requires 0 < index < |db|;
-        requires forall i :: 0 <= i < |db| - 1 ==> DS_Next(db[i], db[i+1]);
+        requires forall i {:trigger DS_Next(db[i], db[i+1])} :: 0 <= i < |db| - 1 ==> DS_Next(db[i], db[i+1]);
         ensures  DS_Next(db[index-1], db[index]);
     {
         var i := index - 1;
@@ -421,6 +421,11 @@ module Main_i exclusively refines Main_s {
     {
         var step_before, step_after := lemma_FindReceivedRequestStep(config, db, i, id, req, req_index);
         step := step_before;
+        var h := db[step].servers[id].sched.host;
+        assert h.receivedPacket.Some?
+                 && h.receivedPacket.v.msg.SingleMessage?
+                 && h.receivedPacket.v.msg.m.SetRequest?
+                 && req == AppSetRequest(h.receivedPacket.v.msg.seqno, h.receivedPacket.v.msg.m.k_setrequest, h.receivedPacket.v.msg.m.v_setrequest);
     }
     
     lemma lemma_SentPacketIsValidPhysicalPacket(
@@ -1090,10 +1095,10 @@ module Main_i exclusively refines Main_s {
         requires |db| > 0;
         requires DS_Init(db[0], config);
         requires LEnvStepIsAbstractable(last(db).environment.nextStep);
-        requires forall i :: 0 <= i < |db| - 1 ==> DS_Next(db[i], db[i+1]);
+        requires forall i {:trigger DS_Next(db[i], db[i+1])} :: 0 <= i < |db| - 1 ==> DS_Next(db[i], db[i+1]);
         ensures  |sb| == |db|;
         ensures  LSHT_Init(AbstractifyConcreteConfiguration(db[0].config), sb[0]);
-        ensures  forall i :: 0 <= i < |sb| - 1 ==> LSHT_Next(sb[i], sb[i+1]);
+        ensures  forall i {:trigger LSHT_Next(sb[i], sb[i+1])} :: 0 <= i < |sb| - 1 ==> LSHT_Next(sb[i], sb[i+1]);
         ensures forall i :: 0 <= i < |db| ==> DsStateIsAbstractable(db[i]) 
                                            && sb[i] == AbstractifyDsState(db[i]);
         //ensures  forall i :: 0 <= i < |db| ==> Service_Correspondence(db[i].environment.sentPackets, sb[i]);
@@ -1136,7 +1141,7 @@ module Main_i exclusively refines Main_s {
 
             var ls' := AbstractifyDsState(last(db));
             var rest := RefinementToLiveSHTProof(config, all_but_last(db));
-            assert forall i :: 0 <= i < |rest| - 1 ==> LSHT_Next(rest[i], rest[i+1]);
+            assert forall i {:trigger LSHT_Next(rest[i], rest[i+1])} :: 0 <= i < |rest| - 1 ==> LSHT_Next(rest[i], rest[i+1]);
             sb := rest + [ls'];
 
             // Help with sequence indexing
@@ -1217,7 +1222,7 @@ module Main_i exclusively refines Main_s {
         }
     }
 
-    lemma RefinementToServiceStateSequence(config:SHTConfiguration, db:seq<SHT_State>) returns (sb:seq<ServiceState>, cm:seq<int>)
+    lemma {:timeLimitMultiplier 3} RefinementToServiceStateSequence(config:SHTConfiguration, db:seq<SHT_State>) returns (sb:seq<ServiceState>, cm:seq<int>)
         requires |db| > 0;
         requires SHT_Init(config, db[0]);
         requires forall i {:trigger SHT_Next(db[i], db[i+1])} :: 0 <= i < |db| - 1 ==> SHT_Next(db[i], db[i+1]);
@@ -1276,14 +1281,14 @@ module Main_i exclusively refines Main_s {
         requires |s| >= 1;
         requires sb_others[|sb_others|-1] == s[0];
         requires sb == sb_others + s[1..];
-        requires forall i :: 0 <= i < |sb_others| - 1 ==> SHT_Next(sb_others[i], sb_others[i+1]);
-        requires forall i :: 0 <= i < |s| - 1 ==> SHT_Next(s[i], s[i+1]);
-        ensures forall i :: 0 <= i < |sb| - 1 ==> SHT_Next(sb[i], sb[i+1]);
+        requires forall i {:trigger SHT_Next(sb_others[i], sb_others[i+1])} :: 0 <= i < |sb_others| - 1 ==> SHT_Next(sb_others[i], sb_others[i+1]);
+        requires forall i {:trigger SHT_Next(s[i], s[i+1])} :: 0 <= i < |s| - 1 ==> SHT_Next(s[i], s[i+1]);
+        ensures forall i {:trigger SHT_Next(sb[i], sb[i+1])} :: 0 <= i < |sb| - 1 ==> SHT_Next(sb[i], sb[i+1]);
     {
         forall i | 0 <= i < |sb| - 1 
             ensures SHT_Next(sb[i], sb[i+1]) {
             if (i < |sb_others| - 1) {
-                assert forall i :: 0 <= i < |sb_others| - 1 ==> SHT_Next(sb_others[i], sb_others[i+1]);
+                assert forall i {:trigger SHT_Next(sb_others[i], sb_others[i+1])} :: 0 <= i < |sb_others| - 1 ==> SHT_Next(sb_others[i], sb_others[i+1]);
             } else if i == |sb_others| - 1 {
                 var idx := |sb_others| - 1;
                 var idx2 := 0;
@@ -1294,7 +1299,7 @@ module Main_i exclusively refines Main_s {
                     SHT_Next(sb[idx], sb[idx+1]);
                 }
             } else if i >= |sb_others| {
-                assert forall i :: 0 <= i < |s| - 1 ==> SHT_Next(s[i], s[i+1]);
+                assert forall i {:trigger SHT_Next(s[i], s[i+1])} :: 0 <= i < |s| - 1 ==> SHT_Next(s[i], s[i+1]);
                 var idx := i - |sb_others| + 1;
                 assert SHT_Next(s[idx], s[idx + 1]);
                 assert sb[i] == s[i - |sb_others| + 1];
@@ -1308,7 +1313,7 @@ module Main_i exclusively refines Main_s {
         requires |cm| == |db|;
         requires cm[0] == 0;                                            // Beginnings match
         requires  forall i :: 0 <= i < |cm| ==> 0 <= cm[i] < |sb|;       // Mappings are in bounds
-        requires  forall i :: 0 <= i < |cm| - 1 ==> cm[i] <= cm[i+1];
+        requires  forall i,j :: 0 <= i < |cm| - 1 && j == i+1 ==> cm[i] <= cm[j];
         requires  forall i :: 0 <= i < |db| ==> LSHTState_RefinementInvariant(db[i]);
         requires forall i :: 0 <= i < |db|-1 ==> LSHTState_Refine(db[i]) == sb[cm[i]] 
         requires LSHTState_Refine(db[|db|-1]) == sb[last(cm)];
@@ -1345,7 +1350,7 @@ module Main_i exclusively refines Main_s {
             sb := [LSHTState_Refine(db[0])];
             cm := [0];
         } else if |db| == 2 {
-            assert forall i :: 0 <= i < |db| - 1 ==> LSHT_Next(db[i], db[i+1]);
+            assert forall i {:trigger LSHT_Next(db[i], db[i+1])} :: 0 <= i < |db| - 1 ==> LSHT_Next(db[i], db[i+1]);
             var start_idx := 0;
             var d := db[0];
             var d' := db[1];
@@ -1384,7 +1389,7 @@ module Main_i exclusively refines Main_s {
             lemma_SHTRefinementInvariantAppend(db);
             assert forall i :: 0 <= i < |db| ==> LSHTState_RefinementInvariant(db[i]);
             assert   forall i :: 0 <= i < |cm| ==> 0 <= cm[i] < |sb|;       // Mappings are in bounds
-            assert  forall i :: 0 <= i < |cm| - 1 ==> cm[i] <= cm[i+1];
+            //assert  forall i :: 0 <= i < |cm| - 1 ==> cm[i] <= cm[i+1];
             assert  forall i :: 0 <= i < |all_but_last(db)| ==> LSHTState_Refine(all_but_last(db)[i]) == sb_others[cm_others[i]];
             assert forall i :: 0 <= i < |db|-1 ==> LSHTState_Refine(db[i]) == sb[cm[i]]; 
             assert LSHTState_Refine(db[|db|-1]) == sb[last(cm)];
@@ -1397,10 +1402,10 @@ module Main_i exclusively refines Main_s {
         requires IsValidBehavior(config, db);
         ensures  |db'| == |db|;
         ensures  DS_Init(db'[0], config);
-        ensures  forall i :: 0 <= i < |db'| - 1 ==> DS_Next(db'[i], db'[i+1]);
+        ensures  forall i {:trigger DS_Next(db'[i], db'[i+1])} :: 0 <= i < |db'| - 1 ==> DS_Next(db'[i], db'[i+1]);
         ensures  last(db').environment.nextStep.LEnvStepStutter?;
         ensures  forall i :: 0 <= i < |db'| - 1 ==> db'[i] == db[i];
-        ensures  last(db') == last(db)[environment := last(db').environment];
+        ensures  last(db') == last(db).(environment := last(db').environment);
         ensures  last(db').environment == last(db).environment[nextStep := LEnvStepStutter()];
         ensures  LEnvStepIsAbstractable(last(db').environment.nextStep);
     {
@@ -1421,7 +1426,7 @@ module Main_i exclusively refines Main_s {
 
     lemma SequenceSortedProperty(s:seq<int>, i:int, j:int)
         requires |s| > 0;
-        requires forall i :: 0 <= i < |s| - 1 ==> s[i] <= s[i+1];
+        requires forall i,j :: (0 <= i < |s| - 1) && (j == i+1) ==> s[i] <= s[j];
         requires 0 <= i <= j < |s|
         ensures  s[i] <= s[j];
         decreases j-i;
@@ -1437,13 +1442,13 @@ module Main_i exclusively refines Main_s {
         requires |lm| > 0;
         requires |sm| > 0;
         requires lm[0] == sm[0] == 0;
-        requires forall i :: 0 <= i < |lm| - 1 ==> lm[i] <= lm[i+1];
-        requires forall i :: 0 <= i < |sm| - 1 ==> sm[i] <= sm[i+1];
+        requires forall i,j :: (0 <= i < |lm| - 1) && (j == i+1) ==> lm[i] <= lm[j];
+        requires forall i,j :: (0 <= i < |sm| - 1) && (j == i+1) ==> sm[i] <= sm[j];
         requires forall i :: 0 <= i < |lm| ==> 0 <= lm[i] < |sm|;
         ensures  |cm| == |lm|;
         ensures  cm[0] == 0;
         ensures  forall i :: 0 <= i < |cm| ==> cm[i] == sm[lm[i]];
-        ensures  forall i :: 0 <= i < |cm| - 1 ==> cm[i] <= cm[i+1];
+        ensures  forall i, j :: (0 <= i < |cm| - 1) && (j == i+1) ==> cm[i] <= cm[j];
     {
         if |lm| == 1 {
             cm := [0];
@@ -1451,7 +1456,7 @@ module Main_i exclusively refines Main_s {
             var rest := ComposeMappings(lm[0..|lm|-1],sm);
             var last_cm := sm[lm[|lm|-1]];
             cm := rest + [last_cm];
-            assert forall i :: 0 <= i < |lm[0..|lm|-1]| - 1 ==> cm[i] <= cm[i+1];
+            assert forall i,j :: (0 <= i < |lm[0..|lm|-1]| - 1) && (j == i + 1) ==> cm[i] <= cm[j];
             var k := |cm|-2;
             assert 0 <= k < |lm| - 1;
             assert lm[k] <= lm[k+1];
@@ -1466,7 +1471,7 @@ module Main_i exclusively refines Main_s {
     lemma lemma_ServiceStateServerAddressesNeverChange(sb:seq<ServiceState>, server_addresses:set<NodeIdentity>, i:int)
         requires |sb| > 0;
         requires Service_Init(sb[0], server_addresses);
-        requires forall j :: 0 <= j < |sb| - 1 ==> Service_Next(sb[j], sb[j+1]);
+        requires forall j {:trigger Service_Next(sb[j], sb[j+1])} :: 0 <= j < |sb| - 1 ==> Service_Next(sb[j], sb[j+1]);
         requires 0 <= i < |sb|;
         ensures  sb[i].serverAddresses == server_addresses;
     {
@@ -1482,19 +1487,23 @@ module Main_i exclusively refines Main_s {
         lemma_ServiceStateServerAddressesNeverChange(sb, server_addresses, i-1);
     }
 
-   
-    lemma {:timeLimitMultiplier 2} RefinementProofForFixedBehavior(config:ConcreteConfiguration, db:seq<DS_State>) returns (sb:seq<ServiceState>, cm:seq<int>)
+    predicate HostStateReq(sht_state:SHT_State, req:AppRequest)
+    {
+        exists h,req_index :: h in maprange(sht_state.hosts) && 0 <= req_index < |h.receivedRequests| && req == h.receivedRequests[req_index]
+    }
+
+    lemma RefinementProofForFixedBehavior(config:ConcreteConfiguration, db:seq<DS_State>) returns (sb:seq<ServiceState>, cm:seq<int>)
         requires |db| > 0;
         requires DS_Init(db[0], config);
         requires forall i {:trigger DS_Next(db[i], db[i+1])} :: 0 <= i < |db| - 1 ==> DS_Next(db[i], db[i+1]);
         requires last(db).environment.nextStep.LEnvStepStutter?;
         ensures  |db| == |cm|;
         ensures  cm[0] == 0;                                            // Beginnings match
-        ensures  forall i :: 0 <= i < |cm| ==> 0 <= cm[i] < |sb|;       // Mappings are in bounds
+        ensures  forall i {:trigger cm[i]} :: 0 <= i < |cm| ==> 0 <= cm[i] < |sb|;       // Mappings are in bounds
         ensures  forall i {:trigger cm[i], cm[i+1]} :: 0 <= i < |cm| - 1 ==> cm[i] <= cm[i+1];    // Mapping is monotonic
         ensures  Service_Init(sb[0], Collections__Maps2_s.mapdomain(db[0].servers));
         ensures  forall i {:trigger Service_Next(sb[i], sb[i+1])} :: 0 <= i < |sb| - 1 ==> Service_Next(sb[i], sb[i+1]);
-        ensures  forall i :: 0 <= i < |db| ==> Service_Correspondence(db[i].environment.sentPackets, sb[cm[i]]);
+        ensures  forall i {:trigger Service_Correspondence(db[i].environment.sentPackets, sb[cm[i]])} :: 0 <= i < |db| ==> Service_Correspondence(db[i].environment.sentPackets, sb[cm[i]]);
     {
         var sht_config := AbstractifyConcreteConfiguration(config);
         //var db' := FixFinalEnvStep(config, db);
@@ -1562,8 +1571,13 @@ module Main_i exclusively refines Main_s {
                                                    && p.msg == MarshallServiceGetRequest(req, reserved_bytes)
                                                    && |reserved_bytes| == 8;
             {
+                assert HostStateReq(sht_state, req);
                 var h,req_index :| h in maprange(sht_state.hosts) && 0 <= req_index < |h.receivedRequests| && req == h.receivedRequests[req_index];
                 var id := h.me;
+                assert h in maprange(sht_state.hosts);
+                assert id in db[i].servers;
+                assert 0 <= req_index < |db[i].servers[id].sched.host.receivedRequests|;
+                assert db[i].servers[id].sched.host.receivedRequests[req_index] == req;
                 var step := lemma_FindRawAppGetRequest(config, db, i, id, req, req_index);
                 
                 var concrete_p := lemma_BufferedPacketFindRawPacket(config, db, step, id);
@@ -1581,12 +1595,12 @@ module Main_i exclusively refines Main_s {
                 var reserved_bytes := lemma_ParseMarshallGetRequest(concrete_p.msg, sht_p.msg);
                 assert concrete_p.msg == MarshallServiceGetRequest(req, reserved_bytes);
             }
-            
             forall req | req in serviceState.requests && req.AppSetRequest? 
                       ensures exists p, reserved_bytes :: p in concretePkts && p.dst in serviceState.serverAddresses 
                                                    && p.msg == MarshallServiceSetRequest(req, reserved_bytes)
                                                    && |reserved_bytes| == 8;
             {
+                assert exists h, req_index :: h in maprange(sht_state.hosts) && 0 <= req_index < |h.receivedRequests| && req == h.receivedRequests[req_index];
                 var h,req_index :| h in maprange(sht_state.hosts) && 0 <= req_index < |h.receivedRequests| && req == h.receivedRequests[req_index];
                 var id := h.me;
                 var step := lemma_FindRawAppSetRequest(config, db, i, id, req, req_index);
@@ -1613,7 +1627,7 @@ module Main_i exclusively refines Main_s {
         requires IsValidBehavior(config, db);
         ensures  |db'| == |db|;
         ensures  DS_Init(db'[0], config);
-        ensures  forall i :: 0 <= i < |db'| - 1 ==> DS_Next(db'[i], db'[i+1]);
+        ensures  forall i {:trigger DS_Next(db'[i], db'[i+1])} :: 0 <= i < |db'| - 1 ==> DS_Next(db'[i], db'[i+1]);
         ensures  last(db').environment.nextStep.LEnvStepStutter?;
         ensures  forall i :: 0 <= i < |db'| - 1 ==> db'[i] == db[i];
         ensures  last(db') == last(db)[environment := last(db').environment];

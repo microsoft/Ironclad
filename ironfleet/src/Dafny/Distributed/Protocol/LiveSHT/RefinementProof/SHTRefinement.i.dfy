@@ -57,6 +57,6 @@ predicate IsSHTStateRefinementSequenceOf(s:seq<SHT_State>, ls:SHT_State, ls':SHT
        |s| > 0
     && s[0] == ls
     && s[|s|-1] == ls'
-    && (forall i :: 0 <= i < |s|-1 ==> SHT_Next(s[i], s[i+1]))
+    && (forall i {:trigger SHT_Next(s[i], s[i+1])} :: 0 <= i < |s|-1 ==> SHT_Next(s[i], s[i+1]))
 }
 } 

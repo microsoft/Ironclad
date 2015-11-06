@@ -1918,6 +1918,9 @@ lemma NextExternalRefines(s:SHT_State, s':SHT_State, id:NodeIdentity, recv:set<P
     assert Refinement(s).ht == Refinement(s').ht;
     assert Refinement(s).requests == Refinement(s').requests;
     assert Refinement(s).replies == Refinement(s').replies;
+    assert Inv(s');
+    assert InvRefinementNormalized(s');
+    assert ServiceStutter(Refinement(s), Refinement(s'));
 }
 
 lemma NextRefinesService(s:SHT_State, s':SHT_State)
