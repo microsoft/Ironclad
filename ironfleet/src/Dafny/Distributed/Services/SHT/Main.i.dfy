@@ -1579,10 +1579,8 @@ module Main_i exclusively refines Main_s {
                 assert sht_state == LSHTState_Refine(LSHT_State(AbstractifyConcreteConfiguration(db[i].config),
                     AbstractifyConcreteEnvironment(db[i].environment),
                     AbstractifyConcreteReplicas(db[i].servers, db[i].config.hostIds)));
-        
-                assert id in db[i].servers;
-                assert 0 <= req_index < |db[i].servers[id].sched.host.receivedRequests|;
-                assert db[i].servers[id].sched.host.receivedRequests[req_index] == req;
+                InvHolds(sht_config, sht_states);
+                assert Inv(sht_state);
                 var step := lemma_FindRawAppGetRequest(config, db, i, id, req, req_index);
                 var concrete_p := lemma_BufferedPacketFindRawPacket(config, db, step, id);
                 assert concrete_p in db[step].environment.sentPackets;
@@ -1606,9 +1604,15 @@ module Main_i exclusively refines Main_s {
                                                    && |reserved_bytes| == 8;
             {
                 assert serviceState == Refinement(sht_state);
-                assert exists h, req_index :: h in maprange(sht_state.hosts) && 0 <= req_index < |h.receivedRequests| && req == h.receivedRequests[req_index];
                 var h,req_index :| h in maprange(sht_state.hosts) && 0 <= req_index < |h.receivedRequests| && req == h.receivedRequests[req_index];
                 var id := h.me;
+                assert h in maprange(sht_state.hosts);
+                assert sht_state == LSHTState_Refine(AbstractifyDsState(db[i]));
+                assert sht_state == LSHTState_Refine(LSHT_State(AbstractifyConcreteConfiguration(db[i].config),
+                    AbstractifyConcreteEnvironment(db[i].environment),
+                    AbstractifyConcreteReplicas(db[i].servers, db[i].config.hostIds)));
+                InvHolds(sht_config, sht_states);
+                assert Inv(sht_state);
                 var step := lemma_FindRawAppSetRequest(config, db, i, id, req, req_index);
                 
                 var concrete_p := lemma_BufferedPacketFindRawPacket(config, db, step, id);
