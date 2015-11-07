@@ -394,6 +394,7 @@ module Main_i exclusively refines Main_s {
     {
         var step_before, step_after := lemma_FindReceivedRequestStep(config, db, i, id, req, req_index);
         step := step_before;
+        assert DS_Next(db[step], db[step+1]);
     }
     
     lemma lemma_FindRawAppSetRequest(
