@@ -41,7 +41,7 @@ function LSHTState_Refine(s:LSHT_State) : SHT_State
     ensures SHT_MapsComplete(LSHTState_Refine(s))
 {
     SHT_State(LSHTConfiguration_Refine(s.config), LSHTEnvironment_Refine(s.environment),
-               (map id | id in s.config.hostIds :: LScheduler_Refine(s.hosts[GetHostIndex(id, s.config)])))
+               (map id {:trigger LScheduler_Refine(s.hosts[GetHostIndex(id, s.config)])} | id in s.config.hostIds :: LScheduler_Refine(s.hosts[GetHostIndex(id, s.config)])))
 }
 
 predicate LSHTState_RefinementInvariant(s:LSHT_State)

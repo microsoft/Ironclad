@@ -368,7 +368,7 @@ module Main_i exclusively refines Main_s {
             lemma_RecevedRequestsConsistent(config, db, step_after, i, id, req', req_index);
         }
     }
-
+    
     lemma lemma_FindRawAppGetRequest(
         config:ConcreteConfiguration,
         db:seq<DS_State>,
@@ -1507,7 +1507,7 @@ module Main_i exclusively refines Main_s {
         var lsht_states := RefinementToLiveSHTProof(config, db);
         var sht_states, map_lsht_to_sht := RefinementToSHTSequence(sht_config, lsht_states);
         var service_states, map_sht_to_service := RefinementToServiceStateSequence(sht_config, sht_states);
-
+        
         sb := service_states;
         cm := ComposeMappings(map_lsht_to_sht, map_sht_to_service);
         var server_addresses := MapSeqToSet(config.hostIds, x=>x);
@@ -1562,21 +1562,28 @@ module Main_i exclusively refines Main_s {
                 //assert service_reply == AppReply(p.dst, seqno, reply);
                 //assert service_reply in serviceState.replies;
             }
-            
+            assert |db| > 0;
+            assert DS_Init(db[0], config);
+            assert last(db).environment.nextStep.LEnvStepStutter?;
             forall req | req in serviceState.requests && req.AppGetRequest? 
                       ensures exists p, reserved_bytes :: p in concretePkts && p.dst in serviceState.serverAddresses 
                                                    && p.msg == MarshallServiceGetRequest(req, reserved_bytes)
                                                    && |reserved_bytes| == 8;
             {
-                assert HostStateReq(sht_state, req);
+                
+                assert serviceState == Refinement(sht_state);
                 var h,req_index :| h in maprange(sht_state.hosts) && 0 <= req_index < |h.receivedRequests| && req == h.receivedRequests[req_index];
                 var id := h.me;
                 assert h in maprange(sht_state.hosts);
+                assert sht_state == LSHTState_Refine(AbstractifyDsState(db[i]));
+                assert sht_state == LSHTState_Refine(LSHT_State(AbstractifyConcreteConfiguration(db[i].config),
+                    AbstractifyConcreteEnvironment(db[i].environment),
+                    AbstractifyConcreteReplicas(db[i].servers, db[i].config.hostIds)));
+        
                 assert id in db[i].servers;
                 assert 0 <= req_index < |db[i].servers[id].sched.host.receivedRequests|;
                 assert db[i].servers[id].sched.host.receivedRequests[req_index] == req;
                 var step := lemma_FindRawAppGetRequest(config, db, i, id, req, req_index);
-                
                 var concrete_p := lemma_BufferedPacketFindRawPacket(config, db, step, id);
                 assert concrete_p in db[step].environment.sentPackets;
                 lemma_PacketsMonotonic(config,db, step, i);
@@ -1592,11 +1599,13 @@ module Main_i exclusively refines Main_s {
                 var reserved_bytes := lemma_ParseMarshallGetRequest(concrete_p.msg, sht_p.msg);
                 assert concrete_p.msg == MarshallServiceGetRequest(req, reserved_bytes);
             }
+            
             forall req | req in serviceState.requests && req.AppSetRequest? 
                       ensures exists p, reserved_bytes :: p in concretePkts && p.dst in serviceState.serverAddresses 
                                                    && p.msg == MarshallServiceSetRequest(req, reserved_bytes)
                                                    && |reserved_bytes| == 8;
             {
+                assert serviceState == Refinement(sht_state);
                 assert exists h, req_index :: h in maprange(sht_state.hosts) && 0 <= req_index < |h.receivedRequests| && req == h.receivedRequests[req_index];
                 var h,req_index :| h in maprange(sht_state.hosts) && 0 <= req_index < |h.receivedRequests| && req == h.receivedRequests[req_index];
                 var id := h.me;
