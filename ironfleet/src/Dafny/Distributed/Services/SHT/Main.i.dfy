@@ -420,20 +420,9 @@ module Main_i exclusively refines Main_s {
                  && req == AppSetRequest(h.receivedPacket.v.msg.seqno, h.receivedPacket.v.msg.m.k_setrequest, h.receivedPacket.v.msg.m.v_setrequest);
     {
         var step_before, step_after := lemma_FindReceivedRequestStep(config, db, i, id, req, req_index);
-        assert  0 <= step_before < step_after <= i;
-        assert  step_after == step_before + 1;
-        assert  id in db[step_before].servers;
-        assert  id in db[step_after].servers;
-        assert |db[step_before].servers[id].sched.host.receivedRequests| == req_index;
-        assert |db[step_after].servers[id].sched.host.receivedRequests| == req_index + 1;
-        assert db[i].servers[id].sched.host.receivedRequests[req_index] == req;
-
         step := step_before;
         var h := db[step].servers[id].sched.host;
-        assert h.receivedPacket.Some?;
-        assert h.receivedPacket.v.msg.SingleMessage?;
-        assert h.receivedPacket.v.msg.m.SetRequest?;
-        assert req == AppSetRequest(h.receivedPacket.v.msg.seqno, h.receivedPacket.v.msg.m.k_setrequest, h.receivedPacket.v.msg.m.v_setrequest);
+        assert DS_Next(db[step], db[step+1]);
     }
     
     lemma lemma_SentPacketIsValidPhysicalPacket(
@@ -894,7 +883,7 @@ module Main_i exclusively refines Main_s {
     {
         var s := db[i].servers[id].sched;
         var s' := db[i+1].servers[id].sched;
-
+        assert DS_Next(db[i], db[i+1]);
         if HostNextIgnoreUnsendableReceive(s, s', ios) {
             var p := ios[0].r;
             var rp := AbstractifyUdpPacketToLSHTPacket(p);
