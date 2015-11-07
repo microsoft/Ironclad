@@ -420,12 +420,20 @@ module Main_i exclusively refines Main_s {
                  && req == AppSetRequest(h.receivedPacket.v.msg.seqno, h.receivedPacket.v.msg.m.k_setrequest, h.receivedPacket.v.msg.m.v_setrequest);
     {
         var step_before, step_after := lemma_FindReceivedRequestStep(config, db, i, id, req, req_index);
+        assert  0 <= step_before < step_after <= i;
+        assert  step_after == step_before + 1;
+        assert  id in db[step_before].servers;
+        assert  id in db[step_after].servers;
+        assert |db[step_before].servers[id].sched.host.receivedRequests| == req_index;
+        assert |db[step_after].servers[id].sched.host.receivedRequests| == req_index + 1;
+        assert db[i].servers[id].sched.host.receivedRequests[req_index] == req;
+
         step := step_before;
         var h := db[step].servers[id].sched.host;
-        assert h.receivedPacket.Some?
-                 && h.receivedPacket.v.msg.SingleMessage?
-                 && h.receivedPacket.v.msg.m.SetRequest?
-                 && req == AppSetRequest(h.receivedPacket.v.msg.seqno, h.receivedPacket.v.msg.m.k_setrequest, h.receivedPacket.v.msg.m.v_setrequest);
+        assert h.receivedPacket.Some?;
+        assert h.receivedPacket.v.msg.SingleMessage?;
+        assert h.receivedPacket.v.msg.m.SetRequest?;
+        assert req == AppSetRequest(h.receivedPacket.v.msg.seqno, h.receivedPacket.v.msg.m.k_setrequest, h.receivedPacket.v.msg.m.v_setrequest);
     }
     
     lemma lemma_SentPacketIsValidPhysicalPacket(
@@ -957,14 +965,13 @@ module Main_i exclusively refines Main_s {
         ensures  db[i].environment.sentPackets <= db[j].environment.sentPackets;
         decreases j-i;
     {
-        if i < j {
+        if i < j-1 {
+            assert DS_Next(db[i], db[i+1]);
             lemma_PacketsMonotonic(config, db, i+1, j);
-        }
-        /*if i < j-1 {
-            lemma_PacketsMonotonic(config, db, i+1, j);
-        }/ else if i == j-1 {
+        } else if i == j-1 {
             lemma_PacketsMonotonicStep(config, db, j);
-        }*/
+            assert DS_Next(db[i], db[i+1]);
+        }
     }
 
     lemma {:timeLimitMultiplier 2} lemma_DelegationMapComplete(
