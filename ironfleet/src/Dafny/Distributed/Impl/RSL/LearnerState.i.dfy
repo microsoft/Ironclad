@@ -50,7 +50,7 @@ function AbstractifyCLearnerTupleToLearnerTuple(tuple:CLearnerTuple) : LearnerTu
     LearnerTuple(MapSeqToSet(pkts, x=>x), value)
 }
 
-predicate LearnerTuplesAreRefinable(tuples:map<COperationNumber,CLearnerTuple>)
+predicate CLearnerTuplesAreAbstractable(tuples:map<COperationNumber,CLearnerTuple>)
 {
        (forall opn :: opn in tuples ==> COperationNumberIsAbstractable(opn))
     && (forall opn :: opn in tuples ==> LearnerTupleIsAbstractable(tuples[opn]))
@@ -62,46 +62,39 @@ function RefineOperationNumberToCOperationNumber(o:OperationNumber) : COperation
     COperationNumber(uint64(o))
 }
 
-function {:opaque} RefineToLearnerTuples(m:map<COperationNumber,CLearnerTuple>) : map<OperationNumber,LearnerTuple>
-    requires LearnerTuplesAreRefinable(m);
+function {:opaque} AbstractifyCLearnerTuplesToLearnerTuples(m:map<COperationNumber,CLearnerTuple>) : map<OperationNumber,LearnerTuple>
+    requires CLearnerTuplesAreAbstractable(m);
 {
-    RefineToMap(m, AbstractifyCOperationNumberToOperationNumber, AbstractifyCLearnerTupleToLearnerTuple, RefineOperationNumberToCOperationNumber)
+    AbstractifyMap(m, AbstractifyCOperationNumberToOperationNumber, AbstractifyCLearnerTupleToLearnerTuple, RefineOperationNumberToCOperationNumber)
 }
 
-//function{:opaque} RefineToLearnerTuples(tuples:map<COperationNumber,CLearnerTuple>) : map<OperationNumber,LLearnerTuple>
-//    requires LearnerTuplesAreRefinable(tuples);
-//{
-//    var newDomain := set opn | opn in tuples :: AbstractifyCOperationNumberToOperationNumber(opn);
-//    map opn | opn in newDomain :: AbstractifyCLearnerTupleToLearnerTuple(tuples[COperationNumber(uint64(opn))])
-//}
-
-lemma lemma_RefineToLearnerTuplesProperties(m:map<COperationNumber,CLearnerTuple>)
-    requires LearnerTuplesAreRefinable(m);
-    ensures  m == map [] ==> RefineToLearnerTuples(m) == map [];
-    ensures  forall o :: (o in m <==> AbstractifyCOperationNumberToOperationNumber(o) in RefineToLearnerTuples(m));
-    ensures  forall o :: (o !in m ==> AbstractifyCOperationNumberToOperationNumber(o) !in RefineToLearnerTuples(m));
-    ensures  forall o :: o in m ==> RefineToLearnerTuples(m)[AbstractifyCOperationNumberToOperationNumber(o)] == AbstractifyCLearnerTupleToLearnerTuple(m[o]);
-    ensures  var rm  := RefineToLearnerTuples(m);
+lemma lemma_AbstractifyCLearnerTuplesToLearnerTuples_properties(m:map<COperationNumber,CLearnerTuple>)
+    requires CLearnerTuplesAreAbstractable(m);
+    ensures  m == map [] ==> AbstractifyCLearnerTuplesToLearnerTuples(m) == map [];
+    ensures  forall o :: (o in m <==> AbstractifyCOperationNumberToOperationNumber(o) in AbstractifyCLearnerTuplesToLearnerTuples(m));
+    ensures  forall o :: (o !in m ==> AbstractifyCOperationNumberToOperationNumber(o) !in AbstractifyCLearnerTuplesToLearnerTuples(m));
+    ensures  forall o :: o in m ==> AbstractifyCLearnerTuplesToLearnerTuples(m)[AbstractifyCOperationNumberToOperationNumber(o)] == AbstractifyCLearnerTupleToLearnerTuple(m[o]);
+    ensures  var rm  := AbstractifyCLearnerTuplesToLearnerTuples(m);
              forall k :: k in rm ==> (exists ck :: ck in m && AbstractifyCOperationNumberToOperationNumber(ck) == k);
     ensures  forall o, t :: LearnerTupleIsAbstractable(t) ==>
-                var rm  := RefineToLearnerTuples(m);
-                var rm' := RefineToLearnerTuples(m[o := t]);
-                rm' == RefineToLearnerTuples(m)[AbstractifyCOperationNumberToOperationNumber(o) := AbstractifyCLearnerTupleToLearnerTuple(t)];
+                var rm  := AbstractifyCLearnerTuplesToLearnerTuples(m);
+                var rm' := AbstractifyCLearnerTuplesToLearnerTuples(m[o := t]);
+                rm' == AbstractifyCLearnerTuplesToLearnerTuples(m)[AbstractifyCOperationNumberToOperationNumber(o) := AbstractifyCLearnerTupleToLearnerTuple(t)];
     ensures  forall o {:trigger RemoveElt(m,o)} :: o in m ==>
-                var rm  := RefineToLearnerTuples(m);
-                var rm' := RefineToLearnerTuples(RemoveElt(m, o));
-                rm' == RemoveElt(RefineToLearnerTuples(m), AbstractifyCOperationNumberToOperationNumber(o));
+                var rm  := AbstractifyCLearnerTuplesToLearnerTuples(m);
+                var rm' := AbstractifyCLearnerTuplesToLearnerTuples(RemoveElt(m, o));
+                rm' == RemoveElt(AbstractifyCLearnerTuplesToLearnerTuples(m), AbstractifyCOperationNumberToOperationNumber(o));
 {
-    reveal_RefineToLearnerTuples();
+    reveal_AbstractifyCLearnerTuplesToLearnerTuples();
 
-    lemma_RefineToMap_properties(m, AbstractifyCOperationNumberToOperationNumber, AbstractifyCLearnerTupleToLearnerTuple, RefineOperationNumberToCOperationNumber);
+    lemma_AbstractifyMap_properties(m, AbstractifyCOperationNumberToOperationNumber, AbstractifyCLearnerTupleToLearnerTuple, RefineOperationNumberToCOperationNumber);
 }
 
 predicate LearnerState_IsAbstractable(learner:CLearnerState)
 {
        CBallotIsAbstractable(learner.max_ballot_seen)
     && ReplicaConstantsStateIsAbstractable(learner.rcs)
-    && LearnerTuplesAreRefinable(learner.unexecuted_ops)
+    && CLearnerTuplesAreAbstractable(learner.unexecuted_ops)
 }
 
 function AbstractifyLearnerStateToLLearner(learner:CLearnerState) : LLearner
@@ -109,7 +102,7 @@ function AbstractifyLearnerStateToLLearner(learner:CLearnerState) : LLearner
 {
     var rcs := AbstractifyReplicaConstantsStateToLReplicaConstants(learner.rcs);
     var ballot := AbstractifyCBallotToBallot(learner.max_ballot_seen);
-    var unexecuted_ops := RefineToLearnerTuples(learner.unexecuted_ops);
+    var unexecuted_ops := AbstractifyCLearnerTuplesToLearnerTuples(learner.unexecuted_ops);
     LLearner(rcs, ballot, unexecuted_ops)
 }
 
@@ -124,27 +117,6 @@ function LearnerState_Config(learner:CLearnerState) : CPaxosConfiguration
 {
     learner.rcs.all.config
 }
-
-/*
-   THIS LEMMA IS NO LONGER TRUE!  We now refine to a set of message senders
-   rather than a sequence.  So, if the message senders are in a different order,
-   it may still refine to the same thing.
-
-lemma lemma_RefineToLearnerTupleIsInjective(c1:CLearnerTuple, c2:CLearnerTuple)
-    requires LearnerTupleIsAbstractable(c1);
-    requires LearnerTupleIsAbstractable(c2);
-    requires AbstractifyCLearnerTupleToLearnerTuple(c1) == AbstractifyCLearnerTupleToLearnerTuple(c2);
-    ensures  c1 == c2;
-{
-    var rc1 := AbstractifyCLearnerTupleToLearnerTuple(c1);
-    var rc2 := AbstractifyCLearnerTupleToLearnerTuple(c2);
-    assert rc1.received_2b_message_senders == rc2.received_2b_message_senders;
-    assert rc1.candidate_learned_value == rc2.candidate_learned_value;
-    lemma_AbstractifyCRequestBatchToRequestBatch_isInjective();
-    lemma_AbstractifyEndPointsToNodeIdentities_injective(c1.received_2b_message_senders, c2.received_2b_message_senders);
-}
-
-*/
 
 method LearnerState_Init(rcs:ReplicaConstantsState) returns (learner:CLearnerState)
     requires ReplicaConstantsStateIsAbstractable(rcs);
@@ -171,7 +143,7 @@ method LearnerState_Init(rcs:ReplicaConstantsState) returns (learner:CLearnerSta
                     COperationNumber(0),
                     [])));
 
-    lemma_RefineToLearnerTuplesProperties(learner.unexecuted_ops);
+    lemma_AbstractifyCLearnerTuplesToLearnerTuples_properties(learner.unexecuted_ops);
     assert LLearnerInit(AbstractifyLearnerStateToLLearner(learner), AbstractifyReplicaConstantsStateToLReplicaConstants(learner.rcs));
 }
 

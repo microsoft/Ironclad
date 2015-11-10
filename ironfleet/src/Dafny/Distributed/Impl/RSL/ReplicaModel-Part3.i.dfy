@@ -55,7 +55,7 @@ method Replica_Next_Spontaneous_MaybeEnterNewViewAndSend1a(replica:ReplicaState)
     var newProposer, packets := ProposerMaybeEnterNewViewAndSend1a(replica.proposer);
     replica' := replica.(proposer := newProposer);
     packets_sent := Broadcast(packets);
-    //lemma_RefineCPacketsToPacketsProperties(packets_sent);
+    //lemma_AbstractifySetOfCPacketsToSetOfRslPackets_properties(packets_sent);
     //lemma_AbstractifyCPacketToRslPacket_src(packets_sent, replica.constants.all.config.replica_ids[replica.constants.my_index]);
     var end_time := Time.GetDebugTimeTicks();
     RecordTimingSeq("Replica_Next_Spontaneous_MaybeEnterNewViewAndSend1a", start_time, end_time);
@@ -72,7 +72,7 @@ method Replica_Next_Spontaneous_MaybeEnterPhase2(replica:ReplicaState) returns (
     var newProposer, packets := ProposerMaybeEnterPhase2(replica.proposer, replica.acceptor.log_truncation_point);
     replica' := replica.(proposer := newProposer);
     packets_sent := Broadcast(packets);
-    //lemma_RefineCPacketsToPacketsProperties(packets_sent);
+    //lemma_AbstractifySetOfCPacketsToSetOfRslPackets_properties(packets_sent);
     //lemma_AbstractifyCPacketToRslPacket_src(packets_sent, replica.constants.all.config.replica_ids[replica.constants.my_index]);
     var end_time := Time.GetDebugTimeTicks();
     RecordTimingSeq("Replica_Next_Spontaneous_MaybeEnterPhase2", start_time, end_time);
@@ -89,7 +89,7 @@ method Replica_Next_Spontaneous_MaybeNominateValueAndSend2a(replica:ReplicaState
     var newProposer, packets := ProposerMaybeNominateValueAndSend2a(replica.proposer, clock.t, replica.acceptor.log_truncation_point);
     replica' := replica.(proposer := newProposer);
     packets_sent := Broadcast(packets);
-    //lemma_RefineCPacketsToPacketsProperties(packets_sent);
+    //lemma_AbstractifySetOfCPacketsToSetOfRslPackets_properties(packets_sent);
     //lemma_AbstractifyCPacketToRslPacket_src(packets_sent, replica.constants.all.config.replica_ids[replica.constants.my_index]);
     var end_time := Time.GetDebugTimeTicks();
     RecordTimingSeq("Replica_Next_Spontaneous_MaybeNominateValueAndSend2a", start_time, end_time);

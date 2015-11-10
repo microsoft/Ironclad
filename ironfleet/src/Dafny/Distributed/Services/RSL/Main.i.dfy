@@ -100,7 +100,7 @@ module Main_i exclusively refines Main_s {
     function AbstractifyDsState(ds:DS_State) : RslState
         requires DsStateIsAbstractable(ds);
     {
-        RslState(RefineConstantsState(ds.config),
+        RslState(AbstractifyConstantsStateToLConstants(ds.config),
                     AbstractifyConcreteEnvironment(ds.environment),
                     AbstractifyConcreteReplicas(ds.servers, ds.config.config.replica_ids),
                     AbstractifyConcreteClients(ds.clients))
@@ -177,11 +177,11 @@ module Main_i exclusively refines Main_s {
         requires 0 <= i < |db|;
         requires id in db[i].servers;
         ensures  db[i].config == config;
-        ensures  db[i].servers[id].sched.replica.constants.all == RefineConstantsState(config);
-        ensures  db[i].servers[id].sched.replica.proposer.constants.all == RefineConstantsState(config);
-        ensures  db[i].servers[id].sched.replica.acceptor.constants.all == RefineConstantsState(config);
-        ensures  db[i].servers[id].sched.replica.learner.constants.all == RefineConstantsState(config);
-        ensures  db[i].servers[id].sched.replica.executor.constants.all == RefineConstantsState(config);
+        ensures  db[i].servers[id].sched.replica.constants.all == AbstractifyConstantsStateToLConstants(config);
+        ensures  db[i].servers[id].sched.replica.proposer.constants.all == AbstractifyConstantsStateToLConstants(config);
+        ensures  db[i].servers[id].sched.replica.acceptor.constants.all == AbstractifyConstantsStateToLConstants(config);
+        ensures  db[i].servers[id].sched.replica.learner.constants.all == AbstractifyConstantsStateToLConstants(config);
+        ensures  db[i].servers[id].sched.replica.executor.constants.all == AbstractifyConstantsStateToLConstants(config);
     {
         if i == 0
         {
@@ -359,7 +359,7 @@ module Main_i exclusively refines Main_s {
         {
             var send :| send in sends && AbstractifyConcretePacket(send) == r;
             var io :| io in ios && io.LIoOpSend? && io.s == send;
-            assert RefineRawEventToIo(io) in r_ios;
+            assert AbstractifyUdpEventToRslIo(io) in r_ios;
         }
 
         forall r | r in r_sends
@@ -367,7 +367,7 @@ module Main_i exclusively refines Main_s {
         {
             var r_io :| r_io in r_ios && r_io.LIoOpSend? && r_io.s == r; 
             var j :| 0 <= j < |r_ios| && r_ios[j] == r_io;
-            assert RefineRawEventToIo(ios[j]) == r_io;
+            assert AbstractifyUdpEventToRslIo(ios[j]) == r_io;
             assert ios[j] in ios;
             assert ios[j].s in sends;
         }
@@ -390,7 +390,7 @@ module Main_i exclusively refines Main_s {
             ensures IsValidLIoOp(io, id, le);
         {
             var j :| 0 <= j < |r_ios| && r_ios[j] == io;
-            assert r_ios[j] == RefineRawEventToIo(ios[j]);
+            assert r_ios[j] == AbstractifyUdpEventToRslIo(ios[j]);
             assert IsValidLIoOp(ios[j], id, de);
         }
     }
@@ -633,13 +633,13 @@ module Main_i exclusively refines Main_s {
         requires IsValidBehavior(config, db);
         requires LEnvStepIsAbstractable(last(db).environment.nextStep);
         ensures |protocol_behavior| == |db|;
-        ensures protocol_behavior[0].constants == RefineConstantsState(config);
+        ensures protocol_behavior[0].constants == AbstractifyConstantsStateToLConstants(config);
         ensures RslInit(c, protocol_behavior[0]);
         ensures forall i :: 0 <= i < |db| ==> DsStateIsAbstractable(db[i]) 
                                            && protocol_behavior[i] == AbstractifyDsState(db[i]);
         ensures forall i {:trigger RslNext(protocol_behavior[i], protocol_behavior[i+1])} :: 0 <= i < |protocol_behavior| - 1 ==> RslNext(protocol_behavior[i], protocol_behavior[i+1]);
     {
-        c := RefineConstantsState(config);
+        c := AbstractifyConstantsStateToLConstants(config);
         if |db| == 1 {
             lemma_DsIsAbstractable(config, db, 0);
             var ls := AbstractifyDsState(db[0]);
@@ -651,14 +651,14 @@ module Main_i exclusively refines Main_s {
                 |AbstractifyConcreteReplicas(db[0].servers, db[0].config.config.replica_ids)|;
                 |db[0].config.config.replica_ids|;
                 |AbstractifyEndPointsToNodeIdentities(db[0].config.config.replica_ids)|;
-                |RefineConstantsState(db[0].config).config.replica_ids|;
+                |AbstractifyConstantsStateToLConstants(db[0].config).config.replica_ids|;
                 |ls.constants.config.replica_ids|;
             }
 
             calc {
                 ls.constants;
-                RefineConstantsState(db[0].config);
-                RefineConstantsState(config);
+                AbstractifyConstantsStateToLConstants(db[0].config);
+                AbstractifyConstantsStateToLConstants(config);
                 c;
             }
 

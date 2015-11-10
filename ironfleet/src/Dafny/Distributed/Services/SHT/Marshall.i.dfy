@@ -338,6 +338,7 @@ module MarshallProof_i {
             SeqByteToUint64(bytes[24..32]);
                 { lemma_ParseUint64Offset(data, rest0, 16, 24); }
             SeqByteToUint64(rest0[16..24]);
+                { assert rest0[16..24] == rest1[8..16]; }
             SeqByteToUint64(rest1[8..16]);
             SeqByteToUint64(rest2[..8]);
             0;

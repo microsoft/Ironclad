@@ -77,7 +77,7 @@ method ReplicaNextProcess1bActual(replica:ReplicaState, inp:CPacket) returns (re
     
     packets_sent := Broadcast(CBroadcastNop);
     lemma_AbstractifyEndPointsToNodeIdentities_properties(replica.constants.all.config.replica_ids);
-    //lemma_RefineCPacketsToPacketsProperties(packets_sent);
+    //lemma_AbstractifySetOfCPacketsToSetOfRslPackets_properties(packets_sent);
     lemma_AbstractifySetOfCPacketsToSetOfRslPackets_srcMembership(replica.proposer.received_1b_packets, inp.src);
     var newProposer := ProposerProcess1b(replica.proposer, inp);
     var newAcceptor:= NextAcceptorState_TruncateLog(replica.acceptor, inp.msg.log_truncation_point);
@@ -128,7 +128,7 @@ method Replica_Next_Process_StartingPhase2(replica:ReplicaState, inp:CPacket) re
     var newExecutor, packets := ExecutorProcessStartingPhase2(replica.executor, inp);
     replica' := replica.(executor := newExecutor);
     packets_sent := Broadcast(packets);
-    //lemma_RefineCPacketsToPacketsProperties(packets_sent);
+    //lemma_AbstractifySetOfCPacketsToSetOfRslPackets_properties(packets_sent);
     //lemma_AbstractifyCPacketToRslPacket_src(packets_sent, replica.constants.all.config.replica_ids[replica.constants.my_index]);
     var end_time := Time.GetDebugTimeTicks();
     RecordTimingSeq("Replica_Next_Process_StartingPhase2", start_time, end_time);
@@ -197,7 +197,7 @@ method Replica_Next_Process_2a(replica:ReplicaState, inp:CPacket) returns (repli
         var end_time := Time.GetDebugTimeTicks();
         RecordTimingSeq("Replica_Next_Process_2a_discard", start_time, end_time);
     }
-    //lemma_RefineCPacketsToPacketsProperties(packets_sent);
+    //lemma_AbstractifySetOfCPacketsToSetOfRslPackets_properties(packets_sent);
     //lemma_AbstractifyCPacketToRslPacket_src(packets_sent, replica.constants.all.config.replica_ids[replica.constants.my_index]);
 }
 

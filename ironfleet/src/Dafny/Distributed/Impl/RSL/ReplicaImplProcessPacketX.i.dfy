@@ -30,14 +30,14 @@ import opened LiveRSL__Unsendable_i
         requires r.Valid();
         requires r.Env().udp.history() == old_udp_history + [ timeout_event ];
         requires timeout_event.LIoOpTimeoutReceive?;
-        ensures  Q_LReplica_Next_ProcessPacket(old(r.RefineReplica()), r.RefineReplica(), ios);
+        ensures  Q_LReplica_Next_ProcessPacket(old(r.AbstractifyToLReplica()), r.AbstractifyToLReplica(), ios);
         ensures  RawIoConsistentWithSpecIO(udpEventLog, ios);
         ensures  old_udp_history + udpEventLog == r.Env().udp.history();
         ensures  OnlySentMarshallableData(udpEventLog);
     {
         ios := [ LIoOpTimeoutReceive() ];
         udpEventLog := [ timeout_event ];
-        lemma_EstablishQLReplicaNextProcessPacketFromTimeout(old(r.RefineReplica()), r.RefineReplica(), ios);
+        lemma_EstablishQLReplicaNextProcessPacketFromTimeout(old(r.AbstractifyToLReplica()), r.AbstractifyToLReplica(), ios);
     }
 
     method ReplicaNextProcessPacketUnmarshallable(
@@ -93,7 +93,7 @@ import opened LiveRSL__Unsendable_i
         ensures  ok ==> (
                r.Valid()
             && r.nextActionIndex == old(r.nextActionIndex)
-            && Q_LReplica_Next_ProcessPacket(old(r.RefineReplica()), r.RefineReplica(), ios)
+            && Q_LReplica_Next_ProcessPacket(old(r.AbstractifyToLReplica()), r.AbstractifyToLReplica(), ios)
             && RawIoConsistentWithSpecIO(udpEventLog, ios)
             && OnlySentMarshallableData(udpEventLog)
             && old_udp_history + udpEventLog == r.Env().udp.history());
@@ -108,7 +108,7 @@ import opened LiveRSL__Unsendable_i
         ok, udpEventLog, ios := Replica_Next_ReadClockAndProcessPacket(r, rr.cpacket, old_udp_history, receive_event, receive_io);
         assert ok ==> (r.Env()==midEnv==old(r.Env()));
         if (ok) {
-            assert Q_LReplica_Next_ProcessPacket(old(r.RefineReplica()), r.RefineReplica(), ios);
+            assert Q_LReplica_Next_ProcessPacket(old(r.AbstractifyToLReplica()), r.AbstractifyToLReplica(), ios);
         }
 
         //var end_time := Time.GetDebugTimeTicks();
@@ -141,7 +141,7 @@ import opened LiveRSL__Unsendable_i
         ensures  ok ==> (
                r.Valid()
             && r.nextActionIndex == old(r.nextActionIndex)
-            && Q_LReplica_Next_ProcessPacket(old(r.RefineReplica()), r.RefineReplica(), ios)
+            && Q_LReplica_Next_ProcessPacket(old(r.AbstractifyToLReplica()), r.AbstractifyToLReplica(), ios)
             && RawIoConsistentWithSpecIO(udpEventLog, ios)
             && OnlySentMarshallableData(udpEventLog)
             && old_udp_history + udpEventLog == r.Env().udp.history());
@@ -156,7 +156,7 @@ import opened LiveRSL__Unsendable_i
         ok, udpEventLog, ios := Replica_Next_ProcessPacketWithoutReadingClock_body(r, rr.cpacket, old_udp_history, receive_event, receive_io);
         assert ok ==> (r.Env()==midEnv==old(r.Env()));
         if (ok) {
-            lemma_EstablishQLReplicaNextProcessPacket(old(r.RefineReplica()), r.RefineReplica(), ios);
+            lemma_EstablishQLReplicaNextProcessPacket(old(r.AbstractifyToLReplica()), r.AbstractifyToLReplica(), ios);
         }
 
         //var end_time := Time.GetDebugTimeTicks();
@@ -175,9 +175,9 @@ import opened LiveRSL__Unsendable_i
         ensures ok ==> (
                r.Valid()
             && r.nextActionIndex == old(r.nextActionIndex)
-            && (   Q_LReplica_Next_ProcessPacket(old(r.RefineReplica()), r.RefineReplica(), ios)
+            && (   Q_LReplica_Next_ProcessPacket(old(r.AbstractifyToLReplica()), r.AbstractifyToLReplica(), ios)
                 || (   IosReflectIgnoringUnsendable(udpEventLog)
-                    && old(r.RefineReplica()) == r.RefineReplica()))
+                    && old(r.AbstractifyToLReplica()) == r.AbstractifyToLReplica()))
             && RawIoConsistentWithSpecIO(udpEventLog, ios)
             && OnlySentMarshallableData(udpEventLog)
             && old(r.Env().udp.history()) + udpEventLog == r.Env().udp.history());

@@ -412,14 +412,13 @@ method SendPacketSeq(udpClient:UdpClient, cpackets:seq<CPacket>, ghost localAddr
         }
         
         assert SendLogEntryReflectsPacket(udpEvent, cpacket);
-        
+        assert OnlySentMarshallableData(udpEventLog);
+        assert UdpPacketBound(udpEvent.s.msg) && CSingleMessageMarshallable(SHTDemarshallData(udpEvent.s.msg));
         udpEventLog := udpEventLog + [udpEvent];
         assert cpackets[0..(i+1)] == cpackets[0..i] + [cpacket];
         assert SendLogReflectsPacket(udpEventLog, cpackets[0..(i+1)]);
+        assert OnlySentMarshallableData(udpEventLog);
         i := i + 1;
-    
     }
 }
-
-
 } 

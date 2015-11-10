@@ -116,7 +116,7 @@ predicate NextAcceptorState_Phase1Postconditions(acceptor:AcceptorState, accepto
     && LAcceptorProcess1a(
             AbstractifyAcceptorStateToAcceptor(acceptor),
             AbstractifyAcceptorStateToAcceptor(acceptor'),
-            AbstractifyCMessageToPacket(acceptor.constants.all.config.replica_ids[acceptor.constants.my_index], sender, in_msg),
+            AbstractifyCMessageToRslPacket(acceptor.constants.all.config.replica_ids[acceptor.constants.my_index], sender, in_msg),
             AbstractifyCBroadcastToRlsPacketSeq(packets_sent))
 }
 
@@ -143,7 +143,7 @@ predicate NextAcceptorState_Phase2Postconditions(acceptor:AcceptorState, accepto
     && LAcceptorProcess2a(
                 AbstractifyAcceptorStateToAcceptor(acceptor),
                 AbstractifyAcceptorStateToAcceptor(acceptor'),
-                AbstractifyCMessageToPacket(acceptor.constants.all.config.replica_ids[acceptor.constants.my_index], sender, in_msg),
+                AbstractifyCMessageToRslPacket(acceptor.constants.all.config.replica_ids[acceptor.constants.my_index], sender, in_msg),
                 AbstractifyCBroadcastToRlsPacketSeq(packets_sent))
 }
 
@@ -163,7 +163,7 @@ predicate NextAcceptorState_ProcessHeartbeatPostconditions(acceptor:AcceptorStat
     && LAcceptorProcessHeartbeat(
                 AbstractifyAcceptorStateToAcceptor(acceptor),
                 AbstractifyAcceptorStateToAcceptor(acceptor'),
-                AbstractifyCMessageToPacket(acceptor.constants.all.config.replica_ids[acceptor.constants.my_index], sender, in_msg))
+                AbstractifyCMessageToRslPacket(acceptor.constants.all.config.replica_ids[acceptor.constants.my_index], sender, in_msg))
 }
 
 predicate NextAcceptorState_TruncateLogPreconditions(acceptor:AcceptorState, opn:COperationNumber)

@@ -56,7 +56,7 @@ method InitHostState(constants:ConstantsState, me:EndPoint) returns (host:HostSt
     //host := HostState(constants, me, delegationMap, map[], sd, None(), uint64(|delegationMap.lows|));
     host := HostState(constants, me, delegationMap, map[], sd, None(), uint64(|delegationMap.lows|), []);
     
-    assert RefineToDelegationMap(delegationMap) == DelegationMap_Init(AbstractifyEndPointToNodeIdentity(constants.rootIdentity));
+    assert AbstractifyCDelegationMapToDelegationMap(delegationMap) == DelegationMap_Init(AbstractifyEndPointToNodeIdentity(constants.rootIdentity));
     assert Host_Init(AbstractifyHostStateToHost(host), AbstractifyEndPointToNodeIdentity(me), AbstractifyEndPointToNodeIdentity(constants.rootIdentity), AbstractifyEndPointsToNodeIdentities(constants.hostIds), AbstractifyCParametersToParameters(constants.params));
 }
 
@@ -65,8 +65,8 @@ method DelegateForKeyImpl(m:CDelegationMap, k:Key) returns (ep:EndPoint)
     requires 0<|m.lows|;
      requires CDelegationMapIsValid(m);
      ensures EndPointIsValidIPV4(ep);
-     ensures RefineToDelegationMap(m)[k] == AbstractifyEndPointToNodeIdentity(ep);
-     ensures AbstractifyEndPointToNodeIdentity(ep) == DelegateForKey(RefineToDelegationMap(m), k);
+     ensures AbstractifyCDelegationMapToDelegationMap(m)[k] == AbstractifyEndPointToNodeIdentity(ep);
+     ensures AbstractifyEndPointToNodeIdentity(ep) == DelegateForKey(AbstractifyCDelegationMapToDelegationMap(m), k);
 {
     ep := m.lows[CDM_IndexForKey(m,KeyPlus(k))].id;
 }
@@ -267,7 +267,7 @@ method {:timeLimitMultiplier 4} HostModelNextShard(host:HostState, cpacket:CPack
         
     var b:= DelegateForKeyRangeIsHostImpl(host.delegationMap, cpacket.msg.m.kr, host.me);
     if (!b) {
-        assert !DelegateForKeyRangeIsHost(RefineToDelegationMap(host.delegationMap), cpacket.msg.m.kr, AbstractifyEndPointToNodeIdentity(host.me));
+        assert !DelegateForKeyRangeIsHost(AbstractifyCDelegationMapToDelegationMap(host.delegationMap), cpacket.msg.m.kr, AbstractifyEndPointToNodeIdentity(host.me));
         return;
     }
 

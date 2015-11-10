@@ -32,7 +32,7 @@ method Replica_Next_Process_AppStateRequest(
     var newExecutor, packets := ExecutorProcessAppStateRequest(replica.executor, inp, reply_cache_mutable);
     replica' := replica.(executor := newExecutor);
     packets_sent := packets;
-    //lemma_RefineCPacketsToPacketsProperties(packets_sent);
+    //lemma_AbstractifySetOfCPacketsToSetOfRslPackets_properties(packets_sent);
     //lemma_AbstractifyCPacketToRslPacket_src(packets_sent, replica.constants.all.config.replica_ids[replica.constants.my_index]);
     var end_time := Time.GetDebugTimeTicks();
     RecordTimingSeq("Replica_Next_Process_AppStateRequest", start_time, end_time);
@@ -68,8 +68,14 @@ method Replica_Next_Process_Heartbeat(
     assert OutboundPacketsIsValid(packets_sent);
     var newProposer := ProposerProcessHeartbeat(replica.proposer, inp, clock, cur_req_set, prev_req_set);
     var newAcceptor := NextAcceptorState_ProcessHeartbeat(replica.acceptor, inp.msg, inp.src);
-    replica' := replica.(proposer := newProposer, acceptor := newAcceptor);
-    //lemma_RefineCPacketsToPacketsProperties(packets_sent);
+//<<<<<<< HEAD
+//    replica' := replica.(proposer := newProposer, acceptor := newAcceptor);
+//    //lemma_RefineCPacketsToPacketsProperties(packets_sent);
+//=======
+    replica' := replica[proposer := newProposer]
+                       [acceptor := newAcceptor];
+    //lemma_AbstractifySetOfCPacketsToSetOfRslPackets_properties(packets_sent);
+//>>>>>>> master
     var end_time := Time.GetDebugTimeTicks();
     RecordTimingSeq("Replica_Next_Process_Heartbeat", start_time, end_time);
 
@@ -104,7 +110,7 @@ method {:timeLimitMultiplier 2} Replica_Next_ReadClock_CheckForViewTimeout(
     packets_sent := Broadcast(CBroadcastNop);
     assert OutboundPacketsIsValid(packets_sent);
     assert OutboundPacketsHasCorrectSrc(packets_sent, replica.constants.all.config.replica_ids[replica.constants.my_index]);
-    //lemma_RefineCPacketsToPacketsProperties(packets_sent);
+    //lemma_AbstractifySetOfCPacketsToSetOfRslPackets_properties(packets_sent);
     var end_time := Time.GetDebugTimeTicks();
     RecordTimingSeq("Replica_Next_ReadClock_CheckForViewTimeout", start_time, end_time);
 
@@ -138,7 +144,7 @@ method {:timeLimitMultiplier 2} Replica_Next_ReadClock_CheckForQuorumOfViewSuspi
     packets_sent := Broadcast(CBroadcastNop);
     assert OutboundPacketsIsValid(packets_sent);
     assert OutboundPacketsHasCorrectSrc(packets_sent, replica.constants.all.config.replica_ids[replica.constants.my_index]);
-    //lemma_RefineCPacketsToPacketsProperties(packets_sent);
+    //lemma_AbstractifySetOfCPacketsToSetOfRslPackets_properties(packets_sent);
     var end_time := Time.GetDebugTimeTicks();
     RecordTimingSeq("Replica_Next_ReadClock_CheckForQuorumOfViewSuspicions", start_time, end_time);
 

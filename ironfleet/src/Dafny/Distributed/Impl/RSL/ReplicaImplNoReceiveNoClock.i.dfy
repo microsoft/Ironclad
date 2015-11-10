@@ -45,7 +45,7 @@ import opened LiveRSL__CClockReading_i
         ensures ok ==> (
                r.Valid()
             && r.nextActionIndex == old(r.nextActionIndex)
-            && Q_LReplica_NoReceive_Next(old(r.RefineReplica()), int(r.nextActionIndex), r.RefineReplica(), ios)
+            && Q_LReplica_NoReceive_Next(old(r.AbstractifyToLReplica()), int(r.nextActionIndex), r.AbstractifyToLReplica(), ios)
             && RawIoConsistentWithSpecIO(udpEventLog, ios)
             && OnlySentMarshallableData(udpEventLog)
             && old(r.Env().udp.history()) + udpEventLog == r.Env().udp.history());
@@ -63,7 +63,7 @@ import opened LiveRSL__CClockReading_i
         assert AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets) == ExtractSentPacketsFromIos(ios);
         assert r.Env() == old(r.Env());
         assert RawIoConsistentWithSpecIO(udpEventLog, ios);
-        lemma_EstablishQLReplicaNoReceiveNextFromNoClock(old(r.RefineReplica()), r.RefineReplica(), AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets), int(r.nextActionIndex), ios);
+        lemma_EstablishQLReplicaNoReceiveNextFromNoClock(old(r.AbstractifyToLReplica()), r.AbstractifyToLReplica(), AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets), int(r.nextActionIndex), ios);
     }
 
     static lemma lemma_RevealQFromReplicaNextSpontaneousMaybeEnterPhase2Postconditions(
@@ -91,7 +91,7 @@ import opened LiveRSL__CClockReading_i
         ensures ok ==> (
                r.Valid()
             && r.nextActionIndex == old(r.nextActionIndex)
-            && Q_LReplica_NoReceive_Next(old(r.RefineReplica()), int(r.nextActionIndex), r.RefineReplica(), ios)
+            && Q_LReplica_NoReceive_Next(old(r.AbstractifyToLReplica()), int(r.nextActionIndex), r.AbstractifyToLReplica(), ios)
             && RawIoConsistentWithSpecIO(udpEventLog, ios)
             && OnlySentMarshallableData(udpEventLog)
             && old(r.Env().udp.history()) + udpEventLog == r.Env().udp.history());
@@ -109,7 +109,7 @@ import opened LiveRSL__CClockReading_i
         assert AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets) == ExtractSentPacketsFromIos(ios);
         assert r.Env() == old(r.Env());
         assert RawIoConsistentWithSpecIO(udpEventLog, ios);
-        lemma_EstablishQLReplicaNoReceiveNextFromNoClock(old(r.RefineReplica()), r.RefineReplica(), AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets), int(r.nextActionIndex), ios);
+        lemma_EstablishQLReplicaNoReceiveNextFromNoClock(old(r.AbstractifyToLReplica()), r.AbstractifyToLReplica(), AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets), int(r.nextActionIndex), ios);
     }
 
     static lemma lemma_RevealQFromReplicaNextSpontaneousTruncateLogBasedOnCheckpointsPostconditions(
@@ -137,7 +137,7 @@ import opened LiveRSL__CClockReading_i
         ensures ok ==> (
                r.Valid()
             && r.nextActionIndex == old(r.nextActionIndex)
-            && Q_LReplica_NoReceive_Next(old(r.RefineReplica()), int(r.nextActionIndex), r.RefineReplica(), ios)
+            && Q_LReplica_NoReceive_Next(old(r.AbstractifyToLReplica()), int(r.nextActionIndex), r.AbstractifyToLReplica(), ios)
             && RawIoConsistentWithSpecIO(udpEventLog, ios)
             && OnlySentMarshallableData(udpEventLog)
             && old(r.Env().udp.history()) + udpEventLog == r.Env().udp.history());
@@ -155,7 +155,7 @@ import opened LiveRSL__CClockReading_i
         assert AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets) == ExtractSentPacketsFromIos(ios);
         assert r.Env() == old(r.Env());
         assert RawIoConsistentWithSpecIO(udpEventLog, ios);
-        lemma_EstablishQLReplicaNoReceiveNextFromNoClock(old(r.RefineReplica()), r.RefineReplica(), AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets), int(r.nextActionIndex), ios);
+        lemma_EstablishQLReplicaNoReceiveNextFromNoClock(old(r.AbstractifyToLReplica()), r.AbstractifyToLReplica(), AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets), int(r.nextActionIndex), ios);
     }
 
     static lemma lemma_RevealQFromReplicaNextSpontaneousMaybeMakeDecisionPostconditions(
@@ -183,7 +183,7 @@ import opened LiveRSL__CClockReading_i
         ensures ok ==> (
                r.Valid()
             && r.nextActionIndex == old(r.nextActionIndex)
-            && Q_LReplica_NoReceive_Next(old(r.RefineReplica()), int(r.nextActionIndex), r.RefineReplica(), ios)
+            && Q_LReplica_NoReceive_Next(old(r.AbstractifyToLReplica()), int(r.nextActionIndex), r.AbstractifyToLReplica(), ios)
             && RawIoConsistentWithSpecIO(udpEventLog, ios)
             && OnlySentMarshallableData(udpEventLog)
             && old(r.Env().udp.history()) + udpEventLog == r.Env().udp.history());
@@ -201,7 +201,7 @@ import opened LiveRSL__CClockReading_i
         assert AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets) == ExtractSentPacketsFromIos(ios);
         assert r.Env() == old(r.Env());
         assert RawIoConsistentWithSpecIO(udpEventLog, ios);
-        lemma_EstablishQLReplicaNoReceiveNextFromNoClock(old(r.RefineReplica()), r.RefineReplica(), AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets), int(r.nextActionIndex), ios);
+        lemma_EstablishQLReplicaNoReceiveNextFromNoClock(old(r.AbstractifyToLReplica()), r.AbstractifyToLReplica(), AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets), int(r.nextActionIndex), ios);
     }
 
     static lemma lemma_RevealQFromReplicaNextSpontaneousMaybeExecutePostconditions(
@@ -229,7 +229,7 @@ import opened LiveRSL__CClockReading_i
         ensures ok ==> (
                r.Valid()
             && r.nextActionIndex == old(r.nextActionIndex)
-            && Q_LReplica_NoReceive_Next(old(r.RefineReplica()), int(r.nextActionIndex), r.RefineReplica(), ios)
+            && Q_LReplica_NoReceive_Next(old(r.AbstractifyToLReplica()), int(r.nextActionIndex), r.AbstractifyToLReplica(), ios)
             && RawIoConsistentWithSpecIO(udpEventLog, ios)
             && OnlySentMarshallableData(udpEventLog)
             && old(r.Env().udp.history()) + udpEventLog == r.Env().udp.history());
@@ -247,7 +247,7 @@ import opened LiveRSL__CClockReading_i
         assert AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets) == ExtractSentPacketsFromIos(ios);
         assert r.Env() == old(r.Env());
         assert RawIoConsistentWithSpecIO(udpEventLog, ios);
-        lemma_EstablishQLReplicaNoReceiveNextFromNoClock(old(r.RefineReplica()), r.RefineReplica(), AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets), int(r.nextActionIndex), ios);
+        lemma_EstablishQLReplicaNoReceiveNextFromNoClock(old(r.AbstractifyToLReplica()), r.AbstractifyToLReplica(), AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets), int(r.nextActionIndex), ios);
     }
 
     method Replica_NoReceive_NoClock_Next(r:ReplicaImpl) returns (ok:bool, ghost udpEventLog:seq<UdpEvent>, ghost ios:seq<RslIo>)
@@ -261,7 +261,7 @@ import opened LiveRSL__CClockReading_i
         ensures ok ==> (
                r.Valid()
             && r.nextActionIndex == old(r.nextActionIndex)
-            && Q_LReplica_NoReceive_Next(old(r.RefineReplica()), int(r.nextActionIndex), r.RefineReplica(), ios)
+            && Q_LReplica_NoReceive_Next(old(r.AbstractifyToLReplica()), int(r.nextActionIndex), r.AbstractifyToLReplica(), ios)
             && RawIoConsistentWithSpecIO(udpEventLog, ios)
             && OnlySentMarshallableData(udpEventLog)
             && old(r.Env().udp.history()) + udpEventLog == r.Env().udp.history());

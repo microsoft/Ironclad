@@ -192,7 +192,7 @@ module Host_i exclusively refines Host_s {
         {
             assert LIoOpOrderingOKForAction(ios[i], ios[i+1]);
             reveal_AbstractifyRawLogToIos();
-            assert AbstractifyRawLogToIos(events)[i] == RefineRawEventToIo(events[i]) == ios[i];
+            assert AbstractifyRawLogToIos(events)[i] == AbstractifyUdpEventToRslIo(events[i]) == ios[i];
         }
     }
 

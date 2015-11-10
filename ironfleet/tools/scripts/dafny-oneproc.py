@@ -23,7 +23,7 @@ def main():
     boogieFileHandle = open(boogieFile, 'r')
     mangledProcName = ''
     for line in boogieFileHandle:
-        m = re.search(r'^procedure\s*({:timeLimit \d+})?\s*(Impl[^\(]+)', line)
+        m = re.search(r'^procedure\s*({:[^}]+}\s*)+(Impl[^\(]+)', line)
 	if m:
             procedureName = m.group(2)
             if procedureName.find(escapedProcName) > -1:

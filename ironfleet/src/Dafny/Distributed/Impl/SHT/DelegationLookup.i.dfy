@@ -44,7 +44,7 @@ lemma CDM_IndexForKey_Ordering_specific(m:CDelegationMap, k1:KeyPlus, k2:KeyPlus
 method DelegateForKeyRangeIsHostImpl(m:CDelegationMap, kr:KeyRange, id:EndPoint) returns (b:bool)
     requires CDelegationMapIsValid(m);
     requires EndPointIsAbstractable(id);
-    ensures  b == DelegateForKeyRangeIsHost(RefineToDelegationMap(m), kr, AbstractifyEndPointToNodeIdentity(id));
+    ensures  b == DelegateForKeyRangeIsHost(AbstractifyCDelegationMapToDelegationMap(m), kr, AbstractifyEndPointToNodeIdentity(id));
 {
     if EmptyKeyRange(kr) {
         b := true;
@@ -107,7 +107,7 @@ method DelegateForKeyRangeIsHostImpl(m:CDelegationMap, kr:KeyRange, id:EndPoint)
                 }
             }
             if !witness_key.KeyZero? {
-                assert !DelegateForKeyRangeIsHost(RefineToDelegationMap(m'), kr, AbstractifyEndPointToNodeIdentity(id));
+                assert !DelegateForKeyRangeIsHost(AbstractifyCDelegationMapToDelegationMap(m'), kr, AbstractifyEndPointToNodeIdentity(id));
             } else {
                 assert kr.klo.KeyZero?;
                 assert !kr.khi.KeyZero? && kr.khi != KeyPlus(k_min);
@@ -124,7 +124,7 @@ method DelegateForKeyRangeIsHostImpl(m:CDelegationMap, kr:KeyRange, id:EndPoint)
                 }
                 if |m'.lows| == 1 {
                     assert KeyRangeContains(kr, KeyPlus(k_min));
-                    assert RefineToDelegationMap(m')[k_min] != AbstractifyEndPointToNodeIdentity(id);
+                    assert AbstractifyCDelegationMapToDelegationMap(m')[k_min] != AbstractifyEndPointToNodeIdentity(id);
                 } else {
                     assert m'.lows[1].klo != KeyPlus(k_min);
                     assert KeyPlusLt(KeyPlus(k_min), m'.lows[1].klo);
@@ -135,9 +135,9 @@ method DelegateForKeyRangeIsHostImpl(m:CDelegationMap, kr:KeyRange, id:EndPoint)
                             { CDM_Partitioned(m', KeyPlus(k_min), 0); }
                         CDM_IndexForKey(m', KeyPlus(k_min)) == 0; 
                     }
-                    assert RefineToDelegationMap(m')[k_min] != AbstractifyEndPointToNodeIdentity(id);
+                    assert AbstractifyCDelegationMapToDelegationMap(m')[k_min] != AbstractifyEndPointToNodeIdentity(id);
                 }
-                assert b == DelegateForKeyRangeIsHost(RefineToDelegationMap(m'), kr, AbstractifyEndPointToNodeIdentity(id));
+                assert b == DelegateForKeyRangeIsHost(AbstractifyCDelegationMapToDelegationMap(m'), kr, AbstractifyEndPointToNodeIdentity(id));
             }
             return;
         }
@@ -171,7 +171,7 @@ method DelegateForKeyRangeIsHostImpl(m:CDelegationMap, kr:KeyRange, id:EndPoint)
                     assert KeyRangeContains(kr, witness_key);
                 } else {
                     forall k | KeyRangeContains(kr, KeyPlus(k))
-                        ensures RefineToDelegationMap(m')[k] == AbstractifyEndPointToNodeIdentity(id);
+                        ensures AbstractifyCDelegationMapToDelegationMap(m')[k] == AbstractifyEndPointToNodeIdentity(id);
                     {
                         assert KeyPlusLe(kr.klo, KeyPlus(k));
                         assert KeyPlusLt(KeyPlus(k), kr.khi);
@@ -215,7 +215,7 @@ method DelegateForKeyRangeIsHostImpl(m:CDelegationMap, kr:KeyRange, id:EndPoint)
     }
 
     forall k | KeyRangeContains(kr, KeyPlus(k))
-        ensures RefineToDelegationMap(m')[k] == AbstractifyEndPointToNodeIdentity(id);
+        ensures AbstractifyCDelegationMapToDelegationMap(m')[k] == AbstractifyEndPointToNodeIdentity(id);
     {
         assert KeyPlusLe(kr.klo, KeyPlus(k));
         assert KeyPlusLt(KeyPlus(k), kr.khi);
@@ -236,7 +236,7 @@ lemma lemma_CDM_Defragment_equivalence(m:CDelegationMap, m':CDelegationMap)
     requires CDelegationMapIsValid(m);
     requires  CDelegationMapIsValid(m');
     requires forall k:Key :: true ==> m.lows[CDM_IndexForKey(m,KeyPlus(k))].id == m'.lows[CDM_IndexForKey(m',KeyPlus(k))].id;
-    ensures  RefineToDelegationMap(m) == RefineToDelegationMap(m');
+    ensures  AbstractifyCDelegationMapToDelegationMap(m) == AbstractifyCDelegationMapToDelegationMap(m');
 {
 }
 
@@ -245,7 +245,7 @@ lemma lemma_CDM_Defragment_equivalence(m:CDelegationMap, m':CDelegationMap)
 method CDM_Defragment(m:CDelegationMap) returns (m':CDelegationMap)
     requires CDelegationMapIsValid(m);
     ensures  CDelegationMapIsValid(m');
-    ensures  RefineToDelegationMap(m) == RefineToDelegationMap(m');
+    ensures  AbstractifyCDelegationMapToDelegationMap(m) == AbstractifyCDelegationMapToDelegationMap(m');
     ensures  |m'.lows| >= 2 && m'.lows[1].klo.KeyPlus? ==> m'.lows[1].klo.k != KeyMin();
 {
     if uint64(|m.lows|) < 2 || m.lows[1].klo != KeyPlus(KeyMin()) {

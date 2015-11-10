@@ -74,7 +74,7 @@ method NextAcceptorState_Phase1(acceptor:AcceptorState, in_msg:CMessage, sender:
 
     acceptor' := acceptor.(maxBallot := ballot);
 
-    ghost var r_packet := AbstractifyCMessageToPacket(acceptor.constants.all.config.replica_ids[acceptor.constants.my_index], sender, in_msg);
+    ghost var r_packet := AbstractifyCMessageToRslPacket(acceptor.constants.all.config.replica_ids[acceptor.constants.my_index], sender, in_msg);
     ghost var r_constants := AbstractifyReplicaConstantsStateToLReplicaConstants(acceptor.constants);
     ghost var dsts := [acceptor.constants.all.config.replica_ids[acceptor.constants.my_index]];
     calc {

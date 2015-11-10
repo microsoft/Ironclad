@@ -68,7 +68,7 @@ import opened LiveRSL__CClockReading_i
                r.Valid()
             && r.Env() == old(r.Env())
             && r.nextActionIndex == old(r.nextActionIndex)
-            && Q_LReplica_NoReceive_Next(old(r.RefineReplica()), int(r.nextActionIndex), r.RefineReplica(), ios)
+            && Q_LReplica_NoReceive_Next(old(r.AbstractifyToLReplica()), int(r.nextActionIndex), r.AbstractifyToLReplica(), ios)
             && OnlySentMarshallableData(udpEventLog)
             && RawIoConsistentWithSpecIO(udpEventLog, ios)
             && old(r.Env().udp.history()) + udpEventLog == r.Env().udp.history());
@@ -130,7 +130,7 @@ import opened LiveRSL__CClockReading_i
                r.Valid()
             && r.Env() == old(r.Env())
             && r.nextActionIndex == old(r.nextActionIndex)
-            && Q_LReplica_NoReceive_Next(old(r.RefineReplica()), int(r.nextActionIndex), r.RefineReplica(), ios)
+            && Q_LReplica_NoReceive_Next(old(r.AbstractifyToLReplica()), int(r.nextActionIndex), r.AbstractifyToLReplica(), ios)
             && OnlySentMarshallableData(udpEventLog)
             && RawIoConsistentWithSpecIO(udpEventLog, ios)
             && old(r.Env().udp.history()) + udpEventLog == r.Env().udp.history());
@@ -192,7 +192,7 @@ import opened LiveRSL__CClockReading_i
                r.Valid()
             && r.Env() == old(r.Env())
             && r.nextActionIndex == old(r.nextActionIndex)
-            && Q_LReplica_NoReceive_Next(old(r.RefineReplica()), int(r.nextActionIndex), r.RefineReplica(), ios)
+            && Q_LReplica_NoReceive_Next(old(r.AbstractifyToLReplica()), int(r.nextActionIndex), r.AbstractifyToLReplica(), ios)
             && OnlySentMarshallableData(udpEventLog)
             && RawIoConsistentWithSpecIO(udpEventLog, ios)
             && old(r.Env().udp.history()) + udpEventLog == r.Env().udp.history());
@@ -254,7 +254,7 @@ import opened LiveRSL__CClockReading_i
                r.Valid()
             && r.Env() == old(r.Env())
             && r.nextActionIndex == old(r.nextActionIndex)
-            && Q_LReplica_NoReceive_Next(old(r.RefineReplica()), int(r.nextActionIndex), r.RefineReplica(), ios)
+            && Q_LReplica_NoReceive_Next(old(r.AbstractifyToLReplica()), int(r.nextActionIndex), r.AbstractifyToLReplica(), ios)
             && OnlySentMarshallableData(udpEventLog)
             && RawIoConsistentWithSpecIO(udpEventLog, ios)
             && old(r.Env().udp.history()) + udpEventLog == r.Env().udp.history());
@@ -302,7 +302,7 @@ import opened LiveRSL__CClockReading_i
                r.Valid()
             && r.Env() == old(r.Env())
             && r.nextActionIndex == old(r.nextActionIndex)
-            && Q_LReplica_NoReceive_Next(old(r.RefineReplica()), int(r.nextActionIndex), r.RefineReplica(), ios)
+            && Q_LReplica_NoReceive_Next(old(r.AbstractifyToLReplica()), int(r.nextActionIndex), r.AbstractifyToLReplica(), ios)
             && OnlySentMarshallableData(udpEventLog)
             && RawIoConsistentWithSpecIO(udpEventLog, ios)
             && old(r.Env().udp.history()) + udpEventLog == r.Env().udp.history());

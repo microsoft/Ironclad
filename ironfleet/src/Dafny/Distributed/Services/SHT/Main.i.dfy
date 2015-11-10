@@ -1219,7 +1219,7 @@ module Main_i exclusively refines Main_s {
         }
     }
 
-    lemma {:timeLimitMultiplier 3} RefinementToServiceStateSequence(config:SHTConfiguration, db:seq<SHT_State>) returns (sb:seq<ServiceState>, cm:seq<int>)
+    lemma {:timeLimitMultiplier 5} RefinementToServiceStateSequence(config:SHTConfiguration, db:seq<SHT_State>) returns (sb:seq<ServiceState>, cm:seq<int>)
         requires |db| > 0;
         requires SHT_Init(config, db[0]);
         requires forall i {:trigger SHT_Next(db[i], db[i+1])} :: 0 <= i < |db| - 1 ==> SHT_Next(db[i], db[i+1]);
@@ -1263,6 +1263,8 @@ module Main_i exclusively refines Main_s {
                     |sb_others|;
                     |sb| - 1;
                 }
+                assert forall i {:trigger cm[i]} :: 0 <= i < |cm| ==> 0 <= cm[i] < |sb|;
+                assert forall i {:trigger Service_Next(sb[i], sb[i+1])} :: 0 <= i < |sb| - 1 ==> Service_Next(sb[i], sb[i+1]);
             } else {
                 assert ServiceStutter(s, s');
                 sb := sb_others;

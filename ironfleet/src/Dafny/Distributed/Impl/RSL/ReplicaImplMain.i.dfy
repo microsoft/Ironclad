@@ -55,7 +55,7 @@ import opened LiveRSL__CClockReading_i
             && old(r.Env().udp.history()) + udpEventLog == r.Env().udp.history()
             );
     {
-        ghost var replica_old := old(r.RefineReplica());
+        ghost var replica_old := old(r.AbstractifyToLReplica());
         ghost var scheduler_old := old(r.AbstractifyToLScheduler());
 
         assert scheduler_old.nextActionIndex == 0;
@@ -72,7 +72,7 @@ import opened LiveRSL__CClockReading_i
         ghost var udp_addr_old := r.udpClient.LocalEndPoint();
         assert UdpClientIsValid(udp_client_old);
 
-        ghost var replica := r.RefineReplica();
+        ghost var replica := r.AbstractifyToLReplica();
         r.nextActionIndex := 1;
         ghost var scheduler := r.AbstractifyToLScheduler();
 
@@ -92,13 +92,13 @@ import opened LiveRSL__CClockReading_i
             (scheduler_old.nextActionIndex+1)%LReplicaNumActions();
         }
 
-        if Q_LReplica_Next_ProcessPacket(old(r.RefineReplica()), r.RefineReplica(), ios) {
+        if Q_LReplica_Next_ProcessPacket(old(r.AbstractifyToLReplica()), r.AbstractifyToLReplica(), ios) {
             lemma_EstablishQLSchedulerNext(replica_old, replica, ios, scheduler_old, scheduler);
             assert Q_LScheduler_Next(old(r.AbstractifyToLScheduler()), r.AbstractifyToLScheduler(), ios);
         }
         else {
             assert IosReflectIgnoringUnsendable(udpEventLog);
-            assert old(r.RefineReplica()) == r.RefineReplica();
+            assert old(r.AbstractifyToLReplica()) == r.AbstractifyToLReplica();
             assert HostNextIgnoreUnsendable(old(r.AbstractifyToLScheduler()), r.AbstractifyToLScheduler(), udpEventLog);
         }
     }
@@ -122,7 +122,7 @@ import opened LiveRSL__CClockReading_i
     {
         var curActionIndex := r.nextActionIndex;
 
-        ghost var replica_old := old(r.RefineReplica());
+        ghost var replica_old := old(r.AbstractifyToLReplica());
         ghost var scheduler_old := old(r.AbstractifyToLScheduler());
 
         assert scheduler_old.replica == replica_old;
@@ -136,7 +136,7 @@ import opened LiveRSL__CClockReading_i
         ghost var udp_addr_old := r.udpClient.LocalEndPoint();
         assert UdpClientIsValid(udp_client_old);
 
-        ghost var replica := r.RefineReplica();
+        ghost var replica := r.AbstractifyToLReplica();
         var nextActionIndex' := r.nextActionIndex + 1; // rollActionIndex(r.nextActionIndex);
         r.nextActionIndex := nextActionIndex';
         ghost var scheduler := r.AbstractifyToLScheduler();
@@ -180,7 +180,7 @@ import opened LiveRSL__CClockReading_i
     {
         var curActionIndex := r.nextActionIndex;
 
-        ghost var replica_old := old(r.RefineReplica());
+        ghost var replica_old := old(r.AbstractifyToLReplica());
         ghost var scheduler_old := old(r.AbstractifyToLScheduler());
 
         assert scheduler_old.replica == replica_old;
@@ -194,7 +194,7 @@ import opened LiveRSL__CClockReading_i
         ghost var udp_addr_old := r.udpClient.LocalEndPoint();
         assert UdpClientIsValid(udp_client_old);
 
-        ghost var replica := r.RefineReplica();
+        ghost var replica := r.AbstractifyToLReplica();
         var nextActionIndex' := rollActionIndex(r.nextActionIndex);
         r.nextActionIndex := nextActionIndex';
         ghost var scheduler := r.AbstractifyToLScheduler();

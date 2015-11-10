@@ -5,7 +5,7 @@ module LiveRSL__LearnerModel_i {
 import opened LiveRSL__AppInterface_i
 import opened LiveRSL__LearnerState_i
 
-lemma lemma_Received2bPacketsSameSizeAsRefinement(l_learner_tuple:CLearnerTuple, h_learner_tuple:LearnerTuple)
+lemma lemma_Received2bPacketsSameSizeAsAbstraction(l_learner_tuple:CLearnerTuple, h_learner_tuple:LearnerTuple)
     requires LearnerTupleIsAbstractable(l_learner_tuple);
     requires h_learner_tuple == AbstractifyCLearnerTupleToLearnerTuple(l_learner_tuple);
     requires SeqIsUnique(l_learner_tuple.received_2b_message_senders);
@@ -72,12 +72,12 @@ lemma lemma_Received2bPacketsSameSizeAsRefinement(l_learner_tuple:CLearnerTuple,
 
         assert h_learner_tuple.received_2b_message_senders == h_learner_tuple'.received_2b_message_senders + {AbstractifyEndPointToNodeIdentity(src)};
         reveal_SeqIsUnique();
-        lemma_Received2bPacketsSameSizeAsRefinement(l_learner_tuple', h_learner_tuple');
+        lemma_Received2bPacketsSameSizeAsAbstraction(l_learner_tuple', h_learner_tuple');
     }
 }
 
 
-lemma lemma_RefineLearnerTupleOfOneSource(l_tup:CLearnerTuple, h_tup:LearnerTuple, src:EndPoint)
+lemma lemma_AbstractifyCLearnerTupleOfOneSource(l_tup:CLearnerTuple, h_tup:LearnerTuple, src:EndPoint)
     requires l_tup.received_2b_message_senders == [src];
     requires EndPointIsValidIPV4(src);
     requires LearnerTupleIsAbstractable(l_tup);
@@ -190,7 +190,7 @@ method LearnerModel_Process2b(learner:CLearnerState, executor:ExecutorState, pac
     ghost var r_opn := AbstractifyCOperationNumberToOperationNumber(opn);
 
     assert srcIsReplica <==> AbstractifyCPacketToRslPacket(packet).src in AbstractifyReplicaConstantsStateToLReplicaConstants(learner.rcs).all.config.replica_ids;
-    lemma_RefineToLearnerTuplesProperties(learner.unexecuted_ops);
+    lemma_AbstractifyCLearnerTuplesToLearnerTuples_properties(learner.unexecuted_ops);
 
     if opn in learner.unexecuted_ops {
         assert CLearnerTupleIsValid(learner.unexecuted_ops[opn]);
@@ -209,15 +209,15 @@ method LearnerModel_Process2b(learner:CLearnerState, executor:ExecutorState, pac
                 max_ballot_seen := msg.bal_2b,
                 unexecuted_ops := map[opn := tup']);
         ghost var r_learner' := AbstractifyLearnerStateToLLearner(learner');
-        lemma_RefineToLearnerTuplesProperties(learner'.unexecuted_ops);
+        lemma_AbstractifyCLearnerTuplesToLearnerTuples_properties(learner'.unexecuted_ops);
 
-        lemma_RefineToLearnerTuplesProperties(map []);
+        lemma_AbstractifyCLearnerTuplesToLearnerTuples_properties(map []);
 
         ghost var r_tup' := LearnerTuple({r_packet.src}, r_packet.msg.val_2b);
         ghost var r'_learner := r_learner.(max_ballot_seen := r_packet.msg.bal_2b,
                                            unexecuted_learner_state := map[r_opn := r_tup']);
 
-        lemma_RefineLearnerTupleOfOneSource(tup', r_tup', packet.src);
+        lemma_AbstractifyCLearnerTupleOfOneSource(tup', r_tup', packet.src);
 
         assert r_tup'.received_2b_message_senders == AbstractifyCLearnerTupleToLearnerTuple(tup').received_2b_message_senders;
         assert r_tup'.candidate_learned_value == AbstractifyCLearnerTupleToLearnerTuple(tup').candidate_learned_value;
@@ -239,7 +239,7 @@ method LearnerModel_Process2b(learner:CLearnerState, executor:ExecutorState, pac
         ghost var r_tup' := LearnerTuple({r_packet.src}, r_packet.msg.val_2b);
         ghost var r'_learner := r_learner.(unexecuted_learner_state := r_learner.unexecuted_learner_state[r_opn := r_tup']);
 
-        lemma_RefineLearnerTupleOfOneSource(tup', r_tup', packet.src);
+        lemma_AbstractifyCLearnerTupleOfOneSource(tup', r_tup', packet.src);
 
         assert r_tup'.received_2b_message_senders == AbstractifyCLearnerTupleToLearnerTuple(tup').received_2b_message_senders;
         assert r_tup'.candidate_learned_value == AbstractifyCLearnerTupleToLearnerTuple(tup').candidate_learned_value;
@@ -282,14 +282,14 @@ method LearnerModel_ForgetDecision(learner:CLearnerState, opn:COperationNumber) 
     requires LearnerState_ForgetDecision__Preconditions(learner, opn);
     ensures LearnerState_ForgetDecision__Postconditions(learner, opn, learner');
 {
-    lemma_RefineToLearnerTuplesProperties(learner.unexecuted_ops);
+    lemma_AbstractifyCLearnerTuplesToLearnerTuples_properties(learner.unexecuted_ops);
     if (opn in learner.unexecuted_ops)
     {
         learner' := learner.(unexecuted_ops := RemoveElt(learner.unexecuted_ops, opn));
         lemma_map_remove_one(learner.unexecuted_ops, learner'.unexecuted_ops, opn);
-        //assert AbstractifyCOperationNumberToOperationNumber(opn) in RefineToLearnerTuples(learner.unexecuted_ops);
-        lemma_RefineToLearnerTuplesProperties(learner'.unexecuted_ops);
-        //lemma_map_remove_one(RefineToLearnerTuples(learner.unexecuted_ops), RefineToLearnerTuples(learner'.unexecuted_ops), AbstractifyCOperationNumberToOperationNumber(opn));
+        //assert AbstractifyCOperationNumberToOperationNumber(opn) in AbstractifyCLearnerTuplesToLearnerTuples(learner.unexecuted_ops);
+        lemma_AbstractifyCLearnerTuplesToLearnerTuples_properties(learner'.unexecuted_ops);
+        //lemma_map_remove_one(AbstractifyCLearnerTuplesToLearnerTuples(learner.unexecuted_ops), AbstractifyCLearnerTuplesToLearnerTuples(learner'.unexecuted_ops), AbstractifyCOperationNumberToOperationNumber(opn));
     }
     else
     {
@@ -306,16 +306,16 @@ lemma lemma_MapEquality<U,V>(m1:map<U,V>, m2:map<U,V>)
 
 lemma lemma_ForgetOperationsBeforeMap(m_before:map<COperationNumber, CLearnerTuple>, m_after:map<COperationNumber, CLearnerTuple>, ops_complete:COperationNumber)
     requires m_after == map op | op in m_before && op.n >= ops_complete.n :: m_before[op];
-    requires LearnerTuplesAreRefinable(m_before);
-    ensures  var rm := RefineToLearnerTuples(m_before);
+    requires CLearnerTuplesAreAbstractable(m_before);
+    ensures  var rm := AbstractifyCLearnerTuplesToLearnerTuples(m_before);
              var rm_new := map op | op in rm && op >= AbstractifyCOperationNumberToOperationNumber(ops_complete) :: rm[op];
-             rm_new == RefineToLearnerTuples(m_after);
+             rm_new == AbstractifyCLearnerTuplesToLearnerTuples(m_after);
 {
-    lemma_RefineToLearnerTuplesProperties(m_before);
-    lemma_RefineToLearnerTuplesProperties(m_after);
+    lemma_AbstractifyCLearnerTuplesToLearnerTuples_properties(m_before);
+    lemma_AbstractifyCLearnerTuplesToLearnerTuples_properties(m_after);
 
-    var r_before := RefineToLearnerTuples(m_before);
-    var r_after := RefineToLearnerTuples(m_after);
+    var r_before := AbstractifyCLearnerTuplesToLearnerTuples(m_before);
+    var r_after := AbstractifyCLearnerTuplesToLearnerTuples(m_after);
     var r_op := AbstractifyCOperationNumberToOperationNumber(ops_complete);
     var rm_new := map op | op in r_before && op >= r_op :: r_before[op];
 
@@ -369,14 +369,14 @@ lemma lemma_LearnerStateForgetOperationsBeforePostconditions(learner:CLearnerSta
     assert r'_learner.unexecuted_learner_state == r_learner'.unexecuted_learner_state;
     assert Eq_LLearner(r'_learner, r_learner');
     /*
-    lemma_RefineToLearnerTuplesProperties(learner.unexecuted_ops);
+    lemma_AbstractifyCLearnerTuplesToLearnerTuples_properties(learner.unexecuted_ops);
 
     var rOpnComplete := AbstractifyCOperationNumberToOperationNumber(ops_complete);
     var r1 := AbstractifyLearnerStateToLLearner(learner).unexecuted_learner_state;
-    var r2 := RefineToLearnerTuples(learner.unexecuted_ops);
+    var r2 := AbstractifyCLearnerTuplesToLearnerTuples(learner.unexecuted_ops);
     assert r1 == r2;
     var r1' := AbstractifyLearnerStateToLLearner(learner').unexecuted_learner_state;
-    var r2' := RefineToLearnerTuples(learner'.unexecuted_ops);
+    var r2' := AbstractifyCLearnerTuplesToLearnerTuples(learner'.unexecuted_ops);
     assert r1' == r2';
     var setO := set o | o in r1 && o >= rOpnComplete;
     forall o | o in domain(r1')

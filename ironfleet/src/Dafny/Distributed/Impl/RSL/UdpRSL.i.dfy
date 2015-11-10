@@ -24,7 +24,7 @@ predicate UdpEventIsAbstractable(evt:UdpEvent)
         case LIoOpReadClock(t) => true
 }
 
-function RefineRawEventToIo(evt:UdpEvent) : RslIo
+function AbstractifyUdpEventToRslIo(evt:UdpEvent) : RslIo
     requires UdpEventIsAbstractable(evt);
 {
     match evt
@@ -42,15 +42,15 @@ predicate UdpEventLogIsAbstractable(rawlog:seq<UdpEvent>)
 function {:opaque} AbstractifyRawLogToIos(rawlog:seq<UdpEvent>) : seq<RslIo>
     requires UdpEventLogIsAbstractable(rawlog);
     ensures |AbstractifyRawLogToIos(rawlog)| == |rawlog|;
-    ensures forall i {:trigger RefineRawEventToIo(rawlog[i])} {:trigger AbstractifyRawLogToIos(rawlog)[i]} :: 0<=i<|rawlog| ==> AbstractifyRawLogToIos(rawlog)[i] == RefineRawEventToIo(rawlog[i]);
+    ensures forall i {:trigger AbstractifyUdpEventToRslIo(rawlog[i])} {:trigger AbstractifyRawLogToIos(rawlog)[i]} :: 0<=i<|rawlog| ==> AbstractifyRawLogToIos(rawlog)[i] == AbstractifyUdpEventToRslIo(rawlog[i]);
 {
-    if (rawlog==[]) then [] else [RefineRawEventToIo(rawlog[0])] + AbstractifyRawLogToIos(rawlog[1..])
+    if (rawlog==[]) then [] else [AbstractifyUdpEventToRslIo(rawlog[0])] + AbstractifyRawLogToIos(rawlog[1..])
 }
 
 lemma lemma_EstablishAbstractifyRawLogToIos(rawlog:seq<UdpEvent>, ios:seq<RslIo>)
     requires UdpEventLogIsAbstractable(rawlog);
     requires |rawlog| == |ios|;
-    requires forall i :: 0<=i<|rawlog| ==> ios[i] == RefineRawEventToIo(rawlog[i]);
+    requires forall i :: 0<=i<|rawlog| ==> ios[i] == AbstractifyUdpEventToRslIo(rawlog[i]);
     ensures AbstractifyRawLogToIos(rawlog) == ios;
 {
     reveal_AbstractifyRawLogToIos();

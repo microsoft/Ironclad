@@ -32,7 +32,7 @@ method CComputeSuccessorView(cb:CBallot, constants:ConstantsState) returns(cb':C
     requires CPaxosConfigurationIsValid(constants.config);
     requires cb.seqno < 0xFFFF_FFFF_FFFF_FFFF;
     ensures  CBallotIsAbstractable(cb');
-    ensures  ComputeSuccessorView(AbstractifyCBallotToBallot(cb), RefineConstantsState(constants)) == AbstractifyCBallotToBallot(cb');
+    ensures  ComputeSuccessorView(AbstractifyCBallotToBallot(cb), AbstractifyConstantsStateToLConstants(constants)) == AbstractifyCBallotToBallot(cb');
 {
     ghost var b := AbstractifyCBallotToBallot(cb);
 
@@ -302,7 +302,7 @@ lemma lemma_RemoveFirstMatchingPreservesHeaderMatches(s1:seq<CRequest>,  headers
 {
 }
 
-lemma lemma_RemoveFirstMatchingCRequestInSequenceRefines(s:seq<CRequest>, r:CRequest)
+lemma lemma_RemoveFirstMatchingCRequestInSequenceAbstractable(s:seq<CRequest>, r:CRequest)
     requires CRequestsSeqIsAbstractable(s);
     requires CRequestIsAbstractable(r);
     ensures  CRequestsSeqIsAbstractable(RemoveFirstMatchingCRequestInSequence(s, r));
@@ -339,7 +339,7 @@ lemma lemma_RemoveFirstMatchingCRequestInSequencePrefix(s:seq<CRequest>, r:CRequ
     ensures  AbstractifyCRequestsSeqToRequestsSeq(RemoveFirstMatchingCRequestInSequence(s, r))
              == [AbstractifyCRequestToRequest(s[0])] + AbstractifyCRequestsSeqToRequestsSeq(RemoveFirstMatchingCRequestInSequence(s[1..], r));
 {
-    lemma_RemoveFirstMatchingCRequestInSequenceRefines(s, r);
+    lemma_RemoveFirstMatchingCRequestInSequenceAbstractable(s, r);
     lemma_CRequestsMatch();
     calc {
         AbstractifyCRequestsSeqToRequestsSeq(RemoveFirstMatchingCRequestInSequence(s, r));
@@ -347,18 +347,6 @@ lemma lemma_RemoveFirstMatchingCRequestInSequencePrefix(s:seq<CRequest>, r:CRequ
         AbstractifyCRequestsSeqToRequestsSeq([s[0]]) + AbstractifyCRequestsSeqToRequestsSeq(RemoveFirstMatchingCRequestInSequence(s[1..], r));
         [AbstractifyCRequestToRequest(s[0])] + AbstractifyCRequestsSeqToRequestsSeq(RemoveFirstMatchingCRequestInSequence(s[1..], r));
     }
-}
-
-lemma lemma_RefineToRequestsSeqIndexing(s:seq<CRequest>, start:int, end:int)
-    requires CRequestsSeqIsAbstractable(s);
-    requires 0 <= start <= end <= |s|;
-    ensures  AbstractifyCRequestsSeqToRequestsSeq(s[start..end]) == AbstractifyCRequestsSeqToRequestsSeq(s)[start..end];
-{
-    var subseq := s[start..end];
-    var r_s := AbstractifyCRequestsSeqToRequestsSeq(s);
-    var r_subseq := r_s[start..end];
-
-    assert |subseq| == |r_subseq|;
 }
 
 lemma lemma_SequenceDots<T>(s:seq<T>, start:int)
@@ -375,7 +363,7 @@ lemma lemma_RemoveFirstMatchingCRequestInSequenceProperties(s:seq<CRequest>, r:C
     ensures  |RemoveFirstMatchingCRequestInSequence(s, r)| <= |s|;
     ensures ElectionRequestQueueValid(s) ==> ElectionRequestQueueValid(RemoveFirstMatchingCRequestInSequence(s, r));
 {
-    lemma_RemoveFirstMatchingCRequestInSequenceRefines(s, r);
+    lemma_RemoveFirstMatchingCRequestInSequenceAbstractable(s, r);
     reveal_AbstractifyCRequestsSeqToRequestsSeq();
 
     if |s| == 0
@@ -675,7 +663,6 @@ method {:timeLimitMultiplier 3} ElectionCheckForQuorumOfViewSuspicions(ces:CElec
         lemma_AbstractifyCRequestsSeqToRequestsSeq_concat(ces.requests_received_prev_epochs, ces.requests_received_this_epoch);
         lemma_BoundCRequestSequence(ces.requests_received_prev_epochs + ces.requests_received_this_epoch, ces.constants.all.params.max_integer_val);
     }
-    //lemma_RefineToAppMessageIsInjective();
     reveal_AbstractifyEndPointsToNodeIdentities();
     lemma_AbstractifySeqOfUint64sToSetOfInts_properties([]);
     assert Eq_ElectionState(es', AbstractifyCElectionStateToElectionState(ces'));
@@ -927,9 +914,10 @@ method {:timeLimitMultiplier 10} ElectionReflectReceivedRequest(ces:CElectionSta
                                                 creq);
         lemma_AbstractifyCRequestsSeqToRequestsSeq_concat(ces.requests_received_this_epoch, [creq]);
         lemma_BoundCRequestSequence(bounded_seq, ces.constants.all.params.max_integer_val);
+
+        assert {:split_here} true;
+
         assert Eq_ElectionState(es', AbstractifyCElectionStateToElectionState(ces'));
-        //var update_end_time := Time.GetDebugTimeTicks();
-        //RecordTimingSeq("ElectionReflectReceivedRequest_Update", update_start_time, update_end_time);
     }
 }
 
