@@ -188,7 +188,8 @@ module Host_i exclusively refines Host_s {
         requires RawIoConsistentWithSpecIO(events, ios);
         ensures UdpEventsReductionCompatible(events);
     {
-        reveal_AbstractifyRawLogToIos();
+        lemma_AbstractifyRawLogToIos_properties(events, ios);
+        assert UdpEventsReductionCompatible(events);
     }
 
     method {:timeLimitMultiplier 3} HostNextImpl(ghost env:HostEnvironment, host_state:HostState) 

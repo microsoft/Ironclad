@@ -86,7 +86,7 @@ lemma Lemma_RoundRobinSchedulerTimelyForAllActionsTemporal<S>(
             ensures sat(i, imply(x, next(x)));
         {
         }
-        TemporalInduction(0, x);
+        TemporalInductionNext(0, x);
         assert sat(i0, always(stepmap(imap i :: 0 <= naf[i] < n)));
     }
 

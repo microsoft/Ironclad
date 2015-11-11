@@ -72,7 +72,7 @@ method NextAcceptorState_Phase1(acceptor:AcceptorState, in_msg:CMessage, sender:
     packets_sent := CBroadcast(acceptor.constants.all.config.replica_ids[acceptor.constants.my_index], 
                               [sender], outMsg);
 
-    acceptor' := acceptor[maxBallot := ballot];
+    acceptor' := acceptor.(maxBallot := ballot);
 
     ghost var r_packet := AbstractifyCMessageToRslPacket(acceptor.constants.all.config.replica_ids[acceptor.constants.my_index], sender, in_msg);
     ghost var r_constants := AbstractifyReplicaConstantsStateToLReplicaConstants(acceptor.constants);
@@ -240,11 +240,11 @@ method {:timeLimitMultiplier 2} NextAcceptorState_Phase2(acceptor:AcceptorState,
     var outMsg := CMessage_2b(ballot, opn, value);
 
     acceptor' :=
-        acceptor
-            [votes := votes']
-            [maxBallot := ballot]
-            [log_truncation_point := newLogTruncationPoint]
-            [minVotedOpn := newMinVotedOpn];
+        acceptor.(
+            votes := votes',
+            maxBallot := ballot,
+            log_truncation_point := newLogTruncationPoint,
+            minVotedOpn := newMinVotedOpn);
 
     packets_sent := BuildBroadcastToEveryone(acceptor.constants.all.config, acceptor.constants.my_index, outMsg);
     assert NextAcceptorState_Phase2Postconditions(acceptor, acceptor', in_msg, sender, packets_sent);
@@ -278,7 +278,7 @@ method {:timeLimitMultiplier 1} NextAcceptorState_ProcessHeartbeat(acceptor:Acce
 
     var newLCO := acceptor.last_checkpointed_operation[int(index) := in_msg.opn_ckpt];
 
-    acceptor' := acceptor[last_checkpointed_operation:= newLCO];
+    acceptor' := acceptor.(last_checkpointed_operation:= newLCO);
 }
 
 method {:timeLimitMultiplier 1} NextAcceptorState_TruncateLog(acceptor:AcceptorState, opn:COperationNumber) returns (acceptor':AcceptorState)
@@ -291,8 +291,8 @@ method {:timeLimitMultiplier 1} NextAcceptorState_TruncateLog(acceptor:AcceptorS
         assert AbstractifyCOperationNumberToOperationNumber(opn) > AbstractifyCOperationNumberToOperationNumber(acceptor.log_truncation_point);
         reveal_AbstractifyCVotesToVotes();
         var truncatedVotes:map<COperationNumber,CVote> := (map op | op in acceptor.votes.v && op.n >= opn.n :: acceptor.votes.v[op]);
-        acceptor' := acceptor[log_truncation_point := opn]
-                             [votes := acceptor.votes[v := truncatedVotes]];
+        acceptor' := acceptor.(log_truncation_point := opn,
+                               votes := acceptor.votes.(v := truncatedVotes));
         lemma_MapSizeIsDomainSize(domain(truncatedVotes), truncatedVotes);
         lemma_MapSizeIsDomainSize(domain(acceptor.votes.v), acceptor.votes.v);
         SubsetCardinality(domain(truncatedVotes),domain(acceptor.votes.v));

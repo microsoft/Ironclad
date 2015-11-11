@@ -106,8 +106,8 @@ lemma lemma_div_auto_induction(n:int, x:int, f:imap<int,bool>)
 {
     lemma_div_auto(n);
     assert forall i :: TDivAutoLe(0, i) && i < n ==> f[i];
-    assert forall i :: TDivAutoLe(0, i) && f[i] ==> f[i + n];
-    assert forall i :: TDivAutoLe(i + 1, n) && f[i] ==> f[i - n];
+    assert forall i {:trigger f[i], f[i + n]} :: TDivAutoLe(0, i) && f[i] ==> f[i + n];
+    assert forall i {:trigger f[i], f[i - n]} :: TDivAutoLe(i + 1, n) && f[i] ==> f[i - n];
     lemma_mod_induction_forall(n, f);
     assert f[x];
 }
@@ -123,8 +123,8 @@ lemma lemma_div_auto_induction_forall(n:int, f:imap<int,bool>)
 {
     lemma_div_auto(n);
     assert forall i :: TDivAutoLe(0, i) && i < n ==> f[i];
-    assert forall i :: TDivAutoLe(0, i) && f[i] ==> f[i + n];
-    assert forall i :: TDivAutoLe(i + 1, n) && f[i] ==> f[i - n];
+    assert forall i {:trigger f[i], f[i + n]} :: TDivAutoLe(0, i) && f[i] ==> f[i + n];
+    assert forall i {:trigger f[i], f[i - n]} :: TDivAutoLe(i + 1, n) && f[i] ==> f[i - n];
     lemma_mod_induction_forall(n, f);
 }
 

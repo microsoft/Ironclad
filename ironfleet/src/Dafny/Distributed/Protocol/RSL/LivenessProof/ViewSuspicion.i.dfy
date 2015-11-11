@@ -222,6 +222,7 @@ lemma lemma_IfAllLiveReplicasInViewOneWillReachSuccessor(
     var first_step := lemma_SuspicionOfLiveReplicasEventuallyPropagatedToObserverForever(b, asp, processing_sync_start, processing_bound, collector_idx, asp.live_quorum, view, start_step);
 
     var action_step := lemma_ReplicaNextPerformsSubactionSoon(b, asp, first_step, collector_idx, 8);
+    assert SpecificClockReadingRslActionOccurs(b[action_step], b[action_step+1], LReplicaNextReadClockCheckForQuorumOfViewSuspicions, collector_idx);
     var ios :|    RslNextOneReplica(b[action_step], b[action_step+1], collector_idx, ios)
                && SpontaneousIos(ios, 1)
                && LReplicaNextReadClockCheckForQuorumOfViewSuspicions(b[action_step].replicas[collector_idx].replica, b[action_step+1].replicas[collector_idx].replica, SpontaneousClock(ios), ExtractSentPacketsFromIos(ios));

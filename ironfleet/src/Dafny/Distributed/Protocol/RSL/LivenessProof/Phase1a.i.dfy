@@ -227,6 +227,7 @@ lemma lemma_PrimaryInViewLeadsToPrimaryMaxBallotISent1aInViewWF1Req2(
         {
             lemma_ConstantsAllConsistent(b, asp.c, i);
             lemma_ConstantsAllConsistent(b, asp.c, i+1);
+            assert SpecificSpontaneousRslActionOccurs(b[i], b[i+1], LReplicaNextSpontaneousMaybeEnterNewViewAndSend1a, primary_idx);
             var ios :|    RslNextOneReplica(b[i], b[i+1], primary_idx, ios)
                        && SpontaneousIos(ios, 0)
                        && LReplicaNextSpontaneousMaybeEnterNewViewAndSend1a(b[i].replicas[primary_idx].replica,

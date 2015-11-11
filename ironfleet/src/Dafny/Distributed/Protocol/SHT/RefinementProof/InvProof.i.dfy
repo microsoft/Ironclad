@@ -265,6 +265,13 @@ lemma TruncateAckPreservesSubset<MT>(unAcked:seq<SingleMessage<MT>>)
     ensures  forall m, seqno:nat :: var truncated := TruncateUnAckList(unAcked, seqno);
                                     m in truncated ==> m in unAcked;
 {
+    forall m, seqno:nat | var truncated := TruncateUnAckList(unAcked, seqno);
+                          m in truncated 
+        ensures m in unAcked;
+    {
+                          
+    }
+    
 }
 
 lemma UnAckedListFinalEntry<MT>(unAcked:seq<SingleMessage<MT>>, old_seqno:nat)
@@ -1043,7 +1050,7 @@ lemma NextInv_Get_NotADelegateStep(s:SHT_State, s':SHT_State, id:NodeIdentity, r
 {
 }
 
-lemma NextInv_Get(s:SHT_State, s':SHT_State, id:NodeIdentity, recv:set<Packet>, out:set<Packet>, rpkt:Packet)
+lemma {:timeLimitMultiplier 3} NextInv_Get(s:SHT_State, s':SHT_State, id:NodeIdentity, recv:set<Packet>, out:set<Packet>, rpkt:Packet)
     requires Inv(s);
     requires MapComplete(s');
     requires SHT_Next(s, s');

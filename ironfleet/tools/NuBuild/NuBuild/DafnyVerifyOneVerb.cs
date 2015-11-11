@@ -58,13 +58,13 @@ namespace NuBuild
             List<string> arguments = new List<string>();
             arguments.Add("/noNLarith");
             arguments.Add("/allowGlobals");
-            arguments.Add("/z3opt:ARITH_RANDOM_SEED=1");
-            arguments.Add("/z3opt:PI_WARNINGS=true");
+            arguments.Add("/z3opt:nlsat.randomize=false");
+            arguments.Add("/z3opt:pi.warnings=true");
             arguments.Add("/proverWarnings:1");
             arguments.Add("/compile:0");
             arguments.Add("/timeLimit:30");
             arguments.Add("/noCheating:1");
-            arguments.Add("/stricterTriggers");
+            arguments.Add("/autoTriggers:1");
             arguments.Add("/ironDafny");
             foreach (string[] ann in new AnnotationScanner(this.dfysource).getAnnotations(ADDDAFNYFLAG_LABEL))
             {

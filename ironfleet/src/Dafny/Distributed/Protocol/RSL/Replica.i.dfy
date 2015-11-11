@@ -57,7 +57,7 @@ predicate LReplicaNextProcessRequest(s:LReplica, s':LReplica, received_packet:Rs
     else
            LProposerProcessRequest(s.proposer, s'.proposer, received_packet)
         && sent_packets == []
-        && s' == s[proposer := s'.proposer]
+        && s' == s.(proposer := s'.proposer)
 }
 
 predicate LReplicaNextProcess1a(s:LReplica, s':LReplica, received_packet:RslPacket, sent_packets:seq<RslPacket>)
@@ -65,7 +65,7 @@ predicate LReplicaNextProcess1a(s:LReplica, s':LReplica, received_packet:RslPack
 {
        LAcceptorProcess1a(s.acceptor, s'.acceptor, received_packet, sent_packets)
     // UNCHANGED
-    && s' == s[acceptor := s'.acceptor]
+    && s' == s.(acceptor := s'.acceptor)
 }
 
 predicate LReplicaNextProcess1b(s:LReplica, s':LReplica, received_packet:RslPacket, sent_packets:seq<RslPacket>)
@@ -78,7 +78,7 @@ predicate LReplicaNextProcess1b(s:LReplica, s':LReplica, received_packet:RslPack
            LProposerProcess1b(s.proposer, s'.proposer, received_packet)
         && LAcceptorTruncateLog(s.acceptor, s'.acceptor, received_packet.msg.log_truncation_point)
         && sent_packets == []
-        && s' == s[proposer := s'.proposer][acceptor := s'.acceptor]
+        && s' == s.(proposer := s'.proposer, acceptor := s'.acceptor)
     else
        s' == s && sent_packets == []
 }
@@ -87,7 +87,7 @@ predicate LReplicaNextProcessStartingPhase2(s:LReplica, s':LReplica, received_pa
     requires received_packet.msg.RslMessage_StartingPhase2?;
 {
        LExecutorProcessStartingPhase2(s.executor, s'.executor, received_packet, sent_packets)
-    && s' == s[executor := s'.executor]
+    && s' == s.(executor := s'.executor)
 }
 
 predicate LReplicaNextProcess2a(s:LReplica, s':LReplica, received_packet:RslPacket, sent_packets:seq<RslPacket>)
@@ -98,7 +98,7 @@ predicate LReplicaNextProcess2a(s:LReplica, s':LReplica, received_packet:RslPack
        && BalLeq(s.acceptor.max_bal, m.bal_2a)
        && LeqUpperBound(m.opn_2a, s.acceptor.constants.all.params.max_integer_val) then
            LAcceptorProcess2a(s.acceptor, s'.acceptor, received_packet, sent_packets)
-        && s' == s[acceptor := s'.acceptor]
+        && s' == s.(acceptor := s'.acceptor)
     else
         s' == s && sent_packets == []
 }
@@ -111,7 +111,7 @@ predicate LReplicaNextProcess2b(s:LReplica, s':LReplica, received_packet:RslPack
     if op_learnable then
            LLearnerProcess2b(s.learner, s'.learner, received_packet)
         && sent_packets == []
-        && s' == s[learner := s'.learner]
+        && s' == s.(learner := s'.learner)
     else
            s' == s
         && sent_packets == []
@@ -131,7 +131,7 @@ predicate LReplicaNextProcessAppStateSupply(s:LReplica, s':LReplica, received_pa
            LLearnerForgetOperationsBefore(s.learner, s'.learner, received_packet.msg.opn_state_supply)
         && LExecutorProcessAppStateSupply(s.executor, s'.executor, received_packet)
         && sent_packets == []
-        && s' == s[learner := s'.learner][executor := s'.executor]
+        && s' == s.(learner := s'.learner, executor := s'.executor)
     else
         s' == s && sent_packets == []
 }
@@ -140,7 +140,7 @@ predicate LReplicaNextProcessAppStateRequest(s:LReplica, s':LReplica, received_p
     requires received_packet.msg.RslMessage_AppStateRequest?;
 {
        LExecutorProcessAppStateRequest(s.executor, s'.executor, received_packet, sent_packets)
-    && s' == s[executor := s'.executor]
+    && s' == s.(executor := s'.executor)
 }
 
 predicate LReplicaNextProcessHeartbeat(s:LReplica, s':LReplica, received_packet:RslPacket, clock:int, sent_packets:seq<RslPacket>)
@@ -149,25 +149,25 @@ predicate LReplicaNextProcessHeartbeat(s:LReplica, s':LReplica, received_packet:
        LProposerProcessHeartbeat(s.proposer, s'.proposer, received_packet, clock)
     && LAcceptorProcessHeartbeat(s.acceptor, s'.acceptor, received_packet)
     && sent_packets == []
-    && s' == s[proposer := s'.proposer][acceptor := s'.acceptor]
+    && s' == s.(proposer := s'.proposer, acceptor := s'.acceptor)
 }
 
 predicate LReplicaNextSpontaneousMaybeEnterNewViewAndSend1a(s:LReplica, s':LReplica, sent_packets:seq<RslPacket>)
 {
        LProposerMaybeEnterNewViewAndSend1a(s.proposer, s'.proposer, sent_packets)
-    && s' == s[proposer := s'.proposer]
+    && s' == s.(proposer := s'.proposer)
 }
 
 predicate LReplicaNextSpontaneousMaybeEnterPhase2(s:LReplica, s':LReplica, sent_packets:seq<RslPacket>)
 {
        LProposerMaybeEnterPhase2(s.proposer, s'.proposer, s.acceptor.log_truncation_point, sent_packets)
-    && s' == s[proposer := s'.proposer]
+    && s' == s.(proposer := s'.proposer)
 }
 
 predicate LReplicaNextReadClockMaybeNominateValueAndSend2a(s:LReplica, s':LReplica, clock:ClockReading, sent_packets:seq<RslPacket>)
 {
        LProposerMaybeNominateValueAndSend2a(s.proposer, s'.proposer, clock.t, s.acceptor.log_truncation_point, sent_packets)
-    && s' == s[proposer := s'.proposer]
+    && s' == s.(proposer := s'.proposer)
 }
 
 predicate LReplicaNextSpontaneousTruncateLogBasedOnCheckpoints(s:LReplica, s':LReplica, sent_packets:seq<RslPacket>)
@@ -176,7 +176,7 @@ predicate LReplicaNextSpontaneousTruncateLogBasedOnCheckpoints(s:LReplica, s':LR
            IsLogTruncationPointValid(opn, s.acceptor.last_checkpointed_operation, s.constants.all.config)
         && opn > s.acceptor.log_truncation_point
         && LAcceptorTruncateLog(s.acceptor, s'.acceptor, opn)
-        && s' == s[acceptor := s'.acceptor]
+        && s' == s.(acceptor := s'.acceptor)
         && sent_packets == []
     )
     ||
@@ -195,7 +195,7 @@ predicate LReplicaNextSpontaneousMaybeMakeDecision(s:LReplica, s':LReplica, sent
        && opn in s.learner.unexecuted_learner_state
        && |s.learner.unexecuted_learner_state[opn].received_2b_message_senders| >= LMinQuorumSize(s.learner.constants.all.config) then
            LExecutorGetDecision(s.executor, s'.executor, s.learner.max_ballot_seen, opn, s.learner.unexecuted_learner_state[opn].candidate_learned_value)
-        && s' == s[executor := s'.executor]
+        && s' == s.(executor := s'.executor)
         && sent_packets == []
     else
         s' == s && sent_packets == []
@@ -210,7 +210,7 @@ predicate LReplicaNextSpontaneousMaybeExecute(s:LReplica, s':LReplica, sent_pack
            LProposerResetViewTimerDueToExecution(s.proposer, s'.proposer, v)
         && LLearnerForgetDecision(s.learner, s'.learner, s.executor.ops_complete)
         && LExecutorExecute(s.executor, s'.executor, sent_packets)
-        && s' == s[proposer := s'.proposer][learner := s'.learner][executor := s'.executor]
+        && s' == s.(proposer := s'.proposer, learner := s'.learner, executor := s'.executor)
     else
         s' == s && sent_packets == []
 }
@@ -226,21 +226,21 @@ predicate LReplicaNextReadClockMaybeSendHeartbeat(s:LReplica, s':LReplica, clock
                                                         s.constants.my_index in s.proposer.election_state.current_view_suspectors,
                                                         s.executor.ops_complete),
                                 sent_packets)
-        && s' == s[nextHeartbeatTime := s'.nextHeartbeatTime]
+        && s' == s.(nextHeartbeatTime := s'.nextHeartbeatTime)
 }
 
 predicate LReplicaNextReadClockCheckForViewTimeout(s:LReplica, s':LReplica, clock:ClockReading, sent_packets:seq<RslPacket>)
 {
       LProposerCheckForViewTimeout(s.proposer, s'.proposer, clock.t)
    && sent_packets == []
-   && s' == s[proposer := s'.proposer]
+   && s' == s.(proposer := s'.proposer)
 }
 
 predicate LReplicaNextReadClockCheckForQuorumOfViewSuspicions(s:LReplica, s':LReplica, clock:ClockReading, sent_packets:seq<RslPacket>)
 {
        LProposerCheckForQuorumOfViewSuspicions(s.proposer, s'.proposer, clock.t)
     && sent_packets == []
-    && s' == s[proposer := s'.proposer]
+    && s' == s.(proposer := s'.proposer)
 }
 
 function {:opaque} ExtractSentPacketsFromIos(ios:seq<RslIo>) : seq<RslPacket>

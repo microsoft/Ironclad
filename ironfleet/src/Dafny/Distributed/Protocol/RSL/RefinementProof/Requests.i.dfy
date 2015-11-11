@@ -53,7 +53,8 @@ lemma lemma_RequestInRequestsReceivedThisEpochHasCorrespondingRequestMessage(
         return;
     }
 
-    var batch :| ElectionStateReflectExecutedRequestBatch(es, es', batch);
+    var batch := b[i-1].replicas[idx].replica.executor.next_op_to_execute.v;
+    assert ElectionStateReflectExecutedRequestBatch(es, es', batch);
     lemma_RemoveExecutedRequestBatchProducesSubsequence(es'.requests_received_this_epoch, es.requests_received_this_epoch, batch);
     assert false;
 }
@@ -100,7 +101,8 @@ lemma lemma_RequestInRequestsReceivedPrevEpochsHasCorrespondingRequestMessage(
     }
 
     var ios := lemma_ActionThatChangesReplicaIsThatReplicasAction(b, c, i-1, idx);
-    var batch :| ElectionStateReflectExecutedRequestBatch(es, es', batch);
+    var batch := b[i-1].replicas[idx].replica.executor.next_op_to_execute.v;
+    assert ElectionStateReflectExecutedRequestBatch(es, es', batch);
     lemma_RemoveExecutedRequestBatchProducesSubsequence(es'.requests_received_prev_epochs, es.requests_received_prev_epochs, batch);
     assert false;
 }

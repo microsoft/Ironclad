@@ -119,8 +119,8 @@ function TraitParent(ClassName): ClassName;
 type Box;
 const $ArbitraryBoxValue: Box;
 
-function{:never_pattern_in_strict_mode} $Box<T>(T): Box;
-function{:never_pattern_in_strict_mode} $Unbox<T>(Box): T;
+function $Box<T>(T): Box;
+function $Unbox<T>(Box): T;
 
 axiom (forall<T> x : T :: { $Box(x) } $Unbox($Box(x)) == x);
 
@@ -171,13 +171,13 @@ axiom (forall<T> v : T, t : Ty, h : Heap ::
 
 // Type-argument to $Is is the /representation type/,
 // the second value argument to $Is is the actual type.
-function{:never_pattern_in_strict_mode} $Is<T>(T,Ty): bool;           // no heap for now
-function{:never_pattern_in_strict_mode} $IsAlloc<T>(T,Ty,Heap): bool;
+function $Is<T>(T,Ty): bool;           // no heap for now
+function $IsAlloc<T>(T,Ty,Heap): bool;
 
 // Corresponding entries for boxes...
 // This could probably be solved by having Box also inhabit Ty
-function{:never_pattern_in_strict_mode} $IsBox<T>(T,Ty): bool;
-function{:never_pattern_in_strict_mode} $IsAllocBox<T>(T,Ty,Heap): bool;
+function $IsBox<T>(T,Ty): bool;
+function $IsAllocBox<T>(T,Ty,Heap): bool;
 
 axiom(forall v : int  :: { $Is(v,TInt) }  $Is(v,TInt));
 axiom(forall v : int  :: { $Is(v,TNat) }  $Is(v,TNat) <==> v >= 0);
@@ -209,7 +209,7 @@ axiom (forall v: Seq Box, t0: Ty :: { $Is(v, TSeq(t0)) }
   $Is(v, TSeq(t0)) <==>
   (forall i : int :: { Seq#Index(v, i) }
     0 <= i && i < Seq#Length(v) ==>
-    $IsBox(Seq#Index(v, i), t0)));
+	$IsBox(Seq#Index(v, i), t0)));
 axiom (forall v: Set Box, t0: Ty, h: Heap :: { $IsAlloc(v, TSet(t0), h) }
   $IsAlloc(v, TSet(t0), h) <==>
   (forall bx: Box :: { v[bx] }
@@ -226,7 +226,7 @@ axiom (forall v: Seq Box, t0: Ty, h: Heap :: { $IsAlloc(v, TSeq(t0), h) }
   $IsAlloc(v, TSeq(t0), h) <==>
   (forall i : int :: { Seq#Index(v, i) }
     0 <= i && i < Seq#Length(v) ==>
-    $IsAllocBox(Seq#Index(v, i), t0, h)));
+	$IsAllocBox(Seq#Index(v, i), t0, h)));
 
 axiom (forall v: Map Box Box, t0: Ty, t1: Ty ::
   { $Is(v, TMap(t0, t1)) }
@@ -999,7 +999,7 @@ axiom (forall<U, V> m: Map U V :: { Map#Card(m) } 0 <= Map#Card(m));
 
 function Map#Empty<U, V>(): Map U V;
 axiom (forall<U, V> u: U ::
-// Boogie generates bad pattern:        { Map#Domain(Map#Empty(): Map U V)[u] }
+        { Map#Domain(Map#Empty(): Map U V)[u] }
         !Map#Domain(Map#Empty(): Map U V)[u]);
 axiom (forall<U, V> m: Map U V :: { Map#Card(m) }
  (Map#Card(m) == 0 <==> m == Map#Empty()) &&
@@ -1062,7 +1062,7 @@ function IMap#Elements<U, V>(IMap U V): [U]V;
 
 function IMap#Empty<U, V>(): IMap U V;
 axiom (forall<U, V> u: U ::
-// Boogie generates bad pattern:        { IMap#Domain(IMap#Empty(): IMap U V)[u] }
+        { IMap#Domain(IMap#Empty(): IMap U V)[u] }
         !IMap#Domain(IMap#Empty(): IMap U V)[u]);
 
 function IMap#Glue<U, V>([U] bool, [U]V, Ty): IMap U V;

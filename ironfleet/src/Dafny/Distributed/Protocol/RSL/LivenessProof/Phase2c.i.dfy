@@ -204,6 +204,7 @@ lemma lemma_IfExecutorCaughtUpThenExecutorEventuallyExecutesItAndTellsPrimary(
             
             if sat(i, nextafter(Action, nextHeartbeatTime + asp.max_clock_ambiguity, f))
             {
+                assert SpecificClockReadingRslActionOccurs(b[i], b[i+1], LReplicaNextReadClockMaybeSendHeartbeat, executor_idx);
                 var ios :|    RslNextOneReplica(b[i], b[i+1], executor_idx, ios)
                            && SpontaneousIos(ios, 1)
                            && LReplicaNextReadClockMaybeSendHeartbeat(s, s', SpontaneousClock(ios), ExtractSentPacketsFromIos(ios));
@@ -529,6 +530,7 @@ lemma lemma_IfLiveReplicasReadyForAnOperationThenEventuallyPrimaryAdvancesLogTru
                 lemma_ConstantsAllConsistent(b, asp.c, i+1);
                 var s := b[i].replicas[h.view.proposer_id].replica;
                 var s' := b[i+1].replicas[h.view.proposer_id].replica;
+                assert SpecificSpontaneousRslActionOccurs(b[i], b[i+1], LReplicaNextSpontaneousTruncateLogBasedOnCheckpoints, h.view.proposer_id);
                 var ios :|    RslNextOneReplica(b[i], b[i+1], h.view.proposer_id, ios)
                            && LReplicaNextSpontaneousTruncateLogBasedOnCheckpoints(s, s', ExtractSentPacketsFromIos(ios));
                 TemporalDeduceFromAlways(i, i, andset(ws));

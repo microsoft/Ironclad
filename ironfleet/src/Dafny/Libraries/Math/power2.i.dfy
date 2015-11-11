@@ -442,7 +442,7 @@ lemma lemma_mask_div_2(c:nat)
     ensures (power2(c)-1)/2 == power2(c-1)-1;
 {
     lemma_power2_auto();
-    lemma_mul_auto_induction(c, imap c :: 0 < c ==> (power2(c)-1)/2 == power2(c-1)-1);
+    lemma_mul_auto_induction(c, imap u :: 0 < u ==> (power2(u)-1)/2 == power2(u-1)-1);
 }
 
 lemma lemma_power2_division_inequality(x:nat, p:nat, s:nat)

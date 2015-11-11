@@ -83,7 +83,7 @@ method{:timeLimitMultiplier 5} SetToUniqueSeqConstruct<X>(s:set<X>) returns (xs:
         ghost var old_seq := arr[..i];
         var x :| x in s1;
         assert x !in old_seq;
-        assert forall y :: y in s2 + {x} ==> y in old_seq + [x];
+        assert forall y {:trigger y in s2}{:trigger y in old_seq} :: y in s2 + {x} ==> y in old_seq + [x];
         arr[|s| - |s1|] := x;
         s1 := s1 - {x};
         s2 := s2 + {x};
@@ -147,9 +147,9 @@ lemma EstablishAppendToUniqueSeq<X>(xs:seq<X>, x:X, xs':seq<X>)
     ensures SeqIsUnique(xs');
     ensures x in xs';
 {
-    var xs' := xs + [x];
+    var xs'' := xs + [x];
     reveal_SeqIsUnique();
-    assert SeqIsUnique(xs');
+    assert SeqIsUnique(xs'');
 }
 
 function method AppendToUniqueSeq<X>(xs:seq<X>, x:X):seq<X>

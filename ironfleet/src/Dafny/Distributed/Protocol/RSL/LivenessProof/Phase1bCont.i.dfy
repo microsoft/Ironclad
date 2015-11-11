@@ -482,7 +482,8 @@ lemma lemma_PrimaryHas1bFromAllLiveAcceptorsLeadsToPrimaryEnteringPhase2WF1Req2(
         lemma_ConstantsAllConsistent(b, asp.c, i);
         lemma_ConstantsAllConsistent(b, asp.c, i+1);
         assert BalLeq(CurrentViewOfHost(b[i], primary_idx), view);
-            
+        
+        assert SpecificSpontaneousRslActionOccurs(b[i], b[i+1], LReplicaNextSpontaneousMaybeEnterPhase2, primary_idx);
         var ios :|    RslNextOneReplica(b[i], b[i+1], primary_idx, ios)
                    && SpontaneousIos(ios, 0)
                    && LReplicaNextSpontaneousMaybeEnterPhase2(b[i].replicas[primary_idx].replica,

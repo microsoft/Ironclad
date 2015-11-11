@@ -116,15 +116,15 @@ predicate ElectionStateProcessHeartbeat(
     else
         var sender_index := GetReplicaIndex(p.src, es.constants.all.config);
         if p.msg.bal_heartbeat == es.current_view && p.msg.suspicious then
-            es' == es[current_view_suspectors := es.current_view_suspectors + {sender_index}]
+            es' == es.(current_view_suspectors := es.current_view_suspectors + {sender_index})
         else if BalLt(es.current_view, p.msg.bal_heartbeat)  then
             var new_epoch_length := UpperBoundedAddition(es.epoch_length, es.epoch_length, es.constants.all.params.max_integer_val);
-            es' == es[current_view := p.msg.bal_heartbeat]
-                     [current_view_suspectors := (if p.msg.suspicious then {sender_index} else {})]
-                     [epoch_length := new_epoch_length]
-                     [epoch_end_time := UpperBoundedAddition(clock, new_epoch_length, es.constants.all.params.max_integer_val)]
-                     [requests_received_prev_epochs := BoundRequestSequence(es.requests_received_prev_epochs + es.requests_received_this_epoch, es.constants.all.params.max_integer_val)]
-                     [requests_received_this_epoch := []]
+            es' == es.(current_view := p.msg.bal_heartbeat,
+                       current_view_suspectors := (if p.msg.suspicious then {sender_index} else {}),
+                       epoch_length := new_epoch_length,
+                       epoch_end_time := UpperBoundedAddition(clock, new_epoch_length, es.constants.all.params.max_integer_val),
+                       requests_received_prev_epochs := BoundRequestSequence(es.requests_received_prev_epochs + es.requests_received_this_epoch, es.constants.all.params.max_integer_val),
+                       requests_received_this_epoch := [])
         else
             es' == es
 }
@@ -139,15 +139,15 @@ predicate ElectionStateCheckForViewTimeout(
         es' == es
     else if |es.requests_received_prev_epochs| == 0 then
         var new_epoch_length := es.constants.all.params.baseline_view_timeout_period;
-        es' == es[epoch_length := new_epoch_length]
-                 [epoch_end_time := UpperBoundedAddition(clock, new_epoch_length, es.constants.all.params.max_integer_val)]
-                 [requests_received_prev_epochs := es.requests_received_this_epoch]
-                 [requests_received_this_epoch := []]
+        es' == es.(epoch_length := new_epoch_length,
+                   epoch_end_time := UpperBoundedAddition(clock, new_epoch_length, es.constants.all.params.max_integer_val),
+                   requests_received_prev_epochs := es.requests_received_this_epoch,
+                   requests_received_this_epoch := [])
     else
-        es' == es[current_view_suspectors := es.current_view_suspectors + {es.constants.my_index}]
-                 [epoch_end_time := UpperBoundedAddition(clock, es.epoch_length, es.constants.all.params.max_integer_val)]
-                 [requests_received_prev_epochs := BoundRequestSequence(es.requests_received_prev_epochs + es.requests_received_this_epoch, es.constants.all.params.max_integer_val)]
-                 [requests_received_this_epoch := []]
+        es' == es.(current_view_suspectors := es.current_view_suspectors + {es.constants.my_index},
+                   epoch_end_time := UpperBoundedAddition(clock, es.epoch_length, es.constants.all.params.max_integer_val),
+                   requests_received_prev_epochs := BoundRequestSequence(es.requests_received_prev_epochs + es.requests_received_this_epoch, es.constants.all.params.max_integer_val),
+                   requests_received_this_epoch := [])
 }
 
 predicate ElectionStateCheckForQuorumOfViewSuspicions(
@@ -160,12 +160,12 @@ predicate ElectionStateCheckForQuorumOfViewSuspicions(
         es' == es
     else
         var new_epoch_length := UpperBoundedAddition(es.epoch_length, es.epoch_length, es.constants.all.params.max_integer_val);
-        es' == es[current_view := ComputeSuccessorView(es.current_view, es.constants.all)]
-                 [current_view_suspectors := {}]
-                 [epoch_length := new_epoch_length]
-                 [epoch_end_time := UpperBoundedAddition(clock, new_epoch_length, es.constants.all.params.max_integer_val)]
-                 [requests_received_prev_epochs := BoundRequestSequence(es.requests_received_prev_epochs + es.requests_received_this_epoch, es.constants.all.params.max_integer_val)]
-                 [requests_received_this_epoch := []]
+        es' == es.(current_view := ComputeSuccessorView(es.current_view, es.constants.all),
+                   current_view_suspectors := {},
+                   epoch_length := new_epoch_length,
+                   epoch_end_time := UpperBoundedAddition(clock, new_epoch_length, es.constants.all.params.max_integer_val),
+                   requests_received_prev_epochs := BoundRequestSequence(es.requests_received_prev_epochs + es.requests_received_this_epoch, es.constants.all.params.max_integer_val),
+                   requests_received_this_epoch := [])
 }
 
 predicate ElectionStateReflectReceivedRequest(
@@ -178,7 +178,7 @@ predicate ElectionStateReflectReceivedRequest(
                        && RequestsMatch(earlier_req, req) then
         es' == es
     else
-        es' == es[requests_received_this_epoch := BoundRequestSequence(es.requests_received_this_epoch + [req], es.constants.all.params.max_integer_val)]
+        es' == es.(requests_received_this_epoch := BoundRequestSequence(es.requests_received_this_epoch + [req], es.constants.all.params.max_integer_val))
 }
 
 function RemoveExecutedRequestBatch(reqs:seq<Request>, batch:RequestBatch):seq<Request>
@@ -196,8 +196,8 @@ predicate ElectionStateReflectExecutedRequestBatch(
     batch:RequestBatch
     )
 {
-    es' == es[requests_received_prev_epochs := RemoveExecutedRequestBatch(es.requests_received_prev_epochs, batch)]
-             [requests_received_this_epoch := RemoveExecutedRequestBatch(es.requests_received_this_epoch, batch)]
+    es' == es.(requests_received_prev_epochs := RemoveExecutedRequestBatch(es.requests_received_prev_epochs, batch),
+               requests_received_this_epoch := RemoveExecutedRequestBatch(es.requests_received_this_epoch, batch))
 }
 
 }

@@ -29,7 +29,7 @@ function {:opaque} HandleRequestBatchHidden(state:AppState, batch:RequestBatch) 
         (restStates+[new_state], restReplies+[Reply(batch[|batch|-1].client, batch[|batch|-1].seqno, reply)])
 }
 
-lemma lemma_HandleRequestBatchHidden(state:AppState, batch:RequestBatch, states:seq<AppState>, replies:seq<Reply>)
+lemma{:timeLimitMultiplier 2} lemma_HandleRequestBatchHidden(state:AppState, batch:RequestBatch, states:seq<AppState>, replies:seq<Reply>)
     requires (states, replies) == HandleRequestBatchHidden(state, batch); 
     ensures states[0] == state
          && |states| == |batch|+1 

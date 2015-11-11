@@ -17,7 +17,7 @@ predicate NeighborSorted_COperationNumber(a: array<COperationNumber>, low: uint6
     requires 0 <= low <= high <= uint64(a.Length);
     reads a;
 {
-    forall i :: low < i < high ==> a[i-1].n <= a[i].n
+    forall i {:trigger a[i-1].n, a[i].n} :: low < i < high ==> a[i-1].n <= a[i].n
 }
 
 predicate Sorted_COperationNumber(a: array<COperationNumber>, low: uint64, high: uint64)

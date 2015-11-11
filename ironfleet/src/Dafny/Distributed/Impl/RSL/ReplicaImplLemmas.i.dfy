@@ -255,7 +255,7 @@ static lemma lemma_YesWeHaveNoPackets()
 {
 }
 
-static lemma lemma_ReplicaNextProcessPacketWithoutReadingClockHelper(
+static lemma {:timeLimitMultiplier 3} lemma_ReplicaNextProcessPacketWithoutReadingClockHelper(
     replica:ReplicaState, replica':ReplicaState, cpacket:CPacket, sent_packets:OutboundPackets,
     ios:seq<RslIo>, io0:RslIo, ios_head:seq<RslIo>, ios_tail:seq<RslIo>, 
     udpEvent0:UdpEvent, log_head:seq<UdpEvent>, log_tail:seq<UdpEvent>, udpEventLog:seq<UdpEvent>)
@@ -410,8 +410,12 @@ static lemma lemma_ReplicaNoReceiveReadClockNextHelper(
 
     lemma_ExtractSentPacketsFromIosDoesNotMindSomeClutter(ios_head, ios_tail);
     assert forall io :: io in ios[1..] ==> io.LIoOpSend?;   // OBSERVE trigger
+//<<<<<<< HEAD
+//    lemma_CombineRefineRawEventToIo(ios_head, ios_tail, ios, log_head, log_tail, udpEventLog);
+//=======
     ghost var log_head := [udpEvent0];
     lemma_CombineAbstractifyUdpEventToRslIo(ios_head, ios_tail, ios, log_head, log_tail, udpEventLog);
+//>>>>>>> master
 
     assert AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets) == ExtractSentPacketsFromIos(ios);
     lemma_UdpEventLogIsAbstractableExtend(log_head, log_tail, udpEventLog);

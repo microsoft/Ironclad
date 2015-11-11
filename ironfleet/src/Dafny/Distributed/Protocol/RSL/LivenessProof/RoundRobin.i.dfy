@@ -21,6 +21,21 @@ import opened Liveness__RTSchedule_i
 import opened LivenessProof__RealTime_i
 import opened Math__mul_i
 
+predicate SpecificRslActionOccurs(
+    ps:RslState,
+    ps':RslState,
+    action_fun:(LReplica, LReplica, seq<RslIo>)->bool,
+    replica_index:int
+    )
+    reads action_fun.reads;
+    requires forall r, r', ios :: action_fun.requires(r, r', ios);
+{
+    exists ios {:trigger RslNextOneReplica(ps, ps', replica_index, ios)}
+           {:trigger action_fun(ps.replicas[replica_index].replica, ps'.replicas[replica_index].replica, ios)} ::
+       RslNextOneReplica(ps, ps', replica_index, ios)
+    && action_fun(ps.replicas[replica_index].replica, ps'.replicas[replica_index].replica, ios)
+}
+
 function{:opaque} MakeRslActionTemporalFromReplicaFunction(
     b:Behavior<RslState>,
     action_fun:(LReplica, LReplica, seq<RslIo>)->bool,
@@ -31,11 +46,25 @@ function{:opaque} MakeRslActionTemporalFromReplicaFunction(
     requires imaptotal(b);
     ensures  forall i {:trigger sat(i, MakeRslActionTemporalFromReplicaFunction(b, action_fun, replica_index))} ::
                  sat(i, MakeRslActionTemporalFromReplicaFunction(b, action_fun, replica_index)) <==>
-                 exists ios ::    RslNextOneReplica(b[i], b[i+1], replica_index, ios)
-                               && action_fun(b[i].replicas[replica_index].replica, b[i+1].replicas[replica_index].replica, ios);
+                 SpecificRslActionOccurs(b[i], b[i+1], action_fun, replica_index);
 {
-    stepmap(imap i :: exists ios ::    RslNextOneReplica(b[i], b[i+1], replica_index, ios)
-                                    && action_fun(b[i].replicas[replica_index].replica, b[i+1].replicas[replica_index].replica, ios))
+    stepmap(imap i :: SpecificRslActionOccurs(b[i], b[i+1], action_fun, replica_index))
+}
+
+predicate SpecificSpontaneousRslActionOccurs(
+    ps:RslState,
+    ps':RslState,
+    action_fun:(LReplica, LReplica, seq<RslPacket>)->bool,
+    replica_index:int
+    )
+    reads action_fun.reads;
+    requires forall r, r', sent_packets :: action_fun.requires(r, r', sent_packets);
+{
+    exists ios {:trigger RslNextOneReplica(ps, ps', replica_index, ios)}
+           {:trigger action_fun(ps.replicas[replica_index].replica, ps'.replicas[replica_index].replica, ExtractSentPacketsFromIos(ios))} ::
+       RslNextOneReplica(ps, ps', replica_index, ios)
+    && SpontaneousIos(ios, 0)
+    && action_fun(ps.replicas[replica_index].replica, ps'.replicas[replica_index].replica, ExtractSentPacketsFromIos(ios))
 }
 
 function{:opaque} MakeRslActionTemporalFromSpontaneousReplicaFunction(
@@ -44,17 +73,29 @@ function{:opaque} MakeRslActionTemporalFromSpontaneousReplicaFunction(
     replica_index:int
     ):temporal
     reads action_fun.reads;
-    requires forall r, r', ios :: action_fun.requires(r, r', ios);
+    requires forall r, r', sent_packets :: action_fun.requires(r, r', sent_packets);
     requires imaptotal(b);
     ensures  forall i {:trigger sat(i, MakeRslActionTemporalFromSpontaneousReplicaFunction(b, action_fun, replica_index))} ::
                  sat(i, MakeRslActionTemporalFromSpontaneousReplicaFunction(b, action_fun, replica_index)) <==>
-                 exists ios ::    RslNextOneReplica(b[i], b[i+1], replica_index, ios)
-                               && SpontaneousIos(ios, 0)
-                               && action_fun(b[i].replicas[replica_index].replica, b[i+1].replicas[replica_index].replica, ExtractSentPacketsFromIos(ios));
+                 SpecificSpontaneousRslActionOccurs(b[i], b[i+1], action_fun, replica_index);
 {
-    stepmap(imap i :: exists ios ::    RslNextOneReplica(b[i], b[i+1], replica_index, ios)
-                                    && SpontaneousIos(ios, 0)
-                                    && action_fun(b[i].replicas[replica_index].replica, b[i+1].replicas[replica_index].replica, ExtractSentPacketsFromIos(ios)))
+    stepmap(imap i :: SpecificSpontaneousRslActionOccurs(b[i], b[i+1], action_fun, replica_index))
+}
+
+predicate SpecificClockReadingRslActionOccurs(
+    ps:RslState,
+    ps':RslState,
+    action_fun:(LReplica, LReplica, ClockReading, seq<RslPacket>)->bool,
+    replica_index:int
+    )
+    reads action_fun.reads;
+    requires forall r, r', ios :: action_fun.requires(r, r', SpontaneousClock(ios), ExtractSentPacketsFromIos(ios));
+{
+    exists ios {:trigger RslNextOneReplica(ps, ps', replica_index, ios)}
+           {:trigger action_fun(ps.replicas[replica_index].replica, ps'.replicas[replica_index].replica, SpontaneousClock(ios), ExtractSentPacketsFromIos(ios))} ::
+       RslNextOneReplica(ps, ps', replica_index, ios)
+    && SpontaneousIos(ios, 1)
+    && action_fun(ps.replicas[replica_index].replica, ps'.replicas[replica_index].replica, SpontaneousClock(ios), ExtractSentPacketsFromIos(ios))
 }
 
 function{:opaque} MakeRslActionTemporalFromReadClockReplicaFunction(
@@ -67,13 +108,9 @@ function{:opaque} MakeRslActionTemporalFromReadClockReplicaFunction(
     requires imaptotal(b);
     ensures  forall i {:trigger sat(i, MakeRslActionTemporalFromReadClockReplicaFunction(b, action_fun, replica_index))} ::
                  sat(i, MakeRslActionTemporalFromReadClockReplicaFunction(b, action_fun, replica_index)) <==>
-                 exists ios ::    RslNextOneReplica(b[i], b[i+1], replica_index, ios)
-                               && SpontaneousIos(ios, 1)
-                               && action_fun(b[i].replicas[replica_index].replica, b[i+1].replicas[replica_index].replica, SpontaneousClock(ios), ExtractSentPacketsFromIos(ios));
+                 SpecificClockReadingRslActionOccurs(b[i], b[i+1], action_fun, replica_index);
 {
-    stepmap(imap i :: exists ios ::    RslNextOneReplica(b[i], b[i+1], replica_index, ios)
-                                    && SpontaneousIos(ios, 1)
-                                    && action_fun(b[i].replicas[replica_index].replica, b[i+1].replicas[replica_index].replica, SpontaneousClock(ios), ExtractSentPacketsFromIos(ios)))
+    stepmap(imap i :: SpecificClockReadingRslActionOccurs(b[i], b[i+1], action_fun, replica_index))
 }
 
 function ReplicaSchedule(b:Behavior<RslState>, replica_index:int):seq<temporal>
@@ -114,7 +151,10 @@ lemma lemma_PaxosNextTakesSchedulerActionOrLeavesNextActionIndexUnchanged(
                  next_action_type_fun[i] == if 0 <= replica_index < |b[i].replicas| then b[i].replicas[replica_index].nextActionIndex else 0;
     requires forall i ::
                  sat(i, scheduler_action) <==>
-                 exists ios :: RslNextOneReplica(b[i], b[i+1], replica_index, ios) && LSchedulerNext(b[i].replicas[replica_index], b[i+1].replicas[replica_index], ios);
+                 exists ios {:trigger RslNextOneReplica(b[i], b[i+1], replica_index, ios)}
+                        {:trigger LSchedulerNext(b[i].replicas[replica_index], b[i+1].replicas[replica_index], ios)} ::
+                    RslNextOneReplica(b[i], b[i+1], replica_index, ios)
+                 && LSchedulerNext(b[i].replicas[replica_index], b[i+1].replicas[replica_index], ios);
     ensures sat(0, always(SchedulerActsOrNextActionTypeUnchangedTemporal(b, next_action_type_fun, scheduler_action)));
 {
     var m := SchedulerActsOrNextActionTypeUnchangedTemporal(b, next_action_type_fun, scheduler_action);
@@ -126,7 +166,7 @@ lemma lemma_PaxosNextTakesSchedulerActionOrLeavesNextActionIndexUnchanged(
 
         lemma_ConstantsAllConsistent(b, asp.c, i);
 
-        if (exists idx, ios :: RslNextOneReplica(b[i], b[i+1], idx, ios))
+        if (exists idx, ios {:trigger RslNextOneReplica(b[i], b[i+1], idx, ios)} :: RslNextOneReplica(b[i], b[i+1], idx, ios))
         {
             var idx, ios :| RslNextOneReplica(b[i], b[i+1], idx, ios);
             if (idx == replica_index)
@@ -146,6 +186,63 @@ lemma lemma_PaxosNextTakesSchedulerActionOrLeavesNextActionIndexUnchanged(
         assert sat(i, m);
     }
     TemporalAlways(0, m);
+}
+
+lemma lemma_SchedulerNextImpliesSpecificScheduleAction(
+    b:Behavior<RslState>,
+    i:int,
+    asp:AssumptionParameters,
+    replica_index:int,
+    action_index:int
+    )
+    requires imaptotal(b);
+    requires sat(i, MakeRslActionTemporalFromSchedulerFunction(b, replica_index));
+    requires b[i].replicas[replica_index].nextActionIndex == action_index;
+    ensures  0 <= action_index < LReplicaNumActions() ==> sat(i, ReplicaSchedule(b, replica_index)[action_index]);
+{
+    assert RslSchedulerActionOccursForReplica(b[i], b[i+1], replica_index);
+    var ios :|    RslNextOneReplica(b[i], b[i+1], replica_index, ios)
+               && LSchedulerNext(b[i].replicas[replica_index], b[i+1].replicas[replica_index], ios);
+    if action_index == 0
+    {
+        assert SpecificRslActionOccurs(b[i], b[i+1], LReplicaNextProcessPacket, replica_index);
+    }
+    else if action_index == 1
+    {
+        assert SpecificSpontaneousRslActionOccurs(b[i], b[i+1], LReplicaNextSpontaneousMaybeEnterNewViewAndSend1a, replica_index);
+    }
+    else if action_index == 2
+    {
+        assert SpecificSpontaneousRslActionOccurs(b[i], b[i+1], LReplicaNextSpontaneousMaybeEnterPhase2, replica_index);
+    }
+    else if action_index == 3
+    {
+        assert SpecificClockReadingRslActionOccurs(b[i], b[i+1], LReplicaNextReadClockMaybeNominateValueAndSend2a, replica_index);
+    }
+    else if action_index == 4
+    {
+        assert SpecificSpontaneousRslActionOccurs(b[i], b[i+1], LReplicaNextSpontaneousTruncateLogBasedOnCheckpoints, replica_index);
+    }
+    else if action_index == 5
+    {
+        assert SpecificSpontaneousRslActionOccurs(b[i], b[i+1], LReplicaNextSpontaneousMaybeMakeDecision, replica_index);
+    }
+    else if action_index == 6
+    {
+        assert SpecificSpontaneousRslActionOccurs(b[i], b[i+1], LReplicaNextSpontaneousMaybeExecute, replica_index);
+    }
+    else if action_index == 7
+    {
+        assert SpecificClockReadingRslActionOccurs(b[i], b[i+1], LReplicaNextReadClockCheckForViewTimeout, replica_index);
+    }
+    else if action_index == 8
+    {
+        assert SpecificClockReadingRslActionOccurs(b[i], b[i+1], LReplicaNextReadClockCheckForQuorumOfViewSuspicions, replica_index);
+    }
+    else if action_index == 9
+    {
+        assert SpecificClockReadingRslActionOccurs(b[i], b[i+1], LReplicaNextReadClockMaybeSendHeartbeat, replica_index);
+    }
 }
 
 lemma lemma_ReplicaNextPerformsSubactionPeriodically(
@@ -177,6 +274,17 @@ lemma lemma_ReplicaNextPerformsSubactionPeriodically(
 
     lemma_PaxosNextTakesSchedulerActionOrLeavesNextActionIndexUnchanged(b, asp, replica_index, next_action_type_fun, scheduler_action);
     assert HostExecutesPeriodically(b, asp, replica_index);
+
+    forall i | 0 <= i && sat(i, scheduler_action)
+        ensures var action_type_index := next_action_type_fun[i];
+                   (0 <= action_type_index < |schedule| ==> sat(i, schedule[action_type_index]))
+                    && next_action_type_fun[i+1] == (action_type_index + 1) % |schedule|;
+    {
+        var action_type_index := next_action_type_fun[i];
+        lemma_SchedulerNextImpliesSpecificScheduleAction(b, i, asp, replica_index, action_type_index);
+        assert next_action_type_fun[i+1] == (action_type_index + 1) % |schedule|;
+    }
+
     Lemma_RoundRobinSchedulerTimelyForAllActionsTemporal(b, next_action_type_fun, real_time_fun, scheduler_action, schedule, asp.synchrony_start, asp.host_period);
 
     assert sat(asp.synchrony_start, always(eventuallynextwithin(schedule[action_index], asp.host_period * |schedule|, real_time_fun)));
@@ -266,6 +374,7 @@ lemma lemma_ProcessingPacketCausesReceiveAttempt(
     lemma_ReplicasSize(b, asp.c, i);
     var action := MakeRslActionTemporalFromReplicaFunction(b, LReplicaNextProcessPacket, replica_index);
     assert sat(i, action);
+    assert SpecificRslActionOccurs(b[i], b[i+1], LReplicaNextProcessPacket, replica_index);
     var ios :| RslNextOneReplica(b[i], b[i+1], replica_index, ios) && LReplicaNextProcessPacket(b[i].replicas[replica_index].replica, b[i+1].replicas[replica_index].replica, ios);
     assert |ios| >= 1 && (ios[0].LIoOpTimeoutReceive? || ios[0].LIoOpReceive?);
     lemma_ConstantsAllConsistent(b, asp.c, i);

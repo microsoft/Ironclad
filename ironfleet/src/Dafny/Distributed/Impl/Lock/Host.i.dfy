@@ -150,7 +150,14 @@ module Host_i exclusively refines Host_s {
         requires AbstractifyRawLogToIos(events) == ios;
         ensures UdpEventsReductionCompatible(events);
     {
-        reveal_AbstractifyRawLogToIos();
+        //reveal_AbstractifyRawLogToIos();
+        assert AbstractifyRawLogToIos(events) == ios;
+        forall i | 0 <= i < |events| - 1 
+            ensures events[i].LIoOpReceive? || events[i+1].LIoOpSend?;
+        {
+            assert AbstractifyRawLogToIos(events)[i] == ios[i];
+            assert AbstractifyRawLogToIos(events)[i+1] == ios[i+1];
+        }
     }
 
     method HostNextImpl(ghost env:HostEnvironment, host_state:HostState) 

@@ -58,6 +58,20 @@ function{:opaque} PacketReceivedTemporal<IdType, MessageType>(
     stepmap(imap i :: PacketReceivedDuringAction(b[i], p))
 }
 
+predicate AllPacketsReceivedWithin<IdType, MessageType>(
+    b:Behavior<LEnvironment<IdType, MessageType>>,
+    i:int,
+    receive_period:int,
+    sources:set<IdType>,
+    destinations:set<IdType>
+    )
+    requires imaptotal(b);
+{
+    forall p {:trigger PacketSentBetweenHosts(b[i], p, sources, destinations)} ::
+        PacketSentBetweenHosts(b[i], p, sources, destinations) ==>
+        sat(i, next(eventuallynextwithin(PacketReceivedTemporal(b, p), receive_period, BehaviorToTimeMap(b))))
+}
+
 function{:opaque} AllPacketsReceivedWithinTemporal<IdType, MessageType>(
     b:Behavior<LEnvironment<IdType, MessageType>>,
     receive_period:int,
@@ -66,14 +80,10 @@ function{:opaque} AllPacketsReceivedWithinTemporal<IdType, MessageType>(
     ):temporal
     requires imaptotal(b);
     ensures  forall i {:trigger sat(i, AllPacketsReceivedWithinTemporal(b, receive_period, sources, destinations))} ::
-                 sat(i, AllPacketsReceivedWithinTemporal(b, receive_period, sources, destinations)) <==>
-                 (forall p {:trigger PacketSentBetweenHosts(b[i], p, sources, destinations)} ::
-                   PacketSentBetweenHosts(b[i], p, sources, destinations) ==>
-                   sat(i+1, eventuallynextwithin(PacketReceivedTemporal(b, p), receive_period, BehaviorToTimeMap(b))));
+        sat(i, AllPacketsReceivedWithinTemporal(b, receive_period, sources, destinations)) <==>
+        AllPacketsReceivedWithin(b, i, receive_period, sources, destinations);
 {
-    stepmap(imap i :: (forall p {:trigger PacketSentBetweenHosts(b[i], p, sources, destinations)} ::
-                      PacketSentBetweenHosts(b[i], p, sources, destinations) ==>
-                      sat(i+1, eventuallynextwithin(PacketReceivedTemporal(b, p), receive_period, BehaviorToTimeMap(b)))))
+    stepmap(imap i :: AllPacketsReceivedWithin(b, i, receive_period, sources, destinations))
 }
 
 predicate ReceiveAttemptedInStep<IdType, MessageType>(
@@ -951,7 +961,7 @@ lemma Lemma_EventuallyAllPacketsAlwaysReceivedInTimeHelper3<IdType, MessageType>
         ensures sat(i1, AllPacketsReceivedWithinTemporal(b, latency_bound + burst_size * receive_period, sources, destinations));
     {
         forall p {:trigger PacketSentBetweenHosts(b[i1], p, sources, destinations)} | PacketSentBetweenHosts(b[i1], p, sources, destinations)
-            ensures sat(i1+1, eventuallynextwithin(PacketReceivedTemporal(b, p), latency_bound + burst_size * receive_period, BehaviorToTimeMap(b)));
+            ensures sat(i1, next(eventuallynextwithin(PacketReceivedTemporal(b, p), latency_bound + burst_size * receive_period, BehaviorToTimeMap(b))));
         {
             var timefun := BehaviorToTimeMap(b);
             var bs := burst_size;
@@ -1014,7 +1024,7 @@ lemma Lemma_EventuallyAllPacketsAlwaysReceivedInTimeHelper3<IdType, MessageType>
                     assert sat(i2 + 1, eventuallynextwithin(goal, r * bs, timefun));
                 }
             }
-            forall ensures sat(i1+1, eventuallynextwithin(goal, lb + bs * r, timefun))
+            forall ensures sat(i1, next(eventuallynextwithin(goal, lb + bs * r, timefun)))
             {
                 TemporalAssist();
                 var i3 :| TLe(i2 + 1, i3) && sat(i3, goal) && timefun[i3 + 1] <= timefun[i2 + 1] + r * bs;

@@ -44,13 +44,13 @@ predicate RslSystemBehaviorRefinementCorrect(server_addresses:set<NodeIdentity>,
 {
        |refinement_mapping| == |low_level_behavior|
     && (forall i :: 0 <= i < |refinement_mapping| ==> 0 <= refinement_mapping[i] < |high_level_behavior|)
-    && (forall i :: 0 <= i < |low_level_behavior| - 1 ==> refinement_mapping[i] <= refinement_mapping[i+1])
+    && (forall i {:trigger refinement_mapping[i], refinement_mapping[i+1]} :: 0 <= i < |low_level_behavior| - 1 ==> refinement_mapping[i] <= refinement_mapping[i+1])
     && (forall i :: 0 <= i < |low_level_behavior| ==> RslSystemRefinement(low_level_behavior[i], high_level_behavior[refinement_mapping[i]]))
     && |high_level_behavior| > 0
     && |refinement_mapping| > 0 
     && refinement_mapping[0] == 0
     && RslSystemInit(high_level_behavior[0], server_addresses)
-    && (forall i :: 0 <= i < |high_level_behavior| - 1 ==> RslSystemNext(high_level_behavior[i], high_level_behavior[i+1]))
+    && (forall i {:trigger high_level_behavior[i], high_level_behavior[i+1]} :: 0 <= i < |high_level_behavior| - 1 ==> RslSystemNext(high_level_behavior[i], high_level_behavior[i+1]))
 }
 
 }

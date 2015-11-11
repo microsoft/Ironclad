@@ -51,7 +51,7 @@ import opened Temporal__Heuristics_i
 
     lemma Lemma_MonotonicStepsLeadToMonotonicBehaviorPartial(i:int, f:imap<int, int>, j:int, k:int)
         requires imaptotal(f);
-        requires sat(i, always(stepmap(imap j :: f[j] <= f[j+1])));
+        requires sat(i, always(stepmap(imap u :: f[u] <= f[u+1])));
         requires i <= j <= k;
         ensures  f[j] <= f[k];
         decreases k - j;

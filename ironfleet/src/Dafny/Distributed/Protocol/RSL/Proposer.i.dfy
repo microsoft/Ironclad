@@ -157,22 +157,22 @@ predicate LProposerProcessRequest(s:LProposer, s':LProposer, packet:RslPacket)
     && if    s.current_state != 0
           && (   val.client !in s.highest_seqno_requested_by_client_this_view
               || val.seqno > s.highest_seqno_requested_by_client_this_view[val.client]) then
-           s' == s[election_state := s'.election_state]
-                  [request_queue := s.request_queue + [val]]
-                  [highest_seqno_requested_by_client_this_view := s.highest_seqno_requested_by_client_this_view[val.client := val.seqno]]
+           s' == s.(election_state := s'.election_state,
+                    request_queue := s.request_queue + [val],
+                    highest_seqno_requested_by_client_this_view := s.highest_seqno_requested_by_client_this_view[val.client := val.seqno])
        else
-           s' == s[election_state := s'.election_state]
+           s' == s.(election_state := s'.election_state)
 }
 
 predicate LProposerMaybeEnterNewViewAndSend1a(s:LProposer, s':LProposer, sent_packets:seq<RslPacket>)
 {
     if    s.election_state.current_view.proposer_id == s.constants.my_index
        && BalLt(s.max_ballot_i_sent_1a, s.election_state.current_view) then
-           s' == s[current_state := 1]
-                  [max_ballot_i_sent_1a := s.election_state.current_view]
-                  [received_1b_packets := {}]
-                  [highest_seqno_requested_by_client_this_view := map[]]
-                  [request_queue := s.election_state.requests_received_prev_epochs + s.election_state.requests_received_this_epoch]
+           s' == s.(current_state := 1,
+                    max_ballot_i_sent_1a := s.election_state.current_view,
+                    received_1b_packets := {},
+                    highest_seqno_requested_by_client_this_view := map[],
+                    request_queue := s.election_state.requests_received_prev_epochs + s.election_state.requests_received_this_epoch)
         && LBroadcastToEveryone(s.constants.all.config, s.constants.my_index, RslMessage_1a(s.election_state.current_view), sent_packets)
     else
         s' == s && sent_packets == []
@@ -185,7 +185,7 @@ predicate LProposerProcess1b(s:LProposer, s':LProposer, p:RslPacket)
     requires s.current_state == 1;
     requires forall other_packet :: other_packet in s.received_1b_packets ==> other_packet.src != p.src;
 {
-    s' == s[received_1b_packets := s.received_1b_packets + { p }]
+    s' == s.(received_1b_packets := s.received_1b_packets + { p })
 }
 
 predicate LProposerMaybeEnterPhase2(s:LProposer, s':LProposer, log_truncation_point:OperationNumber, sent_packets:seq<RslPacket>)
@@ -193,8 +193,8 @@ predicate LProposerMaybeEnterPhase2(s:LProposer, s':LProposer, log_truncation_po
     if    |s.received_1b_packets| >= LMinQuorumSize(s.constants.all.config)
        && LSetOfMessage1bAboutBallot(s.received_1b_packets, s.max_ballot_i_sent_1a)
        && s.current_state == 1 then
-           s' == s[current_state := 2]
-                  [next_operation_number_to_propose := log_truncation_point]
+           s' == s.(current_state := 2,
+                    next_operation_number_to_propose := log_truncation_point)
         && LBroadcastToEveryone(s.constants.all.config, s.constants.my_index,
                                 RslMessage_StartingPhase2(s.max_ballot_i_sent_1a, log_truncation_point), sent_packets)
     else
@@ -208,9 +208,9 @@ predicate LProposerNominateNewValueAndSend2a(s:LProposer, s':LProposer, clock:in
     var batchSize := if |s.request_queue| <= s.constants.all.params.max_batch_size || s.constants.all.params.max_batch_size < 0 then |s.request_queue| else s.constants.all.params.max_batch_size;
     var v := s.request_queue[..batchSize];
     var opn := s.next_operation_number_to_propose;
-       s' == s[request_queue := s.request_queue[batchSize..]]
-              [next_operation_number_to_propose := s.next_operation_number_to_propose + 1]
-              [incomplete_batch_timer := if |s.request_queue| > batchSize then IncompleteBatchTimerOn(UpperBoundedAddition(clock, s.constants.all.params.max_batch_delay, s.constants.all.params.max_integer_val)) else IncompleteBatchTimerOff()]
+       s' == s.(request_queue := s.request_queue[batchSize..],
+                next_operation_number_to_propose := s.next_operation_number_to_propose + 1,
+                incomplete_batch_timer := if |s.request_queue| > batchSize then IncompleteBatchTimerOn(UpperBoundedAddition(clock, s.constants.all.params.max_batch_delay, s.constants.all.params.max_integer_val)) else IncompleteBatchTimerOff())
     && LBroadcastToEveryone(s.constants.all.config, s.constants.my_index, RslMessage_2a(s.max_ballot_i_sent_1a, opn, v), sent_packets)
 }
 
@@ -221,7 +221,7 @@ predicate LProposerNominateOldValueAndSend2a(s:LProposer, s':LProposer, log_trun
     var opn := s.next_operation_number_to_propose;
     exists v ::
        LValIsHighestNumberedProposal(v, s.received_1b_packets, opn)
-    && s' == s[next_operation_number_to_propose := s.next_operation_number_to_propose + 1]
+    && s' == s.(next_operation_number_to_propose := s.next_operation_number_to_propose + 1)
     && LBroadcastToEveryone(s.constants.all.config, s.constants.my_index, RslMessage_2a(s.max_ballot_i_sent_1a, opn, v), sent_packets)
 }
 
@@ -236,7 +236,7 @@ predicate LProposerMaybeNominateValueAndSend2a(s:LProposer, s':LProposer, clock:
             || (|s.request_queue| > 0 && s.incomplete_batch_timer.IncompleteBatchTimerOn? && clock >= s.incomplete_batch_timer.when) then
         LProposerNominateNewValueAndSend2a(s, s', clock, log_truncation_point, sent_packets)
     else if |s.request_queue| > 0 && s.incomplete_batch_timer.IncompleteBatchTimerOff? then
-        s' == s[incomplete_batch_timer := IncompleteBatchTimerOn(UpperBoundedAddition(clock, s.constants.all.params.max_batch_delay, s.constants.all.params.max_integer_val))] && sent_packets == []
+        s' == s.(incomplete_batch_timer := IncompleteBatchTimerOn(UpperBoundedAddition(clock, s.constants.all.params.max_batch_delay, s.constants.all.params.max_integer_val))) && sent_packets == []
     else
         s' == s && sent_packets == []
 }
@@ -250,15 +250,15 @@ predicate LProposerProcessHeartbeat(s:LProposer, s':LProposer, p:RslPacket, cloc
         else
             s'.current_state == s.current_state && s'.request_queue == s.request_queue
        )
-    && s' == s[election_state := s'.election_state]
-              [current_state := s'.current_state]
-              [request_queue := s'.request_queue]
+    && s' == s.(election_state := s'.election_state,
+                current_state := s'.current_state,
+                request_queue := s'.request_queue)
 }
 
 predicate LProposerCheckForViewTimeout(s:LProposer, s':LProposer, clock:int)
 {
        ElectionStateCheckForViewTimeout(s.election_state, s'.election_state, clock)
-    && s' == s[election_state := s'.election_state]
+    && s' == s.(election_state := s'.election_state)
 }
 
 predicate LProposerCheckForQuorumOfViewSuspicions(s:LProposer, s':LProposer, clock:int)
@@ -269,15 +269,15 @@ predicate LProposerCheckForQuorumOfViewSuspicions(s:LProposer, s':LProposer, clo
         else
             s'.current_state == s.current_state && s'.request_queue == s.request_queue
        )
-    && s' == s[election_state := s'.election_state]
-              [current_state := s'.current_state]
-              [request_queue := s'.request_queue]
+    && s' == s.(election_state := s'.election_state,
+                current_state := s'.current_state,
+                request_queue := s'.request_queue)
 }
 
 predicate LProposerResetViewTimerDueToExecution(s:LProposer, s':LProposer, val:RequestBatch)
 {
        ElectionStateReflectExecutedRequestBatch(s.election_state, s'.election_state, val)
-    && s' == s[election_state := s'.election_state]
+    && s' == s.(election_state := s'.election_state)
 }
 
 } 

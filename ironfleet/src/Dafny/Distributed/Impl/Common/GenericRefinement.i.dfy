@@ -179,7 +179,7 @@ lemma lemma_AbstractifyMap_properties<CKT,CVT,KT,VT>(cm:map<CKT,CVT>, RefineKey:
     ensures  forall ck :: ck !in cm && RefineKey.requires(ck) ==> RefineKey(ck) !in AbstractifyMap(cm, RefineKey, RefineValue, ReverseKey);
     ensures  var rm  := AbstractifyMap(cm, RefineKey, RefineValue, ReverseKey);
              forall k :: k in rm ==> (exists ck :: ck in cm && RefineKey(ck) == k);
-    ensures forall ck, cval :: (RefineKey.requires(ck) && RefineValue.requires(cval) 
+    ensures forall ck, cval {:trigger cm[ck := cval]} {:trigger RefineKey(ck), RefineValue(cval)} :: (RefineKey.requires(ck) && RefineValue.requires(cval) 
                                 && ReverseKey.requires(RefineKey(ck)) && ReverseKey(RefineKey(ck)) == ck) ==>
             var rm  := AbstractifyMap(cm, RefineKey, RefineValue, ReverseKey);
             var rm' := AbstractifyMap(cm[ck := cval], RefineKey, RefineValue, ReverseKey);

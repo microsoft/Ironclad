@@ -252,6 +252,7 @@ lemma lemma_HostReadyToSuspectViewEventuallyDoesWF1Req2(
         {
             lemma_ConstantsAllConsistent(b, asp.c, i);
             lemma_ConstantsAllConsistent(b, asp.c, i+1);
+            assert SpecificClockReadingRslActionOccurs(b[i], b[i+1], LReplicaNextReadClockCheckForViewTimeout, idx);
             var ios :|    RslNextOneReplica(b[i], b[i+1], idx, ios)
                        && SpontaneousIos(ios, 1)
                        && LReplicaNextReadClockCheckForViewTimeout(b[i].replicas[idx].replica, b[i+1].replicas[idx].replica, SpontaneousClock(ios), ExtractSentPacketsFromIos(ios));

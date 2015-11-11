@@ -45,7 +45,7 @@ predicate LIoOpSeqCompatibleWithReduction<IdType, MessageType>(
     ios:seq<LIoOp<IdType, MessageType>>
     )
 {
-    forall i :: 0 <= i < |ios| - 1 ==> LIoOpOrderingOKForAction(ios[i], ios[i+1])
+    forall i {:trigger ios[i], ios[i+1]} :: 0 <= i < |ios| - 1 ==> LIoOpOrderingOKForAction(ios[i], ios[i+1])
 }
 
 predicate IsValidLEnvStep<IdType, MessageType>(e:LEnvironment<IdType, MessageType>, step:LEnvStep)

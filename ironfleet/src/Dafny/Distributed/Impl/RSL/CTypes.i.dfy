@@ -169,7 +169,7 @@ function AbstractifyCRequestToRequest(c:CRequest) : Request
 lemma lemma_AbstractifyCRequestToRequest_isInjective()
     ensures forall v1, v2 :: CRequestIsAbstractable(v1) && CRequestIsAbstractable(v2) && AbstractifyCRequestToRequest(v1) == AbstractifyCRequestToRequest(v2) ==> v1 == v2
 {
-    assert forall u1:uint64, u2:uint64 :: int(u1) == int(u2) ==> u1 == u2;
+//    assert forall u1:uint64, u2:uint64 :: int(u1) == int(u2) ==> u1 == u2;
     lemma_AbstractifyEndPointToNodeIdentity_injective_forall();
     lemma_Uint64EndPointRelationships();
 }
@@ -304,7 +304,7 @@ function AbstractifyCReplyToReply(c:CReply) : Reply
 lemma lemma_AbstractifyCReplyToReply_isInjective()
     ensures forall v1, v2 :: CReplyIsAbstractable(v1) && CReplyIsAbstractable(v2) && AbstractifyCReplyToReply(v1) == AbstractifyCReplyToReply(v2) ==> v1 == v2
 {
-    assert forall u1:uint64, u2:uint64 :: int(u1) == int(u2) ==> u1 == u2;
+//    assert forall u1:uint64, u2:uint64 :: int(u1) == int(u2) ==> u1 == u2;
     lemma_AbstractifyEndPointToNodeIdentity_injective_forall();
     lemma_Uint64EndPointRelationships();
 }
@@ -354,23 +354,27 @@ function {:opaque} AbstractifyCReplyCacheToReplyCache(m:CReplyCache) : ReplyCach
 lemma lemma_AbstractifyCReplyCacheToReplyCache_properties(m:CReplyCache)
     requires CReplyCacheIsAbstractable(m);
     ensures  m == map [] ==> AbstractifyCReplyCacheToReplyCache(m) == map [];
-    ensures  forall e {:trigger e in m,AbstractifyCReplyCacheToReplyCache(m)} :: (e in m <==> EndPointIsValidIPV4(e) && AbstractifyEndPointToNodeIdentity(e) in AbstractifyCReplyCacheToReplyCache(m));
-    ensures  forall e :: (e !in m && EndPointIsValidIPV4(e) ==> AbstractifyEndPointToNodeIdentity(e) !in AbstractifyCReplyCacheToReplyCache(m));
-    ensures  forall e {:trigger AbstractifyCReplyToReply(m[e]),AbstractifyCReplyCacheToReplyCache(m)[e]} :: e in m ==> AbstractifyCReplyCacheToReplyCache(m)[e] == AbstractifyCReplyToReply(m[e]);
-    ensures  forall re :: re in AbstractifyCReplyCacheToReplyCache(m) ==> (exists e :: e in m && re == AbstractifyEndPointToNodeIdentity(e));
+    ensures  forall e {:trigger e in m}{:trigger e in AbstractifyCReplyCacheToReplyCache(m)} :: (e in m <==> EndPointIsValidIPV4(e) && e in AbstractifyCReplyCacheToReplyCache(m));
+    ensures  forall e :: (e !in m && EndPointIsValidIPV4(e) ==> e !in AbstractifyCReplyCacheToReplyCache(m));
+    ensures  forall e {:trigger AbstractifyCReplyToReply(m[e])}{:trigger AbstractifyCReplyCacheToReplyCache(m)[e]} :: e in m ==> AbstractifyCReplyCacheToReplyCache(m)[e] == AbstractifyCReplyToReply(m[e]);
+    ensures  forall re :: re in AbstractifyCReplyCacheToReplyCache(m) ==> re in m;
     ensures  forall e, r :: EndPointIsValidIPV4(e) && ValidReply(r) ==> 
                 var rm  := AbstractifyCReplyCacheToReplyCache(m);
                 var rm' := AbstractifyCReplyCacheToReplyCache(m[e := r]);
+//<<<<<<< HEAD
+//                rm' == AbstractifyCReplyCacheToReplyCache(m)[e := AbstractifyCReplyToReply(r)];
+//    ensures forall e {:trigger RemoveElt(m,e)} :: (EndPointIsValidIPV4(e) && e in m) ==>
+//=======
                 rm' == AbstractifyCReplyCacheToReplyCache(m)[AbstractifyEndPointToNodeIdentity(e) := AbstractifyCReplyToReply(r)];
     ensures forall e {:trigger RemoveElt(m,e)} :: 
                 (EndPointIsValidIPV4(e) && NodeIdentityIsRefinable(AbstractifyEndPointToNodeIdentity(e))
                  && RefineNodeIdentityToEndPoint(AbstractifyEndPointToNodeIdentity(e)) == e && e in m) ==>
+//>>>>>>> master
             var rm  := AbstractifyCReplyCacheToReplyCache(m); 
             var rm' := AbstractifyCReplyCacheToReplyCache(RemoveElt(m, e));
-            rm' == RemoveElt(rm, AbstractifyEndPointToNodeIdentity(e));
+            rm' == RemoveElt(rm, e);
 {
     assert forall e :: e in m ==> EndPointIsValidIPV4(e);
-    lemma_AbstractifyEndPointToNodeIdentity_injective_forall();
     reveal_AbstractifyCReplyCacheToReplyCache();
     lemma_AbstractifyMap_properties(m, AbstractifyEndPointToNodeIdentity, AbstractifyCReplyToReply, RefineNodeIdentityToEndPoint);
 }
@@ -398,7 +402,7 @@ lemma lemma_AbstractifyMapOfSeqNums_properties(m:map<EndPoint,uint64>)
     ensures  forall e :: (e in m <==> EndPointIsValidIPV4(e) && AbstractifyEndPointToNodeIdentity(e) in AbstractifyMapOfSeqNums(m));
     ensures  forall e :: (e !in m && EndPointIsValidIPV4(e) ==> AbstractifyEndPointToNodeIdentity(e) !in AbstractifyMapOfSeqNums(m));
     ensures  forall e :: e in m ==> AbstractifyMapOfSeqNums(m)[AbstractifyEndPointToNodeIdentity(e)] == int(m[e]);
-    ensures  forall e, u :: EndPointIsValidIPV4(e) ==> 
+    ensures  forall e, u {:trigger AbstractifyMapOfSeqNums(m[e := u])} :: EndPointIsValidIPV4(e) ==> 
                 var rm  := AbstractifyMapOfSeqNums(m);
                 var rm' := AbstractifyMapOfSeqNums(m[e := u]);
                 rm' == AbstractifyMapOfSeqNums(m)[AbstractifyEndPointToNodeIdentity(e) := int(u)];

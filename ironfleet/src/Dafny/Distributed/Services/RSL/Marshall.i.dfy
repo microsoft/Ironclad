@@ -117,7 +117,26 @@ module MarshallProof_i {
         reveal_SeqSum();
     }
 
-    lemma {:fuel ValInGrammar,3} lemma_ParseMarshallRequest(bytes:seq<byte>, msg:RslMessage)
+    lemma ByteArrayOf8(bytes:seq<byte>, b:byte)
+        requires |bytes| == 8;
+        requires SeqByteToUint64(bytes) == uint64(b);
+        ensures bytes == [ 0, 0, 0, 0, 0, 0, 0, b];
+    {
+    }
+
+    lemma ByteConcat24(bytes:seq<byte>)
+        requires |bytes| >= 24;
+        ensures bytes[0..24] == bytes[0..8] + bytes[8..16] + bytes[16..24];
+    {
+    }
+
+    lemma ByteConcat32(bytes:seq<byte>)
+        requires |bytes| >= 32;
+        ensures bytes[0..32] == bytes[0..8] + bytes[8..16] + bytes[16..24] + bytes[24..32];
+    {
+    }
+
+    lemma {:timeLimitMultiplier 3} {:fuel ValInGrammar,3} lemma_ParseMarshallRequest(bytes:seq<byte>, msg:RslMessage)
         requires msg.RslMessage_Request?;
         requires CMessageIsAbstractable(PaxosDemarshallData(bytes));
         requires AbstractifyCMessageToRslMessage(PaxosDemarshallData(bytes)) == msg;
@@ -139,24 +158,28 @@ module MarshallProof_i {
 
         // Prove that the first 8 bytes are correct
         assert msgCaseId == 0;
-        assert 0 == SeqByteToUint64(bytes[..8]);
-        assert bytes[..8] == [ 0, 0, 0, 0, 0, 0, 0, 0];
-
+        assert 0 == SeqByteToUint64(bytes[0..8]);
+        ByteArrayOf8(bytes[0..8], 0);
         // Prove that the next 8 bytes are correct
         var u, rest := lemma_ParseValCorrectVUint64(rest0, seqnoVal, GUint64);
         assert msg.seqno_req == int(u);
-        assert SeqByteToUint64(rest0[..8]) == u;
+        assert SeqByteToUint64(rest0[0..8]) == u;
         assert Uint64ToSeqByte(u) == Uint64ToBytes(u);
         lemma_BEByteSeqToInt_BEUintToSeqByte_invertability();
-        assert rest0[..8] == Uint64ToSeqByte(uint64(msg.seqno_req));
-        assert data[8..16] == rest0[..8];
-
+        assert rest0[0..8] == Uint64ToSeqByte(uint64(msg.seqno_req));
+        assert data[8..16] == rest0[0..8];
         reveal_parse_Val();
         if cmsg.val.CAppIncrement? {
             assert appCaseId == 0;
-            assert 0 == SeqByteToUint64(rest1[..8]);
-            assert rest1[..8] == [ 0, 0, 0, 0, 0, 0, 0, 0];
-            assert data[..24] == [ 0, 0, 0, 0, 0, 0, 0, 0] + Uint64ToSeqByte(uint64(msg.seqno_req)) + [ 0, 0, 0, 0, 0, 0, 0, 0]; 
+            assert 0 == SeqByteToUint64(rest1[0..8]);
+            
+            ByteArrayOf8(rest1[0..8], 0);
+            calc { 
+                data[0..24];
+                    { assert |data| >= 24; ByteConcat24(data); }
+                data[0..8] + data[8..16] + data[16..24];
+                [ 0, 0, 0, 0, 0, 0, 0, 0] + Uint64ToSeqByte(uint64(msg.seqno_req)) + [ 0, 0, 0, 0, 0, 0, 0, 0]; 
+            }
             lemma_SizeOfCMessageRequest(v);
             assert SizeOfV(v) == 24;
             if |data| > 24 {
@@ -170,26 +193,34 @@ module MarshallProof_i {
             var u_app, rest_app := lemma_ParseValCorrectVUint64(rest2, appCaseVal, GUint64);
 
             assert appCaseId == 1;
-            assert 1 == SeqByteToUint64(rest1[..8]);
-            assert rest1[..8] == [ 0, 0, 0, 0, 0, 0, 0, 1];
-
+            assert 1 == SeqByteToUint64(rest1[0..8]);
+            
+            ByteArrayOf8(rest1[0..8], 1);
             assert msg.val.response == u_app;
             assert SeqByteToUint64(rest2[..8]) == u_app;
             assert Uint64ToSeqByte(u_app) == Uint64ToBytes(u_app);
             lemma_BEByteSeqToInt_BEUintToSeqByte_invertability();
             assert rest2[..8] == Uint64ToSeqByte(uint64(msg.val.response));
+            assert data[16..24] == rest0[8..16];
             calc {
                 data[16..24];
                 rest0[8..16];
                 rest1[..8];
             }
+            assert data[24..32] == rest0[16..24];
             calc {
                 data[24..32];
                 rest0[16..24];
                 rest1[8..16];
                 rest2[..8];
             }
-            assert data[..32] == [ 0, 0, 0, 0, 0, 0, 0, 0] + Uint64ToSeqByte(uint64(msg.seqno_req)) + [ 0, 0, 0, 0, 0, 0, 0, 1] + Uint64ToSeqByte(uint64(msg.val.response));
+            calc { 
+                data[0..32];
+                    { assert |data| >= 32; ByteConcat32(data); }
+                data[0..8] + data[8..16] + data[16..24] + data[24..32];
+                [ 0, 0, 0, 0, 0, 0, 0, 0] + Uint64ToSeqByte(uint64(msg.seqno_req)) + [ 0, 0, 0, 0, 0, 0, 0, 1] + Uint64ToSeqByte(uint64(msg.val.response)); 
+            }
+            //assert data[0..32] == [ 0, 0, 0, 0, 0, 0, 0, 0] + Uint64ToSeqByte(uint64(msg.seqno_req)) + [ 0, 0, 0, 0, 0, 0, 0, 1] + Uint64ToSeqByte(uint64(msg.val.response));
             lemma_SizeOfCMessageRequest1(v);
             if |data| > 32 {
                 assert data[0..|data|] == data[..];
@@ -198,12 +229,20 @@ module MarshallProof_i {
                 assert false;
             }
             assert |data| == 32;
+            assert data == MarshallServiceRequest(msg.seqno_req, msg.val);
         } else {
             assert cmsg.val.CAppInvalid?;
             assert appCaseId == 2;
-            assert 2 == SeqByteToUint64(rest1[..8]);
-            assert rest1[..8] == [ 0, 0, 0, 0, 0, 0, 0, 2];
-            assert data[..24] == [ 0, 0, 0, 0, 0, 0, 0, 0] + Uint64ToSeqByte(uint64(msg.seqno_req)) + [ 0, 0, 0, 0, 0, 0, 0, 2]; 
+            assert 2 == SeqByteToUint64(rest1[0..8]);
+            ByteArrayOf8(rest1[0..8], 2);
+            assert rest1[0..8] == [ 0, 0, 0, 0, 0, 0, 0, 2];
+            calc { 
+                data[0..24];
+                    { assert |data| >= 24; ByteConcat24(data); }
+                data[0..8] + data[8..16] + data[16..24];
+                [ 0, 0, 0, 0, 0, 0, 0, 0] + Uint64ToSeqByte(uint64(msg.seqno_req)) + [ 0, 0, 0, 0, 0, 0, 0, 2]; 
+            }
+            assert data[0..24] == [ 0, 0, 0, 0, 0, 0, 0, 0] + Uint64ToSeqByte(uint64(msg.seqno_req)) + [ 0, 0, 0, 0, 0, 0, 0, 2]; 
             lemma_SizeOfCMessageRequest(v);
             assert SizeOfV(v) == 24;
             if |data| > 24 {
@@ -216,7 +255,7 @@ module MarshallProof_i {
 
     }
 
-    lemma {:fuel ValInGrammar,3} lemma_ParseMarshallReply(bytes:seq<byte>, seqno:int, reply:AppMessage, msg:RslMessage)
+    lemma {:timeLimitMultiplier 5} {:fuel ValInGrammar,3} lemma_ParseMarshallReply(bytes:seq<byte>, seqno:int, reply:AppMessage, msg:RslMessage)
         requires CMessageIsAbstractable(PaxosDemarshallData(bytes));
         requires AbstractifyCMessageToRslMessage(PaxosDemarshallData(bytes)) == msg;
         requires Marshallable(PaxosDemarshallData(bytes));
@@ -235,6 +274,7 @@ module MarshallProof_i {
 
             // Walk through the generic parsing process
             var msgCaseId, msgCaseVal, rest0 := lemma_ParseValCorrectVCase(data, v, g);
+            assert msgCaseId == 6;
             var seqnoVal, appVal, rest1 := lemma_ParseValCorrectTuple2(rest0, msgCaseVal, g.cases[msgCaseId]);
             var appCaseId, appCaseVal, rest2 := lemma_ParseValCorrectVCase(rest1, appVal, g.cases[msgCaseId].t[1]);
 

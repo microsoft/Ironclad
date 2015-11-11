@@ -27,7 +27,7 @@ method UpdatePaxosWorld(world:PaxosWorldState, status:ActionStatus) returns (wor
 {
     if (status.Fail?)
     {
-        world' := world[good := false];
+        world' := world.(good := false);
     }
     else
     {

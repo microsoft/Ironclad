@@ -192,11 +192,11 @@ method {:timeLimitMultiplier 2} HandleRequestBatchImpl(state:CAppState, batch:CR
                 assert AbstractifyCReplySeqToReplySeq(old_replies) == g_replies[..i-1];
             } else {
                 assert k == int(i) - 1;
-                ghost var reply := AppHandleRequest(AbstractifyCAppStateToAppState(states[i-1]), AbstractifyCAppMessageToAppMessage(batch[i-1].request)).1;
+                ghost var reply' := AppHandleRequest(AbstractifyCAppStateToAppState(states[i-1]), AbstractifyCAppMessageToAppMessage(batch[i-1].request)).1;
                 calc {
                     AbstractifyCReplySeqToReplySeq(replies)[k];
                     AbstractifyCReplyToReply(replies[k]);
-                    Reply(AbstractifyEndPointToNodeIdentity(batch[i-1].client), int(batch[i-1].seqno), reply);
+                    Reply(AbstractifyEndPointToNodeIdentity(batch[i-1].client), int(batch[i-1].seqno), reply');
                     Reply(AbstractifyCRequestBatchToRequestBatch(batch)[i-1].client, AbstractifyCRequestBatchToRequestBatch(batch)[i-1].seqno, 
                           AppHandleRequest(g_states[i-1], AbstractifyCRequestBatchToRequestBatch(batch)[i-1].request).1);
                         { lemma_HandleBatchRequestProperties(AbstractifyCAppStateToAppState(state),
@@ -218,8 +218,8 @@ method {:timeLimitMultiplier 2} HandleRequestBatchImpl(state:CAppState, batch:CR
 
             if client in old_newReplyCache {
                 assert ReplyCacheUpdated(client, reply_cache, old_newReplyCache, batch[..i-1], old_replies);
-                assert  (client in reply_cache && old_newReplyCache[client] == reply_cache[client])
-                     || (exists req_idx :: ClientIndexMatches(req_idx, client, old_newReplyCache, batch[..i-1], old_replies));
+//                assert  (client in reply_cache && old_newReplyCache[client] == reply_cache[client])
+//                     || (exists req_idx :: ClientIndexMatches(req_idx, client, old_newReplyCache, batch[..i-1], old_replies));
                 if client in reply_cache && old_newReplyCache[client] == reply_cache[client] {
                     if client in old_newReplyCache && newReplyCache[client] == old_newReplyCache[client] {
                         assert client in reply_cache && newReplyCache[client] == reply_cache[client];
@@ -246,7 +246,7 @@ method {:timeLimitMultiplier 2} HandleRequestBatchImpl(state:CAppState, batch:CR
                  || (exists req_idx :: ClientIndexMatches(req_idx, client, newReplyCache, batch[..i], replies));
         }
     }
-
+    
     replies_seq := repliesArr[..];
     
     // Connect the while-loop invariant to the ensures
@@ -259,6 +259,9 @@ method {:timeLimitMultiplier 2} HandleRequestBatchImpl(state:CAppState, batch:CR
         assert batch[..i] == batch;
     }
     
+    assert replies_seq == replies;
+    assert forall j :: 0 <= j < |batch| ==> j < |replies_seq| && HelperPredicateHRBI(j, batch, states, replies_seq, g_states);
+    
     calc {
         AbstractifyCAppStateToAppState(state);
             { lemma_HandleBatchRequestSizes(AbstractifyCAppStateToAppState(state), 
@@ -270,7 +273,7 @@ method {:timeLimitMultiplier 2} HandleRequestBatchImpl(state:CAppState, batch:CR
     lemma_CReplyCacheUpdate(batch, reply_cache, replies, newReplyCache);
 }
 
-method UpdateReplyCache(ghost reply_cache:CReplyCache, reply_cache_mutable:MutableMap<EndPoint, CReply>, ep:EndPoint, newReply:CReply, reply:CAppMessage, i:uint64, batch:CRequestBatch, ghost replies:seq<CReply>) returns (ghost newReplyCache:CReplyCache)
+method {:timeLimitMultiplier 4} UpdateReplyCache(ghost reply_cache:CReplyCache, reply_cache_mutable:MutableMap<EndPoint, CReply>, ep:EndPoint, newReply:CReply, reply:CAppMessage, i:uint64, batch:CRequestBatch, ghost replies:seq<CReply>) returns (ghost newReplyCache:CReplyCache)
     requires EndPointIsValidIPV4(ep);
     requires ValidReply(newReply);
     requires CReplyIsAbstractable(newReply);
@@ -280,7 +283,7 @@ method UpdateReplyCache(ghost reply_cache:CReplyCache, reply_cache_mutable:Mutab
     requires newReply.client == ep;
     requires ValidReplyCache(reply_cache);
     requires CReplyCacheIsAbstractable(reply_cache);
-    requires forall i :: i in replies ==> CReplyIsAbstractable(i);
+    requires forall r :: r in replies ==> CReplyIsAbstractable(r);
     requires newReply == CReply(batch[i].client, batch[i].seqno, reply);
     requires reply_cache_mutable != null && MutableMap.MapOf(reply_cache_mutable) == reply_cache;
     modifies reply_cache_mutable;
@@ -321,6 +324,7 @@ method UpdateReplyCache(ghost reply_cache:CReplyCache, reply_cache_mutable:Mutab
 
         }
     }
+    assert forall e {:trigger EndPointIsValidIPV4(e)} :: e in newReplyCache ==> EndPointIsValidIPV4(e) && CReplyIsAbstractable(newReplyCache[e]);
     assert CReplyCacheIsAbstractable(newReplyCache);
     lemma_AbstractifyCReplyCacheToReplyCache_properties(newReplyCache);
     assert EndPointIsValidIPV4(ep);
@@ -453,10 +457,8 @@ method ExecutorGetDecision(cs:ExecutorState, cbal:CBallot, copn:COperationNumber
     ghost var v := AbstractifyCRequestBatchToRequestBatch(ca);
     ghost var opn := AbstractifyCOperationNumberToOperationNumber(copn);
     ghost var bal := AbstractifyCBallotToBallot(cbal);
-    ghost var s' := s
-        [next_op_to_execute := OutstandingOpKnown(v, bal)];
-    cs' := cs
-        [next_op_to_execute := COutstandingOpKnown(ca, cbal)];
+    ghost var s' := s.(next_op_to_execute := OutstandingOpKnown(v, bal));
+    cs' := cs.(next_op_to_execute := COutstandingOpKnown(ca, cbal));
 
     assert Eq_ExecutorState(s', AbstractifyExecutorStateToLExecutor(cs'));
 }
@@ -546,16 +548,16 @@ method GetPacketsFromRepliesImpl(me:EndPoint, requests:CRequestBatch, replies:se
             { lemma_SizeOfGetPacketsFromReplies(r_me, r_requests, r_replies, r_cout'); }
         |r_cout'|;
     }
-    forall i | 0 <= i < |r_cout| 
-        ensures r_cout[i] == r_cout'[i];
+    forall j | 0 <= j < |r_cout| 
+        ensures r_cout[j] == r_cout'[j];
     {
         calc {
-            r_cout[i];
-            AbstractifyCPacketToRslPacket(cout[i]);
-            AbstractifyCPacketToRslPacket(CPacket(requests[i].client, me, CMessage_Reply(requests[i].seqno, replies[i].reply)));
-            LPacket(r_requests[i].client, r_me, RslMessage_Reply(r_requests[i].seqno, r_replies[i].reply));
-                { lemma_SpecificPacketInGetPacketsFromReplies(r_me, r_requests, r_replies, r_cout', i); }
-            r_cout'[i];
+            r_cout[j];
+            AbstractifyCPacketToRslPacket(cout[j]);
+            AbstractifyCPacketToRslPacket(CPacket(requests[j].client, me, CMessage_Reply(requests[j].seqno, replies[j].reply)));
+            LPacket(r_requests[j].client, r_me, RslMessage_Reply(r_requests[j].seqno, r_replies[j].reply));
+                { lemma_SpecificPacketInGetPacketsFromReplies(r_me, r_requests, r_replies, r_cout', j); }
+            r_cout'[j];
         }
     }
     cout_seq := coutArr[..];
@@ -624,11 +626,11 @@ method {:timeLimitMultiplier 4} ExecutorExecute(cs:ExecutorState, reply_cache_mu
                                                                 || (exists req_idx :: 0 <= req_idx < |cv| && creplies[req_idx].client == client && newReplyCache[client] == creplies[req_idx]) );
 
     var newMaxBalReflected := (if CBallotIsNotGreaterThan(cs.max_bal_reflected, cs.next_op_to_execute.bal) then cs.next_op_to_execute.bal else cs.max_bal_reflected);
-    cs' := cs[app := final_state]
-             [ops_complete := COperationNumber(cs.ops_complete.n + 1)]
-             [max_bal_reflected := newMaxBalReflected]
-             [next_op_to_execute := COutstandingOpUnknown()]
-             [reply_cache := newReplyCache]; 
+    cs' := cs.(app := final_state,
+               ops_complete := COperationNumber(cs.ops_complete.n + 1),
+               max_bal_reflected := newMaxBalReflected,
+               next_op_to_execute := COutstandingOpUnknown())
+              [reply_cache := newReplyCache];
    
     assert cs'.ops_complete.COperationNumber?;
     assert COperationNumberIsAbstractable(cs'.ops_complete);
@@ -735,19 +737,19 @@ method ExecutorProcessAppStateSupply(cs:ExecutorState, cinp:CPacket) returns(cs'
     ghost var s := AbstractifyExecutorStateToLExecutor(cs);
     ghost var inp := AbstractifyCPacketToRslPacket(cinp);
     ghost var m := inp.msg;
-    ghost var s' := s
-        [app := m.app_state]
-        [ops_complete := m.opn_state_supply]
-        [max_bal_reflected := m.bal_state_supply]
-        [next_op_to_execute := OutstandingOpUnknown()]
-        [reply_cache := m.reply_cache];
+    ghost var s' := s.(
+        app := m.app_state,
+        ops_complete := m.opn_state_supply,
+        max_bal_reflected := m.bal_state_supply,
+        next_op_to_execute := OutstandingOpUnknown(),
+        reply_cache := m.reply_cache);
     var cm := cinp.msg;
-    cs' := cs
-        [app := cm.app_state]
-        [ops_complete := cm.opn_state_supply]
-        [max_bal_reflected := cm.bal_state_supply]
-        [next_op_to_execute := COutstandingOpUnknown()]
-        [reply_cache := cm.reply_cache];
+    cs' := cs.(
+        app := cm.app_state,
+        ops_complete := cm.opn_state_supply,
+        max_bal_reflected := cm.bal_state_supply,
+        next_op_to_execute := COutstandingOpUnknown(),
+        reply_cache := cm.reply_cache);
 
     reply_cache_mutable := MutableMap.FromMap(cm.reply_cache);
     assert Eq_ExecutorState(s', AbstractifyExecutorStateToLExecutor(cs'));

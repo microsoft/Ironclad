@@ -43,8 +43,7 @@ method ReplicaNextProcessAppStateSupplyActual(replica:ReplicaState, inp:CPacket)
     var newLearner := LearnerModel_ForgetOperationsBefore(replica.learner, inp.msg.opn_state_supply);
     var newExecutor;
     newExecutor, reply_cache_mutable := ExecutorProcessAppStateSupply(replica.executor, inp);
-    replica' := replica[learner := newLearner]
-                       [executor := newExecutor];
+    replica' := replica.(learner := newLearner, executor := newExecutor);
     packets_sent := Broadcast(CBroadcastNop);
 }
 
@@ -127,9 +126,9 @@ method ReplicaNextSpontaneousMaybeExecuteActual(
     assert MutableSet.SetOf(cur_req_set) == newProposer.election_state.cur_req_set;
     assert MutableSet.SetOf(prev_req_set) == newProposer.election_state.prev_req_set;
     
-    replica' := replica[proposer := newProposer]
-                       [learner := newLearner]
-                       [executor := newExecutor];
+    replica' := replica.(proposer := newProposer,
+                         learner := newLearner,
+                         executor := newExecutor);
     packets_sent := packets;
 
     ghost var s := AbstractifyReplicaStateToLReplica(replica);
@@ -207,7 +206,7 @@ method ReplicaNextReadClockMaybeSendHeartbeatActual(
     ensures  replica'.executor.reply_cache == replica.executor.reply_cache;
 {
     var heartbeat := UpperBoundedAdditionImpl(clock.t, replica.constants.all.params.heartbeat_period, replica.constants.all.params.max_integer_val);
-    replica' := replica[nextHeartbeatTime := heartbeat];
+    replica' := replica.(nextHeartbeatTime := heartbeat);
     var flag := (replica.constants.my_index in replica.proposer.election_state.current_view_suspectors);
     var msg := CMessage_Heartbeat(replica.proposer.election_state.current_view, flag, replica.executor.ops_complete);
     var packets := BuildBroadcastToEveryone(replica.constants.all.config, replica.constants.my_index, msg);
@@ -292,7 +291,24 @@ method ReplicaNextSpontaneousMaybeMakeDecisionActual(replica:ReplicaState) retur
     assert ValidRequestBatch(replica.learner.unexecuted_ops[opn].candidate_learned_value);
     var newExecutor := ExecutorGetDecision(replica.executor, replica.learner.max_ballot_seen, opn, candValue);
 
+//<<<<<<< HEAD
+    /*
+    if (replica.learner.unexecuted_ops[opn].candidate_learned_value.CValue?) {
+        candValue := replica.learner.unexecuted_ops[opn].candidate_learned_value;
+        newExecutor := ExecutorGetDecision(replica.executor, opn, candValue);
+        assert LExecutorGetDecision(AbstractifyExecutorStateToLExecutor(replica.executor), AbstractifyExecutorStateToLExecutor(newExecutor), AbstractifyCOperationNumberToOperationNumber(opn), RefineToValue(candValue));
+    } else {
+        candValue := CValueNoOp();
+        newExecutor := ExecutorGetDecision(replica.executor, opn, candValue);
+        assert LExecutorGetDecision(AbstractifyExecutorStateToLExecutor(replica.executor), AbstractifyExecutorStateToLExecutor(newExecutor), AbstractifyCOperationNumberToOperationNumber(opn), RefineToValue(candValue));
+    }
+    */
+
+    //assert RefineToAppRequest(candValue) == 
+//    replica' := replica.(executor := newExecutor);
+//=======
     replica' := replica[executor := newExecutor];
+//>>>>>>> master
 
     packets_sent := Broadcast(CBroadcastNop);
     lemma_AbstractifyCRequestToRequest_isInjective();
@@ -365,7 +381,7 @@ method ReplicaNextSpontaneousTruncateLogBasedOnCheckpointsActual(
 {
     assert AbstractifyCOperationNumberToOperationNumber(newLogTruncationPoint) > AbstractifyAcceptorStateToAcceptor(replica.acceptor).log_truncation_point;
     var newAcceptor := NextAcceptorState_TruncateLog(replica.acceptor, newLogTruncationPoint);
-    replica' := replica[acceptor := newAcceptor];
+    replica' := replica.(acceptor := newAcceptor);
     packets_sent := Broadcast(CBroadcastNop);
     //lemma_AbstractifySetOfCPacketsToSetOfRslPackets_properties(packets_sent);
 }

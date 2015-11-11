@@ -27,7 +27,7 @@ module Main_i exclusively refines Main_s {
     {
            |db| > 0
         && DS_Init(db[0], config)
-        && forall i :: 0 <= i < |db| - 1 ==> DS_Next(db[i], db[i+1])
+        && forall i {:trigger DS_Next(db[i], db[i+1])} :: 0 <= i < |db| - 1 ==> DS_Next(db[i], db[i+1])
     }
 
     predicate IsValidBehaviorLs(config:ConcreteConfiguration, db:seq<LS_State>)
@@ -35,7 +35,7 @@ module Main_i exclusively refines Main_s {
     {
            |db| > 0
         && LS_Init(db[0], config)
-        && forall i :: 0 <= i < |db| - 1 ==> LS_Next(db[i], db[i+1])
+        && forall i {:trigger LS_Next(db[i], db[i+1])} :: 0 <= i < |db| - 1 ==> LS_Next(db[i], db[i+1])
     }
 
     function AbstractifyConcretePacket(p:LPacket<EndPoint,seq<byte>>) : LPacket<NodeIdentity, LockMessage>
@@ -136,7 +136,7 @@ module Main_i exclusively refines Main_s {
     lemma lemma_DsNextOffset(db:seq<DS_State>, index:int)
         requires |db| > 0;
         requires 0 < index < |db|;
-        requires forall i :: 0 <= i < |db| - 1 ==> DS_Next(db[i], db[i+1]);
+        requires forall i {:trigger DS_Next(db[i], db[i+1])} :: 0 <= i < |db| - 1 ==> DS_Next(db[i], db[i+1]);
         ensures  DS_Next(db[index-1], db[index]);
     {
         var i := index - 1;
@@ -255,10 +255,10 @@ module Main_i exclusively refines Main_s {
     lemma {:timeLimitMultiplier 2} RefinementToLSState(config:ConcreteConfiguration, db:seq<DS_State>) returns (sb:seq<LS_State>)
         requires |db| > 0;
         requires DS_Init(db[0], config);
-        requires forall i :: 0 <= i < |db| - 1 ==> DS_Next(db[i], db[i+1]);
+        requires forall i {:trigger DS_Next(db[i], db[i+1])} :: 0 <= i < |db| - 1 ==> DS_Next(db[i], db[i+1]);
         ensures  |sb| == |db|;
         ensures  LS_Init(sb[0], db[0].config);
-        ensures  forall i :: 0 <= i < |sb| - 1 ==> LS_Next(sb[i], sb[i+1]);
+        ensures  forall i {:trigger LS_Next(sb[i], sb[i+1])} :: 0 <= i < |sb| - 1 ==> LS_Next(sb[i], sb[i+1]);
         ensures forall i :: 0 <= i < |db| ==> DsStateIsAbstractable(db[i]) && sb[i] == AbstractifyDsState(db[i]);
     {
         if |db| == 1 {
@@ -335,10 +335,10 @@ module Main_i exclusively refines Main_s {
     lemma {:timeLimitMultiplier 2} MakeGLSBehaviorFromLS(config:ConcreteConfiguration, db:seq<LS_State>) returns (sb:seq<GLS_State>)
         requires |db| > 0;
         requires LS_Init(db[0], config);
-        requires forall i :: 0 <= i < |db| - 1 ==> LS_Next(db[i], db[i+1]);
+        requires forall i {:trigger LS_Next(db[i], db[i+1])} :: 0 <= i < |db| - 1 ==> LS_Next(db[i], db[i+1]);
         ensures  |sb| == |db|;
         ensures  GLS_Init(sb[0], config);
-        ensures  forall i :: 0 <= i < |sb| - 1 ==> GLS_Next(sb[i], sb[i+1]);
+        ensures  forall i {:trigger GLS_Next(sb[i], sb[i+1])} :: 0 <= i < |sb| - 1 ==> GLS_Next(sb[i], sb[i+1]);
         ensures forall i :: 0 <= i < |db| ==> sb[i].ls == db[i];
     {
         if (|db| == 1) {
@@ -375,13 +375,13 @@ module Main_i exclusively refines Main_s {
     lemma {:timeLimitMultiplier 2} RefinementToServiceState(config:ConcreteConfiguration, glb:seq<GLS_State>) returns (sb:seq<ServiceState>, cm:seq<int>)
         requires |glb| > 0;
         requires GLS_Init(glb[0], config);
-        requires forall i :: 0 <= i < |glb| - 1 ==> GLS_Next(glb[i], glb[i+1]);
+        requires forall i {:trigger GLS_Next(glb[i], glb[i+1])} :: 0 <= i < |glb| - 1 ==> GLS_Next(glb[i], glb[i+1]);
         ensures  |cm| == |glb|;
         ensures  cm[0] == 0;                                            // Beginnings match
         ensures  forall i :: 0 <= i < |cm| ==> 0 <= cm[i] < |sb|;       // Mappings are in bounds
-        ensures  forall i :: 0 <= i < |cm| - 1 ==> cm[i] <= cm[i+1];    // Mapping is monotonic
+        ensures  forall i {:trigger cm[i], cm[i+1]} :: 0 <= i < |cm| - 1 ==> cm[i] <= cm[i+1];    // Mapping is monotonic
         ensures  Service_Init(sb[0], MapSeqToSet(config, x=>x));
-        ensures  forall i :: 0 <= i < |sb| - 1 ==> Service_Next(sb[i], sb[i+1]);
+        ensures  forall i {:trigger Service_Next(sb[i], sb[i+1])} :: 0 <= i < |sb| - 1 ==> Service_Next(sb[i], sb[i+1]);
         ensures  forall i :: 0 <= i < |glb| ==> sb[cm[i]] == AbstractifyGLS_State(glb[i]);
         ensures  forall i :: 0 <= i < |sb| ==> sb[i].hosts == sb[0].hosts;
         ensures  sb[|sb|-1] == AbstractifyGLS_State(glb[|glb|-1]);
@@ -502,7 +502,7 @@ module Main_i exclusively refines Main_s {
         var lsb := RefinementToLSState(config, db);
         var glsb := MakeGLSBehaviorFromLS(config, lsb);
         sb, cm := RefinementToServiceState(config, glsb);
-        assert forall i :: 0 <= i < |sb| - 1 ==> Service_Next(sb[i], sb[i+1]);
+        //assert forall i :: 0 <= i < |sb| - 1 ==> Service_Next(sb[i], sb[i+1]);
         
         forall i | 0 <= i < |db|
             ensures Service_Correspondence(db[i].environment.sentPackets, sb[cm[i]]);

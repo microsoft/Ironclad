@@ -22,7 +22,7 @@ function CountMatchesInMultiset<T>(m:multiset<T>, f:T->bool):int
 }
 
 lemma Lemma_RemovingElementAffectsCount<T>(m:multiset<T>, f:T->bool, x:T)
-    requires forall x :: f.requires(x);
+    requires forall u :: f.requires(u);
     requires x in m;
     ensures  CountMatchesInMultiset(m, f) - CountMatchesInMultiset(m - multiset{x}, f) == if f(x) then 1 else 0;
 {

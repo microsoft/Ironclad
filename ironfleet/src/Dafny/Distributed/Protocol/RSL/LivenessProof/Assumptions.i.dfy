@@ -32,6 +32,18 @@ function SetOfReplicaIndicesToSetOfHosts(s:set<int>, ids:seq<NodeIdentity>):set<
     set idx | idx in s && 0 <= idx < |ids| :: ids[idx]
 }
 
+predicate RslSchedulerActionOccursForReplica(
+    ps:RslState,
+    ps':RslState,
+    replica_index:int
+    )
+{
+    exists ios {:trigger RslNextOneReplica(ps, ps', replica_index, ios)}
+           {:trigger LSchedulerNext(ps.replicas[replica_index], ps'.replicas[replica_index], ios) } ::
+       RslNextOneReplica(ps, ps', replica_index, ios)
+    && LSchedulerNext(ps.replicas[replica_index], ps'.replicas[replica_index], ios)
+}
+
 function{:opaque} MakeRslActionTemporalFromSchedulerFunction(
     b:Behavior<RslState>,
     replica_index:int
@@ -39,11 +51,9 @@ function{:opaque} MakeRslActionTemporalFromSchedulerFunction(
     requires imaptotal(b);
     ensures  forall i {:trigger sat(i, MakeRslActionTemporalFromSchedulerFunction(b, replica_index))} ::
                  sat(i, MakeRslActionTemporalFromSchedulerFunction(b, replica_index)) <==>
-                 exists ios ::    RslNextOneReplica(b[i], b[i+1], replica_index, ios)
-                               && LSchedulerNext(b[i].replicas[replica_index], b[i+1].replicas[replica_index], ios);
+                 RslSchedulerActionOccursForReplica(b[i], b[i+1], replica_index);
 {
-    stepmap(imap i :: exists ios ::    RslNextOneReplica(b[i], b[i+1], replica_index, ios)
-                                    && LSchedulerNext(b[i].replicas[replica_index], b[i+1].replicas[replica_index], ios))
+    stepmap(imap i :: RslSchedulerActionOccursForReplica(b[i], b[i+1], replica_index))
 }
 
 function{:opaque} PaxosTimeMap(b:Behavior<RslState>):imap<int, int>

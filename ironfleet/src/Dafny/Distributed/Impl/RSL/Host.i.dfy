@@ -182,13 +182,18 @@ module Host_i exclusively refines Host_s {
         reveal_Q_LScheduler_Next();
     }
 
-    lemma lemma_UdpEventsRespectReduction(s:LScheduler, s':LScheduler, 
-                                    ios:seq<RslIo>, events:seq<UdpEvent>)
+    lemma lemma_UdpEventsRespectReduction(s:LScheduler, s':LScheduler, ios:seq<RslIo>, events:seq<UdpEvent>)
         requires LIoOpSeqCompatibleWithReduction(ios);
         requires RawIoConsistentWithSpecIO(events, ios);
         ensures UdpEventsReductionCompatible(events);
     {
-        reveal_AbstractifyRawLogToIos();
+        forall i | 0 <= i < |events| - 1
+            ensures events[i].LIoOpReceive? || events[i+1].LIoOpSend?;
+        {
+            assert LIoOpOrderingOKForAction(ios[i], ios[i+1]);
+            reveal_AbstractifyRawLogToIos();
+            assert AbstractifyRawLogToIos(events)[i] == AbstractifyUdpEventToRslIo(events[i]) == ios[i];
+        }
     }
 
     method {:timeLimitMultiplier 3} HostNextImpl(ghost env:HostEnvironment, host_state:HostState) 

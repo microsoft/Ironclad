@@ -27,3 +27,4 @@ tmp/
 *.dlg
 flycheck_*
 *.vim
+nohup.out

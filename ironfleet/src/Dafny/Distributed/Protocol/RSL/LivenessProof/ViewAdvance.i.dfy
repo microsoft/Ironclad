@@ -112,9 +112,10 @@ function{:opaque} ReplicaSentHeartbeatTemporal(
     requires imaptotal(b);
     ensures  forall i{:trigger sat(i, ReplicaSentHeartbeatTemporal(b, sender_idx, receiver_idx))} ::
         sat(i, ReplicaSentHeartbeatTemporal(b, sender_idx, receiver_idx)) <==>
-        exists p :: ReplicaSentHeartbeat(b[i], b[i+1], sender_idx, receiver_idx, p);
+        exists p {:trigger ReplicaSentHeartbeat(b[i], b[i+1], sender_idx, receiver_idx, p)} ::
+             ReplicaSentHeartbeat(b[i], b[i+1], sender_idx, receiver_idx, p);
 {
-    stepmap(imap i :: exists p :: ReplicaSentHeartbeat(b[i], b[i+1], sender_idx, receiver_idx, p))
+    stepmap(imap i :: exists p {:trigger ReplicaSentHeartbeat(b[i], b[i+1], sender_idx, receiver_idx, p)} :: ReplicaSentHeartbeat(b[i], b[i+1], sender_idx, receiver_idx, p))
 }
     
 lemma lemma_NextHeartbeatTimeInv(
@@ -234,6 +235,7 @@ lemma lemma_ReplicaEventuallySendsHeartbeatForViewWithinWF1Req2(
         {
             lemma_ConstantsAllConsistent(b, asp.c, i);
             lemma_ConstantsAllConsistent(b, asp.c, i+1);
+            assert SpecificClockReadingRslActionOccurs(b[i], b[i+1], LReplicaNextReadClockMaybeSendHeartbeat, sender_idx);
             var ios :|    RslNextOneReplica(b[i], b[i+1], sender_idx, ios)
                        && SpontaneousIos(ios, 1)
                        && LReplicaNextReadClockMaybeSendHeartbeat(b[i].replicas[sender_idx].replica, b[i+1].replicas[sender_idx].replica,

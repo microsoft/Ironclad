@@ -34,7 +34,7 @@ method Replica_Next_Process_2b(replica:ReplicaState, inp:CPacket) returns (repli
 
     if cop_learnable {
         var newLearner := LearnerModel_Process2b(replica.learner, replica.executor, inp);
-        replica' := replica[learner := newLearner];
+        replica' := replica.(learner := newLearner);
     } else {
         replica' := replica;
     }
@@ -53,7 +53,7 @@ method Replica_Next_Spontaneous_MaybeEnterNewViewAndSend1a(replica:ReplicaState)
 {
     var start_time := Time.GetDebugTimeTicks();
     var newProposer, packets := ProposerMaybeEnterNewViewAndSend1a(replica.proposer);
-    replica' := replica[proposer := newProposer];
+    replica' := replica.(proposer := newProposer);
     packets_sent := Broadcast(packets);
     //lemma_AbstractifySetOfCPacketsToSetOfRslPackets_properties(packets_sent);
     //lemma_AbstractifyCPacketToRslPacket_src(packets_sent, replica.constants.all.config.replica_ids[replica.constants.my_index]);
@@ -70,7 +70,7 @@ method Replica_Next_Spontaneous_MaybeEnterPhase2(replica:ReplicaState) returns (
 {
     var start_time := Time.GetDebugTimeTicks();
     var newProposer, packets := ProposerMaybeEnterPhase2(replica.proposer, replica.acceptor.log_truncation_point);
-    replica' := replica[proposer := newProposer];
+    replica' := replica.(proposer := newProposer);
     packets_sent := Broadcast(packets);
     //lemma_AbstractifySetOfCPacketsToSetOfRslPackets_properties(packets_sent);
     //lemma_AbstractifyCPacketToRslPacket_src(packets_sent, replica.constants.all.config.replica_ids[replica.constants.my_index]);
@@ -87,7 +87,7 @@ method Replica_Next_Spontaneous_MaybeNominateValueAndSend2a(replica:ReplicaState
 {
     var start_time := Time.GetDebugTimeTicks();
     var newProposer, packets := ProposerMaybeNominateValueAndSend2a(replica.proposer, clock.t, replica.acceptor.log_truncation_point);
-    replica' := replica[proposer := newProposer];
+    replica' := replica.(proposer := newProposer);
     packets_sent := Broadcast(packets);
     //lemma_AbstractifySetOfCPacketsToSetOfRslPackets_properties(packets_sent);
     //lemma_AbstractifyCPacketToRslPacket_src(packets_sent, replica.constants.all.config.replica_ids[replica.constants.my_index]);

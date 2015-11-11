@@ -29,7 +29,7 @@ module RefinementProof_i {
     {
         |glb| > 0
      && GLS_Init(glb[0], config)
-     && (forall i :: 0 <= i < |glb| - 1 ==> GLS_Next(glb[i], glb[i+1]))
+     && (forall i {:trigger GLS_Next(glb[i], glb[i+1])} :: 0 <= i < |glb| - 1 ==> GLS_Next(glb[i], glb[i+1]))
     }
 
     lemma lemma_LS_Next(glb:seq<GLS_State>, config:Config, i:int)
@@ -98,6 +98,7 @@ module RefinementProof_i {
         } else {
             lemma_HistorySize(glb, config, i - 1);
             lemma_HistoryIncrement(glb, config, i - 1);
+            assert GLS_Next(glb[i-1], glb[i]);
         }
     }
 
@@ -126,7 +127,7 @@ module RefinementProof_i {
     {
         lemma_LSConsistent(glb, config, i);
         lemma_LSConsistent(glb, config, i+1);
-
+        assert GLS_Next(glb[i], glb[i+1]);
         if i == 0 {
             assert glb[i].ls.servers[config[0]].held;
         } else {
