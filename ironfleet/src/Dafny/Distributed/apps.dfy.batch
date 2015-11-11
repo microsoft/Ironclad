@@ -11,6 +11,6 @@ src/Dafny/Distributed/Services/RSL/Main.i.dfy
 #
 # Lock
 #
-#src/Dafny/Distributed/Services/Lock/Main.i.dfy
+src/Dafny/Distributed/Services/Lock/Main.i.dfy
 
 
