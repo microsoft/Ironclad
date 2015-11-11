@@ -140,17 +140,10 @@ method {:timeLimitMultiplier 2} ProposerProcessRequest(proposer:ProposerState, p
                                request_queue := proposer.request_queue + [val],
                                highest_seqno_requested_by_client_this_view := new_seqno_map);
         //var proposer_update_end_time := Time.GetDebugTimeTicks();
-//<<<<<<< HEAD
-//        lemma_RefineToMapOfSeqNumsProperties(new_seqno_map);
-//        r_proposer := ref_proposer.(election_state := AbstractifyCElectionStateToElectionState(newElectionState),
-//                                    request_queue := ref_proposer.request_queue + [ref_val],
-//                                    highest_seqno_requested_by_client_this_view := 
-//=======
         lemma_AbstractifyMapOfSeqNums_properties(new_seqno_map);
         r_proposer := ref_proposer[election_state := AbstractifyCElectionStateToElectionState(newElectionState)]
                                   [request_queue := ref_proposer.request_queue + [ref_val]]
                                   [highest_seqno_requested_by_client_this_view := 
-//>>>>>>> master
                                    ref_proposer.highest_seqno_requested_by_client_this_view
                                       [r_packet.src := r_packet.msg.seqno_req]];
         ghost var ref_proposer' := AbstractifyProposerStateToLProposer(proposer');

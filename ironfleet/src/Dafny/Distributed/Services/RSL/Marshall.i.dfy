@@ -136,7 +136,7 @@ module MarshallProof_i {
     {
     }
 
-    lemma {:timeLimitMultiplier 3} {:fuel ValInGrammar,3} lemma_ParseMarshallRequest(bytes:seq<byte>, msg:RslMessage)
+    lemma {:timeLimitMultiplier 5} {:fuel ValInGrammar,3} lemma_ParseMarshallRequest(bytes:seq<byte>, msg:RslMessage)
         requires msg.RslMessage_Request?;
         requires CMessageIsAbstractable(PaxosDemarshallData(bytes));
         requires AbstractifyCMessageToRslMessage(PaxosDemarshallData(bytes)) == msg;

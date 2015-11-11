@@ -176,18 +176,14 @@ predicate CDelegationMapIsAbstractable(m:CDelegationMap)
     CDelegationMapIsValid(m)
 }
 
-//<<<<<<< HEAD
 function RefineToDelegationMapEntry(m:CDelegationMap, k:Key) : NodeIdentity
     requires CDelegationMapIsAbstractable(m);
     requires forall low :: low in m.lows ==> EndPointIsValidIPV4(low.id);
 {
     AbstractifyEndPointToNodeIdentity(m.lows[CDM_IndexForKey(m,KeyPlus(k))].id)
 }
-//
-//function RefineToDelegationMap(m:CDelegationMap) : DelegationMap
-//=======
+
 function AbstractifyCDelegationMapToDelegationMap(m:CDelegationMap) : DelegationMap
-//>>>>>>> master
     requires CDelegationMapIsAbstractable(m);
     requires forall low :: low in m.lows ==> EndPointIsValidIPV4(low.id);
 {
@@ -590,9 +586,6 @@ lemma {:timeLimitMultiplier 4} UpdateCDelegationMap_RHS(m:CDelegationMap, newkr:
     }
     assert AbstractifyCDelegationMapToDelegationMap(m')[k] == UpdateDelegationMap(AbstractifyCDelegationMapToDelegationMap(m), newkr, AbstractifyEndPointToNodeIdentity(id))[k];
 }
-
-lemma SeqHelper<T>(s:seq<T>)
-    
 
 lemma UpdateCDelegationMap_Part1(m:CDelegationMap, newkr:KeyRange, id:EndPoint, m':CDelegationMap,
                                  left_index:int, right_index:int, new_left:seq<Mapping>, new_right:seq<Mapping>)

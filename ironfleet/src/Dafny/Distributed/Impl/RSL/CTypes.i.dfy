@@ -361,15 +361,10 @@ lemma lemma_AbstractifyCReplyCacheToReplyCache_properties(m:CReplyCache)
     ensures  forall e, r :: EndPointIsValidIPV4(e) && ValidReply(r) ==> 
                 var rm  := AbstractifyCReplyCacheToReplyCache(m);
                 var rm' := AbstractifyCReplyCacheToReplyCache(m[e := r]);
-//<<<<<<< HEAD
-//                rm' == AbstractifyCReplyCacheToReplyCache(m)[e := AbstractifyCReplyToReply(r)];
-//    ensures forall e {:trigger RemoveElt(m,e)} :: (EndPointIsValidIPV4(e) && e in m) ==>
-//=======
                 rm' == AbstractifyCReplyCacheToReplyCache(m)[AbstractifyEndPointToNodeIdentity(e) := AbstractifyCReplyToReply(r)];
     ensures forall e {:trigger RemoveElt(m,e)} :: 
                 (EndPointIsValidIPV4(e) && NodeIdentityIsRefinable(AbstractifyEndPointToNodeIdentity(e))
                  && RefineNodeIdentityToEndPoint(AbstractifyEndPointToNodeIdentity(e)) == e && e in m) ==>
-//>>>>>>> master
             var rm  := AbstractifyCReplyCacheToReplyCache(m); 
             var rm' := AbstractifyCReplyCacheToReplyCache(RemoveElt(m, e));
             rm' == RemoveElt(rm, e);

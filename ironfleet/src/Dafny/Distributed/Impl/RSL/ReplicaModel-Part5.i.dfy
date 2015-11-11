@@ -291,24 +291,7 @@ method ReplicaNextSpontaneousMaybeMakeDecisionActual(replica:ReplicaState) retur
     assert ValidRequestBatch(replica.learner.unexecuted_ops[opn].candidate_learned_value);
     var newExecutor := ExecutorGetDecision(replica.executor, replica.learner.max_ballot_seen, opn, candValue);
 
-//<<<<<<< HEAD
-    /*
-    if (replica.learner.unexecuted_ops[opn].candidate_learned_value.CValue?) {
-        candValue := replica.learner.unexecuted_ops[opn].candidate_learned_value;
-        newExecutor := ExecutorGetDecision(replica.executor, opn, candValue);
-        assert LExecutorGetDecision(AbstractifyExecutorStateToLExecutor(replica.executor), AbstractifyExecutorStateToLExecutor(newExecutor), AbstractifyCOperationNumberToOperationNumber(opn), RefineToValue(candValue));
-    } else {
-        candValue := CValueNoOp();
-        newExecutor := ExecutorGetDecision(replica.executor, opn, candValue);
-        assert LExecutorGetDecision(AbstractifyExecutorStateToLExecutor(replica.executor), AbstractifyExecutorStateToLExecutor(newExecutor), AbstractifyCOperationNumberToOperationNumber(opn), RefineToValue(candValue));
-    }
-    */
-
-    //assert RefineToAppRequest(candValue) == 
-//    replica' := replica.(executor := newExecutor);
-//=======
     replica' := replica[executor := newExecutor];
-//>>>>>>> master
 
     packets_sent := Broadcast(CBroadcastNop);
     lemma_AbstractifyCRequestToRequest_isInjective();
