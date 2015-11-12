@@ -1,0 +1,275 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{4D7220C0-3CAA-4659-9F16-A564DB3CCC1B}</ProjectGuid>
+    <OutputType>Exe</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>NuBuild</RootNamespace>
+    <AssemblyName>NuBuild</AssemblyName>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <IsWebBootstrapper>false</IsWebBootstrapper>
+    <PublishUrl>publish\</PublishUrl>
+    <Install>true</Install>
+    <InstallFrom>Disk</InstallFrom>
+    <UpdateEnabled>false</UpdateEnabled>
+    <UpdateMode>Foreground</UpdateMode>
+    <UpdateInterval>7</UpdateInterval>
+    <UpdateIntervalUnits>Days</UpdateIntervalUnits>
+    <UpdatePeriodically>false</UpdatePeriodically>
+    <UpdateRequired>false</UpdateRequired>
+    <MapFileExtensions>true</MapFileExtensions>
+    <ApplicationRevision>0</ApplicationRevision>
+    <ApplicationVersion>1.0.0.%2a</ApplicationVersion>
+    <UseApplicationTrust>false</UseApplicationTrust>
+    <BootstrapperEnabled>true</BootstrapperEnabled>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>..\..\..\bin_tools\NuBuild\</OutputPath>
+    <DefineConstants>TRACE;DEBUG</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
+    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Microsoft.WindowsAzure.Storage, Version=3.0.3.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\References\Microsoft.WindowsAzure.Storage.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Configuration" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="AbstractId.cs" />
+    <Compile Include="AnnotationScanner.cs" />
+    <Compile Include="AsmRewriterVerb.cs" />
+    <Compile Include="CloudExecutionQueue.cs" />
+    <Compile Include="CloudExecutionReport.cs" />
+    <Compile Include="CloudExecutionRequest.cs" />
+    <Compile Include="CloudExecutionWaiter.cs" />
+    <Compile Include="DafnyExecutableDependencies.cs" />
+    <Compile Include="IProcessInvoker.cs" />
+    <Compile Include="VerbRunner.cs">
+    </Compile>
+    <Compile Include="BatchVerifyVerb.cs">
+      <ExcludeFromStyleCop>False</ExcludeFromStyleCop>
+    </Compile>
+    <Compile Include="BeatExtensions.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="BasmObligationIncludes.cs" />
+    <Compile Include="BasmTransitiveDepsVerb.cs">
+    </Compile>
+    <Compile Include="BoogieAsmVerificationObligationListVerb.cs" />
+    <Compile Include="BoogieAsmWorkerBase.cs" />
+    <Compile Include="BootableAppVerb.cs" />
+    <Compile Include="IProcessInvokeAsyncVerb.cs" />
+    <Compile Include="IronRootDirectory.cs" />
+    <Compile Include="ObjectFailedException.cs" />
+    <Compile Include="ObjectNotReadyException.cs" />
+    <Compile Include="ProcessInvokeAsyncWorker.cs" />
+    <Compile Include="CloudSubmitter.cs" />
+    <Compile Include="Repository.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="VerbSyncWorker.cs" />
+    <Compile Include="ConcatContextVerb.cs">
+    </Compile>
+    <Compile Include="ContextContents.cs">
+    </Compile>
+    <Compile Include="ContextGeneratingVerb.cs">
+    </Compile>
+    <Compile Include="CustomManifestParser.cs" />
+    <Compile Include="DafnyCompileOneVerb.cs" />
+    <Compile Include="DafnyExtensions.cs" />
+    <Compile Include="DafnyTransitiveDepsVerb.cs">
+    </Compile>
+    <Compile Include="DbgFileCopySpeedTest.cs" />
+    <Compile Include="DbgVerbCounter.cs" />
+    <Compile Include="DependencyCache.cs" />
+    <Compile Include="DependencyDisposition.cs" />
+    <Compile Include="DbgHashSpeedTest.cs" />
+    <Compile Include="IAsmProducer.cs" />
+    <Compile Include="IContextGeneratingVerb.cs">
+    </Compile>
+    <Compile Include="IncludePathContext.cs" />
+    <Compile Include="IObligationsProducer.cs" />
+    <Compile Include="IRejectable.cs" />
+    <Compile Include="IronfleetAppVerb.cs" />
+    <Compile Include="IVerbWorker.cs" />
+    <Compile Include="IVerificationResultParser.cs" />
+    <Compile Include="Job.cs" />
+    <Compile Include="LinkerVerb.cs" />
+    <Compile Include="Logger.cs" />
+    <Compile Include="NMakeVerb.cs" />
+    <Compile Include="ObjectMissingFromCacheException.cs" />
+    <Compile Include="OrderPreservingSet.cs" />
+    <Compile Include="SymDiffBaseVerb.cs" />
+    <Compile Include="SymDiffCombineVerb.cs" />
+    <Compile Include="SymDiffExtractVerb.cs" />
+    <Compile Include="SymDiffInferVerb.cs" />
+    <Compile Include="SymDiffMergeBaseVerb.cs" />
+    <Compile Include="SymDiffMergeConfigVerb.cs" />
+    <Compile Include="SymDiffMergeVerb.cs" />
+    <Compile Include="SymDiffEngine.cs" />
+    <Compile Include="PoundDefines.cs" />
+    <Compile Include="UnverifiedSentinelVirtualContents.cs" />
+    <Compile Include="VerificationRequest.cs" />
+    <Compile Include="VSProjectParser.cs" />
+    <Compile Include="VSSolutionParser.cs" />
+    <Compile Include="StaticContextVerb.cs">
+    </Compile>
+    <Compile Include="TransitiveDepsContents.cs" />
+    <Compile Include="TransitiveDepsVerb.cs" />
+    <Compile Include="MasmVerb.cs">
+    </Compile>
+    <Compile Include="VerbOutputsContextVerb.cs">
+    </Compile>
+    <Compile Include="VerbOutputsContext.cs">
+    </Compile>
+    <Compile Include="BeatIncludes.cs">
+    </Compile>
+    <Compile Include="BeatVerb.cs">
+    </Compile>
+    <Compile Include="BoogieAsmDepBase.cs">
+    </Compile>
+    <Compile Include="BoogieAsmLinkVerb.cs" />
+    <Compile Include="BoogieAsmVerifyVerb.cs">
+    </Compile>
+    <Compile Include="BoogieVerb.cs">
+    </Compile>
+    <Compile Include="BackgroundWorker.cs" />
+    <Compile Include="BuildObject.cs" />
+    <Compile Include="BuildEngine.cs" />
+    <Compile Include="BuildObjectValuePointer.cs">
+    </Compile>
+    <Compile Include="CachedHash.cs" />
+    <Compile Include="ConcatContext.cs">
+    </Compile>
+    <Compile Include="EntryStitcherVerb.cs">
+    </Compile>
+    <Compile Include="IIncludePathContext.cs" />
+    <Compile Include="IroncladAppVerb.cs" />
+    <Compile Include="DafnyCCVerb.cs" />
+    <Compile Include="DafnySpecVerb.cs">
+    </Compile>
+    <Compile Include="DafnyTransformBaseVerb.cs">
+    </Compile>
+    <Compile Include="IItemCache.cs" />
+    <Compile Include="Disposition.cs">
+    </Compile>
+    <Compile Include="DafnyVerifyTreeVerb.cs" />
+    <Compile Include="DafnyIncludes.cs">
+    </Compile>
+    <Compile Include="DafnyVerifyOneVerb.cs">
+    </Compile>
+    <Compile Include="Hasher.cs" />
+    <Compile Include="IHasher.cs" />
+    <Compile Include="IIncludeFactory.cs">
+    </Compile>
+    <Compile Include="SourcePathIncludeContext.cs">
+    </Compile>
+    <Compile Include="ItemCacheMultiplexer.cs">
+    </Compile>
+    <Compile Include="IVerb.cs">
+    </Compile>
+    <Compile Include="ItemCacheLocal.cs">
+    </Compile>
+    <Compile Include="PathNormalizer.cs">
+    </Compile>
+    <Compile Include="ItemCacheCloud.cs" />
+    <Compile Include="Presentater.cs" />
+    <Compile Include="Presentation.cs" />
+    <Compile Include="PresentationBuilder.cs" />
+    <Compile Include="ProcessInvoker.cs">
+    </Compile>
+    <Compile Include="Program.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="ResultSummaryRecord.cs">
+    </Compile>
+    <Compile Include="Scheduler.cs" />
+    <Compile Include="SourceConfigurationError.cs" />
+    <Compile Include="SourcePath.cs">
+    </Compile>
+    <Compile Include="UserError.cs" />
+    <Compile Include="Util.cs" />
+    <Compile Include="Verb.cs" />
+    <Compile Include="VerbToposorter.cs">
+    </Compile>
+    <Compile Include="VerificationMessage.cs" />
+    <Compile Include="VerificationObligationList.cs" />
+    <Compile Include="VerificationResult.cs" />
+    <Compile Include="VerificationResultBoogieParser.cs" />
+    <Compile Include="VerificationResultDafnyParser.cs" />
+    <Compile Include="VerificationResultSummaryVerb.cs" />
+    <Compile Include="VerificationResultVerb.cs" />
+    <Compile Include="VirtualBuildObject.cs">
+    </Compile>
+    <Compile Include="VirtualContents.cs" />
+    <Compile Include="VSSolutionVerb.cs" />
+    <Compile Include="WaitIndex.cs">
+    </Compile>
+    <Compile Include="WinLinkerVerb.cs" />
+    <Compile Include="WorkingDirectory.cs" />
+    <Compile Include="XmlFiller.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="App.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <BootstrapperPackage Include=".NETFramework,Version=v4.5">
+      <Visible>False</Visible>
+      <ProductName>Microsoft .NET Framework 4.5 %28x86 and x64%29</ProductName>
+      <Install>true</Install>
+    </BootstrapperPackage>
+    <BootstrapperPackage Include="Microsoft.Net.Client.3.5">
+      <Visible>False</Visible>
+      <ProductName>.NET Framework 3.5 SP1 Client Profile</ProductName>
+      <Install>false</Install>
+    </BootstrapperPackage>
+    <BootstrapperPackage Include="Microsoft.Net.Framework.3.5.SP1">
+      <Visible>False</Visible>
+      <ProductName>.NET Framework 3.5 SP1</ProductName>
+      <Install>false</Install>
+    </BootstrapperPackage>
+  </ItemGroup>
+  <ItemGroup>
+    <CodeAnalysisDictionary Include="..\CustomDictionary.xml">
+      <Link>CustomDictionary.xml</Link>
+    </CodeAnalysisDictionary>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="ToDo.txt" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+</Project>
