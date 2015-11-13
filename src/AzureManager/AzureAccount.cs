@@ -9,7 +9,8 @@ namespace AzureManager
     using System;
     using System.Globalization;
     using System.Security.Cryptography.X509Certificates;
-    using Microsoft.WindowsAzure;
+
+    using Microsoft.Azure;
     using Microsoft.WindowsAzure.Management.Compute;
     using Microsoft.WindowsAzure.Management.Compute.Models;
     using Microsoft.WindowsAzure.Management.Storage;
@@ -44,8 +45,8 @@ namespace AzureManager
         {
             this.credentials = new CertificateCloudCredentials(subscriptionId, cert);
 
-            this.computeManager = CloudContext.Clients.CreateComputeManagementClient(this.credentials);
-            this.storageManager = CloudContext.Clients.CreateStorageManagementClient(this.credentials);
+            this.computeManager = new ComputeManagementClient(this.credentials);
+            this.storageManager = new StorageManagementClient(this.credentials);
         }
 
         /// <summary>
@@ -181,9 +182,9 @@ namespace AzureManager
                 Console.WriteLine("Production Deployment");
                 Console.WriteLine("Label = {0}", response.Label);
             }
-            catch (Microsoft.WindowsAzure.CloudException except)
+            catch (Hyak.Common.CloudException except)
             {
-                Console.WriteLine("Show Deployment Exception: {0}", except.ErrorMessage);
+                Console.WriteLine("Show Deployment Exception: {0}", except.Message);
             }
         }
     }
