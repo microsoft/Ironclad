@@ -1,8 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<ServiceConfiguration serviceName="NuBuildExecutionService" xmlns="http://schemas.microsoft.com/ServiceHosting/2008/10/ServiceConfiguration" osFamily="4" osVersion="*" schemaVersion="2014-06.2.4">
+<ServiceConfiguration serviceName="NuBuildExecutionService" xmlns="http://schemas.microsoft.com/ServiceHosting/2008/10/ServiceConfiguration" osFamily="4" osVersion="*" schemaVersion="2015-04.2.6">
   <Role name="CloudExecutionWorker">
     <Instances count="1" />
-    <ConfigurationSettings>
-    </ConfigurationSettings>
+    <ConfigurationSettings></ConfigurationSettings>
   </Role>
 </ServiceConfiguration>
