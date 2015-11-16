@@ -102,6 +102,7 @@
     <Compile Include="CloudExecutionReport.cs" />
     <Compile Include="CloudExecutionRequest.cs" />
     <Compile Include="CloudExecutionWaiter.cs" />
+    <Compile Include="Environment.cs" />
     <Compile Include="DafnyExecutableDependencies.cs" />
     <Compile Include="IProcessInvoker.cs" />
     <Compile Include="VerbRunner.cs">

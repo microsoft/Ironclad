@@ -14,9 +14,6 @@ namespace NuBuild
     using System.Text;
     using System.Threading.Tasks;
 
-    using YamlDotNet.Dynamic;
-    using YamlDotNet.RepresentationModel;
-
     internal class Program
     {
         private bool useCloudExecution;
@@ -24,8 +21,6 @@ namespace NuBuild
         private BackgroundWorker backgroundWorker;
         private string[] args;
         private VerificationRequest verificationRequest = new VerificationRequest();
-
-        private dynamic yamlConfig = null;
 
         public Program()
         {
@@ -82,7 +77,7 @@ namespace NuBuild
         {
             if (ironRoot == null)
             {
-                ironRoot = getDefaultIronRoot();
+                ironRoot = NuBuild.Environment.getDefaultIronRoot();
                 if (ironRoot == null)
                 {
                     usage("--ironRoot not specified and cannot infer ironRoot");
@@ -248,7 +243,7 @@ namespace NuBuild
             {
                 try
                 {
-                    BuildEngine.theEngine.CloudCache = new ItemCacheCloud((string)this.yamlConfig.credentials.storage);
+                    BuildEngine.theEngine.CloudCache = new ItemCacheCloud();
 
                     return new ItemCacheMultiplexer(
                         new ItemCacheLocal(localCacheDirectory),
@@ -268,36 +263,10 @@ namespace NuBuild
             return new ItemCacheLocal(localCacheDirectory);
         }
 
-        const string IRONROOT_sentinel = "IRONROOT.sentinel";
-
-        string getAssemblyPath()
-        {
-            string assyUri = System.Reflection.Assembly.GetExecutingAssembly().CodeBase;
-            string assyPath = new Uri(assyUri).LocalPath;
-            return assyPath;
-        }
-
-        string getDefaultIronRoot()
-        {
-            string exepath = Path.GetDirectoryName(getAssemblyPath());
-            exepath = Path.GetFullPath(exepath);
-            string[] parts = exepath.Split(new char[] { '\\' });
-            for (int i = parts.Length; i > 0; i--)
-            {
-                string proposal = string.Join("\\", parts.Take(i));
-                if (File.Exists(Path.Combine(proposal, IRONROOT_sentinel)))
-                {
-                    return proposal;
-                }
-            }
-
-            return null;
-        }
-
         void logNubuildInvocation(string[] args)
         {
             Logger.WriteLine(string.Format("{0} {1}",
-                getAssemblyPath(),
+                Environment.getAssemblyPath(),
                 string.Join(" ", args)));
         }
 
@@ -305,22 +274,10 @@ namespace NuBuild
         // grab it before we parse your --ironroot argument.
         private const string NUBUILD_CONFIG = "nubuild.config";
 
-        private dynamic readConfig()
-        {
-            string config_path =
-                Path.Combine(getDefaultIronRoot(), ".nubuild/config.yaml");
-            if (!File.Exists(config_path))
-            {
-                return null;
-            }
-
-            return new DynamicYaml(YamlDoc.LoadFromFile(config_path));
-        }
-
         private IEnumerable<string> fetchConfigArgs()
         {
             string config_path =
-                Path.Combine(getDefaultIronRoot(), NUBUILD_CONFIG);
+                Path.Combine(Environment.getDefaultIronRoot(), NUBUILD_CONFIG);
             if (!File.Exists(config_path))
             {
                 return new string[] { };
@@ -350,8 +307,6 @@ namespace NuBuild
             {
                 usage(err.Message);
             }
-
-            this.yamlConfig = this.readConfig();
 
             BuildEngine.theEngine.ItemCache = GetItemCache();
             BuildEngine.theEngine.Repository = new Repository(BuildEngine.theEngine.ItemCache);

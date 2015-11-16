@@ -38,25 +38,9 @@ namespace NuBuild
         /// <summary>
         /// Initializes a new instance of the ItemCacheCloud class.
         /// </summary>
-        public ItemCacheCloud(string connectionString = null)
+        public ItemCacheCloud()
         {
-            if (null == connectionString)
-            {
-                // -
-                // Create our CloudStorageAccount object.
-                // REVIEW: Hard-coded connection string index "Ironclad".
-                // -
-                ConnectionStringSettings settings = ConfigurationManager.ConnectionStrings["Ironclad"];
-                if (settings != null)
-                {
-                    connectionString = settings.ConnectionString;
-                }
-
-                if (string.IsNullOrEmpty(connectionString))
-                {
-                    throw new ConfigurationException("Azure connection string missing from your NuBuild.exe.config file!");
-                }                
-            }
+            var connectionString = (string)Environment.ConfigDotYaml.credentials.storage;
 
             this.storageAccount = CloudStorageAccount.Parse(connectionString);
 

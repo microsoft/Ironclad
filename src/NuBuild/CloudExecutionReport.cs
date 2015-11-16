@@ -155,7 +155,7 @@ namespace NuBuild
                 CloudExecutionReport.Version,
                 identifier,
                 status,
-                Environment.MachineName,  // REVIEW: Probably insecure (from user settable environment variable?).  Do we care?
+                System.Environment.MachineName,  // REVIEW: Probably insecure (from user settable environment variable?).  Do we care?
                 exitCode,
                 standardOutput,
                 standardError,
@@ -176,7 +176,7 @@ namespace NuBuild
                 CloudExecutionReport.Version,
                 identifier,
                 status,
-                Environment.MachineName,
+                System.Environment.MachineName,
                 0,
                 null,
                 null,

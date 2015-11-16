@@ -154,7 +154,7 @@ namespace NuBuild
                     Thread.Sleep(10000);
                 }
 
-                Environment.Exit(-1);
+                System.Environment.Exit(-1);
             }
         }
     }
