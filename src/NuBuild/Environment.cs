@@ -13,7 +13,7 @@ namespace NuBuild
     public static class Environment
     {
         private const string RootPathSentinel = ".nubuild";
-        private const string ConfigDotYamlRelativePath = ".nubuild/config.yaml";
+        private const string ConfigDotYamlRelativePath = ".nubuild\\config.yaml";
         private static CloudStorageAccount cloudStorageAccount = null;
 
         public static dynamic ConfigDotYaml { get; private set; }
