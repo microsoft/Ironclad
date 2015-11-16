@@ -3,5 +3,8 @@
 # to specify your cloud service credentials. Currently, only Azure services
 # are supported.
 credentials:
-    # Specify your Azure Storage credentials here.
-    storage: DefaultEndpointsProtocol=https;AccountName=YOUR_ACCOUNT_NAME;AccountKey=BASE64_ENCODED_STRING
+    # Specify your Azure Storage credentials here (needed for distributed caching of verification results).
+    storage: DefaultEndpointsProtocol=https;AccountName=???;AccountKey=???
+    # Your Azure subscription ID and certificate, needed for cloud-based verification (--cloudexecution).
+    subscription_id: ???
+    certificate: ???

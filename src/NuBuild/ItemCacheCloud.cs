@@ -8,7 +8,6 @@ namespace NuBuild
 {
     using System;
     using System.Collections.Generic;
-    using System.Configuration;
     using System.Globalization;
     using System.IO;
     using Microsoft.WindowsAzure.Storage;
@@ -20,11 +19,6 @@ namespace NuBuild
     /// </summary>
     public class ItemCacheCloud : IItemCache
     {
-        /// <summary>
-        /// Azure storage account we're using.
-        /// </summary>
-        private readonly CloudStorageAccount storageAccount;
-
         /// <summary>
         /// Blob client object for working with blobs.
         /// </summary>
@@ -40,14 +34,12 @@ namespace NuBuild
         /// </summary>
         public ItemCacheCloud()
         {
-            var connectionString = (string)Environment.ConfigDotYaml.credentials.storage;
-
-            this.storageAccount = CloudStorageAccount.Parse(connectionString);
+            var storageAccount = NuBuild.Environment.CloudStorageAccount;
 
             // -
             // Create our CloudBlobClient object.
             // -
-            this.blobClient = this.storageAccount.CreateCloudBlobClient();
+            this.blobClient = storageAccount.CreateCloudBlobClient();
 
             // -
             // Set up the blob storage containers.

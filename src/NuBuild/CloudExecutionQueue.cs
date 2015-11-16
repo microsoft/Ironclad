@@ -49,11 +49,6 @@ namespace NuBuild
         private readonly TimeSpan queueEntryTtl;
 
         /// <summary>
-        /// Azure storage account we're using.
-        /// </summary>
-        private CloudStorageAccount storageAccount;
-
-        /// <summary>
         /// Cloud queue client for working with cloud queues.
         /// </summary>
         private CloudQueueClient queueClient;
@@ -115,23 +110,9 @@ namespace NuBuild
 
             this.queueEntryTtl = new TimeSpan(0, 30, 0);  // 30 minutes.
 
-            // Create our CloudStorageAccount object.
-            // REVIEW: Hard-coded connection string index "Ironclad".
-            string connectionString = null;
-            ConnectionStringSettings settings = ConfigurationManager.ConnectionStrings["Ironclad"];
-            if (settings != null)
-            {
-                connectionString = settings.ConnectionString;
-            }
+            var storageAccount = NuBuild.Environment.CloudStorageAccount;
 
-            if (string.IsNullOrEmpty(connectionString))
-            {
-                throw new ConfigurationException("Azure connection string missing from your NuBuild.exe.config file!");
-            }
-
-            this.storageAccount = CloudStorageAccount.Parse(connectionString);
-
-            this.queueClient = this.storageAccount.CreateCloudQueueClient();
+            this.queueClient = storageAccount.CreateCloudQueueClient();
 
             this.requestQueue = this.queueClient.GetQueueReference(CloudExecutionQueue.RequestQueueName);
             this.requestQueue.CreateIfNotExists();

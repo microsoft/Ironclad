@@ -6,18 +6,34 @@ namespace NuBuild
     using System.IO;
     using System.Reflection;
 
+    using Microsoft.WindowsAzure.Storage;
+
     using YamlDotNet.Dynamic;
 
     public static class Environment
     {
         private const string RootPathSentinel = "IRONROOT.sentinel";
         private const string ConfigDotYamlRelativePath = ".nubuild/config.yaml";
-        
+        private static CloudStorageAccount cloudStorageAccount = null;
+
         public static dynamic ConfigDotYaml { get; private set; }
 
         static Environment()
         {
             loadConfigDotYaml();            
+        }
+
+        public static CloudStorageAccount CloudStorageAccount
+        {
+            get
+            {
+                if (cloudStorageAccount == null)
+                {
+                    var connectionString = (string)ConfigDotYaml.credentials.storage;
+                    cloudStorageAccount = CloudStorageAccount.Parse(connectionString);
+                }
+                return cloudStorageAccount;
+            }
         }
 
         public static string getDefaultIronRoot()

@@ -206,25 +206,8 @@ namespace AzureManager
         /// <returns>An Azure account.</returns>
         private static AzureAccount GetOurAzureAccount()
         {
-            string subscriptionId = null;
-            string certBase64Encoded = null;
-
-            NameValueCollection appSettings = ConfigurationManager.AppSettings;
-            if (appSettings != null)
-            {
-                subscriptionId = appSettings["Subscription Id"];
-                certBase64Encoded = appSettings["Certificate (Base 64 Encoded)"];
-            }
-
-            if (string.IsNullOrEmpty(subscriptionId))
-            {
-                throw new ConfigurationException("Subscription Id setting missing from your AzureManager.exe.config file!");
-            }
-
-            if (string.IsNullOrEmpty(certBase64Encoded))
-            {
-                throw new ConfigurationException("Certificate setting missing from your AzureManager.exe.config file!");
-            }
+            string subscriptionId = (string)NuBuild.Environment.ConfigDotYaml.credentials.subscription_id;
+            string certBase64Encoded = (string)NuBuild.Environment.ConfigDotYaml.credentials.certificate;
 
             byte[] cert = Convert.FromBase64String(certBase64Encoded);
             X509Certificate2 x509Cert = new X509Certificate2(cert);

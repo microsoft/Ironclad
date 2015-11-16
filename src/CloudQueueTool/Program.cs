@@ -24,21 +24,7 @@ namespace CloudQueueTool
         /// <param name="args">Command line arguments.</param>
         private static void Main(string[] args)
         {
-            // Create our CloudQueueClient object.
-            // REVIEW: Hard-coded connection string index "Ironclad".
-            string connectionString = null;
-            ConnectionStringSettings settings = ConfigurationManager.ConnectionStrings["Ironclad"];
-            if (settings != null)
-            {
-                connectionString = settings.ConnectionString;
-            }
-
-            if (string.IsNullOrEmpty(connectionString))
-            {
-                throw new ConfigurationException("Azure connection string missing from your .exe.config file!");
-            }
-
-            CloudStorageAccount storageAccount = CloudStorageAccount.Parse(connectionString);
+            var storageAccount = NuBuild.Environment.CloudStorageAccount;
 
             CloudQueueClient queueClient = storageAccount.CreateCloudQueueClient();
 
