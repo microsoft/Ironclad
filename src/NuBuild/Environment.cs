@@ -12,7 +12,7 @@ namespace NuBuild
 
     public static class Environment
     {
-        private const string RootPathSentinel = "IRONROOT.sentinel";
+        private const string RootPathSentinel = ".nubuild";
         private const string ConfigDotYamlRelativePath = ".nubuild/config.yaml";
         private static CloudStorageAccount cloudStorageAccount = null;
 
@@ -44,7 +44,7 @@ namespace NuBuild
             for (int i = parts.Length; i > 0; i--)
             {
                 string proposal = String.Join("\\", parts.Take(i));
-                if (File.Exists(Path.Combine(proposal, RootPathSentinel)))
+                if (Directory.Exists(Path.Combine(proposal, RootPathSentinel)))
                 {
                     return proposal;
                 }
