@@ -14,6 +14,9 @@ namespace NuBuild
     using System.Text;
     using System.Threading.Tasks;
 
+    using YamlDotNet.Dynamic;
+    using YamlDotNet.RepresentationModel;
+
     internal class Program
     {
         private bool useCloudExecution;
@@ -21,6 +24,8 @@ namespace NuBuild
         private BackgroundWorker backgroundWorker;
         private string[] args;
         private VerificationRequest verificationRequest = new VerificationRequest();
+
+        private dynamic yamlConfig = null;
 
         public Program()
         {
@@ -243,7 +248,7 @@ namespace NuBuild
             {
                 try
                 {
-                    BuildEngine.theEngine.CloudCache = new ItemCacheCloud();
+                    BuildEngine.theEngine.CloudCache = new ItemCacheCloud((string)this.yamlConfig.credentials.storage);
 
                     return new ItemCacheMultiplexer(
                         new ItemCacheLocal(localCacheDirectory),
@@ -300,6 +305,18 @@ namespace NuBuild
         // grab it before we parse your --ironroot argument.
         private const string NUBUILD_CONFIG = "nubuild.config";
 
+        private dynamic readConfig()
+        {
+            string config_path =
+                Path.Combine(getDefaultIronRoot(), ".nubuild/config.yaml");
+            if (!File.Exists(config_path))
+            {
+                return null;
+            }
+
+            return new DynamicYaml(YamlDoc.LoadFromFile(config_path));
+        }
+
         private IEnumerable<string> fetchConfigArgs()
         {
             string config_path =
@@ -333,6 +350,8 @@ namespace NuBuild
             {
                 usage(err.Message);
             }
+
+            this.yamlConfig = this.readConfig();
 
             BuildEngine.theEngine.ItemCache = GetItemCache();
             BuildEngine.theEngine.Repository = new Repository(BuildEngine.theEngine.ItemCache);

@@ -1,0 +1,7 @@
+---
+# Place a copy of this file named `config.yaml` in the `.nubuild` directory
+# to specify your cloud service credentials. Currently, only Azure services
+# are supported.
+credentials:
+    # Specify your Azure Storage credentials here.
+    storage: DefaultEndpointsProtocol=https;AccountName=YOUR_ACCOUNT_NAME;AccountKey=BASE64_ENCODED_STRING
