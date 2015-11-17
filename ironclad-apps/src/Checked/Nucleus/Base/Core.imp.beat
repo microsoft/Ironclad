@@ -1,0 +1,57 @@
+//-private-import BaseSpec;
+//-private-import MemorySpec;
+//-private-import IoTypesSpec;
+//-private-import MachineStateSpec;
+//-private-import AssemblySpec;
+//-private-import InterruptsSpec;
+//-private-import IoSpec;
+//-<NuBuild AddBoogieAxiom Base_axioms />
+//-<NuBuild AddBoogieAxiom Memory_axioms />
+//-<NuBuild AddBoogieAxiom Assembly_axioms />
+//-private-import Partition;
+//-
+//- Copyright (c) Microsoft Corporation.  All rights reserved.
+//-
+
+module implementation Core
+{
+
+implementation setInit()
+{
+  init := true;
+}
+
+implementation core_Load(my r:regs, const my c:core_state, const linear m:mem, x:int, y:opn_mem) returns(my _r:regs)
+{
+  call _r := instr_Load(r, c, m, x, y);
+}
+
+implementation core_Store(const my r:regs, const my c:core_state, linear m:mem, x:opn_mem, y:opn) returns(linear _m:mem)
+{
+  call _m := instr_Store(r, c, m, x, y);
+}
+
+implementation core_LoadStack(my r:regs, const my c:core_state, linear m:mem, x:int, y:opn_mem)
+  returns(my _r:regs)
+{
+  call _r := instr_LoadStack(r, c, m, x, y);
+}
+
+implementation core_StoreStack(const my r:regs, const my c:core_state, const linear m:mem, x:opn_mem, y:opn) returns(linear _m:mem)
+{
+  call _m := instr_StoreStack(r, c, m, x, y);
+}
+
+implementation core_Push(my r:regs, const my c:core_state, linear m:mem, v:opn)
+  returns(my _r:regs, linear _m:mem)
+{
+  var dst:opn_mem := OMem(MConst(sub(r.regs[ESP], 4)));
+  call reveal_wrap32(sub(r.regs[ESP], 4));
+  call reveal_WORD_HI();
+  {:
+    call _r := instr_SubNoFlags(r, ESP, OConst(4));
+    call _m := instr_StoreStack(_r, c, m, OMem(MReg(ESP, 0)), v);
+  :}
+}
+
+}

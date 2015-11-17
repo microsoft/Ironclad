@@ -1,0 +1,91 @@
+//-private-import BaseSpec;
+//-private-import MemorySpec;
+//-private-import IoTypesSpec;
+//-private-import MachineStateSpec;
+//-private-import AssemblySpec;
+//-private-import InterruptsSpec;
+//-private-import IoSpec;
+//-<NuBuild AddBoogieAxiom Base_axioms />
+//-<NuBuild AddBoogieAxiom Memory_axioms />
+//-<NuBuild AddBoogieAxiom Assembly_axioms />
+//-private-import Partition;
+//-private-import Core;
+//-private-import LogicalAddressing;
+//-private-import Stacks;
+//-private-import Instructions;
+//-private-import Separation;
+//-private-import Util;
+//-<NuBuild AddBoogieAxiom Word_axioms />
+//-
+//- Copyright (c) Microsoft Corporation.  All rights reserved.
+//-
+
+module implementation Overflow
+{
+
+#ifdef UNVERIFIED_PRINTSTACKTRACE
+procedure PrintStackTrace(my r_in:regs) returns (r_out:regs)
+{
+  my var r:regs := r_in;
+  var m:mem;
+  var core_state:core_state;
+
+  call serialDbgNewlineOut();
+  call serialDbgMarkOut();
+  //edi := esp;
+
+        call r:= instr_Mov(r, ECX, OConst(0x45));
+        call serialDbgDataOut8();
+        call r:= instr_Mov(r, ECX, OConst(0x44));
+        call serialDbgDataOut8();
+        call r:= instr_Mov(r, ECX, OConst(0x49));
+        call serialDbgDataOut8();
+        call r:= instr_Mov(r, ECX, OConst(0x20));
+        call serialDbgDataOut8();
+        call r:= instr_Mov(r, ESI, OReg(EDI));
+        call serialDbgWordOut();
+
+    call r:= instr_Mov(r, EDI, OReg(ESP));
+    call r:= instr_Mov(r, EBP, OConst(0));
+    while (ebp <= 400) 
+    {
+        //- print address
+        call r:= instr_Mov(r, ESI, OReg(EDI));
+        call serialDbgWordOut();
+
+        call r:= instr_Mov(r, ECX, OConst(32));
+        call serialDbgDataOut8();
+        //- print value
+        call r:= instr_Load(r, core_state, m, ESI, OMem(MReg(EDI,0)));
+        call serialDbgWordOut();
+        call serialDbgNewlineOut();
+
+          call r:= instr_Add(r, EDI, OConst(4));
+          call r:= instr_Add(r, EBP, OConst(1));
+    }
+print_stack_trace_loop:
+  goto print_stack_trace_loop;
+}
+#endif //- UNVERIFIED_PRINTSTACKTRACE
+
+implementation Overflow(my r:regs, my c:core_state)
+{
+  my var _r:regs;
+  my var m:mem;
+
+  call _r := instr_Mov(r, EAX, OConst(0x41526374));
+  call _r := instr_Mov(_r, EDX, OConst(0xb8000));
+  call instr_VgaDebugStore16(_r, OMem(MReg(EDX, 0)), OReg(EAX));
+
+#ifdef UNVERIFIED_PRINTSTACKTRACE
+  call _r:=PrintStackTrace(_r);
+#endif //- UNVERIFIED_PRINTSTACKTRACE
+
+// TODO:
+//  call instr_Mov(EAX, OConst(0x55551001));
+//  call debugBreak();
+overflow_loop:
+  goto overflow_loop;
+}
+
+}

@@ -1,0 +1,30 @@
+//-private-import BaseSpec;
+//-private-import MemorySpec;
+//-<NuBuild AddBoogieAxiom BitVector_axioms />
+//-<NuBuild AddBoogieFlag /proverOpt:OPTIMIZE_FOR_BV=true />
+//-
+//- Copyright (c) Microsoft Corporation.  All rights reserved.
+//-
+
+module interface BitVectorLemmasDevices
+{
+
+atomic ghost procedure _constDevices();
+  ensures $sub(1bv32, 1bv32) == 0bv32;
+  ensures $sub(1bv32, 0bv32) == 1bv32;
+  ensures $add(1bv32, 1bv32) == 2bv32;
+  ensures $add(2bv32, 1bv32) == 3bv32;
+  ensures $add(2bv32, 2bv32) == 4bv32;
+  ensures $add(3bv32, 4bv32) == 7bv32;
+  ensures $add(4bv32, 4bv32) == 8bv32;
+  ensures $add(8bv32, 8bv32) == 16bv32;
+  ensures $add(16bv32,16bv32) == 32bv32;
+
+atomic ghost procedure _lemma_and7_implies_mod_4();
+  ensures (forall x:bv32 :: $and(x, 7bv32) == 0bv32 ==> $mod(x, 4bv32) == 0bv32);
+
+atomic ghost procedure _lemma_shl_1();
+  ensures (forall amt:bv32 :: $le(0bv32, amt) && $lt(amt, 32bv32) ==> $gt($shl(1bv32, amt), 0bv32));
+
+
+}

@@ -1,0 +1,997 @@
+//-private-import BaseSpec;
+//-private-import MemorySpec;
+//-private-import IoTypesSpec;
+//-private-import MachineStateSpec;
+//-private-import AssemblySpec;
+//-private-import InterruptsSpec;
+//-private-import IoSpec;
+//-private-import Core;
+//-private-import LogicalAddressing;
+//-private-import Overflow;
+//-private-import Util;
+//-private-import Stacks;
+//-private-import Partition;
+//-private-import Instructions;
+//-private-import Separation;
+//-private-import IntLemmasBase;
+//-private-import IntLemmasGc;
+//-private-import SimpleGcMemory;
+//-private-import SimpleCommon;
+//-private-import SimpleCollector;
+//-private-import IoMain;
+//-private-import IntLemmasMain;
+//-private-basmonly-import Trusted;
+//-private-basmonly-import Checked;
+//-private-import Heap;
+//-private-import Seq;
+//-private-import dafny_DafnyPrelude;
+//-private-import DafnyAssembly;
+//-private-import dafny_base_s;
+//-private-import dafny_power2_s;
+//-private-import dafny_bytes_and_words_s;
+//-private-import dafny_be_sequences_s;
+//-private-import dafny_assembly_s;
+//-private-import dafny_integer_sequences_s;
+//-private-import dafny_seq_blocking_s;
+//-private-import dafny_sha_common_s;
+//-private-import dafny_hmac_common_s;
+//-private-import dafny_sha256_s;
+//-private-import dafny_seqs_simple_i;
+//-private-import dafny_power_s;
+//-private-import dafny_mul_i;
+//-private-import dafny_mul_nonlinear_i;
+//-private-import dafny_power_i;
+//-private-import dafny_div_def_i;
+//-private-import dafny_div_boogie_i;
+//-private-import dafny_div_nonlinear_i;
+//-private-import dafny_div_i;
+//-private-import dafny_repeat_digit_i;
+//-private-import dafny_power2_i;
+//-private-import dafny_seqs_and_ints_i;
+//-private-import dafny_relational_s;
+//-private-import dafny_assembly_i;
+//-private-import dafny_arrays_i;
+//-private-import dafny_seqs_transforms_i;
+//-private-import dafny_seqs_reverse_i;
+//-private-import dafny_integer_sequences_i;
+//-private-import dafny_integer_sequences_premium_i;
+//-private-import dafny_assembly_premium_i;
+//-private-import dafny_bit_vector_lemmas_i;
+//-private-import dafny_bit_vector_lemmas_premium_i;
+//-private-import dafny_word_bits_i;
+//-private-import dafny_arrays_and_seqs_i;
+//-private-import dafny_round_s;
+//-private-import dafny_round_i;
+//-private-import dafny_seq_blocking_i;
+//-private-import dafny_sha_common_i;
+//-private-import dafny_sha256common_i;
+//-private-import dafny_sha_padding_i;
+//-<NuBuild AddBoogieAxiom Base_axioms />
+//-<NuBuild AddBoogieAxiom Word_axioms />
+//-<NuBuild AddBoogieAxiom Memory_axioms />
+//-<NuBuild AddBoogieAxiom Assembly_axioms />
+//-<NuBuild AddBoogieAxiom Io_axioms />
+
+module implementation dafny_sha256opt_i
+{
+implementation Proc_InitK__SHA256__0__to__10(my r_old:regs, const my core_state:core_state, linear stk_old:mem, linear statics_old:mem, linear io_old:IOState, linear mems_old:mems, $commonVars_old:commonVars, $gcVars_old:gcVars, $toAbs_old:[int]int, $absMem_old:[int][int]int, $stacksFrames_old:[int]Frames, objLayouts_old:[int]ObjLayout, heap_old:Heap, $ghost_Ks:ArrayOfInt) returns(my r:regs, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems, $commonVars:commonVars, $gcVars:gcVars, $toAbs:[int]int, $absMem:[int][int]int, $stacksFrames:[int]Frames, objLayouts:[int]ObjLayout, heap:Heap)
+{
+    var $absMem_tmp:[int][int]int;
+    var objLayouts_tmp:[int]ObjLayout;
+    var heap_tmp:Heap;
+    var obj_tmp:int;
+    var val_tmp:int;
+    var mod0:int;
+    var $ghost_Ks__abs:int;
+    assert fun_unroll(0);
+    assert fun_unroll(1);
+    r := r_old;
+    stk := stk_old;
+    statics := statics_old;
+    io := io_old;
+    mems := mems_old;
+    $commonVars := $commonVars_old;
+    $gcVars := $gcVars_old;
+    $toAbs := $toAbs_old;
+    $absMem := $absMem_old;
+    $stacksFrames := $stacksFrames_old;
+    objLayouts := objLayouts_old;
+    heap := heap_old;
+    $ghost_Ks__abs := frameGet($stacksFrames, r_old.regs[ESP] + 4 + stackGcOffset);
+    mod0 := ($ghost_Ks).arrAbs;
+    assert TV(r.regs[ESP]);
+    assert TO(0);
+    assert TO(263168);
+    assert TO(1);
+    assert TO(263169);
+    assert TO(0x44400);
+    assert TO(0x44401);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 116
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 116
+    // regalloc_stack_load:: EAX := OMem(MReg(ESP, 1052676))  // var = $ghost_Ks 577
+    call r, mems := heapLoadStack(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $absMem, $toAbs, $stacksFrames, objLayouts, EAX, OMem(MReg(ESP, 0x111004)), EvalPtr(r, OMem(MReg(ESP, 0x111004))));  // 0x111004 = stackGcOffset+4
+        $ghost_Ks__abs := frameGet($stacksFrames, EvalPtr(r, OMem(MReg(ESP, stackGcOffset+4))));
+
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 8)), OConst(1116352408), 0, 1116352408, $ghost_Ks__abs, r.regs[EAX]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 117
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 117
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 12)), OConst(1899447441), 1, 1899447441, $ghost_Ks__abs, r.regs[EAX]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 118
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 118
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 16)), OConst(3049323471), 2, 3049323471, $ghost_Ks__abs, r.regs[EAX]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 119
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 119
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 20)), OConst(3921009573), 3, 3921009573, $ghost_Ks__abs, r.regs[EAX]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 120
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 120
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 24)), OConst(961987163), 4, 961987163, $ghost_Ks__abs, r.regs[EAX]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 121
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 121
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 28)), OConst(1508970993), 5, 1508970993, $ghost_Ks__abs, r.regs[EAX]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 122
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 122
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 32)), OConst(2453635748), 6, 2453635748, $ghost_Ks__abs, r.regs[EAX]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 123
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 123
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 36)), OConst(2870763221), 7, 2870763221, $ghost_Ks__abs, r.regs[EAX]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 124
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 124
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 40)), OConst(3624381080), 8, 3624381080, $ghost_Ks__abs, r.regs[EAX]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 125
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 125
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 44)), OConst(310598401), 9, 310598401, $ghost_Ks__abs, r.regs[EAX]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 126
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 126
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 48)), OConst(607225278), 10, 607225278, $ghost_Ks__abs, r.regs[EAX]);
+
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 52)), OConst(1426881987), 11, 1426881987, $ghost_Ks__abs, r.regs[EAX]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 137
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 137
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 56)), OConst(1925078388), 12, 1925078388, $ghost_Ks__abs, r.regs[EAX]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 138
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 138
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 60)), OConst(2162078206), 13, 2162078206, $ghost_Ks__abs, r.regs[EAX]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 139
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 139
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 64)), OConst(2614888103), 14, 2614888103, $ghost_Ks__abs, r.regs[EAX]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 140
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 140
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 68)), OConst(3248222580), 15, 3248222580, $ghost_Ks__abs, r.regs[EAX]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 141
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 141
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 72)), OConst(3835390401), 16, 3835390401, $ghost_Ks__abs, r.regs[EAX]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 142
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 142
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 76)), OConst(4022224774), 17, 4022224774, $ghost_Ks__abs, r.regs[EAX]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 143
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 143
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 80)), OConst(264347078), 18, 264347078, $ghost_Ks__abs, r.regs[EAX]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 144
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 144
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 84)), OConst(604807628), 19, 604807628, $ghost_Ks__abs, r.regs[EAX]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 145
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 145
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 88)), OConst(770255983), 20, 770255983, $ghost_Ks__abs, r.regs[EAX]);
+
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 92)), OConst(1249150122), 21, 1249150122, $ghost_Ks__abs, r.regs[EAX]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 156
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 156
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 96)), OConst(1555081692), 22, 1555081692, $ghost_Ks__abs, r.regs[EAX]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 157
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 157
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 100)), OConst(1996064986), 23, 1996064986, $ghost_Ks__abs, r.regs[EAX]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 158
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 158
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 104)), OConst(2554220882), 24, 2554220882, $ghost_Ks__abs, r.regs[EAX]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 159
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 159
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 108)), OConst(2821834349), 25, 2821834349, $ghost_Ks__abs, r.regs[EAX]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 160
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 160
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 112)), OConst(2952996808), 26, 2952996808, $ghost_Ks__abs, r.regs[EAX]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 161
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 161
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 116)), OConst(3210313671), 27, 3210313671, $ghost_Ks__abs, r.regs[EAX]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 162
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 162
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 120)), OConst(3336571891), 28, 3336571891, $ghost_Ks__abs, r.regs[EAX]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 163
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 163
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 124)), OConst(3584528711), 29, 3584528711, $ghost_Ks__abs, r.regs[EAX]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 164
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 164
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 128)), OConst(113926993), 30, 113926993, $ghost_Ks__abs, r.regs[EAX]);
+
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 132)), OConst(338241895), 31, 338241895, $ghost_Ks__abs, r.regs[EAX]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 175
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 175
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 136)), OConst(666307205), 32, 666307205, $ghost_Ks__abs, r.regs[EAX]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 176
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 176
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 140)), OConst(773529912), 33, 773529912, $ghost_Ks__abs, r.regs[EAX]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 177
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 177
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 144)), OConst(1294757372), 34, 1294757372, $ghost_Ks__abs, r.regs[EAX]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 178
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 178
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 148)), OConst(1396182291), 35, 1396182291, $ghost_Ks__abs, r.regs[EAX]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 179
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 179
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 152)), OConst(1695183700), 36, 1695183700, $ghost_Ks__abs, r.regs[EAX]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 180
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 180
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 156)), OConst(1986661051), 37, 1986661051, $ghost_Ks__abs, r.regs[EAX]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 181
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 181
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 160)), OConst(2177026350), 38, 2177026350, $ghost_Ks__abs, r.regs[EAX]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 182
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 182
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 164)), OConst(2456956037), 39, 2456956037, $ghost_Ks__abs, r.regs[EAX]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 183
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 183
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 168)), OConst(2730485921), 40, 2730485921, $ghost_Ks__abs, r.regs[EAX]);
+
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 172)), OConst(2820302411), 41, 2820302411, $ghost_Ks__abs, r.regs[EAX]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 194
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 194
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 176)), OConst(3259730800), 42, 3259730800, $ghost_Ks__abs, r.regs[EAX]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 195
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 195
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 180)), OConst(3345764771), 43, 3345764771, $ghost_Ks__abs, r.regs[EAX]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 196
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 196
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 184)), OConst(3516065817), 44, 3516065817, $ghost_Ks__abs, r.regs[EAX]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 197
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 197
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 188)), OConst(3600352804), 45, 3600352804, $ghost_Ks__abs, r.regs[EAX]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 198
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 198
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 192)), OConst(4094571909), 46, 4094571909, $ghost_Ks__abs, r.regs[EAX]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 199
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 199
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 196)), OConst(275423344), 47, 275423344, $ghost_Ks__abs, r.regs[EAX]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 200
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 200
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 200)), OConst(430227734), 48, 430227734, $ghost_Ks__abs, r.regs[EAX]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 201
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 201
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 204)), OConst(506948616), 49, 506948616, $ghost_Ks__abs, r.regs[EAX]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 202
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 202
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 208)), OConst(659060556), 50, 659060556, $ghost_Ks__abs, r.regs[EAX]);
+
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 212)), OConst(883997877), 51, 883997877, $ghost_Ks__abs, r.regs[EAX]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 213
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 213
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 216)), OConst(958139571), 52, 958139571, $ghost_Ks__abs, r.regs[EAX]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 214
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 214
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 220)), OConst(1322822218), 53, 1322822218, $ghost_Ks__abs, r.regs[EAX]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 215
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 215
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 224)), OConst(1537002063), 54, 1537002063, $ghost_Ks__abs, r.regs[EAX]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 216
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 216
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 228)), OConst(1747873779), 55, 1747873779, $ghost_Ks__abs, r.regs[EAX]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 217
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 217
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 232)), OConst(1955562222), 56, 1955562222, $ghost_Ks__abs, r.regs[EAX]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 218
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 218
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 236)), OConst(2024104815), 57, 2024104815, $ghost_Ks__abs, r.regs[EAX]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 219
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 219
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 240)), OConst(2227730452), 58, 2227730452, $ghost_Ks__abs, r.regs[EAX]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 220
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 220
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 244)), OConst(2361852424), 59, 2361852424, $ghost_Ks__abs, r.regs[EAX]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 221
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 221
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 248)), OConst(2428436474), 60, 2428436474, $ghost_Ks__abs, r.regs[EAX]);
+
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 252)), OConst(2756734187), 61, 2756734187, $ghost_Ks__abs, r.regs[EAX]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 232
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 232
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 256)), OConst(3204031479), 62, 3204031479, $ghost_Ks__abs, r.regs[EAX]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 233
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 233
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(EAX, 260)), OConst(3329325298), 63, 3329325298, $ghost_Ks__abs, r.regs[EAX]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 127
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 127
+    // call::  := proc_reveal__K__SHA256()  // isGhost = True
+    call proc_reveal__K__SHA256();
+    assert !false;
+
+    // return
+    {: call r := logical_Ret(r, core_state, stk); return; :}
+}
+
+
+implementation Proc_InitK__SHA256(my r_old:regs, const my core_state:core_state, linear stk_old:mem, linear statics_old:mem, linear io_old:IOState, linear mems_old:mems, $commonVars_old:commonVars, $gcVars_old:gcVars, $toAbs_old:[int]int, $absMem_old:[int][int]int, $stacksFrames_old:[int]Frames, objLayouts_old:[int]ObjLayout, heap_old:Heap, $ghost_Ks:ArrayOfInt) returns(my r:regs, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems, $commonVars:commonVars, $gcVars:gcVars, $toAbs:[int]int, $absMem:[int][int]int, $stacksFrames:[int]Frames, objLayouts:[int]ObjLayout, heap:Heap)
+{
+    var $absMem_tmp:[int][int]int;
+    var objLayouts_tmp:[int]ObjLayout;
+    var heap_tmp:Heap;
+    var obj_tmp:int;
+    var val_tmp:int;
+    var mod0:int;
+    var $ghost_Ks__abs:int;
+    assert fun_unroll(0);
+    assert fun_unroll(1);
+    r := r_old;
+    stk := stk_old;
+    statics := statics_old;
+    io := io_old;
+    mems := mems_old;
+    $commonVars := $commonVars_old;
+    $gcVars := $gcVars_old;
+    $toAbs := $toAbs_old;
+    $absMem := $absMem_old;
+    $stacksFrames := $stacksFrames_old;
+    objLayouts := objLayouts_old;
+    heap := heap_old;
+    $ghost_Ks__abs := frameGet($stacksFrames, r_old.regs[ESP] + 4 + stackGcOffset);
+    mod0 := ($ghost_Ks).arrAbs;
+    assert TV(r.regs[ESP]);
+    assert TO(0 - 1);
+    assert TO(263168 - 1);
+    assert TO(0);
+    assert TO(0x44400 - 1);
+    assert TO(0x44400);
+    assert TO(1);
+    assert TO(263169);
+    assert TO(279553);
+    call r := logical_Sub(r, ESP, OConst(4));
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 101
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 101
+    // regalloc_stack_load:: EAX := OMem(MReg(ESP, 0x111008))  // var = $ghost_Ks 584
+    call r, mems := heapLoadStack(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $absMem, $toAbs, $stacksFrames, objLayouts, EAX, OMem(MReg(ESP, 0x111008)), EvalPtr(r, OMem(MReg(ESP, 0x111008)))); // 0x111008 = 8 + stackGcOffset
+    //call r, mems := heapLoadStack(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $absMem, $toAbs, $stacksFrames, objLayouts, EAX, OMem(MReg(ESP, 0x111008)), EvalPtr(r, OMem(MReg(ESP, 0x111008))));
+        $ghost_Ks__abs := frameGet($stacksFrames, EvalPtr(r, OMem(MReg(ESP, 8 + stackGcOffset))));
+
+    // push argument #0 at index 0 isPtr = True argument = $ghost_Ks
+    // regalloc_stack_store:: OMem(MReg(ESP, 1052672)) := EAX  // var = $ghost_Ks
+    call mems, $stacksFrames := heapStoreStack(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $absMem, $toAbs, $stacksFrames, objLayouts, OMem(MReg(ESP, 0x111000)), OReg(EAX), EvalPtr(r, OMem(MReg(ESP, 0x111000))), $ghost_Ks__abs); // 0x111000 = stackGcOffset
+
+    // regalloc_stack_store:: OMem(MReg(ESP, 1052680)) := EAX  // var = $ghost_Ks
+    call mems, $stacksFrames := heapStoreStack(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $absMem, $toAbs, $stacksFrames, objLayouts, OMem(MReg(ESP, 0x111008)), OReg(EAX), EvalPtr(r, OMem(MReg(ESP, 0x111008))), $ghost_Ks__abs);  // 0x111008 = 8 + stackGcOffset
+
+    // call::  := Proc_InitK__SHA256__0__to__10($ghost_Ks)  // isGhost = False
+    call alignCall(r.regs[ESP]);
+    {: call r, stk := logical_Call(r, core_state, stk);
+    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap := Proc_InitK__SHA256__0__to__10(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, $ghost_Ks); :}
+    assert SMemInvGcF(8, stk, old(stk_old), r.regs[ESP] + 4, old(r_old.regs[ESP]), $stacksFrames, $stacksFrames_old);
+    assert !false;
+
+
+//    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 102
+//    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 102
+//    // regalloc_stack_load:: EAX := OMem(MReg(ESP, 1052680))  // var = $ghost_Ks 585
+//    call r, mems := heapLoadStack(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $absMem, $toAbs, $stacksFrames, objLayouts, EAX, OMem(MReg(ESP, 1052680)), EvalPtr(r, OMem(MReg(ESP, 1052680))));
+//        $ghost_Ks__abs := frameGet($stacksFrames, EvalPtr(r, OMem(MReg(ESP, 1052680))));
+//
+//    // push argument #0 at index 0 isPtr = True argument = $ghost_Ks
+//    // regalloc_stack_store:: OMem(MReg(ESP, 1052672)) := EAX  // var = $ghost_Ks
+//    call mems, $stacksFrames := heapStoreStack(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $absMem, $toAbs, $stacksFrames, objLayouts, OMem(MReg(ESP, 1052672)), OReg(EAX), EvalPtr(r, OMem(MReg(ESP, 1052672))), $ghost_Ks__abs);
+//
+//    // regalloc_stack_store:: OMem(MReg(ESP, 1052680)) := EAX  // var = $ghost_Ks
+//    call mems, $stacksFrames := heapStoreStack(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $absMem, $toAbs, $stacksFrames, objLayouts, OMem(MReg(ESP, 1052680)), OReg(EAX), EvalPtr(r, OMem(MReg(ESP, 1052680))), $ghost_Ks__abs);
+//
+//    // call::  := Proc_InitK__SHA256__11__to__20($ghost_Ks)  // isGhost = False
+//    call alignCall(r.regs[ESP]);
+//    {: call r, stk := logical_Call(r, core_state, stk);
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap := Proc_InitK__SHA256__11__to__20(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, $ghost_Ks); :}
+//    assert SMemInvGcF(8, stk, old(stk_old), r.regs[ESP] + 4, old(r_old.regs[ESP]), $stacksFrames, $stacksFrames_old);
+//    assert !false;
+//
+//    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 103
+//    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 103
+//    // regalloc_stack_load:: EAX := OMem(MReg(ESP, 1052680))  // var = $ghost_Ks 586
+//    call r, mems := heapLoadStack(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $absMem, $toAbs, $stacksFrames, objLayouts, EAX, OMem(MReg(ESP, 1052680)), EvalPtr(r, OMem(MReg(ESP, 1052680))));
+//        $ghost_Ks__abs := frameGet($stacksFrames, EvalPtr(r, OMem(MReg(ESP, 1052680))));
+//
+//    // push argument #0 at index 0 isPtr = True argument = $ghost_Ks
+//    // regalloc_stack_store:: OMem(MReg(ESP, 1052672)) := EAX  // var = $ghost_Ks
+//    call mems, $stacksFrames := heapStoreStack(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $absMem, $toAbs, $stacksFrames, objLayouts, OMem(MReg(ESP, 1052672)), OReg(EAX), EvalPtr(r, OMem(MReg(ESP, 1052672))), $ghost_Ks__abs);
+//
+//    // regalloc_stack_store:: OMem(MReg(ESP, 1052680)) := EAX  // var = $ghost_Ks
+//    call mems, $stacksFrames := heapStoreStack(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $absMem, $toAbs, $stacksFrames, objLayouts, OMem(MReg(ESP, 1052680)), OReg(EAX), EvalPtr(r, OMem(MReg(ESP, 1052680))), $ghost_Ks__abs);
+//
+//    // call::  := Proc_InitK__SHA256__21__to__30($ghost_Ks)  // isGhost = False
+//    call alignCall(r.regs[ESP]);
+//    {: call r, stk := logical_Call(r, core_state, stk);
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap := Proc_InitK__SHA256__21__to__30(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, $ghost_Ks); :}
+//    assert SMemInvGcF(8, stk, old(stk_old), r.regs[ESP] + 4, old(r_old.regs[ESP]), $stacksFrames, $stacksFrames_old);
+//    assert !false;
+//
+//    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 104
+//    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 104
+//    // regalloc_stack_load:: EAX := OMem(MReg(ESP, 1052680))  // var = $ghost_Ks 587
+//    call r, mems := heapLoadStack(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $absMem, $toAbs, $stacksFrames, objLayouts, EAX, OMem(MReg(ESP, 1052680)), EvalPtr(r, OMem(MReg(ESP, 1052680))));
+//        $ghost_Ks__abs := frameGet($stacksFrames, EvalPtr(r, OMem(MReg(ESP, 1052680))));
+//
+//    // push argument #0 at index 0 isPtr = True argument = $ghost_Ks
+//    // regalloc_stack_store:: OMem(MReg(ESP, 1052672)) := EAX  // var = $ghost_Ks
+//    call mems, $stacksFrames := heapStoreStack(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $absMem, $toAbs, $stacksFrames, objLayouts, OMem(MReg(ESP, 1052672)), OReg(EAX), EvalPtr(r, OMem(MReg(ESP, 1052672))), $ghost_Ks__abs);
+//
+//    // regalloc_stack_store:: OMem(MReg(ESP, 1052680)) := EAX  // var = $ghost_Ks
+//    call mems, $stacksFrames := heapStoreStack(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $absMem, $toAbs, $stacksFrames, objLayouts, OMem(MReg(ESP, 1052680)), OReg(EAX), EvalPtr(r, OMem(MReg(ESP, 1052680))), $ghost_Ks__abs);
+//
+//    // call::  := Proc_InitK__SHA256__31__to__40($ghost_Ks)  // isGhost = False
+//    call alignCall(r.regs[ESP]);
+//    {: call r, stk := logical_Call(r, core_state, stk);
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap := Proc_InitK__SHA256__31__to__40(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, $ghost_Ks); :}
+//    assert SMemInvGcF(8, stk, old(stk_old), r.regs[ESP] + 4, old(r_old.regs[ESP]), $stacksFrames, $stacksFrames_old);
+//    assert !false;
+//
+//    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 105
+//    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 105
+//    // regalloc_stack_load:: EAX := OMem(MReg(ESP, 1052680))  // var = $ghost_Ks 588
+//    call r, mems := heapLoadStack(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $absMem, $toAbs, $stacksFrames, objLayouts, EAX, OMem(MReg(ESP, 1052680)), EvalPtr(r, OMem(MReg(ESP, 1052680))));
+//        $ghost_Ks__abs := frameGet($stacksFrames, EvalPtr(r, OMem(MReg(ESP, 1052680))));
+//
+//    // push argument #0 at index 0 isPtr = True argument = $ghost_Ks
+//    // regalloc_stack_store:: OMem(MReg(ESP, 1052672)) := EAX  // var = $ghost_Ks
+//    call mems, $stacksFrames := heapStoreStack(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $absMem, $toAbs, $stacksFrames, objLayouts, OMem(MReg(ESP, 1052672)), OReg(EAX), EvalPtr(r, OMem(MReg(ESP, 1052672))), $ghost_Ks__abs);
+//
+//    // regalloc_stack_store:: OMem(MReg(ESP, 1052680)) := EAX  // var = $ghost_Ks
+//    call mems, $stacksFrames := heapStoreStack(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $absMem, $toAbs, $stacksFrames, objLayouts, OMem(MReg(ESP, 1052680)), OReg(EAX), EvalPtr(r, OMem(MReg(ESP, 1052680))), $ghost_Ks__abs);
+//
+//    // call::  := Proc_InitK__SHA256__41__to__50($ghost_Ks)  // isGhost = False
+//    call alignCall(r.regs[ESP]);
+//    {: call r, stk := logical_Call(r, core_state, stk);
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap := Proc_InitK__SHA256__41__to__50(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, $ghost_Ks); :}
+//    assert SMemInvGcF(8, stk, old(stk_old), r.regs[ESP] + 4, old(r_old.regs[ESP]), $stacksFrames, $stacksFrames_old);
+//    assert !false;
+//
+//    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 106
+//    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 106
+//    // regalloc_stack_load:: EAX := OMem(MReg(ESP, 1052680))  // var = $ghost_Ks 589
+//    call r, mems := heapLoadStack(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $absMem, $toAbs, $stacksFrames, objLayouts, EAX, OMem(MReg(ESP, 1052680)), EvalPtr(r, OMem(MReg(ESP, 1052680))));
+//        $ghost_Ks__abs := frameGet($stacksFrames, EvalPtr(r, OMem(MReg(ESP, 1052680))));
+//
+//    // push argument #0 at index 0 isPtr = True argument = $ghost_Ks
+//    // regalloc_stack_store:: OMem(MReg(ESP, 1052672)) := EAX  // var = $ghost_Ks
+//    call mems, $stacksFrames := heapStoreStack(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $absMem, $toAbs, $stacksFrames, objLayouts, OMem(MReg(ESP, 1052672)), OReg(EAX), EvalPtr(r, OMem(MReg(ESP, 1052672))), $ghost_Ks__abs);
+//
+//    // regalloc_stack_store:: OMem(MReg(ESP, 1052680)) := EAX  // var = $ghost_Ks
+//    call mems, $stacksFrames := heapStoreStack(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $absMem, $toAbs, $stacksFrames, objLayouts, OMem(MReg(ESP, 1052680)), OReg(EAX), EvalPtr(r, OMem(MReg(ESP, 1052680))), $ghost_Ks__abs);
+//
+//    // call::  := Proc_InitK__SHA256__51__to__60($ghost_Ks)  // isGhost = False
+//    call alignCall(r.regs[ESP]);
+//    {: call r, stk := logical_Call(r, core_state, stk);
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap := Proc_InitK__SHA256__51__to__60(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, $ghost_Ks); :}
+//    assert SMemInvGcF(8, stk, old(stk_old), r.regs[ESP] + 4, old(r_old.regs[ESP]), $stacksFrames, $stacksFrames_old);
+//    assert !false;
+//
+//    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 107
+//    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 107
+//    // regalloc_stack_load:: EAX := OMem(MReg(ESP, 1052680))  // var = $ghost_Ks 590
+//    call r, mems := heapLoadStack(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $absMem, $toAbs, $stacksFrames, objLayouts, EAX, OMem(MReg(ESP, 1052680)), EvalPtr(r, OMem(MReg(ESP, 1052680))));
+//        $ghost_Ks__abs := frameGet($stacksFrames, EvalPtr(r, OMem(MReg(ESP, 1052680))));
+//
+//    // push argument #0 at index 0 isPtr = True argument = $ghost_Ks
+//    // regalloc_stack_store:: OMem(MReg(ESP, 1052672)) := EAX  // var = $ghost_Ks
+//    call mems, $stacksFrames := heapStoreStack(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $absMem, $toAbs, $stacksFrames, objLayouts, OMem(MReg(ESP, 1052672)), OReg(EAX), EvalPtr(r, OMem(MReg(ESP, 1052672))), $ghost_Ks__abs);
+//
+//    // call::  := Proc_InitK__SHA256__61__to__63($ghost_Ks)  // isGhost = False
+//    call alignCall(r.regs[ESP]);
+//    {: call r, stk := logical_Call(r, core_state, stk);
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap := Proc_InitK__SHA256__61__to__63(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, $ghost_Ks); :}
+//    assert SMemInvGcF(8, stk, old(stk_old), r.regs[ESP] + 4, old(r_old.regs[ESP]), $stacksFrames, $stacksFrames_old);
+//    assert !false;
+    call r := logical_Add(r, ESP, OConst(4));
+
+    // return
+    {: call r := logical_Ret(r, core_state, stk); return; :}
+}
+implementation Proc_ComputeWsForBlockStep2__SHA256(my r_old:regs, const my core_state:core_state, linear stk_old:mem, linear statics_old:mem, linear io_old:IOState, linear mems_old:mems, $commonVars_old:commonVars, $gcVars_old:gcVars, $toAbs_old:[int]int, $absMem_old:[int][int]int, $stacksFrames_old:[int]Frames, objLayouts_old:[int]ObjLayout, heap_old:Heap, $ghost_M:ArrayOfInt, $ghost_words:int, $ghost_H:ArrayOfInt, $ghost_W:ArrayOfInt, $ghost_atoh:atoh_Type, $ghost_num_blocks:int, $ghost_z:SHA256Trace, $ghost_currentBlock:int) returns(my r:regs, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems, $commonVars:commonVars, $gcVars:gcVars, $toAbs:[int]int, $absMem:[int][int]int, $stacksFrames:[int]Frames, objLayouts:[int]ObjLayout, heap:Heap)
+{
+    var $absMem_tmp:[int][int]int;
+    var objLayouts_tmp:[int]ObjLayout;
+    var heap_tmp:Heap;
+    var obj_tmp:int;
+    var val_tmp:int;
+    var mod0:int;
+    var $ghost_t:int;
+    var $ghost__temp__3:int;
+    var $ghost__temp__4:int;
+    var $ghost__temp__5:int;
+    var $ghost__temp__6:int;
+    var $ghost__temp__7:int;
+    var $ghost__temp__8:int;
+    var $ghost__temp__9:int;
+    var $ghost__temp__10:int;
+    var $ghost__temp__11:int;
+    var $ghost__temp__12:int;
+    var $ghost__temp__13:int;
+    var $ghost__temp__14:int;
+    var $ghost__temp__15:int;
+    var $ghost_M__abs:int;
+    var $ghost_H__abs:int;
+    var $ghost_W__abs:int;
+    var $ghost_atoh__abs:int;
+    var $ghost_x:int;
+    var curW:int;
+    assert fun_unroll(0);
+    assert fun_unroll(1);
+    r := r_old;
+    stk := stk_old;
+    statics := statics_old;
+    io := io_old;
+    mems := mems_old;
+    $commonVars := $commonVars_old;
+    $gcVars := $gcVars_old;
+    $toAbs := $toAbs_old;
+    $absMem := $absMem_old;
+    $stacksFrames := $stacksFrames_old;
+    objLayouts := objLayouts_old;
+    heap := heap_old;
+    $ghost_M__abs := frameGet($stacksFrames, r_old.regs[ESP] + 4 + stackGcOffset);
+    $ghost_H__abs := frameGet($stacksFrames, r_old.regs[ESP] + 8 + stackGcOffset);
+    $ghost_W__abs := frameGet($stacksFrames, r_old.regs[ESP] + 12 + stackGcOffset);
+    $ghost_atoh__abs := frameGet($stacksFrames, r_old.regs[ESP] + 20 + stackGcOffset);
+    mod0 := ($ghost_W).arrAbs;
+    assert TV(r.regs[ESP]);
+    assert TO(0 - 1);
+    assert TO(263168 - 1);
+    assert TO(0 - 2);
+    assert TO(263168 - 2);
+    assert TO(0 - 3);
+    assert TO(263168 - 3);
+    assert TO(0 - 4);
+    assert TO(263168 - 4);
+    assert TO(0 - 5);
+    assert TO(263168 - 5);
+    assert TO(0);
+    assert TO(263168);
+    assert TO(1);
+    assert TO(263169);
+    assert TO(2);
+    assert TO(263170);
+    assert TO(3);
+    assert TO(263171);
+    assert TO(4);
+    assert TO(263172);
+    assert TO(5);
+    assert TO(263173);
+    assert TO(0x44400);
+    assert TO(0x44403);
+    assert TO(0x44404);
+    assert TO(0x44405);
+    assert TO(0x44408);
+    call r := logical_Sub(r, ESP, OConst(20));
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 807
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 807
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 807
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 807
+    // move:: $ghost_t := 16  // isPtr = False
+    call r := instr_Mov(r, EBP, OConst(16));
+    $ghost_t := r.regs[EBP];
+
+    // regalloc_stack_load:: ESI := OMem(MReg(ESP, 0x111032))  // var = $ghost_W 604
+    call r, mems := heapLoadStack(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $absMem, $toAbs, $stacksFrames, objLayouts, ESI, OMem(MReg(ESP, 0x111020)), EvalPtr(r, OMem(MReg(ESP, 0x111020))));  // 0x111020 = stackGcOffset + 32
+        $ghost_W__abs := frameGet($stacksFrames, EvalPtr(r, OMem(MReg(ESP, stackGcOffset + 32))));
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 808
+    // jump_to_label:: L1 condition = 
+    goto L1;
+
+    // label:: L0  // isLoop = False
+    L0:
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 814
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 815
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 815
+    // move:: $ghost__temp__8 := $ghost_t  // isPtr = False
+    call r := instr_Mov(r, ECX, OReg(EBP));
+    $ghost__temp__8 := r.regs[ECX];
+
+    // binary_assignment:: $ghost__temp__8 := instr_SubChecked($ghost__temp__8, )
+    call r := instr_SubChecked(r, ECX, OConst(2));
+    $ghost__temp__8 := r.regs[ECX];
+
+
+          //assert HeapValue(objLayouts, true, $toAbs, r.regs[ESI], $ghost_W__abs);
+    // loadArrayElement
+    call r, mems := loadArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, EDX, OMem(MIndex(ESI, 4, ECX, 8)), $ghost__temp__8, $ghost_W__abs, r.regs[ESI]);
+    $ghost__temp__7 := r.regs[EDX];
+
+    //- Have:
+    //- eax == t
+    //- ecx == t - 2
+    //- edx == W[t-2]
+
+//-    ebx := edx;
+//-    call ebx := Ror(ebx, 17);
+//-    ecx := edx;
+//-    call ecx := Ror(ecx, 19);
+//-    call ebx := Xor(ebx, ecx);
+    curW := Eval(r, OReg(EDX)); 
+    call r := instr_Mov(r, EBX, OReg(EDX));
+    call r, $ghost__temp__3 := proc_Asm__RotateRight(r, $ghost__temp__7, 17, EBX, OConst(17));
+    call r := instr_Mov(r, ECX, OReg(EDX));
+    call r, $ghost__temp__6 := proc_Asm__RotateRight(r, $ghost__temp__7, 19, ECX, OConst(19));
+    call r, $ghost__temp__3 := proc_Asm__BitwiseXor(r, $ghost__temp__3, $ghost__temp__6, EBX, OReg(ECX));
+        
+
+    //- Save a move by squashing edx, which we don't need any more
+//    call edx := Shr(edx, 10);
+//    call ebx := Xor(ebx, edx);
+    call r, $ghost__temp__4 := proc_Asm__RightShift(r, $ghost__temp__7, 10, EDX, OConst(10));
+    call r, $ghost__temp__3 := proc_Asm__BitwiseXor(r, $ghost__temp__3, $ghost__temp__4, EBX, OReg(EDX));
+
+    call proc_reveal__SSIG1();
+    assert Eval(r, OReg(EBX)) == fun_SSIG1(curW);
+
+    //- EAX == t
+    //- EBX == result == SSIG(edx)
+
+//-    edx := eax;
+//-    eax := ebx;
+//-    $ghost__temp__6 := eax;
+    call r := instr_Mov(r, EAX, OReg(EBX));
+    $ghost__temp__6 := Eval(r, OReg(EAX));
+
+    //- Need:
+    //- eax == SSIG1(edx)
+    //- edx == t
+    //- $ghost__temp__6 == eax?
+
+//    // push argument #0 at index 1 isPtr = False argument = $ghost__temp__7
+//    // regalloc_stack_store:: OMem(MReg(ESP, 4)) := EDX  // var = $ghost__temp__7
+//    call stk := logical_Store(r, core_state, stk, OMem(MReg(ESP, 4)), OReg(EDX));
+//
+//    // regalloc_stack_store:: OMem(MReg(ESP, 12)) := EAX  // var = $ghost_t
+//    call stk := logical_Store(r, core_state, stk, OMem(MReg(ESP, 12)), OReg(EAX));
+//
+//    // regalloc_stack_store:: OMem(MReg(ESP, 1052704)) := EBX  // var = $ghost_W
+//    call mems, $stacksFrames := heapStoreStack(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $absMem, $toAbs, $stacksFrames, objLayouts, OMem(MReg(ESP, 1052704)), OReg(EBX), EvalPtr(r, OMem(MReg(ESP, 1052704))), $ghost_W__abs);
+//
+//    // call:: $ghost__temp__6 := Proc_SSIG1__impl($ghost__temp__7)  // isGhost = False
+//    call alignCall(r.regs[ESP]);
+//    {: call r, stk := logical_Call(r, core_state, stk);
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, $ghost__temp__6 := Proc_SSIG1__impl(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, $ghost__temp__7); :}
+//    assert SMemInvGcF(24, stk, old(stk_old), r.regs[ESP] + 20, old(r_old.regs[ESP]), $stacksFrames, $stacksFrames_old);
+//
+//    // pop return value #0 at index 0 into destination $ghost__temp__6 isPtr = False
+//    $ghost__temp__6 := stk.map[r.regs[ESP] + 0];
+//
+//    // regalloc_stack_load:: EAX := OMem(MReg(ESP, 0))  // var = $ghost__temp__6 605
+//    call r := logical_Load(r, core_state, stk, EAX, OMem(MReg(ESP, 0)));
+//    assert !false;
+//
+//    // regalloc_stack_load:: EDX := OMem(MReg(ESP, 12))  // var = $ghost_t 606
+//    call r := logical_Load(r, core_state, stk, EDX, OMem(MReg(ESP, 12)));
+
+    // move:: $ghost__temp__10 := $ghost_t  // isPtr = False
+    call r := instr_Mov(r, ECX, OReg(EBP));
+    $ghost__temp__10 := r.regs[ECX];
+
+    // binary_assignment:: $ghost__temp__10 := instr_SubChecked($ghost__temp__10, )
+    call r := instr_SubChecked(r, ECX, OConst(7));
+    $ghost__temp__10 := r.regs[ECX];
+
+//    // regalloc_stack_load:: ESI := OMem(MReg(ESP, 1052704))  // var = $ghost_W 607
+//    call r, mems := heapLoadStack(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $absMem, $toAbs, $stacksFrames, objLayouts, ESI, OMem(MReg(ESP, 1052704)), EvalPtr(r, OMem(MReg(ESP, 1052704))));
+//        $ghost_W__abs := frameGet($stacksFrames, EvalPtr(r, OMem(MReg(ESP, 1052704))));
+
+    // loadArrayElement
+    call r, mems := loadArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, EBX, OMem(MIndex(ESI, 4, ECX, 8)), $ghost__temp__10, $ghost_W__abs, r.regs[ESI]);
+    $ghost__temp__9 := r.regs[EBX];
+
+    // binary_assignment:: $ghost__temp__5 := proc_Asm__Add($ghost__temp__6, )
+    call r, $ghost__temp__5 := proc_Asm__Add(r, fun_SSIG1__impl(fun_INTERNAL__array__elems__index($absMem[$ghost_W.arrAbs], (INTERNAL_sub_boogie($ghost_t, 2)))), fun_INTERNAL__array__elems__index($absMem[$ghost_W.arrAbs], (INTERNAL_sub_boogie($ghost_t, 7))), EAX, OReg(EBX));
+    $ghost__temp__6 := r.regs[EAX];
+
+    // move:: $ghost__temp__5 := $ghost__temp__6  // isPtr = False
+    call r := instr_Mov(r, ECX, OReg(EAX));
+    $ghost__temp__5 := r.regs[ECX];
+    assert !false;
+
+    // move:: $ghost__temp__13 := $ghost_t  // isPtr = False
+    call r := instr_Mov(r, EAX, OReg(EBP));
+    $ghost__temp__13 := r.regs[EAX];
+
+    // binary_assignment:: $ghost__temp__13 := instr_SubChecked($ghost__temp__13, )
+    call r := instr_SubChecked(r, EAX, OConst(15));
+    $ghost__temp__13 := r.regs[EAX];
+
+    // loadArrayElement
+    call r, mems := loadArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, EBX, OMem(MIndex(ESI, 4, EAX, 8)), $ghost__temp__13, $ghost_W__abs, r.regs[ESI]);
+    $ghost__temp__12 := r.regs[EBX];
+
+    // Arg is EBX
+    // Saves ECX, EDX
+    curW := Eval(r, OReg(EBX));
+
+    call r := instr_Mov(r, EAX, OReg(EBX));
+
+    // binary_assignment:: $ghost__temp__11 := proc_Asm__RotateRight($ghost__temp__1, )
+    $ghost_x := Eval(r, OReg(EAX));
+    call r, $ghost__temp__11 := proc_Asm__RotateRight(r, $ghost_x, 7, EAX, OConst(7));
+    $ghost__temp__11 := r.regs[EAX];
+    assert !false;
+
+    // move:: $ghost__temp__3 := $ghost_x  // isPtr = False
+    call r := instr_Mov(r, EDI, OReg(EBX));
+    $ghost__temp__3 := r.regs[EDI];
+
+    // binary_assignment:: $ghost__temp__3 := proc_Asm__RotateRight($ghost__temp__2, )
+    call r, $ghost__temp__3 := proc_Asm__RotateRight(r, $ghost_x, 18, EDI, OConst(18));
+    $ghost__temp__3 := r.regs[EDI];
+    assert !false;
+
+    // binary_assignment:: $ghost__temp__12 := proc_Asm__BitwiseXor($ghost__temp__1, )
+    call r, $ghost__temp__12 := proc_Asm__BitwiseXor(r, fun_Asm__RotateRight($ghost_x, 7), fun_Asm__RotateRight($ghost_x, 18), EAX, OReg(EDI));
+    $ghost__temp__11 := r.regs[EAX];
+
+//    // move:: $ghost__temp__12 := $ghost__temp__11  // isPtr = False
+//    call r := instr_Mov(r, EDI, OReg(EAX));
+//    $ghost__temp__12 := r.regs[EDI];
+//    assert !false;
+
+//    // move:: $ghost__temp__3 := $ghost_x  // isPtr = False
+//    call r := instr_Mov(r, EAX, OReg(EBX));
+//    $ghost__temp__3 := r.regs[EAX];
+
+    // binary_assignment:: $ghost__temp__3 := proc_Asm__RightShift($ghost__temp__3, )
+    call r, $ghost__temp__3 := proc_Asm__RightShift(r, $ghost_x, 3, EBX, OConst(3));
+    $ghost__temp__3 := r.regs[EBX];
+    assert !false;
+
+    // binary_assignment:: $ghost___result := proc_Asm__BitwiseXor($ghost__temp__12, )
+    call r, $ghost__temp__11 := proc_Asm__BitwiseXor(r, fun_Asm__BitwiseXor(fun_Asm__RotateRight($ghost_x, 7), fun_Asm__RotateRight($ghost_x, 18)), fun_Asm__RightShift($ghost_x, 3), EAX, OReg(EBX));
+    $ghost__temp__12 := r.regs[EAX];
+
+    call proc_reveal__SSIG0();
+    assert Eval(r, OReg(EAX)) == fun_SSIG0(curW);
+   // call r := instr_Mov(r, EAX, OReg(EDI));
+
+
+//    // push argument #0 at index 1 isPtr = False argument = $ghost__temp__12
+//    // regalloc_stack_store:: OMem(MReg(ESP, 4)) := EBX  // var = $ghost__temp__12
+//    call stk := logical_Store(r, core_state, stk, OMem(MReg(ESP, 4)), OReg(EBX));
+//
+//    // regalloc_stack_store:: OMem(MReg(ESP, 16)) := ECX  // var = $ghost__temp__5
+//    call stk := logical_Store(r, core_state, stk, OMem(MReg(ESP, 16)), OReg(ECX));
+//
+//    // regalloc_stack_store:: OMem(MReg(ESP, 12)) := EDX  // var = $ghost_t
+//    call stk := logical_Store(r, core_state, stk, OMem(MReg(ESP, 12)), OReg(EDX));
+//
+//    // regalloc_stack_store:: OMem(MReg(ESP, 1052704)) := ESI  // var = $ghost_W
+//    call mems, $stacksFrames := heapStoreStack(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $absMem, $toAbs, $stacksFrames, objLayouts, OMem(MReg(ESP, 1052704)), OReg(ESI), EvalPtr(r, OMem(MReg(ESP, 1052704))), $ghost_W__abs);
+//
+//    // call:: $ghost__temp__11 := Proc_SSIG0__impl($ghost__temp__12)  // isGhost = False
+//    call alignCall(r.regs[ESP]);
+//    {: call r, stk := logical_Call(r, core_state, stk);
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, $ghost__temp__11 := Proc_SSIG0__impl(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, $ghost__temp__12); :}
+//    assert SMemInvGcF(24, stk, old(stk_old), r.regs[ESP] + 20, old(r_old.regs[ESP]), $stacksFrames, $stacksFrames_old);
+//
+//    // pop return value #0 at index 0 into destination $ghost__temp__11 isPtr = False
+//    $ghost__temp__11 := stk.map[r.regs[ESP] + 0];
+//
+//    // regalloc_stack_load:: EAX := OMem(MReg(ESP, 0))  // var = $ghost__temp__11 608
+//    call r := logical_Load(r, core_state, stk, EAX, OMem(MReg(ESP, 0)));
+//    assert !false;
+//
+//    // regalloc_stack_load:: ECX := OMem(MReg(ESP, 16))  // var = $ghost__temp__5 609
+//    call r := logical_Load(r, core_state, stk, ECX, OMem(MReg(ESP, 16)));
+
+    call proc_reveal__SSIG0();
+    // Result == EAX
+    // need ECX == old(ECX)
+    // need EDX == old(EDX)
+
+    // binary_assignment:: $ghost__temp__4 := proc_Asm__Add($ghost__temp__5, )
+    call r, $ghost__temp__4 := proc_Asm__Add(r, fun_Asm__Add(fun_SSIG1__impl(fun_INTERNAL__array__elems__index($absMem[$ghost_W.arrAbs], (INTERNAL_sub_boogie($ghost_t, 2)))), fun_INTERNAL__array__elems__index($absMem[$ghost_W.arrAbs], (INTERNAL_sub_boogie($ghost_t, 7)))), fun_SSIG0__impl(fun_INTERNAL__array__elems__index($absMem[$ghost_W.arrAbs], (INTERNAL_sub_boogie($ghost_t, 15)))), ECX, OReg(EAX));
+    $ghost__temp__5 := r.regs[ECX];
+
+    // move:: $ghost__temp__4 := $ghost__temp__5  // isPtr = False
+    call r := instr_Mov(r, EAX, OReg(ECX));
+    $ghost__temp__4 := r.regs[EAX];
+    assert !false;
+
+//    // regalloc_stack_load:: EDX := OMem(MReg(ESP, 12))  // var = $ghost_t 610
+//    call r := logical_Load(r, core_state, stk, EDX, OMem(MReg(ESP, 12)));
+
+    // move:: $ghost__temp__15 := $ghost_t  // isPtr = False
+    call r := instr_Mov(r, ECX, OReg(EBP));
+    $ghost__temp__15 := r.regs[ECX];
+
+    // binary_assignment:: $ghost__temp__15 := instr_SubChecked($ghost__temp__15, )
+    call r := instr_SubChecked(r, ECX, OConst(16));
+    $ghost__temp__15 := r.regs[ECX];
+
+    // regalloc_stack_load:: ESI := OMem(MReg(ESP, 1052704))  // var = $ghost_W 611
+//    call r, mems := heapLoadStack(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $absMem, $toAbs, $stacksFrames, objLayouts, ESI, OMem(MReg(ESP, 1052704)), EvalPtr(r, OMem(MReg(ESP, 1052704))));
+//        $ghost_W__abs := frameGet($stacksFrames, EvalPtr(r, OMem(MReg(ESP, 1052704))));
+
+    // loadArrayElement
+    call r, mems := loadArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, EBX, OMem(MIndex(ESI, 4, ECX, 8)), $ghost__temp__15, $ghost_W__abs, r.regs[ESI]);
+    $ghost__temp__14 := r.regs[EBX];
+
+    // binary_assignment:: $ghost__temp__3 := proc_Asm__Add($ghost__temp__4, )
+    call r, $ghost__temp__3 := proc_Asm__Add(r, fun_Asm__Add(fun_Asm__Add(fun_SSIG1__impl(fun_INTERNAL__array__elems__index($absMem[$ghost_W.arrAbs], (INTERNAL_sub_boogie($ghost_t, 2)))), fun_INTERNAL__array__elems__index($absMem[$ghost_W.arrAbs], (INTERNAL_sub_boogie($ghost_t, 7)))), fun_SSIG0__impl(fun_INTERNAL__array__elems__index($absMem[$ghost_W.arrAbs], (INTERNAL_sub_boogie($ghost_t, 15))))), fun_INTERNAL__array__elems__index($absMem[$ghost_W.arrAbs], (INTERNAL_sub_boogie($ghost_t, 16))), EAX, OReg(EBX));
+    $ghost__temp__4 := r.regs[EAX];
+
+    // move:: $ghost__temp__3 := $ghost__temp__4  // isPtr = False
+    call r := instr_Mov(r, ECX, OReg(EAX));
+    $ghost__temp__3 := r.regs[ECX];
+    assert !false;
+
+    // storeArrayElement
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MIndex(ESI, 4, EBP, 8)), OReg(ECX), $ghost_t, $ghost__temp__3, $ghost_W__abs, r.regs[ESI]);
+
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 816
+    // ###LINE: C:\home\git\IroncladApps\iron\src\Dafny\Libraries\Crypto\Hash\sha256opt.i.dfy: 816
+    // binary_assignment:: $ghost_t := instr_AddChecked($ghost_t, )
+    call r := instr_AddChecked(r, EBP, OConst(1));
+    $ghost_t := r.regs[EBP];
+
+//    // regalloc_move:: EAX := EDX
+//    call r := instr_Mov(r, EAX, OReg(EDX));
+
+    // regalloc_stack_store:: OMem(MReg(ESP, 1052704)) := ESI  // var = $ghost_W
+//    call mems, $stacksFrames := heapStoreStack(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $absMem, $toAbs, $stacksFrames, objLayouts, OMem(MReg(ESP, 1052704)), OReg(ESI), EvalPtr(r, OMem(MReg(ESP, 1052704))), $ghost_W__abs);
+//
+    // label:: L1  // isLoop = True
+    L1:
+    invariant MemInv(me,init,stk,statics,core_state,ptMem,mems);
+    invariant NucleusInv(objLayouts,$S,$toAbs,$absMem,$commonVars,$gcVars,me,init,stk,statics,core_state,ptMem,mems,$stacksFrames,io);
+    invariant SMemInvGcF(24, stk, old(stk_old), r.regs[ESP] + 20, old(r_old.regs[ESP]), $stacksFrames, $stacksFrames_old);
+    invariant HeapInv($absMem, objLayouts, heap);
+    invariant AbsExtend($toAbs, $toAbs_old, objLayouts, objLayouts_old);
+    invariant (forall i:int::{$absMem[i]}{heap.absData[i]} heap_old.absData[i] is AbsNone || (heap.absData[i] == heap_old.absData[i] && ($absMem[i] == $absMem_old[i] || i == (($ghost_W).arrAbs))));
+    invariant io._inCtr == io_old._inCtr && io._outCtr == io_old._outCtr;
+
+    // loop invariants
+    invariant HeapValue(objLayouts, true, $toAbs, r.regs[ESI], $ghost_W__abs);
+    invariant $ghost_t == (r.regs[EBP]);
+    invariant StackAbsSlot(heap, $stacksFrames, EvalPtr(r, OMem(MReg(ESP, stackGcOffset+32)))) == Abs_ArrayOfInt($ghost_W);
+    invariant frameGet($stacksFrames, EvalPtr(r, OMem(MReg(ESP, stackGcOffset+32)))) == $ghost_W.arrAbs;
+    invariant (INTERNAL_le_boogie(16, $ghost_t)) && (INTERNAL_le_boogie($ghost_t, 64));
+    invariant (forall $ghost__0_step:int ::  ((INTERNAL_le_boogie(0, $ghost__0_step)) && (INTERNAL_lt_boogie($ghost__0_step, $ghost_t))) ==> (fun_Word32(fun_INTERNAL__array__elems__index($absMem[$ghost_W.arrAbs], ($ghost__0_step)))));
+    invariant (forall $ghost__1_step:int :: {fun_TStep($ghost__1_step)} ((fun_TStep($ghost__1_step)) && ((INTERNAL_le_boogie(0, $ghost__1_step)) && (INTERNAL_lt_boogie($ghost__1_step, 16)))) ==> ((fun_INTERNAL__array__elems__index($absMem[$ghost_W.arrAbs], ($ghost__1_step))) == (fun_Seq__Index___int(fun_Seq__Index___Seq___int((M#SHA256Trace_c($ghost_z)), $ghost_currentBlock), $ghost__1_step))));
+    invariant (forall $ghost__2_step:int :: {fun_TStep($ghost__2_step)} ((fun_TStep($ghost__2_step)) && ((INTERNAL_le_boogie(16, $ghost__2_step)) && (INTERNAL_lt_boogie($ghost__2_step, $ghost_t)))) ==> ((fun_INTERNAL__array__elems__index($absMem[$ghost_W.arrAbs], ($ghost__2_step))) == (fun_Asm__Add(fun_Asm__Add(fun_Asm__Add(fun_SSIG1(fun_INTERNAL__array__elems__index($absMem[$ghost_W.arrAbs], (INTERNAL_sub_boogie($ghost__2_step, 2)))), fun_INTERNAL__array__elems__index($absMem[$ghost_W.arrAbs], (INTERNAL_sub_boogie($ghost__2_step, 7)))), fun_SSIG0(fun_INTERNAL__array__elems__index($absMem[$ghost_W.arrAbs], (INTERNAL_sub_boogie($ghost__2_step, 15))))), fun_INTERNAL__array__elems__index($absMem[$ghost_W.arrAbs], (INTERNAL_sub_boogie($ghost__2_step, 16)))))));
+    assert !false;
+    call proc_Seq__Equal__Equiv___int();
+    call proc_Seq__Equal__Equiv___Seq___int();
+    call proc_Seq__Equal__Equiv___atoh_Type();
+    call proc_Seq__Equal__Equiv___Seq___atoh_Type();
+    call proc_Seq__Equal__Equiv___bool();
+    // jump_to_label:: L0 condition = $ghost_t < 64
+    call r := instr_Cmp(r, EBP, OConst(64)); if (Jb(r.efl)) { goto L0; }
+
+    // label:: L2  // isLoop = False
+    L2:
+    call r := logical_Add(r, ESP, OConst(20));
+
+    // return
+    {: call r := logical_Ret(r, core_state, stk); return; :}
+}
+}

@@ -1,0 +1,57 @@
+//-private-import BaseSpec;
+//-private-import MemorySpec;
+//-private-import IntSpec;
+//-private-import BitVectorLemmasDevices;
+//-<NuBuild AddBoogieAxiom Word_axioms />
+//-<NuBuild AddBoogieAxiom IntSpec_axioms />
+//-
+//- Copyright (c) Microsoft Corporation.  All rights reserved.
+//-
+
+module implementation IntLemmasDevices
+{
+
+atomic ghost procedure _a($b1:bv32, $b2:bv32)
+  requires word(add(I($b1), I($b2)));
+  ensures  add(I($b1), I($b2)) == I($add($b1, $b2));
+{
+}
+
+atomic ghost procedure _s($b1:bv32, $b2:bv32)
+  requires word(sub(I($b1), I($b2)));
+  ensures  sub(I($b1), I($b2)) == I($sub($b1, $b2));
+{
+}
+
+atomic ghost procedure __constDevices()
+  ensures 0 == I(0bv32);
+  ensures 1 == I(1bv32);
+  ensures 4 == I(4bv32);
+  ensures 7 == I(7bv32);
+  ensures 32 == I(32bv32);
+{
+  call _constDevices();
+  call _s(1bv32, 1bv32);
+  call _s(1bv32, 0bv32);
+  call _a(1bv32, 1bv32);
+  call _a(2bv32, 2bv32);
+  call _a(2bv32, 1bv32);
+  call _a(3bv32, 4bv32);
+  call _a(4bv32, 4bv32);
+  call _a(8bv32, 8bv32);
+  call _a(16bv32, 16bv32);
+}
+
+implementation lemma_and7_implies_mod_4() 
+{
+  call __constDevices();
+  call _lemma_and7_implies_mod_4();
+}
+
+implementation lemma_shl_1()
+{
+  call __constDevices();
+  call _lemma_shl_1();
+}
+
+}

@@ -1,0 +1,19 @@
+//-
+//- Copyright (c) Microsoft Corporation.  All rights reserved.
+//-
+
+module implementation BaseSpec
+{
+  implementation reveal_WORD_HI() {}
+  implementation reveal_wrap32(val:int) {}
+  implementation reveal_int_bit(n:int, index:int) {}
+  implementation axiom_neg(x:int) {}
+  implementation axiom_and(x:int, y:int) {}
+  implementation axiom_or (x:int, y:int) {}
+  implementation axiom_xor(x:int, y:int) {}
+  implementation axiom_shl(x:int, y:int) {}
+  implementation axiom_shr(x:int, y:int) {}
+  implementation axiom_rol(x:int, y:int) {}
+  implementation axiom_ror(x:int, y:int) {}
+  implementation new_linear_int() returns(i:int) {}
+}

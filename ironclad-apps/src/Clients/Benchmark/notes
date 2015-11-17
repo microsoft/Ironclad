@@ -1,0 +1,21 @@
+2014.04.25 values:
+
+Sha256
+[  2.68974487e-05  -7.74454427e-03]
+Sha1
+[  2.66306843e-05  -7.70144164e-03]
+ByteSeqToWordSeq
+[  2.07652270e-05  -5.97859852e-03]
+WordSeqToByteSeq
+[  4.18720193e-05  -1.29082713e-02]
+
+Y-intercepts are negative, likely nonsense stemming from larger block
+sizes running with fewer repetitions.
+
+slopes are 26-42us/byte.
+
+When arp rots:
+netsh interface ipv4 add neighbors "Ethernet 2" 10.10.10.20 00-1b-21-31-8e-d9
+
+serial debug:
+/cygdrive/c/Program\ Files\ \(x86\)/raw/plink.exe -sercfg 115200,8,n,1 -serial com3

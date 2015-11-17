@@ -1,0 +1,134 @@
+//-private-import BaseSpec;
+//-private-import MemorySpec;
+//-private-import IoTypesSpec;
+//-private-import MachineStateSpec;
+//-private-import AssemblySpec;
+//-private-import InterruptsSpec;
+//-private-import IoSpec;
+//-<NuBuild AddBoogieAxiom Base_axioms />
+//-<NuBuild AddBoogieAxiom Memory_axioms />
+//-<NuBuild AddBoogieAxiom Assembly_axioms />
+//-private-import Partition;
+//-private-import Core;
+//-private-import Util;
+//-private-import LogicalAddressing;
+//-private-import Stacks;
+//-private-import Instructions;
+//-<NuBuild AddBoogieAxiom Word_axioms />
+//-
+//- Copyright (c) Microsoft Corporation.  All rights reserved.
+//-
+
+module implementation Separation
+{
+
+function implementation MemSepInv(dummy:bool):bool
+{
+    true
+ && (forall i:int::{memAddr(i)} memAddrMain(i) ==> memAddr(i))
+}
+
+function idiv(x:int, y:int):int { x div y }
+
+implementation initSeparation(linear mem_in:mem) returns(linear stk:mem, linear statics:mem, linear mems:mems, linear appCode:mem)
+{
+  linear var mem:mem := mem_in;
+  call reveal_MemInvDetails();
+
+//  call eax := AddChecked(eax, 0x190000);
+  //call eax := AddChecked(eax, 8192);
+  eax := edx;
+  assert eax >= ecx;
+  call eax := Sub(eax, ecx);
+  if (eax <= 0x132000)
+  {
+    eax := 0x55550011;
+    call debugBreak();
+  }
+
+  linear var dat:mem;
+  linear var arg:mem;
+  //linear var appCode:mem;
+  linear var pci:mem;
+  linear var gc:mem;
+  linear var frm:mem;
+  linear var tcb:mem;
+  call stk := memEmpty();
+  call dat := memEmpty();
+  call arg := memEmpty();
+  call appCode := memEmpty();
+  call pci := memEmpty();
+  call gc := memEmpty();
+  call frm := memEmpty();
+  call tcb := memEmpty();
+  call mem, stk := memTransfer(mem, stk, (lambda i:int::sAddr(i)));
+  call mem, dat := memTransfer(mem, dat, (lambda i:int::dAddr(i)));
+  call mem, arg := memTransfer(mem, arg, (lambda i:int::argAddr(i)));
+  call mem, pci := memTransfer(mem, pci, (lambda i:int::pciAddr(i)));
+  call mem, appCode := memTransfer(mem, appCode, (lambda i:int::appCodeAddr(i)));
+  call mem, gc  := memTransfer(mem, gc,  (lambda i:int::gcAddr(i)));
+  call mem, frm := memTransfer(mem, frm, (lambda i:int::?fLo <= i && i < ?fHi));
+  call mem, tcb := memTransfer(mem, tcb, (lambda i:int::?tLo <= i && i < ?tHi));
+  var frms:[int][int]int := (lambda s:int::(lambda i:int::frm[i]));
+  var tcbs:[int][int]int := (lambda s:int::(lambda i:int::tcb[i]));
+  //let mems := mems(dat, arg, appCode, pci, gc, frm, frms, tcb, tcbs);
+  let mems := mems(dat, arg, pci, gc, frm, frms, tcb, tcbs);
+
+  statics := mem;
+
+  CodeBase := ebp;
+  CodeSpace := ebx;
+
+  SLo := ecx;
+  assert TV(ecx) && TO(1024);
+  call ecx := Add(ecx, 4096);
+  DLo := ecx;
+  assert TV(ecx) && TO(256);
+  call ecx := Add(ecx, 1024);
+  ArgLo := ecx;
+  assert TV(ecx) && TO(256);
+  call ecx := Add(ecx, 1024);
+  PciLo := ecx;
+  assert TV(ecx) && TO(256);
+  call ecx := Add(ecx, 1024);
+  assert ?extraLo == ecx;
+  assert TV(ecx) && TO(0x3D00);
+  call ecx := Add(ecx, 0xF400);
+  assert ?extraHi == ecx;
+  AppCodeLo := ecx;
+  assert TV(ecx) && TO(0x40000);
+  call ecx := Add(ecx, 0x100000);
+  TLo := ecx;
+  assert TV(ecx) && TO(4096);
+  FLo := ecx;
+  assert TV(ecx) && TO(273920);
+  call ecx := Add(ecx, 4096);
+  GcLo := ecx;
+  GcHi := edx;
+
+ assert SLo == ?sLo;
+ assert DLo == ?dLo;
+ assert ArgLo == ?argLo;
+ assert AppCodeLo == ?appCodeLo;
+ assert PciLo == ?pciLo;
+ assert TLo == ?tLo;
+ assert FLo == ?fLo;
+ assert GcLo == ?gcLo;
+ assert GcHi == ?gcHi;
+
+ assert ?fLo - ?sLo == 0x111000; //-stackGcOffset;
+}
+
+implementation alignCall(sp:int)
+  requires Aligned(sp);
+  ensures  Aligned(sp - 4);
+  ensures  Aligned(sp - 8);
+{
+  #ifdef x64
+    assert TV(sp) && TV(sp-4) && TO(0 - 1);
+  #else
+  assert TV(sp) && TO(0 - 1);
+  #endif
+}
+
+}

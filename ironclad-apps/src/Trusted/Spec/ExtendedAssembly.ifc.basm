@@ -1,0 +1,42 @@
+//-
+//- Copyright (c) Microsoft Corporation.  All rights reserved.
+//-
+
+module interface ExtendedAssembly
+{
+
+//-////////////////////////////////////////////////////////////////////////////
+//-
+//- The AppLoader calls this instruction to jump into the real code
+//-
+//-////////////////////////////////////////////////////////////////////////////
+
+#ifdef AppLoader
+atomic procedure instr_Launch(
+    my r:regs,
+    my core_state:core_state,
+    linear initState:InitStateMachine,
+    linear mem:mem,
+    linear code_mem:mem,
+    linear io:IOState,
+    app_entry:int,
+    app_code_base:int,
+    code_word_seq:Seq___int
+    );
+  requires AppLoaderContractGeneric(me, init, r, core_state, initState, mem, code_mem, io, app_entry, app_code_base, code_word_seq);
+
+  //- Same number of IO events initially.  Must be here instead of AppLoaderContract, since we can't use public in functions
+  requires public(io._inCtr);
+  requires public(io._outCtr);
+
+  //- PCR19 must have been extended with SHA1([app_code_base, app_entry] + app_code_words)
+  //- Other apps don't need to know this is what we put in PCR 19
+  requires (let hash_input:Seq___int := fun_BEWordSeqToBitSeq(
+            fun_Seq__Append___int(fun_Seq__Build___int(fun_Seq__Build___int(fun_Seq__Empty___int(), app_code_base), app_entry), code_word_seq)) in 
+          //fun_Seq__Length___int(hash_input) < fun_power2(64) && (fun_IsBitSeq(hash_input))) && 
+            fun_Seq__Equal___Seq___int((PCR_19#TPM_build($ghost_TPM)), fun_Seq__Build___Seq___int(fun_Seq__Empty___Seq___int(), fun_BEWordSeqToByteSeq(fun_SHA1(hash_input)))));
+
+  ensures false;
+#endif
+
+}

@@ -1,0 +1,15 @@
+//-
+//- Copyright (c) Microsoft Corporation.  All rights reserved.
+//-
+
+//-<NuBuild BasmEnableSymdiff true />
+module implementation AssemblySpec
+{
+
+implementation memEmpty() returns(linear m:mem) {}
+implementation memTransfer(linear src:mem, linear dst:mem, b:[int]bool) returns(linear _src:mem, linear _dst:mem) {}
+implementation memDisjoint(const linear m1:mem, const linear m2:mem) {}
+implementation memDomIsMemAddr(const linear m:mem, i:int) {}
+implementation enableStatics(linear initState:InitStateMachine) returns (linear _initState:InitStateMachine, linear static_mem:mem) {}
+implementation declassify(my r:regs, x:int, g:int) returns (my _r:regs) {}
+}

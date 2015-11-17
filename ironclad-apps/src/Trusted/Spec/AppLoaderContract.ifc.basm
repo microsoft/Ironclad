@@ -1,0 +1,64 @@
+//-
+//- Copyright (c) Microsoft Corporation.  All rights reserved.
+//-
+
+module interface AppLoaderContract
+{
+
+//-////////////////////////////////////////////////////////////////////////////
+//-
+//- This function defines the contract between AppLoader and the App it launches
+//- AppLoader must, effectively, ensure it, while the app gets to assume it
+//-
+//-////////////////////////////////////////////////////////////////////////////
+
+
+function AppLoaderContractGeneric(
+    core_id:int,
+    init:bool,
+    r:regs,
+    core_state:core_state,
+    initState:InitStateMachine,
+    mem:mem,
+    code_mem:mem,
+    io:IOState,
+    app_entry:int,
+    app_code_base:int,
+    code_word_seq:Seq___int
+    ):bool
+{
+     app_code_base == r.regs[EAX]
+  && app_entry == r.regs[EBX]
+  && Aligned(app_code_base) 
+  && app_code_base mod 0x10000 == 0
+  && app_code_base <= app_entry && app_entry < app_code_base + 0x100000  //- Code must be < 1MB
+  && ?memLo <= app_code_base + 0x101000           //- Usable memory starts at the end of the code + 1K
+  && ?memHi >= app_code_base + 123*1024*1024  
+  && ?memHi == 0x08000000  
+  && (forall i:int::{memAddr(i)}{mem.dom[i]} 
+           app_code_base + 0x101000 <= i && i < ?memHi <==> mem.dom[i])  //- App expects 123 MB of memory
+  && r.regs[ESP] == add(app_code_base, 123*1024*1024) //- Stack starts at the very top
+  && (forall k:int::{memAddr(k)} ?memLo <= k && k < ?memHi ==> memAddr(k))
+  && ValidPrePagingState(core_state.cregs[CR0])
+  && core_state.seg_regs[SS].descriptor.segBase == 0 && 
+           core_state.seg_regs[SS].descriptor.segType == ?SegmentDescriptorTypeData
+  && core_state.seg_regs[DS].descriptor.segBase == 0 && 
+           core_state.seg_regs[DS].descriptor.segType == ?SegmentDescriptorTypeData
+  && core_id == 0     //- Must be run on the bootstrap processor
+  && !init
+
+  && (forall j:int :: 0 <= j && j < 256*1024 ==> 
+            fun_Seq__Index___int(code_word_seq, j) == code_mem.map[app_code_base + j*4])
+
+  //- App loader knows its constants by now, but the app we launch doesn't
+#ifndef AppLoader
+  && initState is EntryPoint
+  && ?CodeBase == app_code_base  //- New definition, since app is linked at a different base
+#endif
+
+  //- Trusted code has not yet done anything to the PCI configuration
+  && (forall s:int::{PciConfigState#PciState(_pci#IOState(io))[s]} 0 <= s && s < 65536 ==> io._pci.PciConfigState[s] == 0) // TODO: fix triggering
+
+}
+
+}

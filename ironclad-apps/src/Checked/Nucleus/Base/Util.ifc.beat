@@ -1,0 +1,104 @@
+//-private-import BaseSpec;
+//-private-import MemorySpec;
+//-private-import IoTypesSpec;
+//-private-import MachineStateSpec;
+//-private-import AssemblySpec;
+//-private-import InterruptsSpec;
+//-private-import IoSpec;
+//-<NuBuild AddBoogieAxiom Base_axioms />
+//-<NuBuild AddBoogieAxiom Memory_axioms />
+//-<NuBuild AddBoogieAxiom Assembly_axioms />
+//-private-import Partition;
+//-private-import Core;
+//-private-import LogicalAddressing;
+//-
+//- Copyright (c) Microsoft Corporation.  All rights reserved.
+//-
+module interface Util
+{
+
+//- Write hex digit (ecx & 15) to screen offset edx
+procedure writeHexDigit();
+  inout my r:regs, my core_state:core_state;
+  requires logical_addressing_inv(init, ptMem, core_state);
+  requires 0 <= edx && edx <= 160 - 2;
+  modifies efl, ecx;
+  ensures  logical_addressing_inv(init, ptMem, core_state);
+
+//- Write value eax to screen offset edx
+procedure writeHex();
+  inout my r:regs, my core_state:core_state;
+  requires logical_addressing_inv(init, ptMem, core_state);
+  requires 0 <= edx && edx <= 160 - 16;
+  modifies efl, eax, ecx, edx;
+  ensures  logical_addressing_inv(init, ptMem, core_state);
+
+//- Write hex digit (ecx & 15) to screen offset edx
+procedure writeHexDigitIllogical();
+  inout my r:regs, my core_state:core_state;
+  requires 0 <= edx && edx <= 160 - 2;
+  modifies efl, ecx;
+
+//- Write value eax to screen offset edx
+procedure writeHexIllogical();
+  inout my r:regs, my core_state:core_state;
+  requires 0 <= edx && edx <= 160 - 16;
+  modifies efl, eax, ecx, edx;
+
+procedure debugBreak();
+  inout my r:regs, my core_state:core_state;
+  modifies efl, eax, ecx, edx;
+  ensures false;
+
+procedure DebugBreak();
+  inout my r:regs, my core_state:core_state, linear stk:mem;
+  modifies efl, eax, ecx, edx, esp;
+  ensures false;
+
+procedure initializeSerialPort();
+  inout my r:regs, my core_state:core_state;
+  modifies efl, eax, edx;
+  ensures serialPortConfigged();
+
+//- Pass in a word via esi
+procedure serialDbgWordOut();
+  inout my r:regs, my core_state:core_state;
+  requires serialPortConfigged();
+  modifies efl, eax, ebx, ecx, edx;
+
+procedure serialDbgNewlineOut();
+  inout my r:regs, my core_state:core_state;
+  requires serialPortConfigged();
+  modifies efl, eax, ecx, edx;
+
+//- Print ^ followed by a newline, for situations where you don't want to touch ebx
+procedure serialDbgMarkOut();
+  inout my r:regs, my core_state:core_state;
+  requires serialPortConfigged();
+  modifies efl, eax, ecx, edx;
+
+//- Pass in a byte via ebx
+procedure serialDbgByteOut();
+  inout my r:regs, my core_state:core_state;
+  requires serialPortConfigged();
+  modifies efl, eax, ecx, edx;
+
+//- Pass in a raw byte via ecx
+procedure serialDbgDataOut8();
+  inout my r:regs, my core_state:core_state;
+  requires serialPortConfigged();
+  modifies efl, eax, edx;
+
+//procedure serialDbgDataIn8();
+//  inout core:state_core;
+//  requires serialPortConfigged();
+//  requires logical_addressing_inv(me, init, $State, $part, ptOwner__id, core);
+//  requires $serialState.Mode.DLAB == false;
+//  modifies $State, $serialState.In, $Eip, $Efl, eax, edx;
+//  modifies $part;
+////  ensures  $part.vars[me] == old($part).vars[me];
+//  ensures  logical_addressing_inv(me, init, $State, $part, ptOwner__id, core);
+//  ensures  $serialState.In.Events[$serialState.In.Done] == and (eax, 255);
+//  ensures  $serialState.In.Done == old($serialState).In.Done + 1;
+
+}

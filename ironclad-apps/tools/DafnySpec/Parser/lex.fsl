@@ -1,0 +1,178 @@
+{
+open Lexing;;
+open Parse;;
+open Parse_util;;
+open Microsoft.FSharp.Compatibility.OCaml.Big_int;;
+
+let macros = ref (Map.empty:Map<string,token list>)
+let cur_loc ():Microsoft.Boogie.Token = new Microsoft.Boogie.Token(!file, !line)
+
+}
+
+rule comment = parse
+| "*/" { () }
+| "*)" { () }
+| "/*" { comment lexbuf ; comment lexbuf }
+| "(*" { comment lexbuf ; comment lexbuf }
+| "\n\r" { incr line; comment lexbuf }
+| "\r\n" { incr line; comment lexbuf }
+| ['\n''\r'] { incr line; comment lexbuf }
+| _ { comment lexbuf }
+and preprocess_skip deep = parse
+| "#else" { if deep then preprocess_skip deep lexbuf else () }
+| "#endif" { () }
+| "#ifdef" { preprocess_skip true lexbuf; preprocess_skip deep lexbuf }
+| "#ifndef" { preprocess_skip true lexbuf; preprocess_skip deep lexbuf }
+| "\n\r" { incr line; preprocess_skip deep lexbuf }
+| "\r\n" { incr line; preprocess_skip deep lexbuf }
+| ['\n''\r'] { incr line; preprocess_skip deep lexbuf }
+| _ { preprocess_skip deep lexbuf }
+and file_name = parse
+| [' ']*[^' ''\n''\r']+[^'\n''\r']* { file := (lexeme lexbuf).Trim() ; token lexbuf }
+| [^'\n''\r']* { token lexbuf }
+and line_number = parse
+| ['0'-'9']+ { line := int_of_string(lexeme lexbuf) - 1 ; file_name lexbuf }
+and token = parse
+| "\n\r" { incr line; token lexbuf }
+| "\r\n" { incr line; token lexbuf }
+| ['\n''\r'] { incr line; token lexbuf }
+| [' ''\t'] { token lexbuf }
+| "//"[^'\n''\r']* { token lexbuf }
+| "#line"[' ']* { line_number lexbuf }
+| "/*call_lemma:*/" { CALL_LEMMA }
+| "/*" { comment lexbuf ; token lexbuf }
+| "(*" { comment lexbuf ; token lexbuf }
+| "#ifdef"[' ']+['A'-'Z''a'-'z''0'-'9''_''$''?']+
+{
+  let s = lexeme lexbuf in
+  let x = s.Substring("#ifdef".Length).Trim() in
+  if Map.contains x !macros then token lexbuf else (preprocess_skip false lexbuf ; token lexbuf)
+}
+| "#ifndef"[' ']+['A'-'Z''a'-'z''0'-'9''_''$''?']+
+{
+  let s = lexeme lexbuf in
+  let x = s.Substring("#ifndef".Length).Trim() in
+  if not (Map.contains x !macros) then token lexbuf else (preprocess_skip false lexbuf ; token lexbuf)
+}
+| "#else" { preprocess_skip false lexbuf ; token lexbuf }
+| "#endif" { token lexbuf }
+| ":" { COLON (cur_loc ()) }
+| ";" { SEMI }
+| "(" { LPAREN }
+| ")" { RPAREN }
+| "[" { LBRACKET }
+| "]" { RBRACKET }
+| "{" { LBRACE (cur_loc ()) }
+| "}" { RBRACE (cur_loc ()) }
+| "<" { LT }
+| ">" { GT }
+| "=" { EQ }
+| "+" { PLUS }
+| "-" { MINUS }
+| "*" { STAR }
+| "!" { BANG }
+| "?" { QUESTION }
+| "%" { MOD }
+| "/" { DIV }
+| "," { COMMA }
+| "|" { BAR }
+| "#" { HASH }
+| "`" { TICK }
+| "." { DOT }
+| ".." { DOTDOT }
+| ":=" { COLONEQ (cur_loc ()) }
+| "<=" { LE }
+| ">=" { GE }
+| "==" { EQEQ }
+| "!=" { NE }
+| "&&" { AMPAMP }
+| "||" { BARBAR }
+| ":|" { COLONBAR }
+| "::" { COLONCOLON }
+| "=>" { EQGT }
+| "==>" { EQEQGT }
+| "<==" { LTEQEQ }
+| "<==>" { LTEQEQGT }
+| "type" { TYPE (cur_loc ()) }
+//| "const" { CONST (cur_loc ()) }
+//| "readonly" { READONLY (cur_loc ()) }
+| "datatype" { DATATYPE (cur_loc ()) }
+| "function" { FUNCTION (cur_loc ()) }
+| "predicate" { PREDICATE (cur_loc ()) }
+| "method" { METHOD (cur_loc ()) }
+| "lemma" { LEMMA (cur_loc ()) }
+| "returns" { RETURNS (cur_loc ()) }
+//| "axiom" { AXIOM (cur_loc ()) }
+//| "procedure" { PROCEDURE (cur_loc ()) }
+//| "implementation" { IMPLEMENTATION (cur_loc ()) }
+| "requires" { REQUIRES (cur_loc ()) }
+| "ensures" { ENSURES (cur_loc ()) }
+| "modifies" { MODIFIES (cur_loc ()) }
+| "decreases" { DECREASES (cur_loc ()) }
+| "invariant" { INVARIANT (cur_loc ()) }
+| "assert" { ASSERT (cur_loc ()) }
+//| "havoc" { HAVOC }
+| "goto" { GOTO (cur_loc ()) }
+| "call" { CALL (cur_loc ()) }
+| "forall" { FORALL (cur_loc ()) }
+| "exists" { EXISTS (cur_loc ()) }
+//| "lambda" { LAMBDA (cur_loc ()) }
+| "old" { OLD }
+//| "left" { LEFT }
+//| "right" { RIGHT }
+//| "relation" { RELATION }
+//| "public" { PUBLIC }
+| "int" { INT }
+| "nat" { NAT }
+| "real" { REAL }
+| "bool" { BOOL }
+| "seq" { SEQ }
+| "true" { LITBOOL true }
+| "false" { LITBOOL false }
+| "this" { THIS }
+//| "is" { IS }
+//| "let" { LET }
+| "in" { IN }
+| "match" { MATCH }
+| "case" { CASE }
+| "var" { VAR (cur_loc ()) }
+| "if" { IF (cur_loc ()) }
+| "then" { THEN }
+| "else" { ELSE }
+| "return" { RETURN (cur_loc ()) }
+//| "ireturn" { IRETURN (cur_loc ()) }
+//| "yield" { YIELD (cur_loc ()) }
+//| "linear" { LINEAR }
+//| "my" { MY }
+| "static" { STATIC (cur_loc ()) }
+//| "module" { MODULE (cur_loc ()) }
+//| "interface" { INTERFACE (cur_loc ()) }
+//| "import" { IMPORT (cur_loc ()) }
+| "include" { INCLUDE (cur_loc ()) }
+//| "atomic" { ATOMIC }
+//| "stable" { STABLE }
+| "ghost" { GHOST }
+| "0x"['0'-'9''a'-'f''A'-'F']+ {
+    let s = lexeme lexbuf in
+    let s = String.sub s 2 (String.length s - 2) in
+    let rec explode (n:int) s = if n = String.length s then [] else (String.get s n)::(explode (n+1) s) in
+    let digits = List.map (Char.code << Char.lowercase) (explode 0 s) in
+    let rec hex digits n =
+      match digits with
+      | [] -> n
+      | h::t ->
+          let d = if h >= (Char.code 'a') then h - (Char.code 'a') + 10 else h - (Char.code '0') in
+          hex t (add_int_big_int d (mult_int_big_int 16 n)) in
+    LITINT (hex digits zero_big_int)
+  }
+| ['0'-'9']+ { LITINT (big_int_of_string(lexeme lexbuf)) }
+| ['0'-'9']+['.']['0'-'9']+ { LITREAL (lexeme lexbuf) }
+| ['0'-'9']+"bv32" { let s = lexeme lexbuf in LITBV32 (big_int_of_string(s.Substring(0, s.Length - 4))) }
+| ['_']*['A'-'Z']['_''a'-'z''A'-'Z''0'-'9''\'']* { UID ((lexeme lexbuf)) }
+| ['_']*['a'-'z']['_''a'-'z''A'-'Z''0'-'9''\'']* { LID ((lexeme lexbuf)) }
+| ['_']+['_''0'-'9''\'']* { LID ((lexeme lexbuf)) }
+| ['"'][^'"']*['"'] { LITSTRING (let s = lexeme lexbuf in s.Substring(1, s.Length - 2)) }
+| eof { EOF }
+| '\000' { EOF }
+| _ { parse_err ("cannot parse character: \"" ^ (lexeme lexbuf) ^ "\"" ^ "\n(ascii code " ^ (string_of_int (Char.code (String.get (lexeme lexbuf) 0))) ^ ")") }
+

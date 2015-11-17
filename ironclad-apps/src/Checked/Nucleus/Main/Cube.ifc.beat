@@ -1,0 +1,51 @@
+//-
+//- Copyright (c) Microsoft Corporation.  All rights reserved.
+//-
+
+module interface Cube
+{
+
+type Tri = Triple(Pwd:int, Salt:int, Key:int);
+type Map = MapCons(Domain:[Tri]bool, Range:[Tri]int);
+var $ghost_Hashed:Map;
+const stack_size__DafnyCC__Proc_Cube:int := 256 + 64;
+
+procedure Proc_Cube(core_old:core_state, my_part__DafnyCC__old:partition, my__DafnyCC__mem_old:mems, $commonVars_old:commonVars, $gcVars_old:gcVars, $toAbs_old:[int]int, $absMem_old:[int][int]int, $stacksFrames_old:[int]Frames, objLayouts_old:[int]ObjLayout, heap_old:Heap, $ghost_N:int)
+    returns(core:core_state, my_part:partition, my__DafnyCC__mem:mems, $commonVars:commonVars, $gcVars:gcVars, $toAbs:[int]int, $absMem:[int][int]int, $stacksFrames:[int]Frames, objLayouts:[int]ObjLayout, heap:Heap, $ghost_c:int);
+    requires MemInv(me,init,$State,core_old,ptOwner__id,(mem.map),$part,my_part__DafnyCC__old,$mem__id,$sepVars__id,my__DafnyCC__mem_old,$sepVars);
+    requires NucleusInv(objLayouts_old,$S,$toAbs_old,$absMem_old,$commonVars__id,$gcVars__id,$ioVars__id,$commonVars_old,$gcVars_old,me,init,$State,core_old,ptOwner__id,(mem.map),$part,my_part__DafnyCC__old,$mem__id,$sepVars__id,my__DafnyCC__mem_old,$sepVars,$stacksFrames_old,state._io,$ioVars);
+    requires SMemRequireGcRA(stack_size__DafnyCC__Proc_Cube, 8, mems__stk(my__DafnyCC__mem_old), (core_old._regs)[ESP], RET);
+    requires HeapInv($absMem_old, objLayouts_old, heap_old);
+//    requires $serialState.Mode.DLAB == false;
+//    requires (core_old._regs)[ECX] == $ghost_N;
+    requires sMemGet(mems__stk(my__DafnyCC__mem_old), core_old._regs[ESP] + 8) == $ghost_N;
+    requires 0 <= $ghost_N;
+    modifies state, efl, $part, $sepVars, $Time; //, $global_sample_index, $ghost_Hashed;
+    ensures  core._regs[ESP] == old(core_old._regs[ESP]) + 4;
+//    ensures  $serialState.Mode == old($serialState.Mode);
+    ensures  MemInv(me,init,state,core_state,ptOwner__id,(mem.map),$part,my_part,$mem__id,$sepVars__id,my__DafnyCC__mem,$sepVars);
+    ensures  NucleusInv(objLayouts,$S,$toAbs,$absMem,$commonVars__id,$gcVars__id,$ioVars__id,$commonVars,$gcVars,me,init,$State,core,ptOwner__id,(mem.map),$part,my_part,$mem__id,$sepVars__id,my__DafnyCC__mem,$sepVars,$stacksFrames,state._io,$ioVars);
+    ensures  SMemEnsureGcF(8, mems__stk(my__DafnyCC__mem), old(mems__stk(my__DafnyCC__mem_old)), esp, old((core_old._regs)[ESP]), $stacksFrames, $stacksFrames_old);
+    ensures  HeapInv($absMem, objLayouts, heap);
+    ensures  AbsExtend($toAbs, $toAbs_old, objLayouts, objLayouts_old);
+    ensures  $ghost_c == (($ghost_N * $ghost_N) * $ghost_N);
+//    ensures  eax == $ghost_c;
+    ensures  sMemGet(mems__stk(my__DafnyCC__mem), core_old._regs[ESP] + 4) == $ghost_c;
+
+//const stack_size__DafnyCC__Proc_XorIdentity:int := 0 + 0;
+//
+//procedure Proc_XorIdentity(core_old:core_state, my_part__DafnyCC__old:partition, my__DafnyCC__mem_old:mems, $ghost_a:int) returns(core:core_state, my_part:partition, my__DafnyCC__mem:mems, $ghost_r:int);
+//    requires MemInv(me,init,$State,core_old,ptOwner__id,(mem.map),$part,my_part__DafnyCC__old,$mem__id,$sepVars__id,my__DafnyCC__mem_old,$sepVars);
+//    requires SMemRequireRA(stack_size__DafnyCC__Proc_XorIdentity, mems__stk(my__DafnyCC__mem_old), (core_old._regs)[ESP], RET);
+////    requires $serialState.Mode.DLAB == false;
+//    requires (core_old._regs)[ECX] == $ghost_a;
+//    requires word($ghost_a);
+//    modifies state, efl, $part, $serialState; //, $global_sample_index, $ghost_Hashed;
+//    ensures  esp == old((core_old._regs)[ESP])+4;
+//    ensures  $serialState.Mode == old($serialState.Mode);
+//    ensures  MemInv(me,init,state,core_state,ptOwner__id,(mem.map),$part,my_part,$mem__id,$sepVars__id,my__DafnyCC__mem,$sepVars);
+//    ensures  SMemEnsure(mems__stk(my__DafnyCC__mem), old(mems__stk(my__DafnyCC__mem_old)), esp, old((core_old._regs)[ESP]));
+//    ensures  $ghost_r == $ghost_a;
+//    ensures  eax == $ghost_r;
+
+}

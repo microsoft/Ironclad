@@ -1,0 +1,227 @@
+//-private-import BaseSpec;
+//-private-import MemorySpec;
+//-private-import IoTypesSpec;
+//-private-import MachineStateSpec;
+//-private-import AssemblySpec;
+//-private-import InterruptsSpec;
+//-private-import IoSpec;
+//-<NuBuild AddBoogieAxiom Base_axioms />
+//-<NuBuild AddBoogieAxiom Word_axioms />
+//-<NuBuild AddBoogieAxiom Memory_axioms />
+//-<NuBuild AddBoogieAxiom Assembly_axioms />
+//-private-import Core;
+//-private-import LogicalAddressing;
+//-private-import Overflow;
+//-private-import Util;
+//-private-import Stacks;
+//-private-import Partition;
+//-private-import Instructions;
+//-private-import Separation;
+//-
+//- Copyright (c) Microsoft Corporation.  All rights reserved.
+//-
+
+module interface GcMemory
+{
+//-////////////////////////////////////////////////////////////////////////////
+//- ABSTRACT NODES
+//-////////////////////////////////////////////////////////////////////////////
+
+//- The mutator controls an abstract graph consisting of abstract nodes,
+//- which contain abstract values.  These abstract values may be
+//- abstract primitive values or abstract edges pointing to abstract nodes.
+
+//- Abstract values are represented by integers.  For any integer A,
+//- we may interpret A as an abstract primitive value or an abstract pointer:
+//-   - the abstract primitive value A represents the concrete integer A
+//-   - the abstract pointer A may be one of the following:
+//-     - NO_ABS, representing no value (used for partial maps)
+//-     - any other value, representing a node in the abstract graph
+//- Any primitive value A will satisfy word(A). To avoid confusion
+//- between abstract primitive and abstract pointer values, the
+//- mutator should choose abstract pointer values A such that !word(A).
+
+const NO_ABS:int := 0 - 1; //- the value "none"
+
+//- Each abstract object node A has some number of fields,
+//- which is chosen when A is allocated, and never changes afterwards.
+type ObjLayout = ObjLayout(numFields:int, numPrimitiveFields:int) | NoObjLayout();
+function numFields(objLayouts:[int]ObjLayout, abs:int) returns (int) { objLayouts[abs].numFields }
+function numPrimitiveFields(objLayouts:[int]ObjLayout, abs:int) returns (int) { objLayouts[abs].numPrimitiveFields }
+
+// $absMem represents of the abstract graph's edges: for abstract node A
+// and field j, $absMem[A][j] is the abstract node pointed to by A's field j.
+//var $absMem:[int][int]int;
+
+//-////////////////////////////////////////////////////////////////////////////
+//- POINTERS AND VALUES
+//-////////////////////////////////////////////////////////////////////////////
+
+function Pointer(rev:[int]int, ptr:int, abs:int) returns (bool)
+{
+  gcAddr(ptr) 
+&& Aligned(ptr) 
+&& abs != NO_ABS 
+&& rev[ptr] == abs //- AbsMapped(ptr,rev,abs)
+}
+
+//- An interior pointer ("interiorPtr") points to an actual
+//- object address ("ptr") plus some offset ("offset"):
+//-   !nullAddr(interiorPtr) ==> interiorPtr == ptr + offset && 0 <= offset && offset <= 4 * numFields(objLayouts, $toAbs[ptr - 4]) - 4;
+function InteriorValue(objLayouts:[int]ObjLayout, isPtr:bool, rev:[int]int, val:int, abs:int, offset:int) returns (bool)
+{
+     (isPtr && word(val) && gcAddrEx(val) && Pointer(rev, val - 4 - offset, abs)
+       && !word(abs)
+       && 0 <= offset && offset <= 4 * numFields(objLayouts, abs) - 4)
+  || (isPtr && word(val) && !gcAddrEx(val) && abs == val)
+  || (!isPtr && word(val) && abs == val)
+}
+
+function Value(objLayouts:[int]ObjLayout, isPtr:bool, rev:[int]int, val:int, abs:int) returns (bool)
+{
+  InteriorValue(objLayouts, isPtr, rev, val, abs, 0)
+}
+
+//-////////////////////////////////////////////////////////////////////////////
+//- ABSTRACT AND CONCRETE GRAPHS
+//-////////////////////////////////////////////////////////////////////////////
+
+//- Each integer i is considered a concrete node.
+//- The memory manager controls concrete nodes in memory.  
+//-   - Each abstract object node is either mapped to one concrete node or is unmapped
+//-   - Each concrete node is either mapped to one abstract object node or is unmapped
+//-   - If abstract object node A is mapped to concrete node C, then C is mapped to A
+//- Let the notation C<-->A indicate that A is mapped to C and C is mapped to A.
+//- Let the notation C-->none indicate that C is unmapped.
+//- Let the notation A-->none indicate that A is unmapped.
+
+//- The variable $toAbs maps concrete nodes to abstract nodes, and thereby
+//- exactly describes all C<-->A and C-->none.  The A-->none mappings are
+//- implied; if there is no C such that C<-->A, then A-->none.
+//-var $toAbs:[int]int; // maps a concrete node C to an abstract node A or to "none"
+
+//- WellFormed($toAbs) ensures that if C1 != C2 and $toAbs[C1] != NO_ABS
+//- and $toAbs[C2] != NO_ABS then $toAbs[C1] != $toAbs[C2].
+function WellFormed($toAbs:[int]int) returns(bool)
+{
+    (forall i1:int, i2:int::{TV(i1), TV(i2)} TV(i1) && TV(i2)
+      && gcAddr(i1) && gcAddr(i2) && i1 != i2 && $toAbs[i1] != NO_ABS && $toAbs[i2] != NO_ABS
+      ==> $toAbs[i1] != $toAbs[i2])
+}
+
+//-////////////////////////////////////////////////////////////////////////////
+//- TRIGGERS
+//-////////////////////////////////////////////////////////////////////////////
+
+//- TSlot is a trigger for slots in sparse tags
+function{:expand false} TSlot(slot:int) returns (bool) { true }
+
+//- TT is a trigger for tables
+function{:expand false} TT(table:int) returns (bool) { true }
+
+//-////////////////////////////////////////////////////////////////////////////
+//- MUTATOR INTERFACE
+//-////////////////////////////////////////////////////////////////////////////
+
+function isReadonlyField(t:int, j:int) returns(bool)
+{
+  0 <= j && j < 2
+}
+
+//-  true ==> field j is pointer
+//- false ==> field j is primitive
+function VFieldPtr(objLayouts:[int]ObjLayout, abs:int, f:int) returns(bool)
+{
+  !(0 <= f && f < objLayouts[abs].numPrimitiveFields)
+}
+
+function{:expand false} TVT(abs:int, vt:int) returns(bool) { true }
+function VTable(objLayouts:[int]ObjLayout, abs:int, vt:int) returns(bool)
+{
+    !VFieldPtr(objLayouts, abs, 0) // REVIEW: is this redundant?
+ && !VFieldPtr(objLayouts, abs, 1) // REVIEW: is this redundant?
+ && (forall j:int::{TO(j)} TO(j) ==> (0 <= j && j < numPrimitiveFields(objLayouts, abs) <==> !VFieldPtr(objLayouts, abs, j)))
+}
+
+function pad(i:int) returns(int)
+{
+  and(i + 3, neg(3))
+}
+
+function{:expand false} TVL(abs:int) returns(bool) { true }
+function ObjSize(objLayouts:[int]ObjLayout, abs:int, size:int, sizePrimitives:int) returns(bool)
+{
+    2 <= numPrimitiveFields(objLayouts, abs) && numPrimitiveFields(objLayouts, abs) <= numFields(objLayouts, abs)
+ && 4 * numFields(objLayouts, abs) == size
+ && 4 * numPrimitiveFields(objLayouts, abs) == sizePrimitives
+}
+
+type Frames=Frames(Abss:[int]int);
+
+//var $stacksFrames:[int]Frames;
+
+function{:expand false} TVS(s:int, j:int) returns(bool) { true }
+function{:expand false} TVFT(f:int) returns(bool) { true }
+
+function StackInv($frames:Frames) returns(bool) { true }
+
+//- Each managed stack $s grows from StackHi($s) down to StackLo($s)
+function StackHi($s:int):int { ?fLo + $s * ?FSize + ?FSize }
+function StackLo($s:int):int { ?fLo + $s * ?FSize }
+
+const ?fWords:int := ?FSize div 4;
+
+//- Requirement on entry to Nucleus from managed call:
+//- Since interrupts are disabled when calling the Nucleus, we do not
+//- require ?InterruptReserve be reserved between StackLo and esp.
+function SpRequire($s:int, sp:int, n:int) returns(bool)
+{
+    StackLo($s) <= sp && sp + n <= StackHi($s) && Aligned(sp)
+}
+
+function StackCheckInv($s:int, $StackCheck:int) returns(bool)
+{
+    StackLo($s) + ?StackReserve + ?InterruptReserve <= $StackCheck
+ && $StackCheck <= StackHi($s)
+}
+
+function ScanStackInv($S:int, $Mem:[int]int,
+  $stacksFrames:[int]Frames,
+  $ra:int, $esp:int, $ebp:int) returns(bool)
+{
+  StackInv($stacksFrames[$S])
+}
+
+//-////////////////////////////////////////////////////////////////////////////
+//- REACHABILITY
+//-////////////////////////////////////////////////////////////////////////////
+
+//- Extra internal sanity checking for GC: check that any uncollected objects
+//- were actually reached during the collection.
+
+type Time;
+readonly var $Time:Time;
+
+//- reached(A,T) means that the GC has reached abstract node A at some time
+//- after the initial time T.  Initially (at time T), the mutator will
+//- say that reached(root, T).  After that, the GC calls the "reach"
+//- ghost procedure to generate reached(A, T) for other A.
+function reached(a:int, t:Time) returns (bool);
+
+atomic ghost procedure newTime();
+  modifies $Time;
+
+atomic ghost procedure reachStackRoot($s:int, $ptr:int, $t:Time);
+  inout $absMem:[int][int]int, $toAbs:[int]int, $stacksFrames:[int]Frames;
+  requires StackLo($s) <= $ptr && $ptr < StackHi($s);
+  requires Aligned($ptr);
+  ensures  reached($stacksFrames[$s].Abss[$ptr], $t);
+
+//- If we've reached A, and A points to A', then reach A'.
+atomic ghost procedure reach($a:int, $j:int, $t:Time);
+  inout $absMem:[int][int]int, $toAbs:[int]int, $stacksFrames:[int]Frames;
+  requires reached($a, $t);
+  requires $absMem[$a][$j] != NO_ABS;
+  ensures  reached($absMem[$a][$j], $t);
+
+}

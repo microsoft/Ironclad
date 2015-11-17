@@ -1,0 +1,162 @@
+
+eax, ebx, ecx, edx, edi, esi, ebp
+
+NOTES/TODO:
+- For each variable that needs to be propagated, 
+  I should write it to the correct location on the stack for the next round
+  immediately after reading it.  That way, I don't need to hold onto it any longer than necessary
+  - If we do that with b and c, we may be able to save a register
+
+-------------------------------------------------------------------
+- The block below requires 3 registers, if we want to keep a alive
+-------------------------------------------------------------------
+r1 <- Load a
+Store r1
+r2 <- r1
+r3 <- r1
+r2 <- RotateRight(r2, 2)
+r3 <- RotateRight(r3, 13)
+r2 <- r2 xor r3
+r3 <- r1
+r3 <- RotateRight(r3, 22)
+r2 <- r2 xor r3   // == bsig0
+-------------------------------------   
+After above block:
+Live: 
+  r1 == a
+  r2 == bsig0
+-------------------------------------   
+
+Assuming r1 holds a:
+r3 <- Load b
+Store r3
+r4 <- r1
+r1 <- And(r1, r3)   // a & b
+r3 <- Load c
+Store r3
+r4 <- And(r4, r3)   // a & c
+
+
+Need to hold: bsig0, a, b, and (a & b), since we need to combine c with a and with b
+  - Do this before we calculate bsig0?
+
+
+r4 <- Load c
+Store r4
+r5 <- r1
+r5 <- r1 and r3 == a & b
+r6 <- r1
+r6 <- r1 and r4 == a & c
+r5 <- r5 xor r6
+r6 <- r3
+r6 <- r6 and r4 == b & c
+r5 <- r5 xor r6
+
+-------------------------------------   
+After above block:
+Live: 
+  r1 == a
+  r2 == bsig0
+  r3 == b
+  r4 == c
+  r5 == my_maj
+-------------------------------------   
+
+r2 <- Add(r2, r5) // T2
+
+-------------------------------------   
+After above block:
+Live: 
+  r1 == a
+  r2 == T2
+  r3 == b
+  r4 == c
+-------------------------------------
+After this point, we don't need a, b, or c any more, 
+so write them back to the stack
+  Store r1
+  Store r3
+  Store r4
+-------------------------------------   
+After above block:
+Live: 
+  r2 == T2
+-------------------------------------   
+// Calculate bsig1
+  r1 <- Load e
+  r3 <- r1
+  r4 <- r1
+  r3 <- RotateRight(r3, 6)
+  r4 <- RotateRight(r4, 11)
+  r3 <- r3 xor r4 
+  r4 <- r1
+  r4 <- RotateRight(r4, 25)
+  r3 <- r3 xor r4   // == bsig1
+-------------------------------------   
+After above block:
+Live: 
+  r1 == e
+  r2 == T2
+  r3 == bsig1
+-------------------------------------  
+// Calculate my_ch
+// Assume e is already stored
+  r4 <- r1
+  r5 <- Load f
+  Store r5
+  r4 <- r4 and r5
+  r1 <- not r1
+  r5 <- Load g
+  Store r5
+  r1 <- r1 and r5
+  r4 <- r4 xor r1 // my_ch
+-------------------------------------   
+After above block:
+Live: 
+  r2 == T2
+  r3 == bsig1
+  r4 == my_ch
+-------------------------------------  
+// Calculate T1
+  r1 <- Load h
+  r1 <- Add(r1, r3) // Frees up r3
+  r1 <- Add(r1, r4) // Frees up r4    // Do some of this sooner?
+  r1 <- Add(r1, Kconst)
+  r3 <- Load(Wregister, currentStepConst)
+  r1 <- Add(r1, r3) // T1
+-------------------------------------   
+After above block:
+Live: 
+  r1 == T1
+  r2 == T2
+-------------------------------------  
+  r2 <- r2 + r1   // May need a commutativity proof?
+  Store r2  // T1 + T2 == a_next
+  r2 <- Load d
+  r1 <- r1 + r2   // May need a commutativity proof?
+  Store r1 as e_next
+ 
+
+
+
+
+// Uses a
+//  var bsig0 := Asm_BitwiseXor(Asm_BitwiseXor(Asm_RotateRight(a, 2), Asm_RotateRight(a, 13)), Asm_RotateRight(a, 22));
+
+// Uses e
+// var bsig1 := Asm_BitwiseXor(Asm_BitwiseXor(Asm_RotateRight(e, 6), Asm_RotateRight(e, 11)), Asm_RotateRight(e, 25));
+
+// Uses e, f, g
+// var my_ch := Asm_BitwiseXor(Asm_BitwiseAnd(e, f), Asm_BitwiseAnd(Asm_BitwiseNot(e), g));
+
+// Uses a, b, c
+// var my_maj := Asm_BitwiseXor(Asm_BitwiseXor(Asm_BitwiseAnd(a, b), Asm_BitwiseAnd(a, c)), Asm_BitwiseAnd(b, c));
+
+// Uses h
+// var T1 := Asm_Add(Asm_Add(Asm_Add(Asm_Add(h, bsig1), my_ch), Ks[currentStep]), W[currentStep]);
+
+//    var T2 := Asm_Add(bsig0, my_maj);
+
+// Uses d
+    a_next, b_next, c_next, d_next, e_next, f_next, g_next, h_next := Asm_Add(T1, T2), a, b, c, Asm_Add(d, T1), e, f, g;
+

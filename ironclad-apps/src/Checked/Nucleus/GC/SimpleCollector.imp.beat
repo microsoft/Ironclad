@@ -1,0 +1,1038 @@
+//-private-import BaseSpec;
+//-private-import MemorySpec;
+//-private-import IoTypesSpec;
+//-private-import MachineStateSpec;
+//-private-import AssemblySpec;
+//-private-import InterruptsSpec;
+//-private-import IoSpec;
+//-<NuBuild AddBoogieAxiom Base_axioms />
+//-<NuBuild AddBoogieAxiom Word_axioms />
+//-<NuBuild AddBoogieAxiom Memory_axioms />
+//-<NuBuild AddBoogieAxiom Assembly_axioms />
+//-private-import Core;
+//-private-import LogicalAddressing;
+//-private-import Overflow;
+//-private-import Util;
+//-private-import Stacks;
+//-private-import Partition;
+//-private-import Instructions;
+//-private-import Separation;
+//-private-import IntLemmasGc;
+//-private-import SimpleGcMemory;
+//-private-import SimpleCommon;
+//-
+//- Copyright (c) Microsoft Corporation.  All rights reserved.
+//-
+
+module implementation SimpleCollector
+{
+
+function implementation gcVarsInv(x:gcVars, m:mem):bool
+{
+    true
+ && m.dom[&HeapLo]
+ && m.dom[&Fi]
+ && m.dom[&Fk]
+ && m.dom[&Fl]
+ && m.dom[&Ti]
+ && m.dom[&Tj]
+ && m.dom[&Tk]
+ && m.dom[&Tl]
+ && m.dom[&BF]
+ && m.dom[&BT]
+}
+
+//-////////////////////////////////////////////////////////////////////////////
+//- COPYING COLLECTOR
+//-////////////////////////////////////////////////////////////////////////////
+
+function IsFwdPtr(i:int) returns(bool) { i == 0 }
+
+function ObjectSpc(objLayouts:[int]ObjLayout, i1:int, i2:int, r:[int]int) returns (bool)
+{
+  (forall i:int::{TV(i)} TV(i) ==> i1 <= i && i < i2 && r[i] != NO_ABS ==>
+      i + 4 * numFields(objLayouts, r[i]) <= i2
+   && (forall ii:int::{TV(ii)} TV(ii) ==> i < ii && ii < i + 4 * numFields(objLayouts, r[i]) ==> r[ii] == NO_ABS))
+}
+
+function ObjectSeq(objLayouts:[int]ObjLayout, i1:int, i2:int, r:[int]int) returns (bool)
+{
+    (i1 == i2 || r[i1] != NO_ABS)
+ && (forall i:int::{TV(i)} TV(i) ==> i1 <= i && i < i2 && r[i] != NO_ABS ==>
+        (forall ii:int::{TV(ii)} TV(ii) ==> i < ii && ii < i + 4 * numFields(objLayouts, r[i]) ==>
+          r[ii] == NO_ABS)
+     && (forall j:int::{TO(j)} TO(j) ==> 0 <= j && j < numFields(objLayouts, r[i]) ==> gcAddr(i + 4 * j)) // REVIEW: necessary?
+     && (   (i + 4 * numFields(objLayouts, r[i]) == i2)
+         || (i + 4 * numFields(objLayouts, r[i]) < i2 && r[i + 4 * numFields(objLayouts, r[i])] != NO_ABS)))
+}
+
+function EmptySeq(i1:int, i2:int, r:[int]int, $toAbs:[int]int) returns (bool)
+{
+  (forall i:int::{TV(i)} TV(i) ==> i1 <= i && i < i2 ==> gcAddr(i) && r[i] == NO_ABS && $toAbs[i] == NO_ABS) // REVIEW: gcAddr necessary?
+}
+
+//- invariant:
+//- note: typically, Tj = _tj and Tk = _tk
+function CopyGcInv(objLayouts:[int]ObjLayout, _tj:int, $Tk:int, _tk:int, $Time:Time,
+  r1Live:bool, $toAbs:[int]int, $absMem:[int][int]int,
+  $DECL__MemVars, $commonVars:commonVars, $gcVars:gcVars
+  ):bool
+{
+    ?gcLo <= HeapLo
+ && HeapLo <= ?gcHi
+ && ((Fi == HeapLo && Ti == Fl && BF == ?gcLo) || (Ti == HeapLo && Fi == Tl && BT == ?gcLo))
+ && Fi <= Fk && Fk <= Fl && Fl <= ?gcHi
+ && Ti <= Tj && Tj <= _tj && _tj <= $Tk && $Tk <= _tk && _tk <= Tl && Tl <= ?gcHi
+ && Aligned(Fi) && Aligned(Fk) && Aligned(Ti) && Aligned(Tj) && Aligned($Tk)
+ && WellFormed($toAbs)
+ && ObjectSpc(objLayouts, Fi,  Fk, $r1)
+ && EmptySeq( Fk,  Fl, $r1, $toAbs)
+ && ObjectSpc(objLayouts, Ti,  Tj, $r2)
+ && ObjectSeq(objLayouts, _tj, $Tk, $r2)
+ && EmptySeq( _tk, Tl, $r2, $toAbs)
+ && (forall i:int::{TV(i)} TV(i) ==> gcAddr(i) ==> $toAbs[i] == NO_ABS || $toAbs[i] != $freshAbs)
+ && (forall i:int::{TV(i)} TV(i) ==> gcAddr(i) ==> $r1[i] != NO_ABS && r1Live ==> Fi <= i && i < Fk)
+ && (forall i:int::{TV(i)} TV(i) ==> gcAddr(i) ==> $r2[i] != NO_ABS ==> Ti <= i && i < _tk)
+ && (forall i:int::{TV(i)} TV(i) ==> Fi <= i && i < Fk && $r1[i] != NO_ABS ==>
+        ( IsFwdPtr($gcMem[i]) <==> $toAbs[i] == NO_ABS)
+     && ( IsFwdPtr($gcMem[i])  ==> Pointer($r2, $gcMem[i + 4] - 4, $r1[i]) && AlignedHeapAddr(i + 4) && gcAddrEx($gcMem[i + 4]))
+     && (!IsFwdPtr($gcMem[i])  ==> $toAbs[i] == $r1[i])
+     && (!IsFwdPtr($gcMem[i])  ==> r1Live ==> ObjInv(objLayouts, i, $r1, $r1, $toAbs, $absMem, $gcMem, $gcSlice))
+     && (r1Live ==> $gcSlice[i] == i && $gcSlice[i + 4] == i)
+     && i + 4 < Fk // REVIEW: hack?
+     && Aligned(i) // REVIEW: redundant?
+    )
+ && (forall i:int::{TV(i)} TV(i) ==> Fi <= i && i < Fl && $toAbs[i] != NO_ABS ==> $r1[i] != NO_ABS && $r1[i] != NO_ABS)
+ && (forall i:int::{TV(i)} TV(i) ==> Ti <= i && i < Tl && $toAbs[i] != NO_ABS ==> $r2[i] != NO_ABS && $r2[i] != NO_ABS)
+ && (forall i:int::{TV(i)} TV(i) ==> Ti <= i && i < Tj && $r2[i] != NO_ABS ==>
+        $toAbs[i] != NO_ABS && $toAbs[i] == $r2[i]
+     && reached($toAbs[i], $Time)
+     && ObjInv(objLayouts, i, $r2, $r2, $toAbs, $absMem, $gcMem, $gcSlice)
+     && !IsFwdPtr($gcMem[i])
+    )
+ && (Tj != _tj ==> (forall j:int::{TO(j)} TO(j) ==> 0 <= j && Tj + 4 * j < _tj ==>
+      gcAddr(Tj + 4 * j) && $gcSlice[Tj + 4 * j] == Tj)) // REVIEW: gcAddr necessary?
+ && (forall i:int::{TV(i)} TV(i) ==> Tj < i && i < _tj ==> $r2[i] == NO_ABS)
+ && (forall i:int::{TV(i)} TV(i) ==> _tj <= i && i < $Tk && $r2[i] != NO_ABS ==>
+        $toAbs[i] != NO_ABS && $toAbs[i] == $r2[i]
+     && reached($toAbs[i], $Time)
+     && ObjInv(objLayouts, i, $r2, $r1, $toAbs, $absMem, $gcMem, $gcSlice)
+     && !IsFwdPtr($gcMem[i])
+    )
+ && commonVarsInv($commonVars, statics)
+ && gcVarsInv($gcVars, statics)
+}
+
+function __NucleusInv(objLayouts:[int]ObjLayout, $toAbs:[int]int, $absMem:[int][int]int, DECL_GcVars, $DECL__MemVars, $stacksFrames:[int]Frames) returns(bool)
+{
+    ?gcLo <= HeapLo
+ && HeapLo <= ?gcHi
+ && ((Fi == HeapLo && Ti == Fl && BF == ?gcLo) || (Ti == HeapLo && Fi == Tl && BT == ?gcLo))
+ && Fi <= Fk && Fk <= Fl && Fl <= ?gcHi
+ && Ti <= Tj && Tj <= Tk && Tk <= Tl && Tl <= ?gcHi
+ && Aligned(Fi) && Aligned(Fk) && Aligned(Ti) && Aligned(Tj) && Aligned(Tk)
+ && WellFormed($toAbs)
+ && ObjectSpc(objLayouts, Fi,  Fk, $toAbs)
+ && EmptySeq( Fk,  Fl, $toAbs, $toAbs)
+ && EmptySeq( Ti,  Tl, $toAbs, $toAbs)
+ && (forall i:int::{TV(i)} TV(i) ==> gcAddr(i) ==> $toAbs[i] == NO_ABS || $toAbs[i] != $freshAbs)
+ && (forall i:int::{TV(i)} TV(i) ==> gcAddr(i) ==> ($toAbs[i] != NO_ABS ==> Fi <= i && i < Fk))
+ && (forall i:int::{TV(i)} TV(i) ==> Fi <= i && i < Fk && $toAbs[i] != NO_ABS ==>
+        $toAbs[i] != NO_ABS
+     && ObjInv(objLayouts, i, $toAbs, $toAbs, $toAbs, $absMem, $gcMem, $gcSlice)
+     && !IsFwdPtr($gcMem[i])
+    )
+ && (forall i:int::{TV(i)} TV(i) ==> Fi <= i && i < Fl && $toAbs[i] != NO_ABS ==> $toAbs[i] != NO_ABS)
+ && (forall i:int::{TV(i)} TV(i) ==> Ti <= i && i < Tl && $toAbs[i] != NO_ABS ==> false)
+ && commonVarsInv($commonVars, statics)
+ && gcVarsInv($gcVars, statics)
+}
+
+// REVIEW: this should be shared between collectors
+function _StateInv(objLayouts:[int]ObjLayout, $s:int, $toAbs:[int]int, $DECL__MemVars, $stacksFrames:[int]Frames) returns(bool)
+{
+    MutatorStackInv(objLayouts, $s, $toAbs, $stacksFrames[$s], $fMems[$s])
+ && ScanStackInv($s, $fMems[$s], $stacksFrames, StackRA($s, $tMems, $fMems), StackEsp($s, $tMems), StackEbp($s, $tMems))
+}
+
+function implementation _NucleusInv(objLayouts:[int]ObjLayout, $S:int, $toAbs:[int]int, $absMem:[int][int]int, DECL_GcVars, $DECL__MemVars, $stacksFrames:[int]Frames) returns(bool)
+{
+    __NucleusInv(objLayouts, $toAbs, $absMem, GcVars, me, $__MemVars, $stacksFrames)
+ && (forall $s:int::{TStk($s)} TStk($s) ==> isStack($s) ==> _StateInv(objLayouts, $s, $toAbs, me, $__MemVars, $stacksFrames))
+}
+
+implementation proc_RevealAbssValue()
+{
+    assert TStk(0);
+    assert (forall objLayouts:[int]ObjLayout, $S:int, $toAbs:[int]int, $absMem:[int][int]int, DECL_GcVars, $DECL_Mem_Vars, $stacksFrames:[int]Frames, DECL_IoVars
+    ::
+    NucleusInv(objLayouts, $S, $toAbs, $absMem, GcVars, $Mem_Vars, $stacksFrames, $IoVars)
+    ==>
+      (forall i:int:: TV(i) ==> StackLo(0) <= i && i < StackHi(0) && Aligned(i) ==>
+        Value(objLayouts, true, $toAbs, $fMems[0][i], $stacksFrames[0].Abss[i])
+      )
+    );
+}
+
+atomic ghost procedure espAligned()
+  inout my r:regs, my core_state:core_state, linear stk:mem, linear statics:mem, linear io:IOState;
+  requires Aligned(esp);
+  ensures  Aligned(esp -  4) && Aligned(esp -  8) && Aligned(esp - 12) && Aligned(esp - 16);
+  ensures  Aligned(esp - 20) && Aligned(esp - 24) && Aligned(esp - 28) && Aligned(esp - 32);
+  ensures  Aligned(esp - 36) && Aligned(esp - 40) && Aligned(esp - 44) && Aligned(esp - 48);
+  ensures  Aligned(esp - 52) && Aligned(esp - 56) && Aligned(esp - 60) && Aligned(esp - 64);
+{
+  assert TV(esp) && TO(0-1) && TO(0-2) && TO(0-3) && TO(0-4) && TO(0-5) && TO(0-6) && TO(0-7) && TO(0-8) && TO(0-9) && TO(0-10) && TO(0-11) && TO(0-12) && TO(0-13) && TO(0-14) && TO(0-15) && TO(0-16);
+}
+
+atomic ghost procedure espAlignedInline()
+  inout my r:regs, my core_state:core_state, linear stk:mem, linear statics:mem, linear io:IOState;
+  requires Aligned(esp);
+  ensures  Aligned(esp +  4) && Aligned(esp +  8) && Aligned(esp + 12) && Aligned(esp + 16);
+  ensures  Aligned(esp + 20) && Aligned(esp + 24) && Aligned(esp + 28) && Aligned(esp + 32);
+  ensures  Aligned(esp + 36) && Aligned(esp + 40) && Aligned(esp + 44) && Aligned(esp + 48);
+  ensures  Aligned(esp + 52) && Aligned(esp + 56) && Aligned(esp + 60) && Aligned(esp + 64);
+{
+  assert TV(esp) && TO(1) && TO(2) && TO(3) && TO(4) && TO(5) && TO(6) && TO(7) && TO(8) && TO(9) && TO(10) && TO(11) && TO(12) && TO(13) && TO(14) && TO(15) && TO(16);
+}
+
+procedure copyWord($ptr:int, $_tj:int, $ret:int, $ind:int, $s:int)
+  inout my r:regs, my core_state:core_state, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems, $commonVars:commonVars, $gcVars:gcVars;
+  inout $absMem:[int][int]int, $toAbs:[int]int, $stacksFrames:[int]Frames, objLayouts:[int]ObjLayout;
+  requires ecx == $ptr && esi == $ret && edx == 4 * $ind;
+  requires Pointer($r1, $ptr, $r1[$ptr]) && TV($ptr);
+  requires !IsFwdPtr($gcMem[$ptr]);
+  requires $_tj <= Tk;
+
+  requires $s == 4 * numFields(objLayouts, $r1[$ptr]);
+  requires Tk == $ret + $s;
+  requires Tk <= Tl;
+
+  requires TO($ind) && 0 <= $ind && $ind < numFields(objLayouts, $r1[$ptr]);
+  requires CopyGcInv(objLayouts, $_tj, $ret, Tk, $Time, true, $toAbs, $absMem, me, $__MemVars, $commonVars, $gcVars);
+  requires MemInv($Mem_Vars);
+  requires (forall j:int::{TO(j)} TO(j) ==> 0 <= j && j < $ind ==> gcAddr($ret + 4 * j) && $gcSlice[$ret + 4 * j] == $ret); // REVIEW: gcAddr necessary?
+  requires EmptySeq($ret + 4 * $ind, Tk, $r2, $toAbs);
+  requires (forall j:int::{TO(j)} TO(j) ==>
+              0 <= j && j < $ind ==> Value(objLayouts, VFieldPtr(objLayouts, $r1[$ptr], j), $r1, $gcMem[$ret + 4 * j], $absMem[$toAbs[$ptr]][j]));
+  requires (forall i:int::{TV(i)} TV(i) ==> $ret < i && i < $ret + 4 * $ind ==> $r2[i] == NO_ABS);
+  requires $r2[$ret] == NO_ABS;
+
+  modifies $gcMem, $gcSlice;
+  modifies efl, eax;
+
+  ensures  CopyGcInv(objLayouts, $_tj, $ret, Tk, $Time, true, $toAbs, $absMem, me, $__MemVars, $commonVars, $gcVars);
+  ensures  MemInv($Mem_Vars);
+  ensures  (forall j:int::{TO(j)} TO(j) ==> 0 <= j && j < $ind + 1 ==> gcAddr($ret + 4 * j) && $gcSlice[$ret + 4 * j] == $ret); // REVIEW: gcAddr necessary?
+  ensures  (forall j:int::{TO(j)} TO(j) ==>
+              0 <= j && j < $ind + 1 ==> Value(objLayouts, VFieldPtr(objLayouts, $r1[$ptr], j), $r1, $gcMem[$ret + 4 * j], $absMem[$toAbs[$ptr]][j]));
+  ensures  (forall j:int::{TO(j)} TO(j) ==> 0 <= j && Tj + 4 * j < $_tj ==>
+              $gcMem[Tj + 4 * j] == old($gcMem)[Tj + 4 * j] && $gcSlice[Tj + 4 * j] == old($gcSlice[Tj + 4 * j]));
+
+  ensures RExtend(old($r2), $r2);
+  ensures  $Time == old($Time);
+{
+  call reveal_MemInvDetails();
+  assert TO(numFields(objLayouts, $r1[$ptr]));
+  assert TV($ret);
+
+  call eax := Load(mems.gc, ecx + edx);
+  assert TV($ret + 4 * $ind);
+  $gcSlice[$ret + 4 * $ind] := $ret;
+  call Store(inout mems.gc, esi + edx, eax);
+  assert TO(1);
+}
+
+procedure CopyAndForward($ptr:int, $_tj:int)
+  inout my r:regs, my core_state:core_state, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems, $commonVars:commonVars, $gcVars:gcVars;
+  inout $absMem:[int][int]int, $toAbs:[int]int, $stacksFrames:[int]Frames, objLayouts:[int]ObjLayout;
+  requires ecx == $ptr;
+  requires CopyGcInv(objLayouts, $_tj, Tk, Tk, $Time, true, $toAbs, $absMem, me, $__MemVars, $commonVars, $gcVars);
+  requires MemInv($Mem_Vars);
+  requires Pointer($r1, $ptr, $r1[$ptr]) && TV($ptr);
+  requires !IsFwdPtr($gcMem[$ptr]);
+  requires $_tj <= Tk;
+  requires reached($toAbs[$ptr], $Time);
+  requires SMemRequireRA(100, stk, esp, RET);
+  modifies $r2, $gcMem, $toAbs, Tk, $gcSlice;
+  modifies efl, eax, ebx, ecx, edx, esi, esp;
+  modifies stk;
+  ensures  CopyGcInv(objLayouts, $_tj, Tk, Tk, $Time, true, $toAbs, $absMem, me, $__MemVars, $commonVars, $gcVars);
+  ensures  MemInv($Mem_Vars);
+  ensures  RExtend(old($r2), $r2);
+  ensures  Pointer($r2, eax, $r1[$ptr]);
+  ensures  Tj == old(Tj);
+  ensures  Tk >= old(Tk);
+  ensures  old($toAbs)[Tj] != NO_ABS ==> $toAbs[Tj] != NO_ABS && $toAbs[Tj] == old($toAbs)[Tj];
+  ensures  (forall j:int::{TO(j)} TO(j) ==> 0 <= j && Tj + 4 * j < $_tj ==>
+              $gcMem[Tj + 4 * j] == old($gcMem)[Tj + 4 * j] && $gcSlice[Tj + 4 * j] == old($gcSlice[Tj + 4 * j]));
+  ensures  Ti <= eax && eax < Tk && gcAddrEx(eax + 4);
+  ensures  SMemEnsure(stk, old(stk), esp, old(esp));
+  ensures  $Time == old($Time);
+{
+  call reveal_MemInvDetails();
+  call ebx := Load(mems.gc, ecx + 4);
+  assert TV($ptr);
+  assert TO(0) && TO(1);
+  assert TO(numFields(objLayouts, $r1[$ptr]));
+
+  eax := Tk;
+  esi := eax;
+  call eax := AddChecked(eax, ebx);
+  Tk := eax;
+
+  assert TV(esi);
+
+  eax := Tl;
+  if (Tk <= eax) { goto skip1; }
+    // out of memory
+    eax := 0x55550031;
+    call DebugBreak();
+  skip1:
+
+  var ind:int := 0;
+  edx := 0;
+  // while (edx < ebx)
+  loop:
+    invariant 4 * ind == edx;
+    invariant 4 * numFields(objLayouts, $r1[$ptr]) == ebx;
+    invariant esi == old(Tk);
+    invariant ecx == $ptr;
+    invariant Tk == esi + ebx;
+    invariant TO(ind) && 0 <= ind && ind <= numFields(objLayouts, $r1[$ptr]);
+    invariant CopyGcInv(objLayouts, $_tj, esi, Tk, $Time, true, $toAbs, $absMem, me, $__MemVars, $commonVars, $gcVars);
+    invariant MemInv($Mem_Vars);
+    invariant RExtend(old($r2), $r2);
+    invariant (forall j:int::{TO(j)} TO(j) ==> 0 <= j && j < ind ==> gcAddr(esi + 4 * j) && $gcSlice[esi + 4 * j] == esi); // REVIEW: gcAddr necessary?
+    invariant EmptySeq(esi + 4 * ind, Tk, $r2, $toAbs);
+    invariant (forall j:int::{TO(j)} TO(j) ==>
+                0 <= j && j < ind ==> Value(objLayouts, VFieldPtr(objLayouts, $r1[$ptr], j), $r1, $gcMem[esi + 4 * j], $absMem[$toAbs[$ptr]][j]));
+    invariant (forall i:int::{TV(i)} TV(i) ==> esi < i && i < esi + 4 * ind ==> $r2[i] == NO_ABS);
+    invariant (forall j:int::{TO(j)} TO(j) ==> 0 <= j && Tj + 4 * j < $_tj ==>
+                $gcMem[Tj + 4 * j] == old($gcMem)[Tj + 4 * j] && $gcSlice[Tj + 4 * j] == old($gcSlice[Tj + 4 * j]));
+    invariant $r2[esi] == NO_ABS;
+    invariant SMemInv(stk, old(stk), esp, old(esp));
+    invariant $Time == old($Time);
+    if (edx >= ebx) { goto loopEnd; }
+
+    call copyWord($ptr, $_tj, esi, ind, ebx);
+    ind := ind + 1;
+    call edx := Add(edx, 4);
+    goto loop;
+  loopEnd:
+
+  // Set forwarding pointer
+  call eax := Lea(esi + 4);
+  call Store(inout mems.gc, ecx + 0, 0);
+  call Store(inout mems.gc, ecx + 4, eax);
+
+  eax := esi;
+
+  $r2[eax] := $r1[$ptr];
+  $toAbs[eax] := $toAbs[$ptr];
+  $toAbs[$ptr] := NO_ABS;
+  assert TO(0) && TO(1);
+
+  assert TV(eax - Ti);
+
+  Return;
+}
+
+procedure forwardFromspacePtr($ptr:int, $abs:int, $_tj:int)
+  inout my r:regs, my core_state:core_state, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems, $commonVars:commonVars, $gcVars:gcVars;
+  inout $absMem:[int][int]int, $toAbs:[int]int, $stacksFrames:[int]Frames, objLayouts:[int]ObjLayout;
+  requires ecx == $ptr;
+  requires CopyGcInv(objLayouts, $_tj, Tk, Tk, $Time, true, $toAbs, $absMem, me, $__MemVars, $commonVars, $gcVars);
+  requires MemInv($Mem_Vars);
+  requires word($ptr);
+  requires Pointer($r1, $ptr - 4, $abs);
+  requires $_tj <= Tk;
+  requires IsFwdPtr($gcMem[$ptr - 4]) || reached($toAbs[$ptr - 4], $Time);
+  requires SMemRequire(108, stk, esp);
+  modifies $r2, $gcMem, $toAbs, Tk, $gcSlice;
+  modifies efl, eax, ebx, ecx, edx, esi, esp;
+  modifies stk;
+  ensures  CopyGcInv(objLayouts, $_tj, Tk, Tk, $Time, true, $toAbs, $absMem, me, $__MemVars, $commonVars, $gcVars);
+  ensures  MemInv($Mem_Vars);
+  ensures  RExtend(old($r2), $r2);
+  ensures  Pointer($r2, eax - 4, $abs);
+  ensures  Tj == old(Tj);
+  ensures  Tk >= old(Tk);
+  ensures  old($toAbs)[Tj] != NO_ABS ==> $toAbs[Tj] != NO_ABS && $toAbs[Tj] == old($toAbs)[Tj];
+  ensures  (forall j:int::{TO(j)} TO(j) ==> 0 <= j && Tj + 4 * j < $_tj ==>
+              $gcMem[Tj + 4 * j] == old($gcMem)[Tj + 4 * j] && $gcSlice[Tj + 4 * j] == old($gcSlice[Tj + 4 * j]));
+  ensures  Ti <= eax - 4 && eax - 4 < Tk;
+  ensures  gcAddrEx(eax);
+  ensures  SMemInv(stk, old(stk), esp, old(esp));
+  ensures  $Time == old($Time);
+{
+  call reveal_MemInvDetails();
+  assert TV($ptr - 4);
+  call ecx := Sub(ecx, 4);
+  call eax := Load(mems.gc, ecx);
+
+  if (eax != 0) { goto skip; }
+    call eax := Load(mems.gc, ecx + 4);
+    goto done;
+  skip:
+    call CopyAndForward($ptr - 4, $_tj);
+    call eax := Add(eax, 4);
+  done:
+  assert TV(eax - 4);
+}
+
+procedure scanObject()
+  inout my r:regs, my core_state:core_state, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems, $commonVars:commonVars, $gcVars:gcVars;
+  inout $absMem:[int][int]int, $toAbs:[int]int, $stacksFrames:[int]Frames, objLayouts:[int]ObjLayout;
+  requires CopyGcInv(objLayouts, Tj, Tk, Tk, $Time, true, $toAbs, $absMem, me, $__MemVars, $commonVars, $gcVars);
+  requires MemInv($Mem_Vars);
+  requires Tj < Tk;
+  requires TV(Tj);
+  requires SMemRequireInline(108, 24, stk, esp);
+  modifies $r2, $gcMem, $toAbs, Tj, Tk, $gcSlice;
+  modifies efl, eax, ebx, ecx, edx, esi, edi, ebp, esp, stk;
+  ensures  CopyGcInv(objLayouts, Tj, Tk, Tk, $Time, true, $toAbs, $absMem, me, $__MemVars, $commonVars, $gcVars);
+  ensures  MemInv($Mem_Vars);
+  ensures  RExtend(old($r2), $r2);
+  ensures  SMemInv(stk, old(stk), esp + 24, old(esp) + 24);
+  ensures  $Time == old($Time);
+{
+  call reveal_MemInvDetails();
+  var $ind:int;
+  var $tj:int := Tj;
+
+  call espAlignedInline();
+
+  assert TO(0);
+  assert TO(1);
+  assert TO(numFields(objLayouts, $r2[Tj]));
+
+  ebx := Tj;
+  call edi := Load(mems.gc, ebx + 0); //- sizePrimitives
+  call ebp := Load(mems.gc, ebx + 4); //- size
+  $ind := numPrimitiveFields(objLayouts, $r2[$tj]);
+
+  call edi := Add(edi, ebx);
+  call ebp := Add(ebp, ebx);
+
+  //while (edi < ebp)
+  loop:
+    invariant $tj == Tj;
+    invariant edi == $tj + 4 * $ind;
+    invariant ebp == $tj + 4 * numFields(objLayouts, $r2[$tj]);
+    invariant TO($ind) && numPrimitiveFields(objLayouts, $r2[$tj]) <= $ind && $ind <= numFields(objLayouts, $r2[$tj]);
+    invariant Pointer($r2, $tj, $r2[$tj]);
+    invariant CopyGcInv(objLayouts, $tj + 4 * numFields(objLayouts, $r2[$tj]), Tk, Tk, $Time, true, $toAbs, $absMem, me, $__MemVars, $commonVars, $gcVars);
+    invariant MemInv($Mem_Vars);
+    invariant RExtend(old($r2), $r2);
+    invariant ObjInvPartial(objLayouts, $tj, 0, $ind, $r2, $r2, $toAbs, $absMem, $gcMem, $gcSlice);
+    invariant ObjInvPartial(objLayouts, $tj, $ind, numFields(objLayouts, $r2[$tj]), $r2, $r1, $toAbs, $absMem, $gcMem, $gcSlice);
+    invariant $toAbs[$tj] != NO_ABS && $toAbs[$tj] == $r2[$tj];
+    invariant SMemInv(stk, old(stk), esp + 24, old(esp) + 24);
+    invariant $Time == old($Time);
+    invariant TO(0) && TO(1) && TO(2);
+    if (edi >= ebp) { goto loopEnd; }
+
+    call ecx := Load(mems.gc, edi);
+    //if (gcAddrEx(ecx))
+    if (ecx < GcLo) { goto skip1; }
+    if (ecx > GcHi) { goto skip1; }
+      assert TV(ecx - 4);
+      call reach($toAbs[Tj], $ind, $Time);
+      call forwardFromspacePtr(ecx, $absMem[$toAbs[Tj]][$ind], ebp);
+      call Store(inout mems.gc, edi, eax);
+    skip1:
+
+    $ind := $ind + 1;
+    call edi := Add(edi, 4);
+    goto loop;
+  loopEnd:
+
+  Tj := ebp;
+}
+
+procedure ScanObjects()
+  inout my r:regs, my core_state:core_state, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems, $commonVars:commonVars, $gcVars:gcVars;
+  inout $absMem:[int][int]int, $toAbs:[int]int, $stacksFrames:[int]Frames, objLayouts:[int]ObjLayout;
+  requires CopyGcInv(objLayouts, Tj, Tk, Tk, $Time, true, $toAbs, $absMem, me, $__MemVars, $commonVars, $gcVars);
+  requires MemInv($Mem_Vars);
+  requires SMemRequireRA(132, stk, esp, RET);
+  modifies $r2, $gcMem, $toAbs, Tj, Tk, $gcSlice;
+  modifies efl, eax, ebx, ecx, edx, esi, edi, ebp, esp, stk;
+  ensures  CopyGcInv(objLayouts, Tj, Tk, Tk, $Time, true, $toAbs, $absMem, me, $__MemVars, $commonVars, $gcVars);
+  ensures  MemInv($Mem_Vars);
+  ensures  RExtend(old($r2), $r2);
+  ensures  Tj == Tk;
+  ensures  SMemEnsure(stk, old(stk), esp, old(esp));
+  ensures  $Time == old($Time);
+{
+  call espAligned();
+  call esp := Sub(esp, 24);
+  entry:
+  loop:
+    invariant CopyGcInv(objLayouts, Tj, Tk, Tk, $Time, true, $toAbs, $absMem, me, $__MemVars, $commonVars, $gcVars);
+    invariant MemInv($Mem_Vars);
+    invariant RExtend(old($r2), $r2);
+    invariant SMemInv(stk, old(stk), esp + 24, old(esp));
+    invariant $Time == old($Time);
+    eax := Tk;
+    if (Tj >= eax) { goto exit; }
+    call scanObject();
+    goto loop;
+  exit:
+  call esp := Add(esp, 24);
+  Return;
+}
+
+procedure ScanStack($s:int, $ra:int, $nextFp:int)
+  inout my r:regs, my core_state:core_state, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems, $commonVars:commonVars, $gcVars:gcVars;
+  inout $absMem:[int][int]int, $toAbs:[int]int, $stacksFrames:[int]Frames, objLayouts:[int]ObjLayout;
+  requires edi == StackLo($s);
+  requires Aligned(edi);
+  requires isStack($s);
+//  requires ecx == $ra && word($ra);
+//  requires edx == $nextFp && word($nextFp);
+  requires GcStackInv(objLayouts, $s, $r1, $stacksFrames[$s], $fMems[$s]);
+  requires CopyGcInv(objLayouts, Tj, Tk, Tk, $Time, true, $toAbs, $absMem, me, $__MemVars, $commonVars, $gcVars);
+  requires MemInv($Mem_Vars);
+  requires SMemRequireRA(172, stk, esp, RET);
+  modifies $r2, $gcMem, $toAbs, Tk, $gcSlice, mems.frm, $fMems;
+  modifies efl, eax, ebx, ecx, edx, esi, edi, ebp, esp, stk;
+  ensures  edi == StackHi($s);
+  ensures  Aligned(edi);
+  ensures  GcStackInv(objLayouts, $s, $r2, $stacksFrames[$s], $fMems[$s]);
+  ensures  CopyGcInv(objLayouts, Tj, Tk, Tk, $Time, true, $toAbs, $absMem, me, $__MemVars, $commonVars, $gcVars);
+  ensures  MemInv($Mem_Vars);
+  ensures  RExtend(old($r2), $r2);
+  ensures  (forall $ss:int::{TStk($ss)} TStk($ss) ==> $ss != $s ==> $fMems[$ss] == old($fMems)[$ss]);
+  ensures  SMemEnsure(stk, old(stk), esp, old(esp));
+  ensures  $Time == old($Time);
+{
+  call reveal_MemInvDetails();
+  call espAligned();
+  call esp := Sub(esp, 8);
+  var save1 @ stk[esp + 0];
+  var save2 @ stk[esp + 4];
+
+  var $ind:int := 0;
+  call ebp := Lea(edi + ?FSize);
+
+  //while (edi < ebp)
+  loop:
+    invariant 0 <= $ind && $ind <= ?fWords;
+    invariant edi == StackLo($s) + 4 * $ind;
+    invariant ebp == StackHi($s);
+    invariant Aligned(edi);
+    invariant CopyGcInv(objLayouts, Tj, Tk, Tk, $Time, true, $toAbs, $absMem, me, $__MemVars, $commonVars, $gcVars);
+    invariant MemInv($Mem_Vars);
+    invariant RExtend(old($r2), $r2);
+    invariant (forall i:int::{TV(i)} TV(i) ==>         edi <= i && i < StackHi($s) && Aligned(i) ==> Value(objLayouts, true, $r1, $fMems[$s][i], $stacksFrames[$s].Abss[i]));
+    invariant (forall i:int::{TV(i)} TV(i) ==> StackLo($s) <= i && i < edi         && Aligned(i) ==> Value(objLayouts, true, $r2, $fMems[$s][i], $stacksFrames[$s].Abss[i]));
+    invariant SMemInv(stk, old(stk), esp + 8, old(esp));
+    invariant (forall $ss:int::{TStk($ss)} TStk($ss) ==> $ss != $s ==> $fMems[$ss] == old($fMems)[$ss]);
+    invariant $Time == old($Time);
+    invariant TO($ind) && TV(edi);
+    if (edi >= ebp) { goto loopEnd; }
+
+    call ecx := Load(mems.frm/*[$s]*/, edi);
+    assert TV(ecx - 4);
+    //if (gcAddrEx(ecx))
+    if (ecx < GcLo) { goto skip1; }
+    if (ecx > GcHi) { goto skip1; }
+      call reachStackRoot($s, edi, $Time);
+
+      save1 := edi;
+      save2 := ebp;
+      call forwardFromspacePtr(ecx, $stacksFrames[$s].Abss[edi], Tj);
+      edi := save1;
+      ebp := save2;
+
+      $fMems[$s][edi] := eax;
+      call Store(inout mems.frm/*[$s]*/, edi, eax);
+    skip1:
+
+    assert TV(edi) && TO(1);
+    $ind := $ind + 1;
+    call __notAligned(edi);
+
+    call edi := Add(edi, 4);
+    goto loop;
+  loopEnd:
+
+  call esp := Add(esp, 8);
+  Return;
+}
+
+procedure ScanStacks()
+  inout my r:regs, my core_state:core_state, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems, $commonVars:commonVars, $gcVars:gcVars;
+  inout $absMem:[int][int]int, $toAbs:[int]int, $stacksFrames:[int]Frames, objLayouts:[int]ObjLayout;
+  requires CopyGcInv(objLayouts, Tj, Tk, Tk, $Time, true, $toAbs, $absMem, me, $__MemVars, $commonVars, $gcVars);
+  requires MemInv($Mem_Vars);
+  //requires SMemRequireRA(188, stk, esp, RET);
+  requires SMemRequireRA(192, stk, esp, RET);
+  requires (forall $s:int::{TStk($s)} TStk($s) ==> isStack($s) ==> _StateInv(objLayouts, $s, $r1, me, $__MemVars, $stacksFrames));
+  modifies $r2, $gcMem, $toAbs, Tk, $gcSlice, mems.frm, $fMems;
+  modifies efl, eax, ebx, ecx, edx, esi, edi, ebp, esp, stk;
+  ensures  CopyGcInv(objLayouts, Tj, Tk, Tk, $Time, true, $toAbs, $absMem, me, $__MemVars, $commonVars, $gcVars);
+  ensures  MemInv($Mem_Vars);
+  ensures  RExtend(old($r2), $r2);
+  ensures  SMemEnsure(stk, old(stk), esp, old(esp));
+  ensures  (forall $s:int::{TStk($s)} TStk($s) ==> isStack($s) ==> _StateInv(objLayouts, $s, $r2, me, $__MemVars, $stacksFrames));
+  ensures  $Time == old($Time);
+{
+  call reveal_MemInvDetails();
+  call espAligned();
+  call esp := Sub(esp, 12);
+  var s @ stk[esp + 0] := 0;
+  edi := FLo;
+  while (s < ?NumStacks)
+    invariant 0 <= s && TStk(s);
+    invariant CopyGcInv(objLayouts, Tj, Tk, Tk, $Time, true, $toAbs, $absMem, me, $__MemVars, $commonVars, $gcVars);
+    invariant MemInv($Mem_Vars);
+    invariant RExtend(old($r2), $r2);
+    invariant SMemInv(stk, old(stk), esp + 12, old(esp));
+    invariant (forall $s:int::{TStk($s)} TStk($s) ==> isStack($s) && s <= $s ==> _StateInv(objLayouts, $s, $r1, me, $__MemVars, $stacksFrames));
+    invariant (forall $s:int::{TStk($s)} TStk($s) ==> isStack($s) && s >  $s ==> _StateInv(objLayouts, $s, $r2, me, $__MemVars, $stacksFrames));
+    invariant $Time == old($Time);
+    invariant edi == StackLo(s);
+    invariant Aligned(edi);
+  {
+    assert TStk($S) && TV(?sLo) && TO(512 + 65536 * 2 + 64 * s) && TO(512 + 65536 * 2 + 64 * s + 1) && TO(512 + 65536 * 2 + 64 * s + 2);
+    call ScanStack(s, StackRA(s, $tMems, $fMems), StackEbp(s, $tMems));
+    eax := s;
+    call eax := Add(eax, 1);
+    s := eax;
+  }
+  call esp := Add(esp, 12);
+  Return;
+}
+
+procedure __garbageCollect()
+  inout my r:regs, my core_state:core_state, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems, $commonVars:commonVars, $gcVars:gcVars;
+  inout $absMem:[int][int]int, $toAbs:[int]int, $stacksFrames:[int]Frames, objLayouts:[int]ObjLayout;
+  requires word(ebp);
+  requires _NucleusInv(objLayouts, $S, $toAbs, $absMem, GcVars, me, $__MemVars, $stacksFrames);
+  requires MemInv($Mem_Vars);
+  //requires SMemRequireInline(196, 4, stk, esp);
+  requires SMemRequireInline(200, 4, stk, esp);
+  requires IoInv($IoVars, $pciMem);
+
+  modifies $r1, $r2, $gcMem, $toAbs, $gcSlice, mems.frm, $fMems, $Time;
+  modifies Ti, Tj, Tk, Tl, Fi, Fk, Fl, BF, BT;
+  modifies efl, eax, ebx, ecx, edx, esi, edi, ebp, esp, stk;
+
+  // postcondition same as precondition, plus reached:
+  ensures  NucleusInv(objLayouts, $S, $toAbs, $absMem, GcVars, $Mem_Vars, $stacksFrames, $IoVars);
+  ensures  (forall i:int::{TV(i)} TV(i) ==> Fi <= i && i < Fk && $toAbs[i] != NO_ABS ==>
+             reached($toAbs[i], $Time));
+  ensures  ebp == old(ebp);
+  ensures  SMemInv(stk, old(stk), esp + 4, old(esp) + 4);
+{
+  call reveal_MemInvDetails();
+  call espAlignedInline();
+  var saveEbp @ stk[esp + 0] := ebp;
+  call newTime();
+
+  $r1 := $toAbs;
+  $r2 := (lambda i:int::NO_ABS);
+  eax := Ti;
+  Tj := eax;
+  Tk := eax;
+
+  eax := BT;
+  ebx := Fi;
+  if (ebx != HeapLo) { goto skip1; }
+    ebx := HeapLo;
+    goto skip2;
+  skip1:
+    ebx := BF;
+  skip2:
+
+  call ScanStacks();
+  call ScanObjects();
+
+  $toAbs := $r2;
+
+  eax := Fi;
+  ebx := Ti;
+  Fi := ebx;
+  Ti := eax;
+
+  eax := Fl;
+  ebx := Tl;
+  Fl := ebx;
+  Tl := eax;
+
+  eax := Tk;
+  Fk := eax;
+
+  eax := Ti;
+  Tk := eax;
+  Tj := eax;
+
+  eax := BF;
+  ebx := BT;
+  BF := ebx;
+  BT := eax;
+
+  ebp := saveEbp;
+}
+
+implementation GarbageCollect()
+{
+  call espAligned();
+  call esp := Sub(esp, 12);
+  call __garbageCollect();
+  call esp := Add(esp, 12);
+  Return;
+}
+
+procedure doAllocCopyingWord($ret:int, $ind:int)
+  inout my r:regs, my core_state:core_state, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems, $commonVars:commonVars, $gcVars:gcVars;
+  inout $absMem:[int][int]int, $toAbs:[int]int, $stacksFrames:[int]Frames, objLayouts:[int]ObjLayout;
+  requires esi == $ret + 4 * $ind;
+
+  requires TO($ind) && $ind >= 0;
+  requires Aligned($ret) && Fk <= $ret && $ret + 4 * $ind + 4 <= Fl;
+  requires __NucleusInv(objLayouts, $toAbs, $absMem, GcVars, me, $__MemVars, $stacksFrames);
+  requires MemInv($Mem_Vars);
+  requires (forall j:int::{TO(j)} TO(j) ==> 0 <= j && j < $ind ==> $gcSlice[$ret + 4 * j] == $ret);
+  requires (forall j:int::{TO(j)} TO(j) ==> 0 <= j && j < $ind ==> gcAddr($ret + 4 * j)); // REVIEW: necessary?
+  requires (forall j:int::{TO(j)} TO(j) ==> 0 <= j && j < $ind ==> $gcMem[$ret + 4 * j] == NULL);
+
+  modifies efl, $gcMem, $gcSlice;
+
+  ensures  __NucleusInv(objLayouts, $toAbs, $absMem, GcVars, me, $__MemVars, $stacksFrames);
+  ensures  MemInv($Mem_Vars);
+  ensures  (forall j:int::{TO(j)} TO(j) ==> 0 <= j && j < $ind + 1 ==> $gcSlice[$ret + 4 * j] == $ret);
+  ensures  (forall j:int::{TO(j)} TO(j) ==> 0 <= j && j < $ind + 1 ==> gcAddr($ret + 4 * j)); // REVIEW: necessary?
+  ensures  (forall j:int::{TO(j)} TO(j) ==> 0 <= j && j < $ind + 1 ==> $gcMem[$ret + 4 * j] == NULL);
+  ensures  $Time == old($Time);
+{
+  call reveal_MemInvDetails();
+  assert TV($ret);
+  assert TV($ret + 4 * $ind);// && TV($ret + 4 * $ind + 1) && TV($ret + 4 * $ind + 2) && TV($ret + 4 * $ind + 3);
+  $gcSlice[$ret + 4 * $ind] := $ret;
+
+  call Store(inout mems.gc, esi, 0);
+}
+
+procedure doAllocCopyingWords($ret:int, $size:int, $nf:int)
+  inout my r:regs, my core_state:core_state, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems, $commonVars:commonVars, $gcVars:gcVars;
+  inout $absMem:[int][int]int, $toAbs:[int]int, $stacksFrames:[int]Frames, objLayouts:[int]ObjLayout;
+  requires eax == $ret;
+  requires ebx == $ret + $size;
+  requires $size == $nf * 4;
+  requires $nf >= 0;
+  requires __NucleusInv(objLayouts, $toAbs, $absMem, GcVars, me, $__MemVars, $stacksFrames);
+  requires MemInv($Mem_Vars);
+  requires Aligned($ret) && Fk <= $ret && $ret + $size <= Fl;
+
+  modifies $gcMem, $gcSlice;
+  modifies efl, esi;
+
+  ensures  __NucleusInv(objLayouts, $toAbs, $absMem, GcVars, me, $__MemVars, $stacksFrames);
+  ensures  MemInv($Mem_Vars);
+  ensures  (forall j:int::{TO(j)} TO(j) ==> 0 <= j && j < $nf ==> $gcSlice[$ret + 4 * j] == $ret);
+  ensures  (forall j:int::{TO(j)} TO(j) ==> 0 <= j && j < $nf ==> gcAddr($ret + 4 * j)); // REVIEW: necessary?
+  ensures  (forall j:int::{TO(j)} TO(j) ==> 0 <= j && j < $nf ==> $gcMem[$ret + 4 * j] == NULL);
+  ensures  ebp == old(ebp);
+  ensures  $Time == old($Time);
+{
+  call reveal_MemInvDetails();
+  var $ind:int;
+  $ind := 0;
+
+  esi := eax;
+
+  //while (4 * $ind < $size)
+  if (esi >= ebx) { goto loopEnd; }
+  loop:
+    invariant 4 * $ind < $size;
+    invariant esi == $ret + 4 * $ind;
+    invariant TO($ind) && $ind >= 0;
+    invariant __NucleusInv(objLayouts, $toAbs, $absMem, GcVars, me, $__MemVars, $stacksFrames);
+    invariant MemInv($Mem_Vars);
+    invariant (forall j:int::{TO(j)} TO(j) ==> 0 <= j && j < $ind ==> $gcSlice[$ret + 4 * j] == $ret);
+    invariant (forall j:int::{TO(j)} TO(j) ==> 0 <= j && j < $ind ==> gcAddr($ret + 4 * j)); // REVIEW: necessary?
+    invariant (forall j:int::{TO(j)} TO(j) ==> 0 <= j && j < $ind ==> $gcMem[$ret + 4 * j] == NULL);
+    invariant $Time == old($Time);
+
+    call doAllocCopyingWord($ret, $ind);
+    $ind := $ind + 1;
+    call esi := Add(esi, 4);
+    if (esi < ebx) { goto loop; }
+  loopEnd:
+}
+
+procedure doAllocObjectCopying($nextFp:int, $abs:int, $size:int, $sizePrimitives:int)
+  inout my r:regs, my core_state:core_state, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems, $commonVars:commonVars, $gcVars:gcVars;
+  inout $absMem:[int][int]int, $toAbs:[int]int, $stacksFrames:[int]Frames, objLayouts:[int]ObjLayout;
+  requires ebx == Fk + $size;
+  requires ecx == $size;
+  requires edx == $sizePrimitives;
+  requires Fk + 4 * numFields(objLayouts, $abs) <= Fl;
+  requires !VFieldPtr(objLayouts, $abs, 0);
+  requires !VFieldPtr(objLayouts, $abs, 1);
+  requires 2 <= numFields(objLayouts, $abs);
+  requires $size == 4 * numFields(objLayouts, $abs);
+  requires ObjSize(objLayouts, $abs, $size, $absMem[$abs][0]);
+  requires _NucleusInv(objLayouts, $S, $toAbs, $absMem, GcVars, me, $__MemVars, $stacksFrames);
+  requires MemInv($Mem_Vars);
+
+  //- requirements on vtable and layout:
+  requires word($size);
+  requires VTable(objLayouts, $abs, $size);
+  requires ObjSize(objLayouts, $abs, $size, $sizePrimitives);
+
+  //- require a fresh, empty abstract node:
+  requires $abs != NO_ABS;
+  requires (forall i:int::{TV(i)} TV(i) ==> gcAddr(i) ==> $toAbs[i] != $abs);
+  requires $absMem[$abs][0] == $sizePrimitives;
+  requires $absMem[$abs][1] == $size;
+  requires (forall j:int::{TO(j)} TO(j) ==> 2 <= j && j < numFields(objLayouts, $abs) ==> $absMem[$abs][j] == NULL);
+  requires IoInv($IoVars, $pciMem);
+
+  modifies $gcMem, $toAbs, $gcSlice, Fk, $freshAbs;
+  modifies efl, eax, ebx, ecx, edx, esi, edi, ebp;
+
+  ensures  NucleusInv(objLayouts, $S, $toAbs, $absMem, GcVars, $Mem_Vars, $stacksFrames, $IoVars);
+  ensures  old($toAbs)[eax - 4] == NO_ABS;
+  ensures  $toAbs == old($toAbs)[eax - 4 := $abs];
+  ensures  Pointer($toAbs, eax - 4, $abs);
+  ensures  eax == old(Fk) + 4;
+  ensures  ebp == old(ebp);
+{
+  call reveal_MemInvDetails();
+  eax := Fk;
+
+  assert TV(eax + 0) && TV(eax + 4);
+  assert TO(0) && TO(1) && TO(2);
+  assert TO(numFields(objLayouts, $abs));
+
+  call doAllocCopyingWords(eax, $size, numFields(objLayouts, $abs));
+
+  call Store(inout mems.gc, eax + 0, edx);
+  call Store(inout mems.gc, eax + 4, ecx);
+
+  assert TV(Fk - Fi);
+
+  $toAbs[eax] := $abs;
+  assert TV(Fk);
+  assert TO(numFields(objLayouts, $abs));
+
+  Fk := ebx;
+  call eax := Add(eax, 4);
+
+  assert TV(eax + 4);
+  assert TO(0);
+  $freshAbs := NO_ABS;
+}
+
+implementation InitializeGc()
+{
+  call reveal_MemInvDetails();
+  call espAligned();
+  call esp := Sub(esp, 8);
+  var save     @ stk[esp + 0] := ebp;
+  var unitSize @ stk[esp + 4];
+
+  ecx := FLo;
+  eax := 0;
+  loop1:
+    invariant 0 <= eax && eax <= ?NumStacks;
+    invariant ecx == StackLo(eax);
+    invariant Aligned(ecx);
+    invariant (forall $s:int::{TStk($s)} TStk($s) ==> 0 <= $s && $s < eax ==>
+      (forall i:int::{TV(i)} TV(i) ==> StackLo($s) <= i && i < StackHi($s) && Aligned(i) ==> $fMems[$s][i] == 0));
+    invariant logical_addressing_inv(init, ptMem, core_state);
+    invariant SMemInv(stk, old(stk), esp + 8, old(esp));
+    invariant MemInv($Mem_Vars) && commonVarsInv($commonVars, statics);
+    invariant stk[esp + 0] == old(ebp);
+    invariant IoInv($IoVars, $pciMem);
+    if (eax >= ?NumStacks) { goto end1; }
+    // for 0 <= $ind < ?fWords
+    ebx := 0;
+    var $ind:int := 0;
+    loop2:
+      invariant 0 <= eax && eax < ?NumStacks;
+      invariant 0 <= $ind && $ind <= ?fWords;
+      invariant ebx == 4 * $ind;
+      invariant ecx == StackLo(eax) + 4 * $ind;
+      invariant Aligned(ecx);
+      invariant (forall $s:int::{TStk($s)} TStk($s) ==> 0 <= $s && $s <= eax ==>
+        (forall i:int::{TV(i)} TV(i) ==> Aligned(i) && StackLo(eax) <= i && (i < (if $s < eax then StackHi(eax) else ecx)) ==> $fMems[$s][i] == 0));
+      invariant logical_addressing_inv(init, ptMem, core_state);
+      invariant SMemInv(stk, old(stk), esp + 8, old(esp));
+      invariant MemInv($Mem_Vars) && commonVarsInv($commonVars, statics);
+      invariant stk[esp + 0] == old(ebp);
+      invariant IoInv($IoVars, $pciMem);
+      assert ?fWords == 1024;
+      if (ebx >= ?FSize) { goto end2; }
+
+      $fMems[eax][ecx] := 0;
+      call Store(inout mems.frm/*[eax]*/, ecx, 0);
+      assert TV(ecx) && TO(1);
+      $ind := $ind + 1;
+      call __notAligned(ecx);
+      ebx := ebx + 4;
+      ecx := ecx + 4;
+      goto loop2;
+    end2:
+    eax := eax + 1;
+    goto loop1;
+  end1:
+
+  //- Compute gcMem size, in bytes and words
+  esi := GcHi;
+  call esi := SubLoad(statics, esi, GcLo);
+  edi := esi;
+
+  //- Break into 256-byte units.  Let ebp be the number of units.
+  edx := 0;
+  eax := edi;
+  ebx := 256;
+  call eax, edx := Div(eax, edx, ebx);
+  ebp := eax;
+  unitSize := ebp;
+  assert 256 * unitSize <= (?gcHi - ?gcLo);
+
+  //- Divide heap into ?gcLo = ebx <--128--> ecx <--128--> ?gcHi
+  edx := 0;
+  call ebp := Lea(edx + 4 * ebp);
+  eax := GcLo;
+  BF := eax;
+  BT := eax;
+  ebx := eax;
+  call ebp := Lea(edx + 4 * ebp);
+  call ecx := Lea(ebx + 8 * ebp);
+  call edx := Lea(ecx + 8 * ebp);
+
+  HeapLo := ebx;
+  Fi := ebx;
+  Fk := ebx;
+  Fl := ecx;
+  Ti := ecx;
+  Tj := ecx;
+  Tk := ecx;
+  Tl := edx;
+
+  call __initialize(unitSize, HeapLo);
+
+  assert TV(?gcLo);
+  assert TV(HeapLo);
+  assert TO(0);
+  assert TO(unitSize);
+  assert TO(2 * unitSize);
+  assert TO(32 * unitSize);
+  eax := GcLo;
+  esi := unitSize;
+  call ebx := Lea(eax + 4 * esi);
+
+  $freshAbs := NO_ABS;
+
+  ebp := save;
+  call esp := Add(esp, 8);
+  Return;
+}
+
+implementation revealInv1($s:int, $_stackState:[int]StackState)
+{
+  assert TStk($s);
+}
+
+implementation updateInv1($oldPciConfigState:[int]int, $oldmem:mems)
+{
+  call reveal_MemInvDetails();
+}
+
+implementation gcFieldProperties(ptr:int, fld:int)
+{
+  call reveal_MemInvDetails();
+  assert TV(ptr) && TO(fld);
+}
+
+implementation gcLoadField(x:int, y:opn_mem, ptr:int, fld:int)
+{
+  call reveal_MemInvDetails();
+  assert TV(ptr) && TO(fld);
+  call logical_Load(inout r, core_state, mems.gc, x, y);
+}
+
+implementation gcStoreField(x:opn_mem, y:opn, ptr:int, fld:int, abs:int)
+{
+  call reveal_MemInvDetails();
+  assert TVL($toAbs[ptr]);
+  assert TV(Eval(r, y)) && TV(ptr);
+  assert TO(fld);
+  call logical_Store(r, core_state, inout mems.gc, x, y);
+  $absMem := $absMem[$toAbs[ptr] := $absMem[$toAbs[ptr]][fld := abs]];
+}
+
+implementation gcLoadStack(x:int, y:opn_mem, ptr:int)
+{
+  call reveal_MemInvDetails();
+  assert TStk($S) && TV(ptr);
+  call logical_Load(inout r, core_state, mems.frm, x, y);
+}
+
+implementation gcStoreStack(x:opn_mem, y:opn, ptr:int, abs:int)
+{
+  call reveal_MemInvDetails();
+  assert TStk($S) && TV(ptr);
+  call logical_Store(r, core_state, inout mems.frm, x, y);
+  $fMems[$S][ptr] := Eval(r, y);
+  $stacksFrames := $stacksFrames[$S := Frames($stacksFrames[$S].Abss[ptr := abs])];
+}
+
+implementation AllocObject($abs:int, $numWords:int, $numPrimitiveWords:int)
+{
+  assert TV(esp) && TO(0) && TO(1) && TO(2) && TO(3);
+#ifdef x64
+  assert TO(4);
+#endif
+
+#ifdef x64
+  call ecx := Load(stk, esp + 12);
+  call edx := Load(stk, esp + 16);
+#else
+  call ecx := Load(stk, esp + 8);
+  call edx := Load(stk, esp + 12);
+#endif
+
+  $freshAbs := $abs;
+  objLayouts[$abs] := ObjLayout($numWords, $numPrimitiveWords);
+  $absMem[$abs] := (lambda i:int::if i == 0 then $numPrimitiveWords * 4 else if i == 1 then $numWords * 4 else NULL);
+
+  ebx := Fk;
+  call ebx := AddChecked(ebx, ecx);
+
+  //if (!(Fk + size <= Fl))
+  if (ebx <= Fl) { goto skip1; }
+    call GarbageCollect();
+    //- try one more time
+#ifdef x64
+    call ecx := Load(stk, esp + 12);
+    call edx := Load(stk, esp + 16);
+#else
+    call ecx := Load(stk, esp + 8);
+    call edx := Load(stk, esp + 12);
+#endif
+    ebx := Fk;
+    call ebx := AddChecked(ebx, ecx);
+    if (ebx <= Fl) { goto skip1; }
+      eax := 0x5555feed; // out of memory
+      call debugBreak();
+  skip1:
+
+  call doAllocObjectCopying(ebp, $abs, $numWords * 4, $numPrimitiveWords * 4);
+
+#ifdef x64
+  call Store(inout stk, esp + 8, eax);
+#else
+  call Store(inout stk, esp + 4, eax);
+#endif
+  Return;
+}
+
+}

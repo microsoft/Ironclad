@@ -1,0 +1,60 @@
+//-
+//- Copyright (c) Microsoft Corporation.  All rights reserved.
+//-
+
+module interface MemorySpec
+{
+
+//-////////////////////////////////////////////////////////////////////////////
+//- MEMORY ADDRESSES
+//-////////////////////////////////////////////////////////////////////////////
+
+//- Aligned(i) <==> i is a multiple of 4
+function Aligned(i:int) returns(bool);
+
+atomic ghost procedure reveal_Aligned(val:int);
+  ensures  Aligned(val) == (val mod 4 == 0);
+
+//-////////////////////////////////////////////////////////////////////////////
+//- MAIN MEMORY
+//-////////////////////////////////////////////////////////////////////////////
+const ?CodeBase:int; 
+const ?memLo: int;
+const ?memHi: int;
+function memAddr(i:int) returns (bool);
+function memAddrMain(i:int) returns (bool) {?memLo <= i && i < ?memHi}
+function memAddrMainEx(i:int) returns (bool) {?memLo <= i && i <= ?memHi} // TODO: remove
+
+atomic ghost procedure memAddrBounds(i:int);
+  ensures memAddr(i) ==> 4 <= i && i + 4 < WORD_HI; //- require 4 bytes on either end to help push/pop
+
+//-////////////////////////////////////////////////////////////////////////////
+//- STATIC DATA MEMORY
+//-////////////////////////////////////////////////////////////////////////////
+function StaticAddrToId(i:int):int; //- each static variable has an id within a module
+
+//-////////////////////////////////////////////////////////////////////////////
+//- READ-ONLY MEMORY
+//-////////////////////////////////////////////////////////////////////////////
+
+function roS8(ptr:int) returns(int);
+function roU8(ptr:int) returns(int);
+function roS16(ptr:int) returns(int);
+function roU16(ptr:int) returns(int);
+function ro32(ptr:int) returns(int);
+
+function inRo(ptr:int, size:int) returns(bool);
+
+//////////////////////////////////////////////////////////////////////////////
+// GC MEMORY
+//////////////////////////////////////////////////////////////////////////////
+
+// valid gc-controlled addresses (must be disjoint from null values)
+// warning: because of interior pointers, ?gcHi must be a 32-bit word
+//   (it can equal 2^32 - 1, but not 2^32)
+//const ?gcLo:int := ?memLo + 0x110000 + 0x402000 + 8 * 65536;
+//const ?gcHi:int := ?memHi;
+//function gcAddr(i:int) returns (bool) {?gcLo <= i && i < ?gcHi}
+//function gcAddrEx(i:int) returns (bool) {?gcLo <= i && i <= ?gcHi}
+
+}

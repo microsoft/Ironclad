@@ -1,0 +1,22 @@
+//-private-import BaseSpec;
+//-private-import MemorySpec;
+//-<NuBuild AddBoogieAxiom BitVector_axioms />
+//-<NuBuild AddBoogieAxiom Word_axioms />
+//-<NuBuild AddBoogieAxiom IntSpec_axioms />
+//-<NuBuild AddBoogieFlag /restartProver />
+//-<NuBuild AddBoogieFlag /proverOpt:OPTIMIZE_FOR_BV=true />
+//-
+//- Copyright (c) Microsoft Corporation.  All rights reserved.
+//-
+
+module implementation BitVectorLemmasMain
+{
+
+implementation _const() {}
+implementation _proc_XorLemmas() {}
+implementation _lemma_and_with_ff(x:bv32) {}
+implementation _lemma_and_with_ffff(x:bv32) {}
+implementation _lemma_and_with_32_64(x:bv32) {}
+implementation _lemma_xor_bytes(x:bv32, y:bv32) { }
+
+}

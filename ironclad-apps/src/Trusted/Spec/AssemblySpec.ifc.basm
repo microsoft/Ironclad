@@ -1,0 +1,1133 @@
+//-<NuBuild BasmEnableSymdiff true />
+//-<NuBuild AddBoogieAxiom Assembly_axioms />
+//-
+//- Copyright (c) Microsoft Corporation.  All rights reserved.
+//-
+
+module interface AssemblySpec
+{
+
+//-////////////////////////////////////////////////////////////////////////////
+//- ASSEMBLY LANGUAGE DEFINITIONS
+//-////////////////////////////////////////////////////////////////////////////
+
+//- Decide whether conditional jumps will be taken (true) or not taken (false), depending on condition and efl:
+function Je (efl:int):bool;
+function Jne(efl:int):bool;
+function Jbe(efl:int):bool;
+function Jb (efl:int):bool;
+function Jae(efl:int):bool;
+function Ja (efl:int):bool;
+
+//- Is the carry flag (CF) set?
+function Cf (efl:int):bool;
+
+//- invariant: word(r) for each register r
+//- To maintain invariant, simply check word(exp) for each assignment r := exp
+
+//- invariant: word(r) for each word w in memory
+//- To maintain invariant, simply check word(exp) for each store of exp to memory
+
+const EAX:int := 0;
+const ECX:int := 1;
+const EDX:int := 2;
+const EBX:int := 3;
+const ESI:int := 4;
+const EDI:int := 5;
+const EBP:int := 6;
+const ESP:int := 7;
+//- fictitious temporary registers for microinstructions:
+const TMP1:int := 0 - 1;
+const TMP2:int := 0 - 2;
+function RegOk(r:int):bool { EAX <= r && r <= ESP }
+
+//- Ordering chosen based on Table 4-1 in the Intel Manual
+//- Actual values have no impact; just need to be distinct (and consecutive for SegRegOk to work)
+const ES:int := 0;
+const CS:int := 1;
+const SS:int := 2;
+const DS:int := 3;
+const FS:int := 4;
+const GS:int := 5;
+function SegRegOk(r:int):bool { ES <= r && r <= GS }
+
+const CR0:int := 0;
+const CR3:int := 1;
+const CR4:int := 2;
+function CtrlRegOk(r:int):bool { CR0 <= r && r <= CR4 }
+
+type mem_opn = MConst(_mconst:int) | MReg(_mreg:int, _moffset:int) | MIndex(_mbase:int, _mscale:int, _mindex:int, _moff:int);
+type opn = OConst(_const:int) | OReg(_reg:int);
+type opn_mem = OMem(_ptr:mem_opn); // TODO: get rid of this
+
+//- TLB holds cached PTEs.  
+//- The label represents the possibility that the processor implements multiple TLBs (e.g., code and data)
+//- We model the TLB as an infinitely large cache.  
+//- A nondeterministic process updates the TLB, so when the page structures in memory change, 
+//- the TLBs may or may not reflect the new value.  Once the TLB is invalidated, we immediately
+//- populate it with the current value in memory, representing the fact that the next access will
+//- force the processor to go to memory to learn the correct mapping.
+//- DTLB holds cached PDEs
+//- The activeLabels select the {D}TLB that will be used for the next memory option
+//- We havoc them on every operation, so there are no guarantees as to which one will be used
+// TODO: MUST HAVOC {D}TLB_activeLabels !!!!  <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+type  TLB_label;
+type DTLB_label;
+type paging_caches = paging_caches(TLB:[int][TLB_label]PageEntry, DTLB:[int][DTLB_label]PageEntry,
+                                   TLB_activeLabel:TLB_label,     DTLB_activeLabel:DTLB_label);
+
+//- GDT Base: Addr in mem where Global Descriptor Table (GDT) starts.  Len = # seg descriptors in GDT
+type GDT_regs = GDT_regs(GDT_base:int, GDT_len:int);  
+
+//- state shared among cores
+// TODO: move these to the proper files
+//- These types deliberately omit linear constructors; the programmer cannot construct them directly
+type VgaEvent;
+type VgaState = VgaState(VgaEvents:[int]VgaEvent, VgaNextEvent:int);
+type KeyboardState = KeyboardState(KeyboardEvents:[int]int, KeyboardAvailable:int, KeyboardDone:int);
+type IomState = IomState(IomMem:[int]int, IomFrozen:bool, IoMmuState:[int]int, IoMmuEnabled:bool, DevEnabled:bool);
+//type IOQueue = IOQueue(Events:[int]int, Count:int);
+type PciState = PciState(PciConfigId:int, PciConfigOffset:int, PciConfigState:[int]int);
+type IOState = IOState(_vga:VgaState, _keyboard:KeyboardState, _iom:IomState, _pci:PciState, _inCtr:int, _outCtr:int);
+
+//- mem.map[i] = data at address i, if PhysPtrOk(i)
+type mem = mem(map:[int]int, dom:[int]bool); //- no linear constructors
+function mem_update(mem:mem, ptr:int, val:int):mem { mem(mem.map[ptr := val], mem.dom) }
+
+//- core-local state
+type regs = regs(_regs:[int]int, _efl:int); //- no linear constructors
+type core_state = core_state(_cregs:[int]int, _gdt_regs:GDT_regs, _seg_regs:[int]SegmentRegister, _caches:paging_caches); //- no linear constructors
+function .regs(r:regs):[int]int { r._regs }
+function .efl(r:regs):int { r._efl }
+function .cregs(c:core_state):[int]int { c._cregs }
+function .gdt_regs(c:core_state):GDT_regs { c._gdt_regs }
+function .seg_regs(c:core_state):[int]SegmentRegister { c._seg_regs }
+function .caches(c:core_state):paging_caches { c._caches }
+
+type SerialPortState = SerialPortState(Mode:SerialPortMode, In:SerialPortQueue, Out:SerialPortQueue);
+type SerialPortQueue = SerialPortQueue(Events:[int]int, Available:int, Done:int);
+type SerialPortMode = SerialPortMode(DLAB:bool);
+//readonly var $serialState:SerialPortState;
+//readonly var $randomSource:[int]int;
+//readonly var $global_sample_index:int;
+
+function PhysPtrOk(mem:mem, ptr:int):bool
+{ 
+    mem.dom[ptr]
+ && Aligned(ptr)
+}
+
+function EvalMemOpn(r:regs, m:mem_opn):int
+{
+  if m is MConst then m._mconst
+  else if m is MReg then r.regs[m._mreg] + m._moffset
+  else r.regs[m._mbase] + m._mscale * r.regs[m._mindex] + m._moff
+}
+
+function EvalMemOpnOk(m:mem_opn):bool
+{
+  if m is MConst then true
+  else if m is MReg then RegOk(m._mreg)
+  else RegOk(m._mbase) && RegOk(m._mindex)
+}
+
+function Eval(r:regs, o:opn):int
+{
+  if o is OConst then o._const
+  else r.regs[o._reg]
+}
+
+function EvalPtr(r:regs, o:opn_mem):int { EvalMemOpn(r, o._ptr) }
+function EvalPtrOk(o:opn_mem):bool { EvalMemOpnOk(o._ptr) }
+
+function EvalViaSegment(r:regs, c:core_state, m:mem, segment_index:int, o:opn_mem):int
+{
+  // REVIEW: Eventually, should update ?System to depend on CPL!
+  LogicalLoad(c.seg_regs[segment_index], paging_enabled(c), m, 
+    c.caches.TLB, c.caches.TLB_activeLabel, ?System, EvalPtr(r, o)).<<int>>
+  //m.map[EvalPtr(r, o)]
+}
+
+function SrcOkViaSegment(r:regs, c:core_state, m:mem, segment_index:int, o:opn_mem):bool
+{
+  //PhysPtrOk(EvalPtr(r, o))
+  // REVIEW: Eventually, should update ?System to depend on CPL!
+    EvalPtrOk(o)
+ && LogicalLoad(c.seg_regs[segment_index], paging_enabled(c), m,
+      c.caches.TLB, c.caches.TLB_activeLabel, ?System, EvalPtr(r, o)) != <<int>>()
+}
+
+function DstOkViaSegment(r:regs, c:core_state, m:mem, segment_index:int, o:opn_mem):bool
+{ 
+  // REVIEW: Eventually, should update ?System to depend on CPL!
+  (forall $val:int ::
+      EvalPtrOk(o)
+   && LogicalStore(c.seg_regs[segment_index], paging_enabled(c), m,
+        c.caches.TLB, c.caches.TLB_activeLabel,
+        ?System, EvalPtr(r, o), $val) != <<mem>>())
+}
+
+function EvalMem(r:regs, c:core_state, m:mem, o:opn_mem):int
+{
+  EvalViaSegment(r, c, m, DS, o)
+}
+
+function SrcOk(o:opn):bool
+{
+  if o is OConst then word(o._const)
+  else RegOk(o._reg)
+}
+
+function DstOk(o:opn):bool { o is OReg && RegOk(o._reg) }
+
+//- By default, everyone uses DS
+function MemSrcOk(r:regs, c:core_state, m:mem, o:opn_mem):bool
+{
+  SrcOkViaSegment(r, c, m, DS, o)
+}
+
+function MemDstOk(r:regs, c:core_state, m:mem, o:opn_mem):bool
+{ 
+  DstOkViaSegment(r, c, m, DS, o)
+}
+
+//- Where is the instruction that follows Eip?
+//- (This equals Eip + sizeof(instruction at Eip).)
+function NextEip(Eip:int):int;
+
+function Efl_Cmp(_efl:int, x:int, y:int):int;
+function Efl_Add(_efl:int, x:int, y:int):int;
+function Efl_Sub(_efl:int, x:int, y:int):int;
+function Efl_Mul(_efl:int, x:int, y:int):int;
+function Efl_Div(_efl:int, x:int, y:int):int;
+function Efl_Not(_efl:int, x:int):int;
+function Efl_And(_efl:int, x:int, y:int):int;
+function Efl_Or(_efl:int, x:int, y:int):int;
+function Efl_Xor(_efl:int, x:int, y:int):int;
+function Efl_Shl(_efl:int, x:int, y:int):int;
+function Efl_Shr(_efl:int, x:int, y:int):int;
+function Efl_Rol(_efl:int, x:int, y:int):int;
+function Efl_Ror(_efl:int, x:int, y:int):int;
+
+//- Entirely ghost update
+function InOutUpdate(io:IOState):IOState
+{
+  IOState(
+    io._vga,
+    io._keyboard,
+    io._iom,
+    io._pci,
+    io._inCtr + 1,
+    io._outCtr + 1
+    )
+}
+
+//- Entirely ghost update
+function OutUpdate(io:IOState):IOState
+{
+  IOState(
+    io._vga,
+    io._keyboard,
+    io._iom,
+    io._pci,
+    io._inCtr,
+    io._outCtr+1
+    )
+}
+
+function VgaUpdate(io:IOState, vga:VgaState):IOState
+{
+  IOState(
+    vga,
+    io._keyboard,
+    io._iom,
+    io._pci,
+    io._inCtr,
+    io._outCtr
+    )
+}
+
+function KeyboardUpdate(io:IOState, keyboard:KeyboardState):IOState
+{
+  IOState(
+    io._vga,
+    keyboard,
+    io._iom,
+    io._pci,
+    io._inCtr,
+    io._outCtr
+    )
+}
+
+function IomUpdate(io:IOState, iom:IomState):IOState
+{
+  IOState(
+    io._vga,
+    io._keyboard,
+    iom,
+    io._pci,
+    io._inCtr,
+    io._outCtr
+    )
+}
+
+function PciUpdate(io:IOState, pci:PciState):IOState
+{
+  IOState(
+    io._vga,
+    io._keyboard,
+    io._iom,
+    pci,
+    io._inCtr,
+    io._outCtr
+    )
+}
+
+function MemUpdate1ViaSegment(r:regs, c:core_state, m:mem, segment_index:int, dst:opn_mem, v:int):mem
+{
+  // REVIEW: Eventually, should update ?System to depend on CPL!
+  LogicalStore(c.seg_regs[segment_index], paging_enabled(c), m,
+    c.caches.TLB, c.caches.TLB_activeLabel, ?System, EvalPtr(r, dst), v).<<mem>>
+}
+
+function MemUpdate1(r:regs, c:core_state, m:mem, dst:opn_mem, v:int):mem
+{
+  MemUpdate1ViaSegment(r, c, m, DS, dst, v)
+}
+
+function StackUpdate1(r:regs, c:core_state, m:mem, dst:opn_mem, v:int):mem
+{
+  MemUpdate1ViaSegment(r, c, m, SS, dst, v)
+}
+
+//-////////////////////////////////////////////////////////////////////////////
+//- GHOST OPERATIONS
+//-////////////////////////////////////////////////////////////////////////////
+
+atomic ghost procedure memEmpty() returns(linear m:mem);
+  ensures (forall i:int::{m.dom[i]} !m.dom[i]);
+
+atomic ghost procedure memTransfer(linear src:mem, linear dst:mem, b:[int]bool)
+  returns(linear _src:mem, linear _dst:mem);
+  requires (forall i:int::b[i] ==> src.dom[i]);
+  ensures  (forall i:int::{b[i]}{_src.dom[i]}{TV(i)} TV(i) ==> (_src.dom[i] <==> src.dom[i] && !b[i]));
+  ensures  (forall i:int::{b[i]}{_dst.dom[i]}{TV(i)} TV(i) ==> ( _dst.dom[i] <==> dst.dom[i] || b[i]));
+  ensures  _src.map == src.map;
+  ensures  (forall i:int::{b[i]}{_dst.map[i]}{TV(i)} TV(i) ==> ( _dst.map[i] == (if b[i] then src else dst).map[i]));
+
+atomic ghost procedure memDisjoint(const linear m1:mem, const linear m2:mem);
+  ensures (forall i:int::{m1.dom[i]} {m2.dom[i]} !m1.dom[i] || !m2.dom[i]);
+
+atomic ghost procedure memDomIsMemAddr(const linear m:mem, i:int);
+  requires m.dom[i];
+  ensures  memAddr(i);
+
+// REVIEW
+atomic procedure instr_DropTempRegs(my r:regs, _regs:[int]int) returns(my _r:regs);
+  requires (forall i:int :: RegOk(i) ==> _regs[i] == r.regs[i]);
+  ensures  _r.regs == _regs;
+  ensures  _r.efl == r.efl;
+
+type InitStateMachine = EntryPoint() | StaticsEnabled();
+
+//- Proving the code is where we expect enables access to static variables
+//- in the code segment of the 64K of protected memory
+atomic ghost procedure enableStatics(linear initState:InitStateMachine) returns (linear _initState:InitStateMachine, linear static_mem:mem);
+#ifdef AppLoader
+  requires ?CodeBase == 0x300000;
+#else
+  requires ?CodeBase == 0x340000;
+#endif
+  requires initState is EntryPoint;
+  ensures  _initState is StaticsEnabled;
+  ensures (forall i:int::{memAddr(i)}{static_mem.dom[i]} memAddr(i) && !memAddrMain(i) ==> static_mem.dom[i]);   
+
+//-////////////////////////////////////////////////////////////////////////////
+//- INSTRUCTIONS
+//-////////////////////////////////////////////////////////////////////////////
+
+atomic procedure instr_Mov(my r:regs, x:int, y:opn) returns(my _r:regs);
+  ensures  _r.regs == r.regs[x := Eval(r, y)];
+  ensures  _r.efl == r.efl;
+  ensures  word(_r.regs[x]);
+
+atomic procedure instr_Add(my r:regs, x:int, y:opn) returns(my _r:regs);
+  ensures  _r.regs == r.regs[x := wrap32(r.regs[x] + Eval(r, y))];
+  ensures  _r.efl == Efl_Add(r.efl, r.regs[x], Eval(r, y));
+  ensures  word(_r.regs[x]);
+
+//- Add with carry (ADC)
+atomic procedure instr_AddCarry(my r:regs, x:int, y:opn) returns(my _r:regs);
+  ensures let carry:int := if Cf(r.efl) then 1 else 0 in
+            _r.regs == r.regs[x := wrap32(r.regs[x] + Eval(r, y) + carry)] &&
+            _r.efl == Efl_Add(r.efl, r.regs[x] + carry, Eval(r, y));
+  ensures word(_r.regs[x]);
+
+atomic procedure instr_Sub(my r:regs, x:int, y:opn) returns(my _r:regs);
+  ensures  _r.regs == r.regs[x := wrap32(r.regs[x] - Eval(r, y))];
+  ensures  word(_r.regs[x]);
+
+atomic procedure instr_AddNoFlags(my r:regs, x:int, y:opn) returns(my _r:regs);
+  ensures  _r.regs == r.regs[x := wrap32(r.regs[x] + Eval(r, y))];
+  ensures  _r.efl == r.efl;
+  ensures  word(_r.regs[x]);
+
+atomic procedure instr_SubNoFlags(my r:regs, x:int, y:opn) returns(my _r:regs);
+  ensures  _r.regs == r.regs[x := wrap32(r.regs[x] - Eval(r, y))];
+  ensures  _r.efl == r.efl;
+  ensures  word(_r.regs[x]);
+
+//- run-time overflow checked
+atomic procedure instr_AddChecked(my r:regs, x:int, y:opn) returns(my _r:regs);
+  ensures  _r.regs == r.regs[x := r.regs[x] + Eval(r, y)];
+  ensures  word(_r.regs[x]);
+
+atomic procedure instr_SubChecked(my r:regs, x:int, y:opn) returns(my _r:regs);
+  ensures  _r.regs == r.regs[x := r.regs[x] - Eval(r, y)];
+  ensures  word(_r.regs[x]);
+
+atomic procedure instr_Mul(my r:regs, y:opn) returns(my _r:regs);
+  ensures  (exists hi:int :: _r.regs == r.regs[EDX := hi][EAX := wrap32(Mult(r.regs[EAX], Eval(r, y)))]);
+  ensures  word(_r.regs[EAX]) && word(_r.regs[EDX]);
+
+atomic procedure instr_Mul64(my r:regs, y:opn) returns(my _r:regs);
+  ensures  _r.regs == r.regs
+              [EDX := Div(Mult(r.regs[EAX], Eval(r, y)), 0x100000000)]
+              [EAX := wrap32(Mult(r.regs[EAX], Eval(r, y)))];
+  ensures  word(_r.regs[EAX]) && word(_r.regs[EDX]);
+
+//- run-time overflow checked
+atomic procedure instr_MulChecked(my r:regs, y:opn) returns(my _r:regs);
+  ensures  (exists hi:int :: _r.regs == r.regs[EDX := hi][EAX := Mult(r.regs[EAX], Eval(r, y))]);
+  ensures  word(_r.regs[EAX]) && word(_r.regs[EDX]);
+
+//- Note: we only support 32-bit division, so the upper 32 bits EDX must be 0
+//-   EDX <- remainder EAX mod y
+//-   EAX <- quotient EAX div y
+atomic procedure instr_Div(my r:regs, y:opn) returns(my _r:regs);
+  requires r.regs[EDX] == 0;
+  requires Eval(r, y) != 0;
+  ensures  _r.regs == r.regs
+              [EDX := r.regs[EAX] mod Eval(r, y)]
+              [EAX := r.regs[EAX] div Eval(r, y)];
+  ensures  word(_r.regs[EAX]) && word(_r.regs[EDX]);
+
+atomic procedure instr_Not(my r:regs, x:int) returns(my _r:regs);
+  ensures  _r.regs == r.regs[x := neg(r.regs[x])];
+  ensures  word(_r.regs[x]);
+
+atomic procedure instr_And(my r:regs, x:int, y:opn) returns(my _r:regs);
+  ensures  _r.regs == r.regs[x := and(r.regs[x], Eval(r, y))];
+  ensures  word(_r.regs[x]);
+
+atomic procedure instr_Or(my r:regs, x:int, y:opn) returns(my _r:regs);
+  ensures  _r.regs == r.regs[x := or(r.regs[x], Eval(r, y))];
+  ensures  word(_r.regs[x]);
+
+atomic procedure instr_Xor(my r:regs, x:int, y:opn) returns(my _r:regs);
+  ensures  _r.regs == r.regs[x := xor(r.regs[x], Eval(r, y))];
+  ensures  word(_r.regs[x]);
+
+atomic procedure instr_Shl(my r:regs, x:int, y:opn) returns(my _r:regs);
+  requires Eval(r, y) < 32;
+  ensures  _r.regs == r.regs[x := shl(r.regs[x], Eval(r, y))];
+  ensures  word(_r.regs[x]);
+
+atomic procedure instr_Shr(my r:regs, x:int, y:opn) returns(my _r:regs);
+  requires Eval(r, y) < 32;
+  ensures  _r.regs == r.regs[x := shr(r.regs[x], Eval(r, y))];
+  ensures  word(_r.regs[x]);
+
+atomic procedure instr_Rol(my r:regs, x:int, y:opn) returns(my _r:regs);
+  requires Eval(r, y) < 32;
+  ensures  _r.regs == r.regs[x := rol(r.regs[x], Eval(r, y))];
+  ensures  word(_r.regs[x]);
+
+atomic procedure instr_Ror(my r:regs, x:int, y:opn) returns(my _r:regs);
+  requires Eval(r, y) < 32;
+  ensures  _r.regs == r.regs[x := ror(r.regs[x], Eval(r, y))];
+  ensures  word(_r.regs[x]);
+
+//- Sticks the carry flag (CF) in a register (see SETC instruction)
+atomic procedure instr_GetCf(my r:regs, x:int) returns(my _r:regs);
+  requires r.regs[x] < 256;     //- Instruction only writes a byte, so this simplifies the ensures
+  ensures  _r.regs == r.regs[x := if Cf(r.efl) then 1 else 0]; 
+  ensures  word(_r.regs[x]);
+
+atomic procedure instr_Cmp(my r:regs, x:int, y:opn) returns(my _r:regs);
+  ensures  _r.regs == r.regs;
+  ensures  _r.efl == Efl_Cmp(r.efl, r.regs[x], Eval(r, y));
+
+// Compare EAX with Mem[ptr]. If equal, Mem[ptr] := val. Otherwise M[ptr] is stored in EAX.
+//atomic procedure instr_Cmpxchg(linear s:state, ptr:opn, val:opn) returns (linear _s:state);
+//  requires DstOk(ptr);
+//  requires SrcOk(val);
+//  modifies regs, efl;
+//  ensures  word(_s._cores[me]._regs[EAX]);
+//  ensures  _s == let _efl:int := Efl_Cmp(s._cores[me]._efl, s._cores[me]._regs[EAX], EvalMem(r, c, s, ptr)) in
+//                  if s._cores[me]._regs[EAX] == EvalMem(r, c, s, ptr)
+//                    then InsUpdate1(me, s, ptr, Eval(r, val), _efl)
+//                    else InsUpdate1(me, s, OReg(EAX), EvalMem(r, c, s, ptr), _efl);
+
+atomic procedure instr_Load(my r:regs, const my c:core_state, const linear m:mem, x:int, y:opn_mem)
+  returns(my _r:regs);
+  requires MemSrcOk(r, c, m, y);
+  ensures  _r.regs == r.regs[x := EvalMem(r, c, m, y)];
+  ensures  _r.efl == r.efl;
+  ensures  word(_r.regs[x]);
+
+atomic procedure instr_Store(const my r:regs, const my c:core_state, linear m:mem, x:opn_mem, y:opn)
+  returns(linear _m:mem);
+  requires MemDstOk(r, c, m, x);
+  ensures  _m == MemUpdate1(r, c, m, x, Eval(r, y));
+  ensures  word(EvalMem(r, c, _m, x));
+
+atomic procedure instr_LoadStack(my r:regs, const my c:core_state, const linear m:mem, x:int, y:opn_mem)
+  returns(my _r:regs);
+  requires SrcOkViaSegment(r, c, m, SS, y);
+  ensures  _r.regs == r.regs[x := EvalViaSegment(r, c, m, SS, y)];
+  ensures  _r.efl == r.efl;
+
+atomic procedure instr_StoreStack(const my r:regs, const my c:core_state, linear m:mem, x:opn_mem, y:opn)
+  returns(linear _m:mem);
+  requires DstOkViaSegment(r, c, m, SS, x);
+  ensures  _m == StackUpdate1(r, c, m, x, Eval(r, y));
+
+atomic procedure instr_Lea(my r:regs, x:int, y:opn_mem) returns(my _r:regs);
+  requires word(EvalPtr(r, y));
+  ensures  _r.regs == r.regs[x := EvalPtr(r, y)];
+  ensures  _r.efl == r.efl;
+
+atomic procedure instr_LeaUnchecked(my r:regs, x:int, y:opn_mem) returns(my _r:regs);
+  ensures  (exists v:int :: _r.regs == old(r.regs)[x := v]);
+  ensures  _r.efl == r.efl;
+
+// REVIEW: add more general support for signed arithmetic?
+atomic procedure instr_LeaSignedIndex(my r:regs, x:int, base:int, scale:int, index:int, offset:opn)
+  returns(my _r:regs);
+  requires scale == 1 || scale == 2 || scale == 4 || scale == 8;
+  requires word(r.regs[base] + scale * asSigned(r.regs[index]) + Eval(r, offset));
+  ensures  _r.regs == r.regs[x := r.regs[base] + scale * asSigned(r.regs[index]) + Eval(r, offset)];
+  ensures  _r.efl == r.efl;
+
+//// TODO: the Ro instructions need to segment/page map!
+//// read and zero-extend 8 bits
+//atomic procedure instr_RoLoadU8(linear s:state, x:int, y:opn_mem) returns(linear _s:state);
+//  requires DstOk(x);
+//  requires inRo(EvalPtr(r, y), 1);
+//  ensures  word(regs[x]);
+//  ensures  _s == InsUpdate1(me, s, x, roU8(EvalPtr(r, y)), s._cores[me]._efl);
+//
+//// read and sign-extend 8 bits
+//atomic procedure instr_RoLoadS8(linear s:state, x:int, y:opn_mem) returns(linear _s:state);
+//  requires DstOk(x);
+//  requires inRo(EvalPtr(r, y), 1);
+//  ensures  word(regs[x]);
+//  ensures  (exists v:int:: asSigned(v) == roS8(EvalPtr(r, y))
+//            && _s == InsUpdate1(me, s, x, v, s._cores[me]._efl));
+//
+//// read and zero-extend 16 bits
+//atomic procedure instr_RoLoadU16(linear s:state, x:int, y:opn_mem) returns(linear _s:state);
+//  requires DstOk(x);
+//  requires inRo(EvalPtr(r, y), 2);
+//  ensures  word(regs[x]);
+//  ensures  _s == InsUpdate1(me, s, x, roU16(EvalPtr(r, y)), s._cores[me]._efl);
+//
+//// read and sign-extend 16 bits
+//atomic procedure instr_RoLoadS16(linear s:state, x:int, y:opn_mem) returns(linear _s:state);
+//  requires DstOk(x);
+//  requires inRo(EvalPtr(r, y), 2);
+//  ensures  word(regs[x]);
+//  ensures  (exists v:int:: asSigned(v) == roS16(EvalPtr(r, y))
+//            && _s == InsUpdate1(me, s, x, v, s._cores[me]._efl));
+//
+//atomic procedure instr_RoLoad32(linear s:state, x:int, y:opn_mem) returns(linear _s:state);
+//  requires DstOk(x);
+//  requires inRo(EvalPtr(r, y), 4);
+//  ensures  word(regs[x]);
+//  ensures  _s == InsUpdate1(me, s, x, ro32(EvalPtr(r, y)), s._cores[me]._efl);
+
+//- Used to check linearity in translation of "if(Jcc(r.efl)) { goto L; }" and procedure calls
+atomic procedure boogie_CheckJcc(const my r:regs);
+atomic procedure boogie_CheckCall(const my r:regs);
+
+function ReturnToCaller(r:regs):ReturnTo { 
+#ifdef x64
+  ReturnToAddr64(r.regs[TMP1], r.regs[TMP2])
+#else
+  ReturnToAddr32(r.regs[TMP1])
+#endif
+}
+
+//- Read eip of next instruction (used to model call instruction)
+//- A call instruction consists of:
+//-   - esp := SubNoFlags(esp, 4) for x86 or esp := SubNoFlags(esp, 8) for x64
+//-   - TMP1 := MovNextEip()
+//-   - StoreStack(esp, TMP1)
+//-   - Boogie call to the procedure
+//- In x64 keep track of both words of RIP
+#ifdef x64
+    atomic procedure instr_MovNextEip64(my r:regs, x:int, y:int) returns(my _r:regs);
+      ensures  (exists nextEipLow:int, nextEipHigh:int :: _r.regs == r.regs[x := nextEipLow][y := nextEipHigh]);
+      ensures  _r.efl == r.efl;
+#else
+    atomic procedure instr_MovNextEip32(my r:regs, x:int) returns(my _r:regs);
+  ensures  (exists nextEip:int :: _r.regs == r.regs[x := nextEip]);
+  ensures  _r.efl == r.efl;
+#endif
+
+//- A return instruction consists of:
+//-   - TMP1 := LoadStack(esp)
+//-   - esp := AddNoFlags(esp, 4)
+//-   - Ret()
+//-   - Boogie return
+//- Ret requires that the procedure returns to whoever called it
+//- (i.e. call/return is last-in, first-out).  It does not
+//- require that the stack pointer be the same as before.
+#ifdef x64
+atomic procedure instr_Ret(const my r:regs);
+      requires RET == ReturnToAddr64(r.regs[TMP1], r.regs[TMP2]);
+#else
+    atomic procedure instr_Ret(const my r:regs);
+      requires RET == ReturnToAddr32(r.regs[TMP1]);
+#endif
+
+// An iret instruction consists of a call to IRet, which
+// models popping the 3 words eip, cs, eflags.
+// Example:
+//   call $State := instr_IRet($State); return;
+// Needs to discuss the effect on CS, in particular, that the shadow descriptor is updated from memory
+// Also, someone needs to care about CS for that matter and this to be sound
+//atomic procedure instr_IRet(linear s:state) returns(linear _s:state);
+//  requires MemSrcOk(r, c, s, OMem(MReg(ESP, 0)));
+//  requires MemSrcOk(r, c, s, OMem(MReg(ESP, 4)));
+//  requires MemSrcOk(r, c, s, OMem(MReg(ESP, 8)));
+//  requires RET == ReturnToInterrupted(
+//            EvalMem(r, c, s, OMem(MReg(ESP, 0))),
+//            EvalMem(r, c, s, OMem(MReg(ESP, 4))),
+//            EvalMem(r, c, s, OMem(MReg(ESP, 8))));
+//  ensures  _s == InsUpdate1(me, 
+//    s,
+//    OReg(ESP),
+//    s._cores[me]._regs[ESP]+12,
+//    s._cores[me]._efl);
+
+//- Read time-stamp counter (cycle counter)
+atomic procedure instr_Rdtsc(my r:regs) returns(my _r:regs);
+  ensures  (exists t1:int, t2:int :: word(t1) && word(t2) && _r.regs == r.regs[EAX := t1][EDX := t2]);
+  ensures  _r.efl == r.efl;
+
+//-////////////////////////////////////////////////////////////////////////////
+//- Declassification
+//-////////////////////////////////////////////////////////////////////////////
+
+function declassified(lg:int, rg:int, l:int, r:int):bool;
+function fun_declassified(lg:int, rg:int, l:int, r:int):bool { declassified(lg, rg, l, r) } //- Dafny-friendly name
+
+//- Convert a declassified word into a public word
+atomic procedure declassify(my r:regs, x:int, g:int) returns (my _r:regs);
+  requires relation(declassified(left(g), right(g), left(r.regs[x]), right(r.regs[x])));
+  ensures  _r.regs == r.regs[x := g];
+  ensures  public(_r.regs[x]);
+
+//-////////////////////////////////////////////////////////////////////////////
+//- SEGMENTS AND PAGES
+//-////////////////////////////////////////////////////////////////////////////
+
+type SegmentDescriptor = SegmentDescriptor(segBase:int, segType:int);
+type SegmentRegister = SegmentRegister(index:int, descriptor:SegmentDescriptor);
+
+const ?SegmentDescriptorSize:int := 8;
+const ?SegmentDescriptorTypeData:int := 2;
+const ?SegmentDescriptorTypeCode:int := 8;
+
+function ValidSegmentDescriptor(descriptor:SegmentDescriptor):bool
+{
+   (descriptor.segType == ?SegmentDescriptorTypeData && word(descriptor.segBase))
+ || descriptor.segType == ?SegmentDescriptorTypeCode
+}
+
+function SegmentDescriptorWord0(descriptor:SegmentDescriptor):int
+{
+  or(shl(descriptor.segBase, 16), 0xffff)
+}
+
+// TODO: Bit-field manipulation 
+function SegmentDescriptorWord1(descriptor:SegmentDescriptor):int
+{
+  or( and(descriptor.segBase, 0xff000000),               //- Upper 8 bits of base are upper 8 bits of the word
+      or( shr(and(descriptor.segBase, 0x00ff0000),16),   //- Next 8 bits of base are the lower 8 bits of the word
+          //- Middle 16 bits of the word are the following flags:
+          //- G = 1, D/B = 1, L = 0, AVL = 0, SegLimit = 0xf, P=1, DPL=00, S=1 (1=code/data,0=system), Type=0x2=Data
+          shl(or(0xCF90, descriptor.segType), 8)  //- 0xCF90 = binary 1100111110010000
+        )
+    )
+}
+
+function ValidSegmentSelector(register:int, index:int):bool
+{
+  register == shl(index, 3)      //- Sets TI bit to 0 for GDT, and RPL to 0
+}
+
+//function ValidSegmentRegister(register:SegmentRegister):bool
+//{
+//  ValidSegmentDescriptor(register.descriptor)
+//}
+
+function ValidGdtDescriptor(gdt_regs:GDT_regs, index:int, descriptor:SegmentDescriptor, mem:mem):bool
+{
+    0 < index && index < gdt_regs.GDT_len
+ && ValidSegmentDescriptor(descriptor)
+ && SegmentDescriptorWord0(descriptor) == mem.map[gdt_regs.GDT_base + index * ?SegmentDescriptorSize]
+ && SegmentDescriptorWord1(descriptor) == mem.map[gdt_regs.GDT_base + index * ?SegmentDescriptorSize + 4] 
+}
+
+//- Sample usage:
+//-    call core := instr_ActivateDataSelector(r, core, state, index, descriptor, eax, DS);
+atomic procedure instr_ActivateDataSelector(const my r:regs, my c:core_state, const linear m:mem,
+    index:int, descriptor:SegmentDescriptor, srcRegister:int, dstRegister:int)
+  returns(my _c:core_state);
+  requires ValidSegmentSelector(r.regs[srcRegister], index);
+  requires ValidGdtDescriptor(c.gdt_regs, index, descriptor, m);
+  requires descriptor.segType == ?SegmentDescriptorTypeData;
+  requires SegRegOk(dstRegister) && dstRegister != CS;
+  //ensures ValidSegmentRegister(SegmentRegister(index, descriptor));
+  ensures  _c == core_state(c.cregs, c.gdt_regs,
+              c.seg_regs[dstRegister := SegmentRegister(index, descriptor)], c.caches);
+           // c[_seg_regs := c._seg_regs[dstRegister := SegmentRegister(index, descriptor)] );
+
+//// Copies the value in a data segment selector into an ordinary register
+//atomic procedure instr_ReadDataSelector(linear s:state, srcRegister:int, dstRegister:int)
+//  returns (linear _s:state);
+//  requires SegRegOk(srcRegister) && srcRegister != CS;
+//  ensures  regs == old(regs)[dstRegister := ???];
+//  ensures  core_state == old(core_state);
+////[ckh] TODO: correct srcRegister:  ensures _s == InsUpdate1(me, s, dstRegister, s._cores[me]._regs[srcRegister], s._cores[me]._efl);
+
+// Not sure what you would use this for, since you activate CS via a task switch or a jump, etc, not via mov eax cs
+//procedure ActivateCodeSelector($index:int, $descriptor:SegmentDescriptor, $srcRegister:int);
+//  requires ValidSegmentSelector($srcRegister, $index);
+//  requires ValidGdtDescriptor(s._cores[me]._gdt_regs, $index, $descriptor, $Mem);
+//  requires $descriptor.segType == ?SegmentDescriptorTypeCode;
+//  modifies $Cs;
+//  ensures $Cs == SegmentRegister($index, $descriptor);
+//  ensures ValidSegmentRegister($Cs);
+  
+// procedure FetchSelector($register:SegmentRegister) returns ($index:int);
+
+function GdtParamsWord0(base:int, len:int):int
+{
+  or(shl(base, 16), len * ?SegmentDescriptorSize)
+}
+
+function GdtParamsWord1(base:int, len:int):int
+{
+  shr(base, 16)
+}
+
+//- len is specified in number of GDT entries, even though Intel expects it in bytes
+// TODO: break into micro-instructions
+atomic procedure instr_LoadGDT(const my r:regs, my c:core_state, const linear m:mem, base:int, len:int, addr:opn_mem)
+  returns(my _c:core_state);
+  requires 0 <= len && len < 8192;
+  requires word(base);
+  requires base >= ?memLo && base + len * ?SegmentDescriptorSize <= ?memHi;
+  requires PhysPtrOk(m, EvalPtr(r, addr)) && PhysPtrOk(m, EvalPtr(r, addr) + 4);
+  requires GdtParamsWord0(base, len) == m.map[EvalPtr(r, addr)];
+  requires GdtParamsWord1(base, len) == m.map[EvalPtr(r, addr) + 4];
+  ensures  _c == core_state(c.cregs, GDT_regs(base, len), c.seg_regs, c.caches);
+
+//-///////////////////////////////////////////////////////////////////////////////
+//- Protected Memory
+//- Note that Intel refers to a general pointer value as a "logical" address
+//- Segmentation transforms logical addresses into "linear" addresses,
+//- and paging (if enabled) transforms linear addresses into physical addresses
+//-///////////////////////////////////////////////////////////////////////////////
+
+const ?User:bool := true;
+const ?System:bool := false;
+const ?Write:bool := true;
+const ?Read:bool := false;
+const ?Present:bool := true;
+const ?Absent:bool := false;
+
+//- Base should be the full ptr value (including lower 12 bits of 0s)
+type PageEntry = PageEntry(base:int, user:bool, write:bool, present:bool);
+
+// If you add a field, need to update the ensures clause of EnablePaging
+//type CR0 = CR0(PE:bool, PG:bool, WP:bool);    // Protection enabled, Paging Enabled
+
+type <<int>>;
+type <<bool>>;      //- Creates a ternary bool value.  Allows us to require Foo() != NULL, and then ensure Foo() == true
+type <<PageEntry>>;
+type <<mem>>;
+
+//- Relevant CR0 bit positions
+const ?CR0_paging_enabled:int     := 31;
+const ?CR0_write_protect:int      := 16;
+const ?CR0_protection_enabled:int := 0;
+
+function paging_enabled(c:core_state):bool
+{
+  GetBit(?CR0_paging_enabled, c.cregs[CR0])
+}
+
+//- Requires protection is enabled, paging isn't
+function ValidPrePagingState(CR0:int):bool
+{
+    GetBit(?CR0_protection_enabled, CR0)
+ && !GetBit(?CR0_paging_enabled, CR0)
+ && !GetBit(?CR0_write_protect, CR0) //- Supervisor can write to any page
+}
+
+//- Ensures that you can only write modified versions of existing CR0 values
+function fresh_CR0_val(val:int):bool;
+
+atomic procedure instr_ReadCR0(my r:regs, const my c:core_state, dstReg:int) returns(my _r:regs);
+  ensures fresh_CR0_val(r.regs[dstReg]);
+  ensures _r.regs == r.regs[dstReg := c.cregs[CR0]]; //- modifies efl
+  ensures word(_r.regs[dstReg]);
+
+//- Currently, only allowed to use this to enable paging
+atomic procedure instr_WriteCR0(my r:regs, my c:core_state, newCR0:opn)
+  returns(my _r:regs, my _c:core_state);
+  requires word(Eval(r, newCR0));
+  requires ValidPrePagingState(c.cregs[CR0]);
+  requires (exists x:int :: { fresh_CR0_val(x) }
+             (Eval(r, newCR0) == SetBit(?CR0_paging_enabled, x)) && fresh_CR0_val(x));
+  ensures  _r.regs == r.regs; //- modifies efl
+  ensures  _c == core_state(c.cregs[CR0 := SetBit(?CR0_paging_enabled, c.cregs[CR0])],
+              c.gdt_regs, c.seg_regs, c.caches);
+
+//-/////////////////////////////////////////////////////
+//- Protected memory load
+//-/////////////////////////////////////////////////////
+
+function LogicalLoad(segReg:SegmentRegister, cr0_pg:bool, mem:mem, TLB:[int][TLB_label]PageEntry, cacheLabel:TLB_label, user:bool, ptr:int): <<int>> 
+{
+  let linear_addr:int := SegmentMap(segReg, ptr) in
+    LinearLoad(cr0_pg, mem, linear_addr, user, TLB, cacheLabel)
+
+//  if SegmentMap(segReg, ptr) != <<int>>() &&
+//     LinearLoad($CR0.PG, s._mem, SegmentMap(segReg, ptr).<<int>>, user, $TLB, $TLB_activeLabel) != <<int>>()
+//  then
+//    LinearLoad($CR0.PG, s._mem, SegmentMap(segReg, ptr).<<int>>, user, $TLB, $TLB_activeLabel);
+//  else 
+//    <<int>>()
+}
+
+//// REVIEW: Is a single $TLB_activeLabel sufficient?  What if there's an implied instruction load via a different label? 
+//// Read a word from segmented memory
+//// REVIEW: Should we restructure so the PhysLoad is done on the result of paging application in the ensures below?
+
+function LogicalStore(segReg:SegmentRegister, cr0_pg:bool, mem:mem, TLB:[int][TLB_label]PageEntry, cacheLabel:TLB_label, user:bool, ptr:int, val:int):<<mem>>
+{
+  let linear_addr:int := SegmentMap(segReg, ptr) in
+    LinearStore(cr0_pg, mem, linear_addr, user, TLB, cacheLabel, val)
+}
+
+function SegmentMap(segReg:SegmentRegister, ptr:int):int
+{
+  segReg.descriptor.segBase + ptr
+//  if ValidSegmentRegister($segReg) then
+//    <<int>>($segReg.descriptor.segBase + $ptr)
+//  else
+//    <<int>>()
+}
+
+function LinearLoad(pagingEnabled:bool, mem:mem, ptr:int, user:bool, TLB:[int][TLB_label]PageEntry, cacheLabel:TLB_label):<<int>>
+{
+  if pagingEnabled then
+    let <<int>> memAddr:int := PageMap(ptr, user, ?Read, TLB, cacheLabel) in
+      LoadPhysical(mem, memAddr)
+  else
+    LoadPhysical(mem, ptr)
+}
+
+function LinearStore(pagingEnabled:bool, mem:mem, ptr:int, user:bool, TLB:[int][TLB_label]PageEntry, cacheLabel:TLB_label, val:int):<<mem>>
+{
+  if pagingEnabled then
+    let <<mem>> memAddr:int := PageMap(ptr, user, ?Write, TLB, cacheLabel) in
+      StorePhysical(mem, memAddr, val)
+  else
+    StorePhysical(mem, ptr, val)
+}
+
+function PageMap(ptr:int, user:bool, write:bool, TLB:[int][TLB_label]PageEntry, cacheLabel:TLB_label):<<int>>
+{
+  let cpte:PageEntry := TLB[PageNumber(ptr)][cacheLabel] in
+  if    cpte.present
+     && (user == ?System || !write || cpte.write == ?Write)
+     && (user == ?System ||           cpte.user == ?User)
+  then
+    <<int>>(or(cpte.base, PhysOffset(ptr)))
+  else
+    <<int>>()
+}
+
+//- The top 20 bits (bits 31:12) of the memory address are used to index into the TLB
+function PageNumber(ptr:int):int
+{
+  shr(ptr, 12)
+}
+
+//- The top 10 bits (bits 31:22) of the memory address are used to index into the PDE cache 
+function PteNumber(ptr:int):int
+{
+  shr(ptr, 22)
+}
+
+function IsUser(CPL:int):bool
+{
+  CPL == 3
+}
+
+//-/////////////////////////////////////////////////////
+//- TLB updates
+//-/////////////////////////////////////////////////////
+
+// TODO: Must call this to model processor's unpredictable behavior w.r.t. paging caches  <<<<<<<<<<<<<<<<<<<<<<<<
+//-atomic procedure instr_HavocPagingCaches(linear m:mem, c:core_state) returns(linear _m:mem);
+//-  requires c == core_state;
+//-  requires paging_enabled(s._cores[me]) ==>
+//-           (forall $ptr:int, $dlabel:DTLB_label :: 
+//-            word($ptr) ==> DTLBIsFreshWrtMemOneEntry(c._cregs[CR3], c._caches.DTLB, $dlabel, m, $ptr) != <<bool>>());
+//-  requires paging_enabled(s._cores[me]) ==>
+//-            (forall $ptr:int, $dlabel:DTLB_label, $label:TLB_label :: 
+//-            word($ptr) ==> TLBIsFreshWrtDTLBOneEntry(c._cregs[CR3], c._caches.DTLB, $dlabel, c._caches.TLB, $label, m, $ptr) != <<bool>>());
+//-  modifies core_state;
+//-  ensures  paging_enabled(s._cores[me]) ==>
+//-              core_state == core_state(c._cregs, c._gdt_regs, c._seg_regs,
+//-                paging_caches(_s._cores[me]._ext._caches.TLB, _s._cores[me]._ext._caches.DTLB,
+//-                  c._caches.TLB_activeLabel, c._caches.DTLB_activeLabel));
+//-  ensures  paging_enabled(s._cores[me]) ==>
+//-          (forall $ptr:int, $dlabel:DTLB_label ::
+//-            _s._cores[me]._ext._caches.DTLB[PteNumber($ptr)][$dlabel] == c._caches.DTLB[PteNumber($ptr)][$dlabel] ||
+//-           (word($ptr) ==> DTLBIsFreshWrtMemOneEntry(c._cregs[CR3], _s._cores[me]._ext._caches.DTLB, $dlabel, m, $ptr).<<bool>>));
+//-  ensures  paging_enabled(s._cores[me]) ==>
+//-          (forall $ptr:int, $label:TLB_label, $dlabel:DTLB_label :: 
+//-           _s._cores[me]._ext._caches.TLB[PageNumber($ptr)][$label] == c._caches.TLB[PageNumber($ptr)][$label] ||
+//-           (word($ptr) ==> TLBIsFreshWrtDTLBOneEntry(c._cregs[CR3], c._caches.DTLB, $dlabel,
+//-                                                     _s._cores[me]._ext._caches.TLB, $label, m, $ptr).<<bool>>));
+//-
+//-atomic procedure instr_WriteCR3(linear m:mem, newCR3:opn) returns(linear _m:mem);
+//-  requires ValidCR3(Eval(r, newCR3));
+//-  requires DTLBsAreFreshWrtMem(Eval(r, newCR3), core_state._caches.DTLB, m) != <<bool>>();
+//-  requires TLBsAreFreshWrtMem(Eval(r, newCR3), core_state._caches.TLB, m) != <<bool>>();
+//-  modifies efl, core_state;
+//-  ensures  core_state == (let c:core_state := old(core_state) in // Everything is the same, except CR3 and the TLB and DTLB
+//-              core_state(c._cregs[CR3 := Eval(r, newCR3)], c._gdt_regs, c._seg_regs,
+//-                paging_caches(_s._cores[me]._ext._caches.TLB, _s._cores[me]._ext._caches.DTLB,
+//-                  c._caches.TLB_activeLabel, c._caches.DTLB_activeLabel)));
+//-  ensures DTLBsAreFreshWrtMem(Eval(r, newCR3), _s._cores[me]._ext._caches.DTLB, m) == <<bool>>(true);
+//-  ensures TLBsAreFreshWrtMem(Eval(r, newCR3), _s._cores[me]._ext._caches.TLB, m) == <<bool>>(true);
+//-
+//-// Specifies the INVLPG instruction
+//-atomic procedure instr_InvalidatePagingCaches(linear m:mem, ptr:opn_mem) returns(linear _m:mem);
+//-  requires word(EvalPtr(regs, ptr));
+//-  requires DTLBsAreFreshWrtMem(core_state._cregs[CR3], core_state._caches.DTLB, m) != <<bool>>();
+//-  requires TLBsAreFreshWrtMemOneEntry(core_state._cregs[CR3], core_state._caches.TLB, m, EvalPtr(regs, ptr)) != <<bool>>();
+//-  modifies efl, core_state;
+//-  ensures  core_state == (let c:core_state := old(core_state) in // Everything is the same, except the TLB and DTLB
+//-              core_state(c._cregs, c._gdt_regs, c._seg_regs,
+//-                paging_caches(_s._cores[me]._ext._caches.TLB, _s._cores[me]._ext._caches.DTLB,
+//-                  c._caches.TLB_activeLabel, c._caches.DTLB_activeLabel)));
+//-  ensures DTLBsAreFreshWrtMem(old(core_state)._cregs[CR3], _s._cores[me]._ext._caches.DTLB, m) == <<bool>>(true);
+//-  ensures TLBsAreFreshWrtMemOneEntry(old(core_state)._cregs[CR3], _s._cores[me]._ext._caches.TLB, m, EvalPtr(r, ptr)) == <<bool>>(true);
+
+function DTLBsAreFreshWrtMem(CR3:int, DTLB:[int][DTLB_label]PageEntry, mem:mem):<<bool>>
+{
+  if (forall ptr:int :: {DTLBsAreFreshWrtMemOneEntry(CR3, DTLB, mem, ptr)} {DTLB[PteNumber(ptr)]}
+      word(ptr) ==> DTLBsAreFreshWrtMemOneEntry(CR3, DTLB, mem, ptr) != <<bool>>())
+  then
+    <<bool>>((forall ptr:int :: {DTLBsAreFreshWrtMemOneEntry(CR3, DTLB, mem, ptr)}
+      word(ptr) ==> DTLBsAreFreshWrtMemOneEntry(CR3, DTLB, mem, ptr) == <<bool>>(true)))
+  else
+    <<bool>>()
+}
+
+function TLBsAreFreshWrtMem(CR3:int, TLB:[int][TLB_label]PageEntry, mem:mem):<<bool>>
+{
+  if (forall ptr:int :: {TLB[PageNumber(ptr)]}
+      word(ptr) ==> TLBsAreFreshWrtMemOneEntry(CR3, TLB, mem, ptr) != <<bool>>())
+  then
+    <<bool>>((forall ptr:int :: {TLB[PageNumber(ptr)]}
+      word(ptr) ==> TLBsAreFreshWrtMemOneEntry(CR3, TLB, mem, ptr) == <<bool>>(true)))
+  else
+    <<bool>>()
+}
+
+function DTLBsAreFreshWrtMemOneEntry(CR3:int, DTLB:[int][DTLB_label]PageEntry, mem:mem, ptr:int):<<bool>>
+{
+  if (forall x:DTLB_label :: {DTLBIsFreshWrtMemOneEntry(CR3, DTLB, x, mem, ptr)} {DTLB[PteNumber(ptr)][x]}
+    DTLBIsFreshWrtMemOneEntry(CR3, DTLB, x, mem, ptr) != <<bool>>()) then
+    <<bool>>((forall y:DTLB_label :: {DTLBIsFreshWrtMemOneEntry(CR3, DTLB, y, mem, ptr)} {DTLB[PteNumber(ptr)][y]}
+      DTLBIsFreshWrtMemOneEntry(CR3, DTLB, y, mem, ptr) == <<bool>>(true)))
+  else
+    <<bool>>()
+}
+
+function TLBsAreFreshWrtMemOneEntry(CR3:int, TLB:[int][TLB_label]PageEntry, mem:mem, ptr:int):<<bool>>
+{
+  if (forall x:TLB_label :: {TLB[PageNumber(ptr)][x]}
+    TLBIsFreshWrtMemOneEntry(CR3, TLB, x, mem, ptr) != <<bool>>()) then
+    <<bool>>((forall y:TLB_label :: {TLB[PageNumber(ptr)][y]}
+      TLBIsFreshWrtMemOneEntry(CR3, TLB, y, mem, ptr) == <<bool>>(true)))
+  else
+    <<bool>>()
+}
+
+function DTLBIsFreshWrtMemOneEntry(CR3:int, DTLB:[int][DTLB_label]PageEntry, dlabel:DTLB_label, mem:mem, ptr:int):<<bool>>
+{
+  let <<bool>> pdeWord:int := LoadPhysical(mem, PDEaddr(CR3, ptr)) in
+    <<bool>>(PageEntryToWord(DTLB[PteNumber(ptr)][dlabel]) == pdeWord)
+}
+
+function TLBIsFreshWrtMemOneEntry(CR3:int, TLB:[int][TLB_label]PageEntry, label:TLB_label, mem:mem, ptr:int):<<bool>>
+{
+  let <<bool>> pdeWord:int   := LoadPhysical(mem, PDEaddr(CR3, ptr)) in
+  let <<bool>> pde:PageEntry := WordToPageEntry(pdeWord) in
+    TLBIsFreshWrtMemOneEntryHelper(TLB, label, mem, ptr, pde)
+}
+
+function TLBIsFreshWrtDTLBOneEntry(CR3:int, DTLB:[int][DTLB_label]PageEntry, dlabel:DTLB_label, TLB:[int][TLB_label]PageEntry, label:TLB_label, mem:mem, ptr:int):<<bool>>
+{
+  let cpde:PageEntry := DTLB[PteNumber(ptr)][dlabel] in
+  if cpde.present then
+    TLBIsFreshWrtMemOneEntryHelper(TLB, label, mem, ptr, cpde)
+  else
+    <<bool>>()
+}
+
+//- This one expects that you've already retrieved the PDE in some fashion
+function TLBIsFreshWrtMemOneEntryHelper(TLB:[int][TLB_label]PageEntry, label:TLB_label, mem:mem, ptr:int, pde:PageEntry):<<bool>>
+{
+  if pde.present then
+    let <<bool>> pteWord:int   := LoadPhysical(mem, PTEaddr(pde, ptr)) in
+    let <<bool>> pte:PageEntry := WordToPageEntry(pteWord) in
+      <<bool>>(TLB[PageNumber(ptr)][label] == CombinePerms(pte, pde))
+  else
+    <<bool>>(TLB[PageNumber(ptr)][label] == PageEntry(0, false, false, ?Absent))   //- All we care about is the absent bit
+}
+
+function CombinePerms(pte:PageEntry, pde:PageEntry):PageEntry
+{
+  PageEntry(pte.base, pte.user && pde.user, pte.write && pde.write, pte.present)
+}
+
+//- size in bytes
+const ?sizeofPDE:int := 4;
+const ?sizeofPTE:int := 4;
+
+function PDEaddr(CR3:int, ptr:int):int
+{
+  PageDirectoryBase(CR3) + mul(PageDirectoryOffset(ptr), ?sizeofPDE)
+}
+
+function PTEaddr(pde:PageEntry, ptr:int):int
+{
+  pde.base + mul(PageTableOffset(ptr), ?sizeofPTE)
+}
+
+//-/////////////////////////////////////////////////////
+//- Functions that split a memory pointer into various 
+//- offsets into the hierachical paging structures
+//-/////////////////////////////////////////////////////
+
+function PageEntryBase(ptr:int):int
+{
+  ClearLSBs(12, ptr)
+}
+
+function PageDirectoryBase(CR3:int):int
+{
+  PageEntryBase(CR3)
+}
+
+//- Top 10 bits index into the list of PDEs
+function PageDirectoryOffset(ptr:int):int
+{
+  SelectLSBs(10, shr(ptr, 22))    //- Note that with 32 bits, the selectLSBs is actually a NO-OP.  
+}
+
+//- Next 10 bits index into the list of PTEs pointed at by the PDE selected above
+function PageTableOffset(ptr:int):int
+{
+  SelectLSBs(10, shr(ptr, 12))
+}
+
+//- Final 12 bits are an index into the physical 4096-byte page frame pointed at by the PTE selected above
+function PhysOffset(ptr:int):int
+{
+  SelectLSBs(12, ptr)
+}
+
+const ?PagingPATbitPos:int := 7;
+const ?PagingPCDbitPos:int := 4;
+const ?PagingPWTbitPos:int := 3;
+const ?PagingUserBitPos:int := 2;
+const ?PagingWriteBitPos:int := 1;
+const ?PagingPresentBitPos:int := 0;
+
+function ValidCR3(cr3:int):bool
+{
+  //- We require that PCD=0 and PWT=0
+    GetBit(?PagingPCDbitPos, cr3) == false
+ && GetBit(?PagingPWTbitPos, cr3) == false 
+}
+
+//- Actual memory layout of a page entry
+function PageEntryToWord(pe:PageEntry):int
+{
+  ClearBit(?PagingPATbitPos,  //- Must be 0 for PDE.  For PTE, it's the PAT bit.    // REVIEW: This affects the memory type used.  Is 0 okay?
+  ClearBit(?PagingPCDbitPos,  //- PCD
+  ClearBit(?PagingPWTbitPos,  //- PWT
+  AssignBit(?PagingUserBitPos, pe.user,
+  AssignBit(?PagingWriteBitPos, pe.write, 
+  AssignBit(?PagingPresentBitPos, pe.present,
+    pe.base))))))
+}
+
+function WordToPageEntry(word:int):<<PageEntry>>
+{
+  if  !GetBit(?PagingPATbitPos, word)
+   && !GetBit(?PagingPCDbitPos, word)
+   && !GetBit(?PagingPWTbitPos, word)
+  then
+    <<PageEntry>>(PageEntry(
+      ClearLSBs(12, word), 
+      GetBit(?PagingUserBitPos, word), 
+      GetBit(?PagingWriteBitPos, word), 
+      GetBit(?PagingPresentBitPos, word)))
+  else
+    <<PageEntry>>()
+}
+
+function GetBit   (i:int, val:int):bool { and(val, shl(1, i)) != 0 }
+function SetBit   (i:int, val:int):int  { or(val, shl(1, i)) }
+function ClearBit (i:int, val:int):int  { and(val, neg(shl(1, i))) }
+function AssignBit(i:int, bit:bool, val:int):int { if bit then SetBit(i, val) else ClearBit(i, val) }
+//- Clears the lower amount bits of val
+function ClearLSBs (amount:int, val:int):int { and(val, neg(sub(shl(1, amount), 1))) }
+//- Clears all but the lower amount bits of val
+function SelectLSBs(amount:int, val:int):int { and(val, sub(shl(1, amount), 1)) }
+
+//-////////////////////////////////////////////////////////////
+//- Functions that represent direct access to physical memory 
+//-////////////////////////////////////////////////////////////
+
+function LoadPhysical(mem:mem, ptr:int):<<int>>
+{
+  if PhysPtrOk(mem, ptr) then <<int>>(mem.map[ptr])
+  else <<int>>()
+}
+
+// REVIEW: Should this require word($val)?  
+// It appears all of the callers ensure it, but that seems brittle
+function StorePhysical(mem:mem, ptr:int, val:int):<<mem>>
+{
+  if PhysPtrOk(mem, ptr) then <<mem>>(mem_update(mem, ptr, val))
+  else <<mem>>()
+}
+
+}

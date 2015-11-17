@@ -1,0 +1,189 @@
+//-private-import BaseSpec;
+//-private-import MemorySpec;
+//-private-import IoTypesSpec;
+//-private-import MachineStateSpec;
+//-private-import AssemblySpec;
+//-private-import InterruptsSpec;
+//-private-import IoSpec;
+//-private-import Core;
+//-private-import LogicalAddressing;
+//-private-import Overflow;
+//-private-import Util;
+//-private-import Stacks;
+//-private-import Partition;
+//-private-import Instructions;
+//-private-import Separation;
+//-private-import IntLemmasBase;
+//-private-import IntLemmasGc;
+//-private-import SimpleGcMemory;
+//-private-import SimpleCommon;
+//-private-import SimpleCollector;
+//-<NuBuild BasmEnableSymdiff true />
+module interface PCI
+{
+
+//procedure pciConfigRead32($id:int, $offset:int)
+//  inout my r:regs, my core_state:core_state, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems, $commonVars:commonVars, $gcVars:gcVars;
+//  inout $absMem:[int][int]int, $toAbs:[int]int, $stacksFrames:[int]Frames, objLayouts:[int]ObjLayout;
+//  requires ecx == $id;
+//  requires edx == $offset;
+//  requires 0 <= $id && $id < 65536;
+//  requires 0 <= $offset && $offset < 256;
+//  requires $id mod 4 == 0 && $offset mod 4 == 0;
+////  requires SMemRequireRA(4, stk, esp, RET);
+////  requires RET == ReturnToAddr($Mem[esp]);
+//  requires logical_addressing_inv(init, ptMem, core_state);
+//  requires NucleusInv(objLayouts, $S, $toAbs, $absMem, GcVars, $Mem_Vars, $stacksFrames, $IoVars);  
+//  modifies state, efl, eax, ecx, edx;
+////  ensures  SMemEnsure(stk, old(stk), esp, old(esp));
+//  ensures  PciConfigReadResult(old(ecx), old(edx), eax);
+//  ensures  logical_addressing_inv(init, ptMem, core_state);
+//  ensures  NucleusInv(objLayouts, $S, $toAbs, $absMem, GcVars, $Mem_Vars, $stacksFrames, $IoVars);
+
+//- Does PCI enumeration to find a device with the specified Device & Vendor ID or dies trying 
+//- if no such device is present
+procedure pciFindDeviceVendor(device_vendor_id:int); 
+  inout my r:regs, my core_state:core_state, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems, $commonVars:commonVars, $gcVars:gcVars;
+  inout $absMem:[int][int]int, $toAbs:[int]int, $stacksFrames:[int]Frames, objLayouts:[int]ObjLayout;
+  requires ebp == device_vendor_id;
+  requires word(device_vendor_id);
+  requires NucleusInv(objLayouts, $S, $toAbs, $absMem, GcVars, $Mem_Vars, $stacksFrames, $IoVars);  
+  requires public(device_vendor_id); 
+  requires public(io._inCtr);
+  requires public(io._outCtr);
+  modifies io, efl, eax, ebx, ecx, edx, esi, edi;
+  ensures  IsValidPciId(eax);
+  ensures  PciConfigReadResult(eax, 0, device_vendor_id);
+  ensures  NucleusInv(objLayouts, $S, $toAbs, $absMem, GcVars, $Mem_Vars, $stacksFrames, $IoVars);
+  ensures  public(eax);
+  ensures  public(io._inCtr);
+  ensures  public(io._outCtr);
+
+//- Maps a PCI device into memory space or dies trying (if you've allocated too many PCI devices)
+procedure pciMemMap(pLo:int, pHi:int, $id:int); 
+  inout my r:regs, my core_state:core_state, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems, $commonVars:commonVars, $gcVars:gcVars;
+  inout $absMem:[int][int]int, $toAbs:[int]int, $stacksFrames:[int]Frames, objLayouts:[int]ObjLayout;
+  requires ecx == $id;
+  requires IsValidPciId($id); 
+  requires $id mod 4 == 0;
+  requires and($id, 7) == 0;
+  requires (exists ret:int :: PciConfigReadResult($id, 0, ret) && ret != 0xffff);
+  requires edi == pLo && pLo == ?pciLo;
+  requires edx == pHi && pHi == ?pciHi;
+  requires (?pciHi - ?pciLo) mod 16 == 0;
+  //requires SMemRequireInline(28, 0, stk, esp);
+  requires logical_addressing_inv(init, ptMem, core_state);
+  requires NucleusInv(objLayouts, $S, $toAbs, $absMem, GcVars, $Mem_Vars, $stacksFrames, $IoVars);  
+  requires public($id);
+  requires public(pLo);
+  requires public(pHi);
+  requires public(io._inCtr);
+  requires public(io._outCtr);
+  modifies io, efl, eax, ebx, ecx, edx, esi, edi, ebp, $pciMem;
+  ensures  eax == PciMemSize($id);
+  ensures  ebx == PciMemAddr($id);
+  ensures  ecx == $id;
+  ensures  word(PciMemAddr($id));
+  ensures  word(PciMemSize($id));
+  ensures  io._pci.PciConfigState[$id] == 4;
+  ensures  logical_addressing_inv(init, ptMem, core_state);
+  ensures  NucleusInv(objLayouts, $S, $toAbs, $absMem, GcVars, $Mem_Vars, $stacksFrames, $IoVars);
+  ensures  public(eax);
+  ensures  public(ebx);
+  ensures  public(ecx);
+  ensures  public(io._inCtr);
+  ensures  public(io._outCtr);
+
+//- Searches our table of existing PCI mappings for the ID provided
+//- Returns the mapping's address (ebx) and size (eax), if found.
+//- Else sets ecx to 0 and returns a suggested slot (eax) for the new mapping
+procedure lookupMapping(id:int, pLo:int, pHi:int)
+  inout my r:regs, my core_state:core_state, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems, $commonVars:commonVars, $gcVars:gcVars;
+  inout $absMem:[int][int]int, $toAbs:[int]int, $stacksFrames:[int]Frames, objLayouts:[int]ObjLayout;
+  //inout iovars:ioVars;
+  requires IsValidPciId(id);
+  requires esi == id;
+  requires edi == pLo && pLo == ?pciLo;
+  requires edx == pHi && pHi == ?pciHi;
+  requires (?pciHi - ?pciLo) mod 16 == 0;
+  requires Aligned(?pciLo);
+  requires logical_addressing_inv(init, ptMem, core_state);
+  requires NucleusInv(objLayouts, $S, $toAbs, $absMem, GcVars, $Mem_Vars, $stacksFrames, $IoVars);
+  requires public(id);
+  requires public(pLo);
+  requires public(pHi);
+  requires public(io._inCtr);
+  requires public(io._outCtr);
+  modifies efl, eax, ebx, ecx, edi, ebp;
+  modifies mems.pci;
+  ensures  mems == old(mems);
+  ensures  ecx == 1 ==>
+                eax == PciMemSize(id) && ebx == PciMemAddr(id) 
+             && word(PciMemSize(id)) 
+             && word(PciMemAddr(id))
+             && io._pci.PciConfigState[id] == 4;
+  ensures  ecx == 0 ==> io._pci.PciConfigState[id] == 0;
+  ensures  ecx == 0 ==> ?pciLo <= ebx && ebx < ?pciHi && Aligned(ebx) && !IsValidPciId($pciMem[ebx])
+             && (exists j:int :: TV(j) && 0 <= j && ebx == ?pciLo + 16*j);
+//  ensures ecx == 0 ==> ?pciLo <= ebx && ebx < ?pciHi && Aligned(ebx) && !IsValidPciId($pciMem[ebx]) &&
+//          (exists j:int :: TV(j) && 0 <= j && ebx == ?pciLo + 16*j);
+  ensures  ecx == 0 || ecx == 1;
+  ensures  logical_addressing_inv(init, ptMem, core_state);
+  ensures  NucleusInv(objLayouts, $S, $toAbs, $absMem, GcVars, $Mem_Vars, $stacksFrames, $IoVars);  
+  //ensures  public(eax);
+  //ensures  public(ebx);
+  //ensures  public(ecx);
+  ensures  public(io._inCtr);
+  ensures  public(io._outCtr);
+
+
+//// internal extern static byte[] PciDmaBuffer();
+//procedure PciDmaBuffer();
+//  requires RET == ReturnToAddr($Mem[esp]);
+//  requires isStack($S) && SpRequire($S, esp, 4);
+//  requires NucleusInv($S, $StackState, $toAbs, $AbsMem, GcVars, $Mem_Vars, $StacksFrames, $IoVars);
+//  modifies state, efl, eax, edx, esp;
+//  ensures  esp == old(esp) + 4;
+//  ensures  $IoMmuEnabled ==> eax == ?dmaLo - 8;
+//  ensures  !$IoMmuEnabled ==> eax == 0;
+//
+//// internal extern static uint PciDmaPhysicalAddr();
+//procedure PciDmaPhysicalAddr();
+//  requires RET == ReturnToAddr($Mem[esp]);
+//  requires isStack($S) && SpRequire($S, esp, 4);
+//  requires NucleusInv($S, $StackState, $toAbs, $AbsMem, GcVars, $Mem_Vars, $StacksFrames, $IoVars);
+//  modifies state, efl, eax, edx, esp;
+//  ensures  esp == old(esp) + 4;
+//  ensures  $IoMmuEnabled ==> eax == ?dmaLo;
+//  ensures  !$IoMmuEnabled ==> eax == 0;
+//
+//// internal extern static uint PciMemRead32(uint id, uint offset);
+//procedure PciMemRead32($id:int, $offset:int);
+//  inout my r:regs, my core_state:core_state, linear stk:mem, linear statics:mem, linear io:IOState;
+//  inout mems:mems;
+//  requires word(eax) && word(ebx) && word(ecx) && word(edx) && word(esi) && word(edi) && word(ebp);
+//  requires ecx == $id;
+//  requires edx == $offset;
+//  requires RET == ReturnToAddr($Mem[esp]);
+//  requires isStack($S) && SpRequire($S, esp, 4);
+//  requires NucleusInv($S, $StackState, $toAbs, $AbsMem, GcVars, $Mem_Vars, $StacksFrames, $IoVars);
+//  modifies state, efl, eax, ebx, ecx, edx, esi, edi, esp; // not ebp
+//  ensures  esp == old(esp) + 4;
+//  ensures  PciMemLoaded($id, PciMemAddr($id) + $offset, eax);
+//
+//// internal extern static void PciMemWrite32(uint id, uint offset, uint val);
+//procedure PciMemWrite32($id:int, $offset:int, $val:int);
+//  inout my r:regs, my core_state:core_state, linear stk:mem, linear statics:mem, linear io:IOState;
+//  inout mems:mems;
+//  requires word(eax) && word(ebx) && word(ecx) && word(edx) && word(esi) && word(edi) && word(ebp);
+//  requires ecx == $id;
+//  requires edx == $offset;
+//  requires $StacksFrames[$S].Slices[esp + 4] == $StacksFrames[$S].Count && $fMems[$S][esp + 4] == $val;
+//  requires RET == ReturnToAddr($Mem[esp]);
+//  requires isStack($S) && SpRequire($S, esp, 8);
+//  requires NucleusInv($S, $StackState, $toAbs, $AbsMem, GcVars, $Mem_Vars, $StacksFrames, $IoVars);
+//  modifies state, efl, eax, ebx, ecx, edx, esi, edi, esp; // not ebp
+//  ensures  esp == old(esp) + 4;
+//  ensures  PciMemStored($id, PciMemAddr($id) + $offset, $val);
+
+}

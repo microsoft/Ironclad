@@ -1,0 +1,72 @@
+//- Implementation of the verified network driver
+//-<NuBuild BasmEnableSymdiff true />
+//-private-import BaseSpec;
+//-private-import MemorySpec;
+//-private-import IoTypesSpec;
+//-private-import MachineStateSpec;
+//-private-import AssemblySpec;
+//-private-import InterruptsSpec;
+//-private-import IoSpec;
+//-<NuBuild AddBoogieAxiom Base_axioms />
+//-<NuBuild AddBoogieAxiom Word_axioms />
+//-<NuBuild AddBoogieAxiom Memory_axioms />
+//-<NuBuild AddBoogieAxiom Assembly_axioms />
+//-<NuBuild AddBoogieAxiom Io_axioms />
+//-private-import Core;
+//-private-import LogicalAddressing;
+//-private-import Overflow;
+//-private-import Util;
+//-private-import Stacks;
+//-private-import Partition;
+//-private-import Instructions;
+//-private-import Separation;
+//-private-import IntLemmasBase;
+//-private-import IntLemmasGc;
+//-private-import SimpleGcMemory;
+//-private-import SimpleCommon;
+//-private-import SimpleCollector;
+//-private-import IntLemmasDevices;
+//-private-import PCI;
+//-<NuBuild AddBoogieFlag /timeLimit:300 />
+//-<NuBuild AddBoogieFlag /trace />
+//-<NuBuild AddBoogieFlag /z3opt:NL_ARITH=false />
+
+module implementation IntelNIC
+{
+
+implementation map_network_card()
+{
+  call reveal_MemInvDetails();
+  ebp := 0x107c8086; 
+  call /* eax := */ pciFindDeviceVendor(?intel_NIC_device_vendor_id);
+  ecx := eax;
+  call eax := And(eax, 7);
+  if (eax > 0) {
+    eax := 0x55550070;
+    call debugBreak();
+  }
+
+  edi := PciLo;
+  edx := PciLo;
+  call edx := Add(edx, 1024); //- == ?pciHi
+  call lemma_and7_implies_mod_4();
+  call pciMemMap(?pciLo, ?pciHi, ecx);
+
+  //- Make sure the mapping fits into memory
+  edx := ebx;
+  call edx := AddWrap(edx, eax);
+
+  if (edx <= ebx) { //- We wrapped around, so addr+size is off the end of memory
+    eax := 0x55550071;
+    call debugBreak();
+  }
+
+  call reveal_WORD_HI();
+  assert ebx == PciMemAddr(ecx);
+  assert eax == PciMemSize(ecx);
+  call reveal_wrap32(ebx + eax);
+
+  assert word(PciMemAddr(ecx) + PciMemSize(ecx));
+}
+
+}

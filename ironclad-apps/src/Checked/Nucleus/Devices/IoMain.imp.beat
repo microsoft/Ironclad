@@ -1,0 +1,1298 @@
+//-private-import BaseSpec;
+//-private-import MemorySpec;
+//-private-import IoTypesSpec;
+//-private-import MachineStateSpec;
+//-private-import AssemblySpec;
+//-private-import InterruptsSpec;
+//-private-import IoSpec;
+//-<NuBuild AddBoogieAxiom Base_axioms />
+//-<NuBuild AddBoogieAxiom Word_axioms />
+//-<NuBuild AddBoogieAxiom Memory_axioms />
+//-<NuBuild AddBoogieAxiom Assembly_axioms />
+//-<NuBuild AddBoogieAxiom Io_axioms />
+//-private-import Core;
+//-private-import LogicalAddressing;
+//-private-import Overflow;
+//-private-import Util;
+//-private-import Stacks;
+//-private-import Partition;
+//-private-import Instructions;
+//-private-import Separation;
+//-private-import IntLemmasBase;
+//-private-import IntLemmasGc;
+//-private-import SimpleGcMemory;
+//-private-import SimpleCommon;
+//-private-import SimpleCollector;
+//-private-import IntLemmasDevices;
+//-private-import PCI;
+//-
+//- Copyright (c) Microsoft Corporation.  All rights reserved.
+//-
+
+//-<NuBuild BasmEnableSymdiff true />
+
+module implementation IoMain
+{
+
+implementation espAligned()
+{
+  assert TV(esp) && TO(0-1) && TO(0-2) && TO(0-3) && TO(0-4) && TO(0-5) && TO(0-6) && TO(0-7) && TO(0-8) && TO(0-9) && TO(0-10) && TO(0-11) && TO(0-12) && TO(0-13) && TO(0-14) && TO(0-15) && TO(0-16);
+}
+
+implementation espAlignedInline()
+{
+  assert TV(esp) && TO(1) && TO(2) && TO(3) && TO(4) && TO(5) && TO(6) && TO(7) && TO(8) && TO(9) && TO(10) && TO(11) && TO(12) && TO(13) && TO(14) && TO(15) && TO(16);
+}
+
+//implementation startTimer()
+//{
+//  eax := 48;
+//  call PitModeOut8(ecx);
+//  eax := ecx;
+//  call PitFreqOut8();
+//  call eax := Shr(eax, 8);
+//  call PitFreqOut8();
+//}
+
+implementation initIoInv()
+{
+  call reveal_MemInvDetails();
+  ecx := ecx;
+  var i:int := 0;
+  while(ecx < edx) 
+    invariant 0 <= i && i <= (?pciHi - ?pciLo) div 16;
+    invariant ecx == ?pciLo + 16*i;
+    invariant ?pciLo <= ecx && ecx <= ?pciHi;
+    invariant (forall addr:int, j:int::{mems.pci[addr],TV(j)} TV(j) 
+               && 0 <= j && j < i && addr == ?pciLo + 16*j && addr <= ?pciHi - 16 ==>
+                  mems.pci[addr] == 0xffffffff);
+    invariant (forall j:int :: {TV(j)} TV(j) && 
+              0 <= j && j < i ==> mems.pci[?pciLo + 16*j] == 0xffffffff);
+    invariant (forall i:int :: {io._pci.PciConfigState[i]} 
+              0 <= i && i < 65536 ==> (io._pci.PciConfigState[i] == 0));
+    //invariant MemInv($Mem_Vars);
+    invariant MemInv($Mem_Vars) && commonVarsInv($commonVars, statics);
+  {
+    assert Aligned(?pciLo) && TV(?pciLo) && TO(4*i);
+    call Store(inout mems.pci, ecx, 0xffffffff);
+    assert mems.pci[ecx] == 0xffffffff;
+    assert mems.pci[?pciLo + 16*i] == 0xffffffff;
+    ecx := ecx + 16;
+    i := i + 1;
+  }
+
+  call reveal_IoInv();
+}
+
+implementation checkIoFresh()
+{ 
+  call reveal_MemInvDetails();
+  var i:int := 0;
+  while(ecx < edx) 
+    invariant 0 <= i && i <= (?pciHi - ?pciLo) div 16;
+    invariant ecx == ?pciLo + 16*i;
+    invariant ?pciLo <= ecx && ecx <= ?pciHi;
+    invariant (forall addr:int, j:int::{mems.pci[addr],TV(j)}
+               TV(j) ==> (0 <= j && j < i && addr == ?pciLo + 16*j && addr <= ?pciHi - 16 ==> mems.pci[addr] == 0xffffffff));
+//    invariant (forall j:int :: {io._pci.PciConfigState[j]} 
+//              0 <= j && j < i ==> (io._pci.PciConfigState[j] == 0));
+    invariant MemInv($Mem_Vars) && commonVarsInv($commonVars, statics);
+    invariant IoInv($IoVars, mems.pci);
+  {
+    assert Aligned(?pciLo) && TV(?pciLo) && TO(4*i);
+    call eax := Load(mems.pci, ecx);
+    if (eax != 0xffffffff) {
+        eax := 0x555500b1;
+        call debugBreak();
+    }
+    call reveal_IoInv();
+    ecx := ecx + 16;
+    i := i + 1;
+  }
+
+  call reveal_IoInv();
+
+
+}
+
+//procedure setupIoTablesHelper1(tableBase@esi, dmaAlignedLo@ebx)
+//  requires logical_addressing_inv(init, ptMem, core_state);
+//  requires word(?iomLo) && word(?iomHi) && word(?dmaHi);
+//  requires ?dmaLo == ?iomHi;
+//  requires and(dmaAlignedLo, 4095) == 0;
+//  requires ?dmaLo <= dmaAlignedLo && dmaAlignedLo + 0x200000 + 4096 <= ?dmaHi;
+//  requires Aligned(tableBase);
+//  requires ?iomLo <= tableBase && tableBase + 32768 <= ?iomHi;
+//  requires and(tableBase + 0x0000, 4095) == 0;
+//  requires and(tableBase + 0x1000, 4095) == 0;
+//  requires and(tableBase + 0x2000, 4095) == 0;
+//  requires and(tableBase + 0x3000, 4095) == 0;
+//  requires !$IomFrozen;
+//  modifies eax, ebx, ecx, edx, edi, ebp;
+//  modifies $IomMem;
+//  ensures  IoPageTable($IomMem, tableBase);
+//  ensures  (forall i:int::{TV(i)} TV(i) && 0 <= i && i < 512 ==>
+//                 ($IomMem[tableBase + 0x1000 + 8 * i] == 0 || $IomMem[tableBase + 0x1000 + 8 * i] == tableBase + 3)
+//               && $IomMem[tableBase + 0x1000 + 8 * i + 4] == 0);
+//  ensures  (forall i:int::{TV(i)} TV(i) && 0 <= i && i < 512 ==>
+//                  $IomMem[tableBase + 0x2000 + 8 * i] == 0
+//               && $IomMem[tableBase + 0x2000 + 8 * i + 4] == 0);
+//  ensures  (forall i:int::{TV(i)} TV(i) && 0 <= i && i < 512 ==>
+//                  $IomMem[tableBase + 0x3000 + 8 * i] == 0
+//               && $IomMem[tableBase + 0x3000 + 8 * i + 4] == 0);
+//{
+//  var ptr@edi := tableBase;
+//  var end@ebp := ptr; end := end + 4096;
+//  var pagePtr@edx := dmaAlignedLo;
+//  var $entry:int := 0;
+//  while (ptr < end)
+//    invariant Aligned(ptr) && TV(ptr) && TO(1) && TO(2);
+//    invariant dmaAlignedLo == old(dmaAlignedLo);
+//    invariant end == old(tableBase) + 4096;
+//    invariant tableBase == old(tableBase);
+//    invariant pagePtr == dmaAlignedLo + $entry * 4096;
+//    invariant and(pagePtr, 4095) == 0;
+//    invariant ptr == tableBase + 8 * $entry;
+//    invariant 0 <= $entry && $entry <= 512;
+//    invariant (forall i:int::{TV(i)} TV(i) && 0 <= i && i < $entry ==>
+//      IoPageTableEntry($IomMem[tableBase + 8 * i], $IomMem[tableBase + 8 * i + 4]));
+//    invariant (forall i:int::{TV(i)} TV(i) && 0 <= i && i < $entry ==>
+//      $IomMem[tableBase + 0x1000 + 8 * i] == 0 && $IomMem[tableBase + 0x1000 + 8 * i + 4] == 0);
+//    invariant (forall i:int::{TV(i)} TV(i) && 0 <= i && i < $entry ==>
+//      $IomMem[tableBase + 0x2000 + 8 * i] == 0 && $IomMem[tableBase + 0x2000 + 8 * i + 4] == 0);
+//    invariant (forall i:int::{TV(i)} TV(i) && 0 <= i && i < $entry ==>
+//      $IomMem[tableBase + 0x3000 + 8 * i] == 0 && $IomMem[tableBase + 0x3000 + 8 * i + 4] == 0);
+//    invariant logical_addressing_inv(init, ptMem, core_state);
+//  {
+//    assert TO(1024) && TO(1025) && TO(2048) && TO(2049) && TO(3072) && TO(3073);
+//    ecx := pagePtr; ecx := ecx + 3;
+//    assert (memAddr(ptr));
+//    assert(Aligned(ptr));
+//    //assert (LogicalDstOk($State, OMem(MReg(EDI,0))));
+//    call IomStore(ptr + 0, ecx);
+//    call IomStore(ptr + 4, 0);
+//    call IomStore(ptr + 0x1000, 0);
+//    call IomStore(ptr + 0x1004, 0);
+//    call IomStore(ptr + 0x2000, 0);
+//    call IomStore(ptr + 0x2004, 0);
+//    call IomStore(ptr + 0x3000, 0);
+//    call IomStore(ptr + 0x3004, 0);
+//    $entry := $entry + 1;
+//    ptr := ptr + 8;
+//    call __add4kAligned(pagePtr);
+//    pagePtr := pagePtr + 4096;
+//  }
+//
+//  ecx := dmaAlignedLo;
+//  call ecx := Shr(ecx, 21);
+//  if (ecx >= 512)
+//  {
+//    eax := 0x5555006e; // dma zone is beyond first 1GB
+//    call debugBreak();
+//  }
+//  assert TV(ecx) && TO(2 * ecx + 1024);
+//  edx := tableBase; edx := edx + 3;
+//  call IomStore(tableBase + 8 * ecx + 0x1000, edx);
+//
+//}
+//procedure setupIoTablesHelper2(tableBase@esi)
+//  requires logical_addressing_inv(init, ptMem, core_state);
+//  requires word(?iomLo) && word(?iomHi);
+//  requires Aligned(?dmaLo);
+//  requires ?dmaLo == ?iomHi;
+//  requires ecx == ?dmaLo;
+//  requires IoPageTable($IomMem, tableBase);
+//  requires (forall i:int::{TV(i)} TV(i) && 0 <= i && i < 512 ==>
+//                 ($IomMem[tableBase + 0x1000 + 8 * i] == 0 || $IomMem[tableBase + 0x1000 + 8 * i] == tableBase + 3)
+//               && $IomMem[tableBase + 0x1000 + 8 * i + 4] == 0);
+//  requires (forall i:int::{TV(i)} TV(i) && 0 <= i && i < 512 ==>
+//                  $IomMem[tableBase + 0x2000 + 8 * i] == 0
+//               && $IomMem[tableBase + 0x2000 + 8 * i + 4] == 0);
+//  requires (forall i:int::{TV(i)} TV(i) && 0 <= i && i < 512 ==>
+//                  $IomMem[tableBase + 0x3000 + 8 * i] == 0
+//               && $IomMem[tableBase + 0x3000 + 8 * i + 4] == 0);
+//  requires Aligned(tableBase);
+//  requires Aligned(tableBase + 0x4000);
+//  requires ?iomLo <= tableBase && tableBase + 32768 <= ?iomHi;
+//  requires and(tableBase + 0x1000, 4095) == 0;
+//  requires and(tableBase + 0x2000, 4095) == 0;
+//  requires and(tableBase + 0x3000, 4095) == 0;
+//  requires and(tableBase + 0x4000, 4095) == 0;
+//  requires and(tableBase + 0x5000, 4095) == 0;
+//  requires !$IomFrozen;
+//  modifies eax, ebx, ecx, edx, edi, ebp;
+//  modifies $IomMem;
+//  ensures  IoPageTable($IomMem, tableBase);
+//  ensures  $IomMem[tableBase + 0x2000] == tableBase + 0x1000 + 3;
+//  ensures  $IomMem[tableBase + 0x2004] == 0;
+//  ensures  $IomMem[tableBase + 0x3000] == tableBase + 0x2000 + 3;
+//  ensures  $IomMem[tableBase + 0x3004] == 0;
+//  ensures  (forall i:int::{TV(i)} TV(i) && 0 <= i && i < 512 ==>
+//                 ($IomMem[tableBase + 0x1000 + 8 * i] == 0 || $IomMem[tableBase + 0x1000 + 8 * i] == tableBase + 3)
+//               && $IomMem[tableBase + 0x1000 + 8 * i + 4] == 0);
+//  ensures  (forall i:int::{TV(i)} TV(i) && 1 <= i && i < 512 ==>
+//                  $IomMem[tableBase + 0x2000 + 8 * i] == 0
+//               && $IomMem[tableBase + 0x2000 + 8 * i + 4] == 0);
+//  ensures  (forall i:int::{TV(i)} TV(i) && 1 <= i && i < 512 ==>
+//                  $IomMem[tableBase + 0x3000 + 8 * i] == 0
+//               && $IomMem[tableBase + 0x3000 + 8 * i + 4] == 0);
+//  ensures  (forall i:int::{TV(i)} TV(i) && 0 <= i && i < 256 ==>
+//                  $IomMem[tableBase + 0x4000 + 16 * i + 0] == tableBase + 0x3000 + 3
+//               && $IomMem[tableBase + 0x4000 + 16 * i + 4] == 0
+//               && $IomMem[tableBase + 0x4000 + 16 * i + 8] == 258
+//               && $IomMem[tableBase + 0x4000 + 16 * i + 12] == 0);
+//  ensures  (forall i:int::{TV(i)} TV(i) && 0 <= i && i < 256 ==>
+//                  $IomMem[tableBase + 0x5000 + 16 * i + 0] == tableBase + 0x4000 + 1
+//               && $IomMem[tableBase + 0x5000 + 16 * i + 4] == 0
+//               && $IomMem[tableBase + 0x5000 + 16 * i + 8] == 0
+//               && $IomMem[tableBase + 0x5000 + 16 * i + 12] == 0);
+//  ensures  $IomMem[?dmaLo - 8] == ?BYTE_VECTOR_VTABLE;
+//  ensures  $IomMem[?dmaLo - 4] == ?dmaHi - ?dmaLo;
+//{
+//  var dmaLo@ebx := ecx;
+//
+//  var $entry:int := 0;
+//  var ptr@edi := tableBase; ptr := ptr + 0x4000;
+//  var end@ebp := ptr; end := end + 4096;
+//  ecx := tableBase; ecx := ecx + 0x3003;
+//  edx := tableBase; edx := edx + 0x4001;
+//  while (ptr < end)
+//    invariant Aligned(ptr) && TV(ptr) && TO(1) && TO(2) && TO(3) && TO(4);
+//    invariant tableBase == old(tableBase);
+//    invariant dmaLo == ?dmaLo;
+//    invariant ecx == tableBase + 0x3003;
+//    invariant edx == tableBase + 0x4001;
+//    invariant ptr == tableBase + 0x4000 + 16 * $entry;
+//    invariant end == tableBase + 0x4000 + 4096;
+//    invariant 0 <= $entry && $entry <= 256;
+//    invariant IoPageTable($IomMem, tableBase);
+//    invariant (forall i:int::{TV(i)} TV(i) && 0 <= i && i < 512 ==>
+//                 ($IomMem[tableBase + 0x1000 + 8 * i] == 0 || $IomMem[tableBase + 4096 + 8 * i] == tableBase + 3)
+//               && $IomMem[tableBase + 0x1000 + 8 * i + 4] == 0);
+//    invariant (forall i:int::{TV(i)} TV(i) && 0 <= i && i < 512 ==>
+//                    $IomMem[tableBase + 0x2000 + 8 * i] == 0
+//                 && $IomMem[tableBase + 0x2000 + 8 * i + 4] == 0);
+//    invariant (forall i:int::{TV(i)} TV(i) && 0 <= i && i < 512 ==>
+//                    $IomMem[tableBase + 0x3000 + 8 * i] == 0
+//                 && $IomMem[tableBase + 0x3000 + 8 * i + 4] == 0);
+//    invariant (forall i:int::{TV(i)} TV(i) && 0 <= i && i < $entry ==>
+//                  $IomMem[tableBase + 0x4000 + 16 * i + 0] == tableBase + 0x3000 + 3
+//               && $IomMem[tableBase + 0x4000 + 16 * i + 4] == 0
+//               && $IomMem[tableBase + 0x4000 + 16 * i + 8] == 258
+//               && $IomMem[tableBase + 0x4000 + 16 * i + 12] == 0);
+//    invariant (forall i:int::{TV(i)} TV(i) && 0 <= i && i < $entry ==>
+//                  $IomMem[tableBase + 0x5000 + 16 * i + 0] == tableBase + 0x4000 + 1
+//               && $IomMem[tableBase + 0x5000 + 16 * i + 4] == 0
+//               && $IomMem[tableBase + 0x5000 + 16 * i + 8] == 0
+//               && $IomMem[tableBase + 0x5000 + 16 * i + 12] == 0);
+//  {
+//    call IomStore(ptr + 0, ecx);
+//    call IomStore(ptr + 4, 0);
+//    call IomStore(ptr + 8, 258);
+//    call IomStore(ptr + 0xc, 0);
+//    assert TO(1024) && TO(1025) && TO(1026) && TO(1027);
+//    call IomStore(ptr + 0x1000, edx);
+//    call IomStore(ptr + 0x1004, 0);
+//    call IomStore(ptr + 0x1008, 0);
+//    call IomStore(ptr + 0x100c, 0);
+//    $entry := $entry + 1;
+//    ptr := ptr + 16;
+//  }
+//
+//  assert TV(tableBase);
+//  assert TV(0) && TO(2048) && TO(3072);
+//  edx := tableBase; edx := edx + 0x1003;
+//  call IomStore(tableBase + 0x2000, edx);
+//  edx := tableBase; edx := edx + 0x2003;
+//  call IomStore(tableBase + 0x3000, edx);
+//
+//  edx := dmaLo;
+//  call edx := AddChecked(edx, 0x1200000);
+//  var dmaHi@ebp := edx;
+//
+//  assert TV(?dmaLo) && TO(0 - 1) && TO(0 - 2);
+//  ecx := dmaLo; ecx := ecx - 8;
+//  edx := ?BYTE_VECTOR_VTABLE;
+//  call IomStore(ecx, edx);
+//  edx := dmaHi; edx := edx - dmaLo;
+//  call IomStore(ecx + 4, edx);
+//}
+//
+//procedure setupIoTablesHelper3(tableBase@esi)
+//  requires and(tableBase + 0x5000, 4095) == 0;
+//  requires IoContextTable($IomMem, tableBase + 0x4000);
+//  requires (forall i:int::{TV(i)} TV(i) && 0 <= i && i < 256 ==>
+//                  $IomMem[tableBase + 0x5000 + 16 * i + 0] == tableBase + 0x4000 + 1
+//               && $IomMem[tableBase + 0x5000 + 16 * i + 4] == 0
+//               && $IomMem[tableBase + 0x5000 + 16 * i + 8] == 0
+//               && $IomMem[tableBase + 0x5000 + 16 * i + 12] == 0);
+//  ensures IoRootTable($IomMem, tableBase + 0x5000);
+//{
+//}
+//
+//implementation SetupIoTables()
+//{
+//  call espAligned();
+//  call esp := Sub(esp, 4);
+//  eax := ecx; eax := eax + 65536;
+//  var dmaLo @ stk[esp + 0] := eax;
+//
+//  ecx := ecx + 4096;
+//  var tableBase@esi := ecx; tableBase := tableBase + 4096;
+//  call __is4kAligned(ecx);
+//  call __add4kAligned(ecx - and(ecx, 4095) + 0x0000);
+//  call __add4kAligned(ecx - and(ecx, 4095) + 0x1000);
+//  call __add4kAligned(ecx - and(ecx, 4095) + 0x2000);
+//  call __add4kAligned(ecx - and(ecx, 4095) + 0x3000);
+//  call __add4kAligned(ecx - and(ecx, 4095) + 0x4000);
+//  call __add4kAligned(ecx - and(ecx, 4095) + 0x5000);
+//  call ecx := And(ecx, 4095);
+//  tableBase := tableBase - ecx;
+//  assert TV(tableBase);
+//
+//  ecx := dmaLo; ecx := ecx + 0x200000;
+//  var dmaAlignedLo@ebx := ecx; dmaAlignedLo := dmaAlignedLo + 0x200000;
+//  call __is2m4kAligned(ecx);
+//  call ecx := And(ecx, 0x1fffff);
+//  dmaAlignedLo := dmaAlignedLo - ecx;
+//
+//  call setupIoTablesHelper1();
+//
+//  ecx := dmaLo;
+//  call setupIoTablesHelper2();
+//
+//  call setupIoTablesHelper3();
+//
+//  eax := tableBase; eax := eax + 0x5000;
+//  call esp := Add(esp, 4);
+//  Return;
+//}
+
+//procedure setIoMmuRegs($entry:int, _regs@esi)
+//  inout my r:regs, my core_state:core_state, linear stk:mem, linear statics:mem, linear io:IOState;
+//  inout mems:mems;
+//  requires MemInv($Mem_Vars);
+//  requires _regs == ?DrhdRegs[$entry];
+//  requires IoRootTable(io._iom.IomMem, ebx);
+//  requires io._iom.IoMmuState[$entry] == 0;
+//  modifies eax, ecx, edx, esi, ebp;
+//  modifies io._iom.IoMmuState;
+//  modifies io._iom.IoFrozen;
+//  modifies io._iom.IomFrozen;
+//  modifies mem;
+//  ensures  io._iom.IoMmuState[$entry] == 4;
+//  ensures  (forall i:int::{io._iom.IoMmuState[i]} i != $entry ==> io._iom.IoMmuState[i] == old($State)._io._iom.IoMmuState[i]);
+//  ensures MemInv($Mem_Vars);
+//{
+//  call IomRegStore($entry, _regs + 32, ebx);
+//  call IomRegStore($entry, _regs + 36, 0);
+//
+//  eax := 1;
+//  call eax := Shl(eax, 30);
+//  call IomRegStore($entry, _regs + 24, eax);
+//
+//  eax := 1;
+//  call eax := Shl(eax, 31);
+//  call IomRegStore($entry, _regs + 24, eax);
+//
+////  edx := 0;
+////  call eax := IomRegLoad($entry, _regs + 28);
+////  call writeHex();
+//}
+//
+//procedure ReadDmar(ptr@edi)
+//  inout mems:mems;
+//  inout my r:regs, my core_state:core_state, linear stk:mem, linear statics:mem, linear io:IOState;
+//  requires ?DmarExists;
+//  requires ptr == ?DmarPtr;
+//  requires IoRootTable(io._iom.IomMem, ebx);
+//  requires io._iom.IomMem[?dmaLo - 8] == ?BYTE_VECTOR_VTABLE;
+//  requires io._iom.IomMem[?dmaLo - 4] == ?dmaHi - ?dmaLo;
+//  requires CleanIoMmuState($State);
+//  requires MemInv($Mem_Vars);
+//  requires SMemRequireRA(116, stk, esp, RET);
+//  modifies eax, ebx, ecx, edx, esi, edi, ebp, esp, $Mem, stk;
+//  modifies io._iom.IoMmuState, io._iom.IomFrozen, io._iom.IoMmuEnabled;
+//  ensures  io._iom.IoMmuEnabled;
+//  ensures  MemInv($Mem_Vars);
+//  ensures  SMemEnsure(stk, old(stk), esp, old(esp));
+//{
+//  call espAligned();
+//  call esp := Sub(esp, 8);
+//  assert(((state._io)._vga)==((old($State)._io)._vga));
+//  call ecx := RoLoad32(ptr + 4);
+//  assert(((state._io)._vga)==((old($State)._io)._vga));
+//  eax := ptr; eax := eax + ecx;
+//  var end @ stk[esp + 0] := eax;
+//
+//  var $entry:int := 0;
+//  ptr := ptr + 48;
+//  while (ptr < end)
+//    invariant TV($entry);
+//    invariant IoRootTable(io._iom.IomMem, ebx);
+//    invariant ?DmarPtr + 48 <= ptr && ptr <= ?DmarPtr + ?DmarLen;
+//    invariant MaybeDrhd(ptr, $entry);
+//    invariant (forall i:int::{io._iom.IoMmuState[i]} i >= $entry ==> io._iom.IoMmuState[i] == 0);
+//    invariant (forall i:int::{io._iom.IoMmuState[i]} 0 <= i && i < $entry ==> io._iom.IoMmuState[i] == 4);
+//    invariant MemInv($Mem_Vars);
+//    invariant SMemInv(stk, old(stk), esp + 8, old(esp));
+//  {
+//    var typ@edx;
+//    var len@ecx;
+//    call typ := RoLoadU16(ptr + 0);
+//    call len := RoLoadU16(ptr + 2);
+//    if (typ != 0)
+//    {
+//      call drhdEnd(ptr, $entry);
+//      goto done;
+//    }
+//    call drhdExists(ptr, $entry);
+//    call eax := RoLoad32(ptr + 12);
+//    if (eax != 0)
+//    {
+//      eax := 0x55550066;
+//      call debugBreak();
+//    }
+//    call esi := RoLoad32(ptr + 8);
+//
+//    var saveEcx @ stk[esp + 4] := ecx;
+//    assert(MemInv($Mem_Vars));
+//    call setIoMmuRegs($entry);
+//    ecx := saveEcx;
+//
+//    $entry := $entry + 1;
+//    ptr := ptr + len;
+//  }
+//  call drhdEnd(ptr, $entry);
+//
+//  done:
+//  // TODO
+//  infloop:
+//    invariant logical_addressing_inv(init, ptMem, core_state);
+//    goto infloop;
+//  call IomEnable();
+//  call esp := Add(esp, 8);
+//  Return;
+//}
+//
+//procedure ReadRsdt(ptr@esi)
+//  inout mems:mems;
+//  inout my r:regs, my core_state:core_state, linear stk:mem, linear statics:mem, linear io:IOState;
+//  requires ?RsdpExists;
+//  requires !io._iom.IoMmuEnabled;
+//  requires ptr == ?RsdtPtr;
+//  requires ebp == ?dmaLo && word(ebp);
+//  requires IoRootTable(io._iom.IomMem, ebx);
+//  requires io._iom.IomMem[?dmaLo - 8] == ?BYTE_VECTOR_VTABLE;
+//  requires io._iom.IomMem[?dmaLo - 4] == ?dmaHi - ?dmaLo;
+//  requires CleanIoMmuState($State);
+//  requires MemInv($Mem_Vars);
+//  requires SMemRequireRA(124, stk, esp, RET);
+//  modifies eax, ebx, ecx, edx, esi, edi, ebp, esp, $Mem, stk;
+//  modifies io._iom.IoMmuState, io._iom.IomFrozen, io._iom.IoMmuEnabled;
+//  modifies DmaAddr;
+//  ensures ((DmaAddr == 0 && !io._iom.IoMmuEnabled)
+//        || (DmaAddr == ?dmaLo && io._iom.IoMmuEnabled));
+//  ensures  MemInv($Mem_Vars);
+//  ensures  SMemEnsure(stk, old(stk), esp, old(esp));
+//{
+//  call espAligned();
+//  call esp := Sub(esp, 4);
+//  var dmaLo @ stk[esp + 0] := ebp;
+//
+//  call ecx := RoLoad32(ptr + 4);
+//  var end@ebp := ptr; end := end + ecx;
+//
+//  var $entry:int := 0;
+//  ptr := ptr + 36;
+//  while (ptr < end)
+//    invariant IoRootTable(io._iom.IomMem, ebx);
+//    invariant end == ?RsdtPtr + ro32(?RsdtPtr + 4);
+//    invariant TV($entry);
+//    invariant ptr == ?RsdtPtr + 36 + 4 * $entry;
+//    invariant 0 <= $entry && $entry <= ?RsdtCount;
+//    invariant (forall j:int::{TV(j)} TV(j) && 0 <= j && j < $entry
+//                ==> !MatchesDmar(ro32(?RsdtPtr + 36 + 4 * j)));
+//    invariant MemInv($Mem_Vars);
+//    invariant SMemInv(stk, old(stk), esp + 4, old(esp));
+//    invariant CleanIoMmuState($State);
+//    invariant !io._iom.IoMmuEnabled;
+//  {
+//    call ecx := RoLoad32(ptr + 0);
+//    call edx := RoLoad32(ecx + 0);
+//    if (edx == 0x52414d44)
+//    {
+//      // Found a DMAR entry.  Good.
+//      var $dmarEntry:int := $entry;
+//      var dmarPtr@edi := ecx;
+//      var $dmarPtr:int := dmarPtr;
+//      assert MatchesDmar(dmarPtr);
+//      $entry := $entry + 1;
+//      ptr := ptr + 4;
+//      while (ptr < end)
+//        invariant IoRootTable(io._iom.IomMem, ebx);
+//        invariant end == ?RsdtPtr + ro32(?RsdtPtr + 4);
+//        invariant dmarPtr == $dmarPtr;
+//        invariant TV($entry);
+//        invariant ptr == ?RsdtPtr + 36 + 4 * $entry;
+//        invariant 0 <= $entry && $entry <= ?RsdtCount;
+//        invariant (forall j:int::{TV(j)} TV(j) && 0 <= j && j < $entry && j != $dmarEntry
+//                    ==> !MatchesDmar(ro32(?RsdtPtr + 36 + 4 * j)));
+//        invariant MemInv($Mem_Vars);
+//        invariant SMemInv(stk, old(stk), esp + 4, old(esp));
+//        invariant CleanIoMmuState($State);
+//        invariant !io._iom.IoMmuEnabled;
+//      {
+//        call ecx := RoLoad32(ptr + 0);
+//        call edx := RoLoad32(ecx + 0);
+//        if (edx == 0x52414d44)
+//        {
+//          // Found another DMAR entry.  Bad.
+//          DmaAddr := 0;
+//          assert(!io._iom.IoMmuEnabled);
+//          goto done;
+//        }
+//        $entry := $entry + 1;
+//        ptr := ptr + 4;
+//      }
+//      call dmarExists(dmarPtr, $dmarEntry);
+//      call ReadDmar();
+//      eax := dmaLo;
+//      DmaAddr := eax;
+//      goto done;
+//    }
+//    $entry := $entry + 1;
+//    ptr := ptr + 4;
+//  }
+//  DmaAddr := 0;
+//
+//  done:
+//  call esp := Add(esp, 4);
+//  Return;
+//}
+//
+//implementation StartIoMmu()
+//{
+//  call espAligned();
+//  call esp := Sub(esp, 4);
+//  var dmaLo @ stk[esp + 0] := ebp;
+//  var $entry:int := 0;
+//  var ptr@esi := ?RoBiosLo;
+//  while (ptr < 0xffff0) // ?RoBiosHi - 16
+//    invariant IoRootTable(io._iom.IomMem, ebx);
+//    invariant TV($entry);
+//    invariant ptr == ?RoBiosLo + 16 * $entry;
+//    invariant ?RoBiosLo <= ptr && ptr <= ?RoBiosHi - 16;
+//    invariant (forall j:int::{TV(j)} TV(j) && j < $entry && inBiosRo(?RoBiosLo + 16 * j)
+//                ==> !MatchesRsdp(?RoBiosLo + 16 * j));
+//    invariant MemInv($Mem_Vars);
+//    invariant SMemInv(stk, old(stk), esp + 4, old(esp));
+//    invariant CleanIoMmuState($State);
+//    invariant !io._iom.IoMmuEnabled;
+//  {
+//    call ecx := RoLoad32(ptr + 0);
+//    call edx := RoLoad32(ptr + 4);
+//
+//    if (ecx == 0x20445352)
+//    {
+//      if (edx == 0x20525450)
+//      {
+//        var ptr2@edi := ptr;
+//        var sum@ebp := 0;
+//        var ptr_20@edx := ptr; ptr_20 := ptr_20 + 20;
+//        while (ptr2 < ptr_20)
+//          invariant IoRootTable(io._iom.IomMem, ebx);
+//          invariant TV(ptr) && TV(ptr2);
+//          invariant ptr == ?RoBiosLo + 16 * $entry;
+//          invariant ptr_20 == ptr + 20;
+//          invariant ptr <= ptr2 && ptr2 <= ptr + 20;
+//          invariant sum == ByteSum(ptr, ptr2);
+//          invariant MemInv($Mem_Vars);
+//          invariant SMemInv(stk, old(stk), esp + 4, old(esp));
+//          invariant CleanIoMmuState($State);
+//          invariant !io._iom.IoMmuEnabled;
+//        {
+//          call eax := RoLoadU8(ptr2);
+//          call sum := AddChecked(sum, eax);
+//          ptr2 := ptr2 + 1;
+//        }
+//
+//        call sum := And(sum, 0xff);
+//        if (sum == 0)
+//        {
+//          call rsdpExists(ptr, $entry);
+//          call ptr := RoLoad32(ptr + 16);
+//          ebp := dmaLo;
+//          call ReadRsdt();
+//          goto done;
+//        }
+//      }
+//    }
+//
+//    $entry := $entry + 1;
+//    ptr := ptr + 16;
+//  }
+//  DmaAddr := 0;
+//
+//  done:
+//  call esp := Add(esp, 4);
+//  Return;
+//}
+//
+//
+//implementation Proc_SerialDbgWordOut()
+//{
+//  assert TV((core._regs)[ESP]);
+//  call core := logical_Sub($State, core, OReg(ESP), OConst(0));
+//  call serialDbgWordOut();
+//  call core := logical_Add($State, core, OReg(ESP), OConst(0));
+//  Return;
+//}
+//
+//implementation Proc_SerialDbgNewlineOut()
+//{
+//  assert TV((core._regs)[ESP]);
+////  call core := logical_Sub($State, core, OReg(ESP), OConst(0));
+//  call serialDbgNewlineOut();
+////  call core := logical_Add($State, core, OReg(ESP), OConst(0));
+//  Return;
+//}
+//
+//implementation Proc_serialPortOut($ghost_in:int)
+//{
+//  assert TV(esp);
+////  call core := logical_Sub($State, core, OReg(ESP), OConst(0));
+//  call serialDbgDataOut8( );
+////  call core := logical_Add($State, core, OReg(ESP), OConst(0));
+//  Return;
+//}
+//
+//implementation Proc_serialPortIn() returns ($ghost_out:int)
+//{
+//  assert TV(esp);
+////  call core := logical_Sub($State, core, OReg(ESP), OConst(0));
+//  call serialDbgDataIn8();
+//  $ghost_out := eax;
+////  call core := logical_Add($State, core, OReg(ESP), OConst(0));
+//  Return;
+//}
+//
+//implementation Proc_sample(M:[int]int) returns ($ghost_out:int)
+//{
+//  assert TV(esp);
+////  call core := logical_Sub($State, core, OReg(ESP), OConst(0));
+//  call SampleIn32(M);
+//  $ghost_out := eax;
+////  call core := logical_Add($State, core, OReg(ESP), OConst(0));
+//  Return;
+//}
+
+procedure prepDEVmemOnes(inout linear dev_mem:mem)
+  inout my r:regs, my core_state:core_state;
+  requires !init;
+  requires ?CodeBase == 0x300000;
+  requires (forall i:int :: {dev_mem.dom[i]} dev_mem.dom[i] <==> (?DEVLo <= i && i < ?DEVHi));
+  requires logical_addressing_inv(init, ptMem, core_state);
+  modifies efl, eax, ebx, ecx, edx, esi, edi;
+  ensures (forall i:int :: PhysPtrOk(dev_mem, i) && ?DEVLo + 96 <= i ==> dev_mem.map[i] == 0xFFFFFFFF);
+  ensures (forall i:int :: {dev_mem.dom[i]} dev_mem.dom[i] <==> (?DEVLo <= i && i < ?DEVHi));
+  ensures (forall i:int :: i < ?DEVLo + 96 ==> dev_mem.map[i] == old(dev_mem.map[i]));
+  ensures  logical_addressing_inv(init, ptMem, core_state);
+{
+    ebx := 0x30F060; 
+    call reveal_Aligned(ebx);
+    assert Aligned(ebx);
+
+    assert ?DEVLo == 0x300000+60*1024;
+
+    var i:int := 0; 
+    while (ebx < 0x310000) 
+        invariant 0 <= i;
+        invariant ebx == ?DEVLo + 96 + 4*i;
+        invariant (forall j:int :: {dev_mem.dom[j]} dev_mem.dom[j] <==> (?DEVLo <= j && j < ?DEVHi));
+        invariant ebx < ?DEVHi ==> PhysPtrOk(dev_mem, ebx);
+        invariant (forall j:int :: ?DEVLo + 96 <= j && j < ebx && Aligned(j) ==> dev_mem.map[j] == 0xFFFFFFFF);
+        invariant (forall j:int :: j < ?DEVLo + 96 ==> dev_mem.map[j] == old(dev_mem.map[j]));
+    {
+        assert EvalPtrOk(OMem(MReg(EBX, 0)));
+        assert PhysPtrOk(dev_mem, EvalPtr(r, OMem(MReg(EBX, 0))));
+        assert word(EvalPtr(r, OMem(MReg(EBX, 0))));
+
+        call Store(inout dev_mem, ebx, 0xFFFFFFFF);
+        call __notAligned(ebx);
+        ebx := ebx + 4;
+        i := i + 1;
+        assert TV(0x30F060) && TO(i);
+    }
+}
+
+procedure prepDEVmemZeroes(inout linear dev_mem:mem)
+  inout my r:regs, my core_state:core_state;
+  requires !init;
+  requires ?CodeBase == 0x300000;
+  requires (forall i:int :: {dev_mem.dom[i]} dev_mem.dom[i] <==> (?DEVLo <= i && i < ?DEVHi));
+  requires logical_addressing_inv(init, ptMem, core_state);
+  modifies efl, eax, ebx, ecx, edx, esi, edi;
+  ensures (forall i:int :: PhysPtrOk(dev_mem, i) && ?DEVLo <= i && i < ?DEVLo + 96 ==> dev_mem.map[i] == 0);
+  ensures (forall i:int :: {dev_mem.dom[i]} dev_mem.dom[i] <==> (?DEVLo <= i && i < ?DEVHi));
+  ensures  logical_addressing_inv(init, ptMem, core_state);
+{
+    ebx := 0x30F000; 
+    call reveal_Aligned(ebx);
+    assert Aligned(ebx);
+
+    var i:int := 0; 
+    while (ebx < 0x30F060) 
+        invariant 0 <= i;
+        invariant ebx == ?DEVLo + 4*i;
+        invariant (forall j:int :: {dev_mem.dom[j]} dev_mem.dom[j] <==> (?DEVLo <= j && j < ?DEVHi));
+        invariant ebx < ?DEVLo + 96 ==> PhysPtrOk(dev_mem, ebx);
+        invariant (forall j:int :: ?DEVLo <= j && j < ebx && Aligned(j) ==> dev_mem.map[j] == 0);
+    {
+        call Store(inout dev_mem, ebx, 0);
+        call __notAligned(ebx);
+        ebx := ebx + 4;
+        i := i + 1;
+        assert TV(0x30F000) && TO(i);
+    }
+}
+
+procedure prepDEVmem(inout linear dev_mem:mem)
+  inout my r:regs, my core_state:core_state;
+  requires !init;
+  requires ?CodeBase == 0x300000;
+  requires (forall i:int :: {dev_mem.dom[i]} dev_mem.dom[i] <==> (?DEVLo <= i && i < ?DEVHi));
+  requires logical_addressing_inv(init, ptMem, core_state);
+  modifies efl, eax, ebx, ecx, edx, esi, edi;
+  ensures  ValidDEV(dev_mem);
+  ensures  logical_addressing_inv(init, ptMem, core_state);
+{
+    call prepDEVmemZeroes(inout dev_mem);
+    call prepDEVmemOnes(inout dev_mem);
+}
+
+procedure pciConfigAddr($id:int, $offset:int)
+  inout my r:regs, my core_state:core_state, linear io:IOState;
+  requires ecx == $id;
+  requires edx == $offset;
+  requires IsValidPciId($id);
+  requires IsValidPciOffset($offset);
+  requires PciUninitialized(io);
+  requires logical_addressing_inv(init, ptMem, core_state);
+  requires public($id);
+  requires public($offset);
+  requires public(io._inCtr);
+  requires public(io._outCtr);
+  modifies io, efl, eax, edx;
+  ensures  io._pci.PciConfigId == $id;
+  ensures  io._pci.PciConfigOffset == $offset;
+  ensures  edx == 0xcfc;
+  ensures  PciUninitialized(io);
+  ensures  logical_addressing_inv(init, ptMem, core_state);
+  ensures  public(io._inCtr);
+  ensures  public(io._outCtr);
+{
+  call reveal_IoInv();
+  eax := ecx;
+  call eax := Shl(eax, 8);
+  call eax := Or(eax, edx);
+  edx := 0x7fffffff;
+  call edx := AddChecked(edx, 1);
+  call eax := Or(eax, edx);
+  edx := 0xcf8;
+  call PciConfigAddrOut32($id, $offset);
+  edx := 0xcfc;
+  call reveal_IoInv();
+}
+
+procedure findDEVCapability(id:int)
+  inout my r:regs, my core_state:core_state, linear io:IOState;
+  requires ecx == id;
+  requires IsValidPciId(id);
+  requires PciUninitialized(io);
+  requires PciDeviceAtId(id);
+  requires logical_addressing_inv(init, ptMem, core_state);
+  requires public(id);
+  requires public(io._inCtr);
+  requires public(io._outCtr);
+  modifies io, efl, eax, ebx, ecx, edx, ebp, edi, esi;
+  ensures  esi == 1 ==> !Is_DEV_PCI_config(id);
+  ensures  esi == 2 ==> DEV_PciCapabilityAt(id, edx) && IsValidPciOffset(edx);
+  ensures  esi == 1 || esi == 2;
+  ensures  ecx == id;
+  ensures  PciUninitialized(io);
+  ensures  logical_addressing_inv(init, ptMem, core_state);
+  ensures  public(esi);
+  ensures  public(ecx);
+  ensures  public(edx);
+  ensures  public(io._inCtr);
+  ensures  public(io._outCtr);
+{
+    //- Does this device support capability lists?
+    //- Check bit 4 in the device status register (which is bit 20 in the combined device control and status registers).
+    //- The combined device control/status registers take up 32 bits starting at 0x04 into the device configuration space.
+    edx := 0x4;
+    var offset:int := 0x4;
+    call pciConfigAddr(id, offset);
+    call /* eax := */ PciConfigDataIn32(id, offset);
+    call reveal_IoInv();
+    var tmp:int := eax;
+
+    ebx := 1;
+    call ebx := Shl(ebx, 20);
+    call eax := And(eax, ebx);
+    assert (eax != 0) == GetBit(20, tmp);
+
+    if (eax == 0) {
+        assert !PciSupportsCapabilityList(id);
+        esi := 1;
+    } else {
+        assert PciSupportsCapabilityList(id);
+
+        //- Obtain the initial capabilities pointer
+        edx := 0x34;
+        offset := 0x34;
+        call pciConfigAddr(id, offset);
+        call /* eax := */ PciConfigDataIn32(id, offset);
+        call reveal_IoInv();
+        assert PciConfigReadResult(id, offset, eax);
+        var tmp:int := eax;
+
+        call lemma_shl_1();
+        ebx := 1;
+        call ebx := Shl(ebx, 8);
+        call ebx := Sub(ebx, 1);
+        call eax := And(eax, ebx);      
+        ebp := eax;  //- cap ptr
+        assert ebp == SelectLSBs(8, tmp);
+        var cap_index:int := 0;
+        assert PciCapabilityPtr(id, cap_index) == ebp;
+
+        var done @ esi := 0;
+
+        while (done == 0) 
+            invariant cap_index >= 0;
+            invariant done == 0 ==> ebp == PciCapabilityPtr(id, cap_index);
+            invariant (forall other_cap_index:int :: 0 <= other_cap_index && other_cap_index < cap_index 
+                       ==> PciCapabilityID(id, other_cap_index) != 0x0f);
+            invariant IsValidPciOffset(offset);
+            invariant done == 0 ==> IsValidPciOffset(ebp);
+            invariant done == 1 ==> !Is_DEV_PCI_config(id);
+            invariant done == 2 ==> DEV_PciCapabilityAt(id, offset) && edx == offset && IsValidPciOffset(edx);
+            invariant done == 0 || done == 1 || done == 2;
+            //- Boilerplate
+            invariant ecx == id;
+            invariant IsValidPciId(id);
+            invariant PciSupportsCapabilityList(id);
+            invariant PciUninitialized(io);
+            invariant logical_addressing_inv(init, ptMem, core_state);
+            invariant public(done);
+            invariant public(cap_index);
+            invariant public(ebp);
+            invariant public(id);
+            invariant public(edx);
+            invariant public(io._inCtr);
+            invariant public(io._outCtr);
+        {
+            if (ebp == 0) {
+                call cap_list_termination(id, cap_index);
+                assert (forall other_cap_index:int :: 0 <= other_cap_index ==> PciCapabilityID(id, other_cap_index) != 0x0f);
+                assert !Is_DEV_PCI_config(id);
+                done := 1;
+            } else {
+                //- Read at the offset in the cap ptr
+                edx := ebp;
+                offset := ebp;
+                call pciConfigAddr(id, offset);
+                call /* eax := */ PciConfigDataIn32(id, offset);
+                call reveal_IoInv();
+                assert PciConfigReadResult(id, offset, eax);
+                edx := ebp;
+                assert edx == offset;
+
+                //- Check whether it's a DEV capability ID
+                ebp := eax;
+                ebx := 1;
+                call ebx := Shl(ebx, 8);
+                call ebx := Sub(ebx, 1);
+                call ebp := And(ebp, ebx);  //- Cap ID
+                assert PciCapabilityID(id, cap_index) == ebp;
+
+                if (ebp == 0x0f) {
+                    //- Found the DEV
+                    assert TV(cap_index);
+                    assert DEV_PciCapabilityAt(id, offset);
+                    done := 2;
+                } else {
+                    //- Extract the next pointer
+                    ebp := eax;
+                    ebx := 1;
+                    call ebx := Shl(ebx, 16);
+                    call ebx := Sub(ebx, 1);
+                    call ebp := And(ebp, ebx);      
+                    assert ebp == SelectLSBs(16, eax);
+                    call ebp := Shr(ebp, 8);    //- Next ptr
+                    assert PciCapabilityPtr(id, cap_index+1) == ebp;
+                    cap_index := cap_index+1;
+                }
+            }
+        }
+    }
+}
+
+procedure prep_DEV_Op(id:int, dev_offset:int)
+  inout my r:regs, my core_state:core_state, linear io:IOState;
+  requires ecx == id;
+  requires edx == dev_offset;
+  requires IsValidPciId(id);
+  requires DEV_PciCapabilityAt(id, dev_offset);
+  requires IsValidPciOffset(dev_offset+4);
+  requires PciUninitialized(io);
+  requires logical_addressing_inv(init, ptMem, core_state);
+  requires public(id);
+  requires public(dev_offset);
+  requires public(io._inCtr);
+  requires public(io._outCtr);
+  modifies io, efl, eax, edx;
+  ensures  DEV_Op(id, dev_offset, dev_offset+4);
+  ensures  io._pci.PciConfigId     == id;
+  ensures  io._pci.PciConfigOffset == dev_offset + 4;
+  ensures  PciUninitialized(io);
+  ensures  logical_addressing_inv(init, ptMem, core_state);
+  ensures  public(io._inCtr);
+  ensures  public(io._outCtr);
+{
+    call edx := Add(edx, 4);
+    call pciConfigAddr(id, edx);
+}
+
+procedure prep_DEV_Data(id:int, dev_offset:int)
+  inout my r:regs, my core_state:core_state, linear io:IOState;
+  requires ecx == id;
+  requires edx == dev_offset;
+  requires IsValidPciId(id);
+  requires DEV_PciCapabilityAt(id, dev_offset);
+  requires IsValidPciOffset(dev_offset+8);
+  requires PciUninitialized(io);
+  requires logical_addressing_inv(init, ptMem, core_state);
+  requires public(id);
+  requires public(dev_offset);
+  requires public(io._inCtr);
+  requires public(io._outCtr);
+  modifies io, efl, eax, edx;
+  ensures  DEV_Data(id, dev_offset, dev_offset+8);
+  ensures  io._pci.PciConfigId     == id;
+  ensures  io._pci.PciConfigOffset == dev_offset + 8;
+  ensures  PciUninitialized(io);
+  ensures  logical_addressing_inv(init, ptMem, core_state);
+  ensures  public(io._inCtr);
+  ensures  public(io._outCtr);
+{
+    call edx := Add(edx, 8);
+    call pciConfigAddr(id, edx);
+}
+
+procedure walkThroughDevStateMachine(inout linear dev_states:DEV_StateMachines, id:int, dev_offset:int)
+  inout my r:regs, my core_state:core_state, linear io:IOState;
+  requires ecx == id;
+  requires edx == dev_offset;
+  requires ?CodeBase == 0x300000;
+  requires dev_states.states[id] is MemApproved;
+  requires IsValidPciId(id);
+  requires IsValidPciOffset(dev_offset);
+  requires DEV_PciCapabilityAt(id, edx);
+  requires PciUninitialized(io);
+  requires logical_addressing_inv(init, ptMem, core_state);
+  requires public(id);
+  requires public(dev_offset);
+  requires public(io._inCtr);
+  requires public(io._outCtr);
+  modifies io, efl, eax, ebx, edx, ebp, edi, esi;
+//  ensures  dev_states == States(old(dev_states).states[id := Complete()]);
+  ensures  (forall other_id:int :: other_id != id ==> dev_states.states[other_id] == old(dev_states).states[other_id]); 
+  ensures  dev_states.states[id] is Complete;
+  ensures  logical_addressing_inv(init, ptMem, core_state);
+  ensures  PciUninitialized(io);
+  ensures  public(io._inCtr);
+  ensures  public(io._outCtr);
+{
+    ebp := edx;
+
+    //- Make sure there's enough room for the DEV registers
+    edx := edx + 8;
+    if (edx >= 256) {
+        eax := 0x5555006f; //- Badly placed DEV offset
+        call debugBreak();
+    }
+    assert IsValidPciOffset(dev_offset + 4);
+    assert IsValidPciOffset(dev_offset + 8);
+
+    edx := ebp;
+    call prep_DEV_Op(id, dev_offset);
+    eax := 0;
+    edx := 0xcfc;
+    call dev_states := DEV_PciConfigDataOut32(dev_states, id, dev_offset, dev_offset+4);  
+    assert dev_states.states[id] is SetOpBaseLo;
+    call reveal_IoInv();
+    edx := ebp;
+    call prep_DEV_Data(id, dev_offset);
+    eax := 0x30F001;
+    edx := 0xcfc;
+    call dev_states := DEV_PciConfigDataOut32(dev_states, id, dev_offset, dev_offset+8);  
+    assert dev_states.states[id] is SetDataBaseLo;
+
+    edx := ebp;
+    call prep_DEV_Op(id, dev_offset);
+    eax := 0x100;
+    edx := 0xcfc;
+    call dev_states := DEV_PciConfigDataOut32(dev_states, id, dev_offset, dev_offset+4);  
+    assert dev_states.states[id] is SetOpBaseHi;
+
+    edx := ebp;
+    call prep_DEV_Data(id, dev_offset);
+    eax := 0;
+    edx := 0xcfc;
+    call dev_states := DEV_PciConfigDataOut32(dev_states, id, dev_offset, dev_offset+8);  
+    assert dev_states.states[id] is SetDataBaseHi;
+
+    edx := ebp;
+    call prep_DEV_Op(id, dev_offset);
+    eax := 0x300;
+    edx := 0xcfc;
+    call dev_states := DEV_PciConfigDataOut32(dev_states, id, dev_offset, dev_offset+4); 
+    assert dev_states.states[id] is SetOpCap;
+
+    edx := ebp;
+    call prep_DEV_Data(id, dev_offset);
+    edx := 0xcfc;
+    call dev_states := DEV_PciConfigDataIn32(dev_states, id, dev_offset, dev_offset+8);  
+    assert dev_states.states[id] is GotDataCap;
+    call eax := Shr(eax, 16);
+    ebx := 1;
+    call ebx := Shl(ebx, 8);
+    call lemma_shl_1();
+    ebx := ebx - 1;
+    call eax := And(eax, ebx);
+    assert eax == num_DEV_map_regs(id);
+    call upper_bits_clear_ubound_lemma();
+    assert eax <= 1023;
+
+
+    ebx := 0;
+    esi := eax;
+    assert esi == num_DEV_map_regs(id);
+
+    while (ebx < esi) 
+        invariant esi == num_DEV_map_regs(id) && 0 <= num_DEV_map_regs(id) && num_DEV_map_regs(id) <= 1023;
+        invariant 0 <= ebx && ebx <= num_DEV_map_regs(id);
+        invariant ebx == 0 ==> dev_states.states[id] is GotDataCap;
+        invariant ebx > 0 ==> dev_states.states[id] is SetDataMap && dev_states.states[id].d_map_index == ebx - 1;
+        invariant ebp == dev_offset;
+        invariant (forall other_id:int :: other_id != id ==> dev_states.states[other_id] == old(dev_states.states[other_id])); 
+        invariant PciUninitialized(io);
+        invariant logical_addressing_inv(init, ptMem, core_state);
+        invariant public(id);
+        invariant public(dev_offset);
+        invariant public(ebx);
+        invariant public(esi);
+        invariant public(io._inCtr);
+        invariant public(io._outCtr);
+    {
+        edx := ebp;
+        call prep_DEV_Op(id, dev_offset);
+        eax := 0x200;
+        eax := eax + ebx;
+        edx := 0xcfc;
+        call dev_states := DEV_PciConfigDataOut32(dev_states, id, dev_offset, dev_offset+4); 
+        assert dev_states.states[id] is SetOpMap;
+        call reveal_IoInv();
+
+        edx := ebp;
+        call prep_DEV_Data(id, dev_offset);
+        eax := 0;
+        edx := 0xcfc;
+        call dev_states := DEV_PciConfigDataOut32(dev_states, id, dev_offset, dev_offset+8);  
+        assert dev_states.states[id] is SetDataMap && dev_states.states[id].d_map_index == ebx;
+
+
+        ebx := ebx + 1;
+    }
+
+    edx := ebp;
+    call prep_DEV_Op(id, dev_offset);
+    eax := 0x400;
+    edx := 0xcfc;
+    call dev_states := DEV_PciConfigDataOut32(dev_states, id, dev_offset, dev_offset+4); 
+    assert dev_states.states[id] is SetOpCtrl;
+
+    edx := ebp;
+    call prep_DEV_Data(id, dev_offset);
+    eax := 0x31;
+    edx := 0xcfc;
+    call dev_states := DEV_PciConfigDataOut32(dev_states, id, dev_offset, dev_offset+8);  
+    assert dev_states.states[id] is SetDataCtrl;
+
+    //- Loop until the cache invalidation completes
+    ebx := 0;
+    while (ebx == 0) 
+        invariant ebx == 0 ==> dev_states.states[id] is SetDataCtrl;
+        invariant ebx == 1 ==> dev_states.states[id] is Complete;
+        invariant ebx == 0 || ebx == 1;
+        invariant ebp == dev_offset;
+        invariant (forall other_id:int :: other_id != id ==> dev_states.states[other_id] == old(dev_states.states[other_id])); 
+        invariant PciUninitialized(io);
+        invariant logical_addressing_inv(init, ptMem, core_state);
+        invariant public(id);
+        invariant public(dev_offset);
+        invariant public(ebx);
+        invariant public(io._inCtr);
+        invariant public(io._outCtr);
+    {
+        edx := ebp;
+        call prep_DEV_Data(id, dev_offset);
+        edx := 0xcfc;
+        call dev_states := DEV_PciConfigDataIn32(dev_states, id, dev_offset, dev_offset+8);  
+        call reveal_IoInv();
+        var eax_val:int := eax;
+        ebx := 1;
+        call ebx := Shl(ebx, 4);
+        call eax := And(eax, ebx);
+        assert (eax != 0) == GetBit(4, eax_val);
+        if (eax == 0) {
+            ebx := 1;
+        } else {
+            ebx := 0;
+        }
+    }
+}
+
+
+procedure pciEnumeration(inout linear dev_states:DEV_StateMachines)
+  inout my r:regs, my core_state:core_state, linear io:IOState;
+  requires (forall i:int :: dev_states.states[i] is MemApproved);       
+  requires ?CodeBase == 0x300000;
+  requires PciUninitialized(io);
+  requires logical_addressing_inv(init, ptMem, core_state);
+  requires public(io._inCtr);
+  requires public(io._outCtr);
+  modifies io, efl, eax, ebx, ecx, edx, ebp, edi, esi;
+  ensures (forall i:int ::{ dev_states.states[i] } IsValidPciId(i) ==> (Is_DEV_PCI_config(i) ==> dev_states.states[i] is Complete));
+  ensures  logical_addressing_inv(init, ptMem, core_state);
+  ensures  PciUninitialized(io);
+  ensures  public(io._inCtr);
+  ensures  public(io._outCtr);
+{
+  var pci_id @ ecx := 0;
+  while (pci_id < 65536)
+    invariant 0 <= pci_id && pci_id <= 65536;
+    invariant (forall id:int :: pci_id <= id ==> dev_states.states[id] is MemApproved);
+    invariant (forall id:int :: 0 <= id && id < pci_id ==> 
+                   (Is_DEV_PCI_config(id) && dev_states.states[id] is Complete)
+                || !Is_DEV_PCI_config(id));
+    invariant PciUninitialized(io);
+    invariant logical_addressing_inv(init, ptMem, core_state);
+    invariant public(pci_id);
+    invariant public(io._inCtr);
+    invariant public(io._outCtr);
+  {
+    //- Check whether there is a device present at all
+    edx := 0;
+    call pciConfigAddr(pci_id, 0);
+    call /* eax := */ PciConfigDataIn32(pci_id, 0);
+    if (eax == 0xFFFFFFFF) {
+        call non_existent_devices(pci_id);
+        assert !Is_DEV_PCI_config(pci_id);
+    } else {
+        call findDEVCapability(ecx);
+
+        if (esi == 2) {
+            assert DEV_PciCapabilityAt(pci_id, edx);
+            assert TV(edx) ==> Is_DEV_PCI_config(pci_id);
+            var offset:int := edx;
+            call walkThroughDevStateMachine(inout dev_states, pci_id, offset);
+            assert TV(offset) && Is_DEV_PCI_config(pci_id);
+            assert dev_states.states[pci_id] == Complete();
+        } else {
+            assert !Is_DEV_PCI_config(pci_id);
+        }
+    }
+    pci_id := pci_id + 1;
+  }
+}
+
+implementation initDEV(linear dev_states:DEV_StateMachines, linear dev_mem:mem) returns (linear new_mem:mem)
+//  inout my r:regs, my core_state:core_state, linear io:IOState;
+//  requires !init;
+//  requires ?CodeBase == 0x300000;
+//  requires (forall i:int :: {dev_states.states[i]} dev_states.states[i] is Init);       
+//  requires (forall i:int :: {dev_mem.dom[i]} dev_mem.dom[i] <==> (Aligned(i) && ?DEVLo <= i && i < ?DEVHi));
+//  requires logical_addressing_inv(init, ptMem, core_state);
+//  modifies io, efl, eax, ebx, ecx, edx, esi, edi, ebp;
+//  ensures  (forall i:int ::{ new_mem.dom[i] } new_mem.dom[i] <==> Aligned(i) && ?CodeBase + 64*1024 + 124*1024 <= i && i < 128*1024*1024);
+//  ensures  logical_addressing_inv(init, ptMem, core_state);
+{
+    linear var dmem:mem := dev_mem;
+    call prepDEVmem(inout dmem);
+
+    linear var dstates:DEV_StateMachines := dev_states;
+    call dstates := begin_DEV_enablement(dstates, dmem);
+    
+    assert (forall i:int :: {dstates.states[i]} dstates.states[i] is MemApproved);       
+
+    call pciEnumeration(inout dstates);
+
+    call new_mem := complete_DEV_enablement(dstates);
+    assert (forall i:int ::{ new_mem.dom[i] }{TV(i)} TV(i) ==> (new_mem.dom[i] <==> ?CodeBase + 64*1024 <= i && i < 128*1024*1024));    //- Top=base+64K  DEV covers 128MB total
+
+
+    //- Set the rest of the DEV, covering the rest of memory, to 0 to enable device accesses
+    ebx := 0x310000; //- codeBase + 64K
+    call reveal_Aligned(ebx);
+    assert Aligned(ebx);
+    var i:int := 0;
+    while (ebx < 0x32F000)  //- codeBase + 64K + 124K
+        invariant 0 <= i && i <= 0x7c00;
+        invariant ebx == 0x310000 + 4*i;
+        invariant Aligned(ebx);
+        invariant (forall j:int :: {new_mem.dom[j]}{TV(j)} TV(j) ==> (new_mem.dom[j] <==> (?CodeBase + 64*1024 <= j && j <  128*1024*1024)));
+        invariant !init;
+        invariant logical_addressing_inv(init, ptMem, core_state);
+    {
+        assert Aligned(ebx);
+        assert EvalPtrOk(OMem(MReg(EBX, 0)));
+        assert PhysPtrOk(new_mem, EvalPtr(r, OMem(MReg(EBX, 0))));
+        assert word(EvalPtr(r, OMem(MReg(EBX, 0))));
+
+        call Store(inout new_mem, ebx, 0);
+        call __notAligned(ebx);
+        ebx := ebx + 4;
+        i := i + 1;
+        assert TV(0x310000) && TO(i);
+    }
+
+//    assert (forall j:int :: {new_mem.dom[j]}{TV(j)} TV(j) ==> (new_mem.dom[j] <==> (Aligned(j) && ?CodeBase + 64*1024 <= j && j <  128*1024*1024)));
+//    call reveal_Aligned(0x32F000);
+//    assert Aligned(0x32F000);
+//    assert TV(0x32F000) ==> new_mem.dom[0x32F000];
+
+    //- Drop the DEV from new mem, so the rest of the implementation doesn't trample on it
+    linear var extra_dev_mem:mem;
+    call extra_dev_mem := memEmpty();
+    call new_mem, extra_dev_mem := memTransfer(new_mem, extra_dev_mem, (lambda j:int:: 0x310000 <= j && j < 0x32F000));
+//
+//    assert !(lambda j:int:: Aligned(j) && 0x310000 <= j && j < 0x32F000)[0x32F000];
+//
+//    call reveal_Aligned(0x32F000);
+//    assert Aligned(0x32F000);
+//    //assert TV(0x32F000) ==> extra_dev_mem.dom[0x32F000];
+//    assert TV(0x32F000) ==> new_mem.dom[0x32F000];
+
+
+//    assert ?CodeBase + 64*1024 + 124*1024 == 0x32F000;
+//    assert (forall i:int ::{ new_mem.dom[i] }{TV(i)} TV(i) ==> (new_mem.dom[i] ==> Aligned(i) && ?CodeBase + 64*1024 + 124*1024 <= i && i < 128*1024*1024));
+//    assert (forall i:int ::{ new_mem.dom[i] }{TV(i)} TV(i) ==> (Aligned(i) && ?CodeBase + 64*1024 + 124*1024 <= i && i < 128*1024*1024 ==> new_mem.dom[i]));
+//    assert (forall j:int ::{ new_mem.dom[j] }{TV(j)} TV(j) ==> (new_mem.dom[j] <==> Aligned(j) && ?CodeBase + 64*1024 + 124*1024 <= j && j < 128*1024*1024));
+
+}
+
+}

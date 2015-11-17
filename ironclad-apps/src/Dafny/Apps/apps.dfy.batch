@@ -1,0 +1,9 @@
+# This file only activates the apps we want for the paper analysis.
+# Perhaps we should have another file for the build server to build everything.
+#src/Dafny/Apps/AppLoader/Main.i.dfy
+#src/Dafny/Apps/BenchmarkApp/Main.i.dfy
+src/Dafny/Apps/DafnyCCTest/Main.i.dfy
+src/Dafny/Apps/DiffPriv/Main.i.dfy
+src/Dafny/Apps/Notary/Main.i.dfy
+src/Dafny/Apps/PassHash/Main.i.dfy
+src/Dafny/Apps/TrInc/Main.i.dfy

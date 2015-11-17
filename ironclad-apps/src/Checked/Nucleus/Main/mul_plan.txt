@@ -1,0 +1,75 @@
+
+
+MulOpt:
+  mhi, mlo := Mul64(aj, bv)
+  edx, eax
+
+  add1 := Add(mlo, lastcarry)
+  mhi := AddCarry(mhi,0)
+  newcj := AddCarry(add1, lastcj)
+  mhi := AddCarry(mhi,0)    // == newcarry
+
+
+Suppose on input:
+  eax == aj
+  ebx == lastcarry
+  ecx == lastcj
+  edx == bv
+
+Then we have:
+  edx, eax := Mul64(eax, edx);
+  eax(mlo) := eax + ebx (lastcarry)
+  edx(mhi) := AddCarry(edx, 0);
+  ecx(newcj) := AddCarry(ecx, eax(add1));
+  edx(newcarry) := AddCarry(edx, 0);
+
+Ensures:
+  ecx == newcj      // Written out to memory
+  edx == newcarry   // Need to move this to ebx for next call :-/
+
+
+
+
+Loop Plan:
+  Need to hold pointer to a: 
+    Starts at a.Length-1-0.  
+    Then we sub 1 per iteration.  
+    Last iter is a.Length-1-(adigits-1) = a.Length - adigits 
+  Need to hold pointer to c: Starts at c.Length-1-(0+bi). Then we sub 1 per iteration 
+  Need to hold loop bound: aptr >= a.Length - adigits
+  ---------------
+  This requires 3 registers
+
+  To hold the bv value in CPU, we need a 4th register
+
+  Have to hold the value from a array and c array => 2 more registers
+  Have to hold the previous carry => 1 more register
+
+  And Mul64 is going to clobber eax and edx
+    - Okay to clobber the value in aj (eax), but what can we clobber in edx?
+
+Plan:
+  Setup the array pointers.  (edi, esi)
+  Compute the loop bound (ebx)
+  Load bv (ebp)
+  lastcarry (ecx) := 0
+
+  ----> That only leaves eax, edx available!
+
+  in the loop:
+    Load from a into eax (aj)
+
+    edx, eax := Mul64(eax, ebp)
+    eax(mlo) := eax + ecx (lastcarry)     // ecx now free
+    edx(mhi) := AddCarry(edx, 0);
+
+    Load from c into ecx (lastcj)
+    ecx(newcj) := AddCarry(ecx, eax(add1));
+    Store ecx back into c
+
+    edx(newcarry) := AddCarry(edx, 0);
+    ecx := edx;  // Move newcarry out of the way for the next loop
+
+    subtract 4 from a ptr (edi) and c ptr (esi)
+
+

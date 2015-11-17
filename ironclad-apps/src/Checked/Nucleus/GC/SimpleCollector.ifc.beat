@@ -1,0 +1,342 @@
+//-private-import BaseSpec;
+//-private-import MemorySpec;
+//-private-import IoTypesSpec;
+//-private-import MachineStateSpec;
+//-private-import AssemblySpec;
+//-private-import InterruptsSpec;
+//-private-import IoSpec;
+//-<NuBuild AddBoogieAxiom Base_axioms />
+//-<NuBuild AddBoogieAxiom Word_axioms />
+//-<NuBuild AddBoogieAxiom Memory_axioms />
+//-<NuBuild AddBoogieAxiom Assembly_axioms />
+//-private-import Core;
+//-private-import LogicalAddressing;
+//-private-import Overflow;
+//-private-import Util;
+//-private-import Stacks;
+//-private-import Partition;
+//-private-import Instructions;
+//-private-import Separation;
+//-private-import IntLemmasGc;
+//-private-import SimpleGcMemory;
+//-private-import SimpleCommon;
+//-
+//- Copyright (c) Microsoft Corporation.  All rights reserved.
+//-
+
+module interface SimpleCollector
+{
+
+const ?GcCollector:int := 30;
+
+//- Verified copying garbage collector
+// Includes Spec/NucleusInvCopying_i.beat
+// Includes Spec/Gc_i.bpl
+
+//var $freshAbs:int;
+
+//- The allocation bitmap ranges from ?gcLo..HeapLo
+//- The spaces (from and to) range from HeapLo..?gcHi
+var HeapLo @ statics;
+//- Fromspace ranges from Fi to Fl, where Fk..Fl is empty
+//-   Tospace ranges from Ti to Tl, where Tk..Tl is empty
+var Fi @ statics;
+var Fk @ statics;
+var Fl @ statics;
+var Ti @ statics;
+var Tj @ statics;
+var Tk @ statics;
+var Tl @ statics;
+//- Bitmaps for fromspace and tospace:
+var BF @ statics;
+var BT @ statics;
+
+type gcVars = gcVars(freshAbs:int);
+function gcVarsInv(x:gcVars, m:mem):bool;
+#define $freshAbs $gcVars.freshAbs
+
+#define DECL_GcVars $commonVars:commonVars, $gcVars:gcVars
+#define GcVars $commonVars, $gcVars
+
+#define DECL_AllGcVars DECL_GcVars, $Time:Time
+#define AllGcVars GcVars, $Time
+
+const no_owners:[int]int := (lambda i:int::0);
+const empty_mem:mem := mem((lambda i:int::0), (lambda i:int::false));
+function submems(gc:mem, frm:mem, frms:[int][int]int):mems
+{
+  mems(empty_mem, empty_mem, empty_mem, gc, frm, frms, empty_mem, (lambda s:int::(lambda i:int::0)))
+}
+function _NucleusInv(objLayouts:[int]ObjLayout, $S:int, $toAbs:[int]int, $absMem:[int][int]int, DECL_GcVars, $DECL__MemVars, $stacksFrames:[int]Frames) returns(bool);
+function  NucleusInv(objLayouts:[int]ObjLayout, $S:int, $toAbs:[int]int, $absMem:[int][int]int, DECL_GcVars, $DECL_Mem_Vars, $stacksFrames:[int]Frames, DECL_IoVars) returns(bool)
+{
+    _NucleusInv(objLayouts, $S, $toAbs, $absMem, GcVars, me, init, statics,
+      submems(mems.gc, mems.frm, mems.frms),
+      $stacksFrames)
+ && IoInv($IoVars, $pciMem)
+ && MemInv($Mem_Vars)
+}
+
+atomic ghost procedure proc_RevealAbssValue();
+    ensures
+    (forall objLayouts:[int]ObjLayout, $S:int, $toAbs:[int]int, $absMem:[int][int]int, DECL_GcVars, $DECL_Mem_Vars, $stacksFrames:[int]Frames, DECL_IoVars
+    ::
+    NucleusInv(objLayouts, $S, $toAbs, $absMem, GcVars, $Mem_Vars, $stacksFrames, $IoVars)
+    ==>
+      (forall i:int:: StackLo(0) <= i && i < StackHi(0) && Aligned(i) ==>
+        Value(objLayouts, true, $toAbs, $fMems[0][i], $stacksFrames[0].Abss[i])
+      )
+    &&
+    // Chris tried to write a cleverer trigger than Wellformed's Nuclear Triggerbomb,
+    // but it didn't actually trigger, so we gave up.
+//      (forall i1:int, i2:int::{$stacksFrames[0].Abss[i1], $stacksFrames[0].Abss[i2]}
+//        gcAddr(i1) && gcAddr(i2) && i1 != i2 && $toAbs[i1] != NO_ABS && $toAbs[i2] != NO_ABS
+//        ==> $toAbs[i1] != $toAbs[i2])
+       WellFormed($toAbs)
+    );
+
+
+procedure InitializeGc();
+  inout my r:regs, my core_state:core_state, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems, $commonVars:commonVars, $gcVars:gcVars;
+  inout $absMem:[int][int]int, $toAbs:[int]int, $stacksFrames:[int]Frames, objLayouts:[int]ObjLayout;
+  requires word(ebp);
+  requires SMemRequireRA(112, stk, esp, RET);
+  requires MemInv($Mem_Vars) && commonVarsInv($commonVars, statics);
+  requires IoInv($IoVars, $pciMem);
+  requires (forall i:int::{statics.dom[i]} memAddr(i) && !memAddrMain(i) ==> statics.dom[i]);
+//  requires CurrentStack == $S;
+//  requires (forall $s:int::{TStk($s)} TStk($s) ==> isStack($s) ==> IsEmpty($StackState[$s]));
+//  requires (forall $s:int::{TStk($s)} TStk($s) ==> isStack($s) ==> StackTag($s, $tMems) == ?STACK_EMPTY);
+  requires (forall i:int::{TV(i)} TV(i) ==> $toAbs[i] == NO_ABS);
+  requires (forall $s:int::{TStk($s)} TStk($s) ==> isStack($s) ==>
+              (forall i:int::{TV(i)} TV(i) ==> StackLo($s) <= i && i < StackHi($s) && Aligned(i) ==> $stacksFrames[$s].Abss[i] == 0));
+  modifies stk, efl, eax, ebx, ecx, edx, esi, edi, ebp, esp;
+  modifies $commonVars, $gcVars, $Time, mems;
+  modifies HeapLo, Fi, Fk, Fl, Ti, Tj, Tk, Tl, BF, BT;
+  ensures  SMemEnsure(stk, old(stk), esp, old(esp));
+  ensures  MemInv($Mem_Vars) && commonVarsInv($commonVars, statics);
+  ensures  NucleusInv(objLayouts, $S, $toAbs, $absMem, GcVars, $Mem_Vars, $stacksFrames, $IoVars);
+  ensures  WellFormed($toAbs);
+  ensures  ebp == old(ebp);
+
+ghost procedure revealInv1($s:int, $_stackState:[int]StackState);
+  inout my r:regs, my core_state:core_state, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems, $commonVars:commonVars, $gcVars:gcVars;
+  inout $absMem:[int][int]int, $toAbs:[int]int, $stacksFrames:[int]Frames, objLayouts:[int]ObjLayout;
+  requires isStack($s);
+  requires NucleusInv(objLayouts, $S, $toAbs, $absMem, GcVars, $Mem_Vars, $stacksFrames, $IoVars);
+  ensures  MemInv($Mem_Vars) && commonVarsInv($commonVars, statics);
+  ensures  IoInv($IoVars, $pciMem);
+
+ghost procedure updateInv1($oldPciConfigState:[int]int, $oldmem:mems);
+  inout my r:regs, my core_state:core_state, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems, $commonVars:commonVars, $gcVars:gcVars;
+  inout $absMem:[int][int]int, $toAbs:[int]int, $stacksFrames:[int]Frames, objLayouts:[int]ObjLayout;
+  requires NucleusInv(objLayouts, $S, $toAbs, $absMem, GcVars, me, init, stk, statics, core_state, ptMem, $oldmem,
+            $stacksFrames, io.(_pci := io._pci.(PciConfigState := $oldPciConfigState)));
+  requires MemInv($Mem_Vars);
+  requires IoInv($IoVars, $pciMem);
+  requires mems.dat == $oldmem.dat;
+  requires mems.gc == $oldmem.gc;
+  requires mems.frm == $oldmem.frm;
+  requires mems.tcb == $oldmem.tcb;
+  ensures  NucleusInv(objLayouts, $S, $toAbs, $absMem, GcVars, $Mem_Vars, $stacksFrames, $IoVars);
+
+//- Call the garbage collector.
+// REVIEW: most system calls will share these preconditions and postconditions, so we should define some more abbreviations
+procedure GarbageCollect();
+  inout my r:regs, my core_state:core_state, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems, $commonVars:commonVars, $gcVars:gcVars;
+  inout $absMem:[int][int]int, $toAbs:[int]int, $stacksFrames:[int]Frames, objLayouts:[int]ObjLayout;
+  requires word(ebp);
+  requires NucleusInv(objLayouts, $S, $toAbs, $absMem, GcVars, $Mem_Vars, $stacksFrames, $IoVars);
+  requires SMemRequireRA(212, stk, esp, RET);
+
+  modifies $r1, $r2, $gcMem, $toAbs, $gcSlice, mems.frm, $fMems, $Time;
+  modifies Ti, Tj, Tk, Tl, Fi, Fk, Fl, BF, BT;
+  modifies efl, eax, ebx, ecx, edx, esi, edi, ebp, esp, stk;
+
+  //- postcondition same as precondition, plus reached:
+  ensures  NucleusInv(objLayouts, $S, $toAbs, $absMem, GcVars, $Mem_Vars, $stacksFrames, $IoVars);
+  ensures  (forall i:int::{TV(i)} TV(i) ==> Fi <= i && i < Fk && $toAbs[i] != NO_ABS ==>
+             reached($toAbs[i], $Time));
+  ensures  ebp == old(ebp);
+  ensures  SMemEnsure(stk, old(stk), esp, old(esp));
+
+atomic procedure gcFieldProperties(ptr:int, fld:int);
+  inout my core_state:core_state, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems, $commonVars:commonVars, $gcVars:gcVars;
+  inout $absMem:[int][int]int, $toAbs:[int]int, $stacksFrames:[int]Frames, objLayouts:[int]ObjLayout;
+  requires isStack($S);
+  requires NucleusInv(objLayouts, $S, $toAbs, $absMem, GcVars, $Mem_Vars, $stacksFrames, $IoVars);
+  requires Pointer($toAbs, ptr, $toAbs[ptr]);
+  requires 0 <= fld && fld < numFields(objLayouts, $toAbs[ptr]);
+  ensures  word(ptr + 4 * fld);
+
+atomic procedure gcLoadField(x:int, y:opn_mem, ptr:int, fld:int);
+  inout my r:regs, my core_state:core_state, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems, $commonVars:commonVars, $gcVars:gcVars;
+  inout $absMem:[int][int]int, $toAbs:[int]int, $stacksFrames:[int]Frames, objLayouts:[int]ObjLayout;
+  requires isStack($S);
+  requires NucleusInv(objLayouts, $S, $toAbs, $absMem, GcVars, $Mem_Vars, $stacksFrames, $IoVars);
+  requires Pointer($toAbs, ptr, $toAbs[ptr]);
+  requires 0 <= fld && fld < numFields(objLayouts, $toAbs[ptr]);
+  requires EvalPtrOk(y);
+  requires EvalPtr(r, y) == ptr + 4 * fld;
+  modifies r, mems;
+  ensures  mems == old(mems);
+  ensures  r.regs == old(r).regs[x := r.regs[x]];
+  ensures  r.efl == old(r).efl;
+  ensures  word(r.regs[x]);
+  ensures  Value(objLayouts, VFieldPtr(objLayouts, $toAbs[ptr], fld), $toAbs, r.regs[x], $absMem[$toAbs[ptr]][fld]);
+
+atomic procedure gcStoreField(x:opn_mem, y:opn, ptr:int, fld:int, abs:int);
+  inout my r:regs, my core_state:core_state, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems, $commonVars:commonVars, $gcVars:gcVars;
+  inout $absMem:[int][int]int, $toAbs:[int]int, $stacksFrames:[int]Frames, objLayouts:[int]ObjLayout;
+  requires isStack($S);
+  requires NucleusInv(objLayouts, $S, $toAbs, $absMem, GcVars, me, init, stk, statics, core_state, ptMem, mems, $stacksFrames, $IoVars);
+  requires Pointer($toAbs, ptr, $toAbs[ptr]);
+  requires 0 <= fld && fld < numFields(objLayouts, $toAbs[ptr]);
+  requires !isReadonlyField(0, fld);
+  requires Value(objLayouts, VFieldPtr(objLayouts, $toAbs[ptr], fld), $toAbs, Eval(r, y), abs);
+  requires EvalPtrOk(x);
+  requires EvalPtr(r, x) == ptr + 4 * fld;
+  requires SrcOk(y);
+  modifies mems.gc, $absMem;
+  ensures  NucleusInv(objLayouts, $S, $toAbs, $absMem, GcVars, me, init, stk, statics, core_state, ptMem, mems, $stacksFrames, $IoVars);
+  ensures  $absMem == old($absMem[$toAbs[ptr] := $absMem[$toAbs[ptr]][fld := abs]]);
+
+atomic procedure gcLoadStack(x:int, y:opn_mem, ptr:int);
+  inout my r:regs, my core_state:core_state, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems, $commonVars:commonVars, $gcVars:gcVars;
+  inout $absMem:[int][int]int, $toAbs:[int]int, $stacksFrames:[int]Frames, objLayouts:[int]ObjLayout;
+  requires isStack($S);
+  requires NucleusInv(objLayouts, $S, $toAbs, $absMem, GcVars, $Mem_Vars, $stacksFrames, $IoVars);
+  requires StackLo($S) <= ptr && ptr < StackHi($S);
+  requires Aligned(ptr);
+  requires EvalPtrOk(y);
+  requires EvalPtr(r, y) == ptr;
+  modifies r, mems;
+  ensures  mems == old(mems);
+  ensures  r.regs == old(r).regs[x := r.regs[x]];
+  ensures  word(r.regs[x]);
+  ensures  Value(objLayouts, true, $toAbs, r.regs[x], $stacksFrames[$S].Abss[ptr]);
+
+atomic procedure gcStoreStack(x:opn_mem, y:opn, ptr:int, abs:int);
+  inout my r:regs, my core_state:core_state, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems, $commonVars:commonVars, $gcVars:gcVars;
+  inout $absMem:[int][int]int, $toAbs:[int]int, $stacksFrames:[int]Frames, objLayouts:[int]ObjLayout;
+  requires isStack($S);
+  requires NucleusInv(objLayouts, $S, $toAbs, $absMem, GcVars, me, init, stk, statics, core_state, ptMem, mems, $stacksFrames, $IoVars);
+  requires StackLo($S) <= ptr && ptr < StackHi($S);
+  requires Aligned(ptr);
+  requires Value(objLayouts, true, $toAbs, Eval(r, y), abs);
+  requires EvalPtrOk(x);
+  requires EvalPtr(r, x) == ptr;
+  requires SrcOk(y);
+  modifies mems.frm, mems.frms, $stacksFrames;
+  ensures  NucleusInv(objLayouts, $S, $toAbs, $absMem, GcVars, me, init, stk, statics, core_state, ptMem, mems, $stacksFrames, $IoVars);
+  ensures  $stacksFrames == old($stacksFrames[$S := Frames($stacksFrames[$S].Abss[ptr := abs])]);
+
+procedure AllocObject($abs:int, $numWords:int, $numPrimitiveWords:int);
+  inout my r:regs, my core_state:core_state, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems, $commonVars:commonVars, $gcVars:gcVars;
+  inout $absMem:[int][int]int, $toAbs:[int]int, $stacksFrames:[int]Frames, objLayouts:[int]ObjLayout;
+  requires word(ebp);
+  //- GC invariant:
+  requires isStack($S); // && $StackState[$S] == StackRunning;
+  requires NucleusInv(objLayouts, $S, $toAbs, $absMem, GcVars, $Mem_Vars, $stacksFrames, $IoVars);
+  //requires SMemRequireRA(224, stk, esp, RET);
+  requires SMemRequireRA(228, stk, esp, RET);
+#ifdef x64
+  requires ReturnToAddr64(stk[esp], stk[esp+4]) == RET;
+#else
+  requires ReturnToAddr32(stk[esp]) == RET;
+#endif
+
+  //- requirements on mutator root layout:
+  requires ScanStackInv($S, $fMems[$S], $stacksFrames, stk[esp], esp, ebp);
+
+  //- requirements on vtable and layout:
+  requires stk[esp + (4 + IPSize)] == $numWords * 4;
+  requires stk[esp + (8 + IPSize)] == $numPrimitiveWords * 4;
+  requires sAddr(esp + (8 + IPSize));
+  requires word($numWords * 4);
+
+  //- require a fresh, empty abstract node:
+  requires $abs != NO_ABS;
+  requires objLayouts[$abs] == NoObjLayout();
+  requires 2 <= $numPrimitiveWords && $numPrimitiveWords <= $numWords;
+  requires (forall i:int::{TV(i)} TV(i) ==> gcAddr(i) ==> $toAbs[i] != $abs);
+
+  modifies stk, efl, eax, ebx, ecx, edx, esi, edi, ebp, esp;
+  modifies $absMem, $toAbs, objLayouts;
+  modifies $commonVars, $gcVars, $Time, mems;
+  modifies HeapLo, Fi, Fk, Fl, Ti, Tj, Tk, Tl, BF, BT;
+
+  ensures  SMemEnsureGcF(4, stk, old(stk), esp, old(esp), $stacksFrames, old($stacksFrames));
+  ensures  StackInv($stacksFrames[$S]);
+  ensures  NucleusInv(objLayouts, $S, $toAbs, $absMem, GcVars, $Mem_Vars, $stacksFrames, $IoVars);
+  ensures  $absMem == old($absMem)[$abs := $absMem[$abs]];
+  ensures  (forall j:int::{TO(j)} $absMem[$abs][j] == if j == 0 then $numPrimitiveWords * 4 else if j == 1 then $numWords * 4 else NULL);
+//  ensures  $toAbs == old($toAbs)[eax - 4 := $abs];
+//  ensures  $toAbs[stk[esp] - 4] == $abs;
+  ensures  objLayouts == old(objLayouts)[$abs := ObjLayout($numWords, $numPrimitiveWords)];
+  ensures  Pointer($toAbs, stk[esp] - 4, $abs);
+  ensures  gcAddrEx(stk[esp]);
+  ensures  WellFormed($toAbs);
+  ensures  ebp == old(ebp);
+  ensures  esp == old(esp) + IPSize;
+
+//- note: keep stackGcOffset up to date if ?fLo or ?sLo change; see assertion in Entry.beat
+//- note: keep stackGcOffset in sync with DafnyCC/RegAlloc.cs, RegAlloc.stackGcOffset
+const stackGcOffset:int := 0x111000; //- assert ?fLo - ?sLo == stackGcOffset;
+
+function frameGet(stacksFrames:[int]Frames, i:int):int { stacksFrames[0].Abss[i] }
+
+//- Reserve n bytes of stack space, argRet bytes of argument/return space, and require return address on stack
+function SMemRequireGcRA(n:int, argRet:int, sMem:mem, $esp:int, $RET:ReturnTo) returns(bool)
+{
+    SMemRequire(n, sMem, $esp)
+#ifdef x64
+ && ?sLo + n <= $esp 
+ && $esp + argRet <= ?sHi - 8 
+ && ReturnToAddr64(sMem[$esp], sMem[$esp + 4]) == $RET 
+#else
+ && ?sLo + n <= $esp 
+ && $esp + argRet <= ?sHi - 4
+ && ReturnToAddr32(sMem[$esp]) == $RET 
+#endif
+}
+
+//- Stack contents not altered
+function SMemInvGc(argRet:int, sMem:mem, oldSMem:mem, $esp:int, oldEsp:int, sAbs:[int]int, oldSAbs:[int]int):bool
+{
+    $esp == oldEsp
+ && sMem[$esp] == oldSMem[$esp]
+#ifdef x64
+ && sMem[$esp + 4] == oldSMem[$esp + 4]
+#endif
+ && (forall i:int::{sMem[i]} $esp + argRet <= i ==> sMem[i] == oldSMem[i])
+ && (forall i:int::{sAbs[i]} $esp + argRet + stackGcOffset <= i ==> sAbs[i] == oldSAbs[i])
+}
+
+function SMemInvGcF(argRet:int, sMem:mem, oldSMem:mem, $esp:int, oldEsp:int, stacksFrames:[int]Frames, oldStacksFrames:[int]Frames):bool
+{
+  SMemInvGc(argRet, sMem, oldSMem, $esp, oldEsp, stacksFrames[$S].Abss, oldStacksFrames[$S].Abss)
+}
+
+//- Stack contents not altered
+function SMemEnsureGc(argRet:int, sMem:mem, oldSMem:mem, $esp:int, oldEsp:int, sAbs:[int]int, oldSAbs:[int]int):bool
+{
+    $esp == oldEsp + IPSize
+ && (forall i:int::{sMem[i]} $esp + argRet <= i ==> sMem[i] == oldSMem[i])
+ && (forall i:int::{sAbs[i]} $esp + argRet + stackGcOffset <= i ==> sAbs[i] == oldSAbs[i])
+}
+
+function SMemEnsureGcF(argRet:int, sMem:mem, oldSMem:mem, $esp:int, oldEsp:int, stacksFrames:[int]Frames, oldStacksFrames:[int]Frames):bool
+{
+  SMemEnsureGc(argRet, sMem, oldSMem, $esp, oldEsp, stacksFrames[$S].Abss, oldStacksFrames[$S].Abss)
+}
+
+function AbsExtend(toAbs:[int]int, oldToAbs:[int]int, objLayouts:[int]ObjLayout, oldObjLayouts:[int]ObjLayout):bool
+{
+  (forall i:int::
+    {objLayouts[i]}
+    //{oldObjLayouts[i]} // commented out to slightly improve performance
+    oldObjLayouts[i] != NoObjLayout() ==> oldObjLayouts[i] == objLayouts[i])
+}
+
+}

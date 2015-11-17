@@ -1,0 +1,283 @@
+//-private-import BaseSpec;
+//-private-import MemorySpec;
+//-private-import IoTypesSpec;
+//-private-import MachineStateSpec;
+//-private-import AssemblySpec;
+//-private-import InterruptsSpec;
+//-private-import IoSpec;
+//-<NuBuild AddBoogieAxiom Base_axioms />
+//-<NuBuild AddBoogieAxiom Word_axioms />
+//-<NuBuild AddBoogieAxiom Memory_axioms />
+//-<NuBuild AddBoogieAxiom Assembly_axioms />
+//-<NuBuild AddBoogieAxiom Io_axioms />
+//-private-import Core;
+//-private-import LogicalAddressing;
+//-private-import Overflow;
+//-private-import Util;
+//-private-import Stacks;
+//-private-import Partition;
+//-private-import Instructions;
+//-private-import Separation;
+//-private-import IntLemmasBase;
+//-private-import IntLemmasGc;
+//-private-import SimpleGcMemory;
+//-private-import SimpleCommon;
+//-private-import SimpleCollector;
+//-<NuBuild BasmEnableSymdiff true />
+//-
+//- Copyright (c) Microsoft Corporation.  All rights reserved.
+//-
+
+module interface IoMain
+{
+
+const ?BYTE_VECTOR_VTABLE:int := 0;
+
+atomic ghost procedure espAligned();
+  inout my r:regs, my core_state:core_state, linear stk:mem, linear statics:mem, linear io:IOState;
+  requires Aligned(esp);
+  ensures  Aligned(esp -  4) && Aligned(esp -  8) && Aligned(esp - 12) && Aligned(esp - 16);
+  ensures  Aligned(esp - 20) && Aligned(esp - 24) && Aligned(esp - 28) && Aligned(esp - 32);
+  ensures  Aligned(esp - 36) && Aligned(esp - 40) && Aligned(esp - 44) && Aligned(esp - 48);
+  ensures  Aligned(esp - 52) && Aligned(esp - 56) && Aligned(esp - 60) && Aligned(esp - 64);
+
+atomic ghost procedure espAlignedInline();
+  inout my r:regs, my core_state:core_state, linear stk:mem, linear statics:mem, linear io:IOState;
+  requires Aligned(esp);
+  ensures  Aligned(esp +  4) && Aligned(esp +  8) && Aligned(esp + 12) && Aligned(esp + 16);
+  ensures  Aligned(esp + 20) && Aligned(esp + 24) && Aligned(esp + 28) && Aligned(esp + 32);
+  ensures  Aligned(esp + 36) && Aligned(esp + 40) && Aligned(esp + 44) && Aligned(esp + 48);
+  ensures  Aligned(esp + 52) && Aligned(esp + 56) && Aligned(esp + 60) && Aligned(esp + 64);
+
+//procedure startTimer();
+//  inout my r:regs, my core_state:core_state, linear stk:mem, linear statics:mem, linear io:IOState;
+//  requires word(ecx);
+//  requires logical_addressing_inv(init, ptMem, core_state);
+//  modifies state, efl, eax, $TimerSeq, $TimerFreq;
+//  ensures  TimerOk($TimerSeq) && $TimerFreq == old(ecx);
+//  ensures  logical_addressing_inv(init, ptMem, core_state);
+
+function PciUninitialized(io:IOState) returns (bool)
+{
+  (forall i:int :: {io._pci.PciConfigState[i]} 0 <= i && i < 65536 ==> (io._pci.PciConfigState[i] == 0))
+}
+
+procedure initIoInv();
+  inout my r:regs, my core_state:core_state, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems, $commonVars:commonVars, $gcVars:gcVars;
+  inout $absMem:[int][int]int, $toAbs:[int]int, $stacksFrames:[int]Frames, objLayouts:[int]ObjLayout;
+//  inout iovars:ioVars;
+  requires ?devMemHi - ?devMemLo > 0x204004;  
+//  requires ?memHi == ?devMemLo;
+//  requires ?memHi == ?memLo + 0x7400;
+  requires ?devMemLo mod 0x10000 == 0;   // 64K aligned
+  requires ecx == ?pciLo;
+  requires edx == ?pciHi;
+  requires (?pciHi - ?pciLo) mod 16 == 0;
+  requires Aligned(?pciLo);
+  requires serialPortConfigged();
+  requires PciUninitialized(io);
+//  requires (forall i:int :: {io._pci.PciConfigState[i]} 
+//            0 <= i && i < 65536 ==> (io._pci.PciConfigState[i] == 0));
+  //requires MemInv($Mem_Vars);
+  requires MemInv($Mem_Vars) && commonVarsInv($commonVars, statics);
+  //requires logical_addressing_inv(init, ptMem, core_state);  // Included in MemInv
+  modifies efl, eax, ecx, $pciMem; 
+  ensures  IoInv($IoVars, $pciMem);
+  //ensures  MemInv($Mem_Vars);
+  ensures MemInv($Mem_Vars) && commonVarsInv($commonVars, statics);
+  //ensures logical_addressing_inv(init, ptMem, core);  // Included in MemInv
+
+procedure checkIoFresh();
+  inout my r:regs, my core_state:core_state, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems, $commonVars:commonVars, $gcVars:gcVars;
+  inout $absMem:[int][int]int, $toAbs:[int]int, $stacksFrames:[int]Frames, objLayouts:[int]ObjLayout;
+  requires ecx == ?pciLo;
+  requires edx == ?pciHi;
+  requires (?pciHi - ?pciLo) mod 16 == 0;
+  requires Aligned(?pciLo);
+  requires IoInv($IoVars, $pciMem);
+  requires MemInv($Mem_Vars) && commonVarsInv($commonVars, statics);
+  modifies efl, eax, ecx, $pciMem; 
+  ensures IoInv($IoVars, $pciMem);
+  ensures MemInv($Mem_Vars) && commonVarsInv($commonVars, statics);
+  ensures (forall i:int :: {io._pci.PciConfigState[i]} 
+            0 <= i && i < 65536 ==> (io._pci.PciConfigState[i] == 0));
+
+procedure initDEV(linear dev_states:DEV_StateMachines, linear dev_mem:mem) returns (linear new_mem:mem)
+  inout my r:regs, my core_state:core_state, linear io:IOState;
+  requires !init;
+  requires ?CodeBase == 0x300000;
+  requires (forall i:int :: {dev_states.states[i]} dev_states.states[i] is Init);       
+  requires (forall i:int :: {dev_mem.dom[i]} dev_mem.dom[i] <==> (?DEVLo <= i && i < ?DEVHi));
+  requires PciUninitialized(io);
+  requires logical_addressing_inv(init, ptMem, core_state);
+  requires public(io._inCtr);
+  requires public(io._outCtr);
+  modifies io, efl, eax, ebx, ecx, edx, esi, edi, ebp;
+  ensures  (forall i:int ::{ new_mem.dom[i] }{TV(i)} TV(i) ==> (new_mem.dom[i] <==> ?CodeBase + 64*1024 + 124*1024 <= i && i < 128*1024*1024));
+  ensures  PciUninitialized(io);
+  ensures  logical_addressing_inv(init, ptMem, core_state);
+  ensures  public(io._inCtr);
+  ensures  public(io._outCtr);
+
+//procedure SetupIoTables();
+//  requires word(?iomLo) && word(?iomHi) && word(?dmaHi);
+//  requires ecx == ?iomLo;
+//  requires ?dmaLo == ?iomHi;
+//  requires Aligned(?dmaLo);
+//  requires !$IomFrozen;
+//  requires MemInv($Mem_Vars);
+//  requires SMemRequireRA(132, stk, esp, RET);
+//  modifies eax, ebx, ecx, edx, esi, edi, ebp, esp, $Mem, stk;
+//  modifies $IomMem;
+//  ensures  IoRootTable($IomMem, eax);
+//  ensures  $IomMem[?dmaLo - 8] == ?BYTE_VECTOR_VTABLE;
+//  ensures  $IomMem[?dmaLo - 4] == ?dmaHi - ?dmaLo;
+//  ensures  MemInv($Mem_Vars);
+//  ensures  SMemEnsure(stk, old(stk), esp, old(esp));
+
+function CleanIoMmuState(io:IOState):bool
+{
+  (forall i:int::{io._iom.IoMmuState[i]}
+    io._iom.IoMmuState[i] == 0)
+}
+
+//procedure StartIoMmu();
+//  inout mems:mems;
+//  inout my r:regs, my core_state:core_state, linear stk:mem, linear statics:mem, linear io:IOState;
+//  requires IoRootTable(io._iom.IomMem, ebx);
+//  requires !io._iom.IoMmuEnabled;
+//  requires ebp == ?dmaLo && word(ebp);
+//  requires io._iom.IomMem[?dmaLo - 8] == ?BYTE_VECTOR_VTABLE;
+//  requires io._iom.IomMem[?dmaLo - 4] == ?dmaHi - ?dmaLo;
+//  requires CleanIoMmuState(state);
+//  requires MemInv($Mem_Vars);
+//  requires SMemRequireRA(132, stk, esp, RET);
+//  modifies eax, ebx, ecx, edx, esi, edi, ebp, esp, $Mem, stk;
+//  modifies io._iom.IoMmuState, io._iom.IomFrozen, io._iom.IoMmuEnabled;
+//  modifies DmaAddr;
+//  ensures ((DmaAddr == 0 && !io._iom.IoMmuEnabled)
+//        || (DmaAddr == ?dmaLo && io._iom.IoMmuEnabled));
+//  ensures  MemInv($Mem_Vars);
+//  ensures  SMemEnsure(stk, old(stk), esp, old(esp));
+//
+//// Pass in a word via esi
+//procedure Proc_SerialDbgWordOut();
+//  inout core:state_core, my_part:partition, $mem:mems;
+//  requires MemInv(me,init,$State,core,ptOwner__id,($State._mem),$part,my_part,$mem__id,$sepVars__id,$mem,$sepVars);
+//  requires SMemRequireRA(0, mems__stk($mem), (core._regs)[ESP], RET);
+//  //requires logical_addressing_inv(me, init, $State, $part, ptOwner__id, core);
+//  requires $serialState.Mode.DLAB == false;
+//  modifies $State, $serialState.Out, $Eip, $Efl, eax, ebx, ecx, edx;
+//  modifies $part;
+//  ensures  (core._regs)[ESP] == old((core._regs)[ESP])+4;
+//  ensures  $part.vars[me] == old($part).vars[me];
+//  ensures  logical_addressing_inv(me, init, $State, $part, ptOwner__id, core);
+//  ensures  $serialState.Mode.DLAB == false;
+//  ensures  MemInv(me,init,$State,core,ptOwner__id,($State._mem),$part,my_part,$mem__id,$sepVars__id,$mem,$sepVars);
+//  ensures  SMemEnsure(mems__stk($mem), old(mems__stk($mem)), (core._regs)[ESP], old((core._regs)[ESP]));
+//
+//procedure Proc_SerialDbgNewlineOut();
+//  inout core:state_core, my_part:partition, $mem:mems;
+//  requires MemInv(me,init,$State,core,ptOwner__id,($State._mem),$part,my_part,$mem__id,$sepVars__id,$mem,$sepVars);
+//  requires SMemRequireRA(0, mems__stk($mem), (core._regs)[ESP], RET);
+//  //requires logical_addressing_inv(me, init, $State, $part, ptOwner__id, core);
+//  requires $serialState.Mode.DLAB == false;
+//  modifies $State, $serialState.Out, $Eip, $Efl, eax, ecx, edx;
+//  modifies $part;
+//  ensures  (core._regs)[ESP] == old((core._regs)[ESP])+4;
+//  ensures  $part.vars[me] == old($part).vars[me];
+//  ensures  logical_addressing_inv(me, init, $State, $part, ptOwner__id, core);
+//  ensures  $serialState.Mode.DLAB == false;
+//  ensures  MemInv(me,init,$State,core,ptOwner__id,($State._mem),$part,my_part,$mem__id,$sepVars__id,$mem,$sepVars);
+//  ensures  SMemEnsure(mems__stk($mem), old(mems__stk($mem)), (core._regs)[ESP], old((core._regs)[ESP]));
+//
+//// Dafny interface
+//const stack_size__DafnyCC__Proc_serialPortIn:int := 0;
+//procedure Proc_serialPortIn() returns ($ghost_out:int);
+//  inout my r:regs, my core_state:core_state, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems;
+//  requires MemInv(me,init,state,core_state,(mem.map),mems);
+//  requires SMemRequireRA(stack_size__DafnyCC__Proc_serialPortIn, mems__stk(mems), esp, RET);
+//  requires $serialState.Mode.DLAB == false;
+//  modifies state, efl, $serialState.In, mems;
+//  ensures  esp == old(esp)+4;
+//  ensures  $serialState.In.Events[$serialState.In.Done] == and ($ghost_out, 255);
+//  ensures  $serialState.In.Done == old($serialState).In.Done + 1;
+//  ensures  MemInv(me,init,state,core_state,(mem.map),mems);
+//  ensures  SMemEnsure(mems__stk(mems), old(mems__stk(mems)), esp, old(esp));
+//  ensures  eax == $ghost_out;
+//
+//// Dafny interface
+//const stack_size__DafnyCC__Proc_serialPortOut:int := 0;
+//procedure Proc_serialPortOut($ghost_in:int);
+//  inout core:state_core, my_part:partition, $mem:mems;
+//  requires MemInv(me,init,$State,core,ptOwner__id,($State._mem),$part,my_part,$mem__id,$sepVars__id,$mem,$sepVars);
+//  requires SMemRequireRA(stack_size__DafnyCC__Proc_serialPortOut, mems__stk($mem), (core._regs)[ESP], RET);
+//  requires $serialState.Mode.DLAB == false;
+//  modifies $State, $part, core, my_part, $mem, $serialState.Out;
+//  requires $ghost_in == core._regs[ECX];
+//  ensures  (core._regs)[ESP] == old((core._regs)[ESP])+4;
+//  ensures  $serialState.Out.Events[$serialState.Out.Done] == and ($ghost_in, 255);
+//  ensures  $serialState.Out.Done == old($serialState).Out.Done + 1;
+//  ensures  MemInv(me,init,$State,core,ptOwner__id,($State._mem),$part,my_part,$mem__id,$sepVars__id,$mem,$sepVars);
+//  ensures  SMemEnsure(mems__stk($mem), old(mems__stk($mem)), (core._regs)[ESP], old((core._regs)[ESP]));
+//
+//
+//function ONE_ONE_MAP (M:[int]int) : bool
+//{
+//  (forall x:int, y:int :: (word(x) && word(y)) ==> M[x] == M[y] ==> x == y)
+//}
+//
+//const stack_size__DafnyCC__Proc_Hash:int := 0;
+//
+//procedure Proc_Hash(pwd:int, salt:int, key:int) returns (r:int);
+//  inout my r:regs, my core_state:core_state, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems;
+//  requires MemInv(me,init,state,core_state,(mem.map),mems);
+//  requires SMemRequireRA(stack_size__DafnyCC__Proc_sample, mems__stk(mems), esp, RET);
+//  requires ecx == pwd;
+//  requires edx == salt;
+//  requires ebx == key;
+//  modifies state, efl, mems, $global_sample_index, $ghost_Hashed;
+//  ensures RdmOracle(Triple(pwd, salt, key), r, old($ghost_Hashed), $ghost_Hashed, old($global_sample_index), $randomSource);
+//  ensures $global_sample_index == old($global_sample_index)+1;
+//  ensures  esp == old(esp)+4;
+//  ensures  MemInv(me,init,state,core_state,(mem.map),mems);
+//  ensures  SMemEnsure(mems__stk(mems), old(mems__stk(mems)), esp, old(esp));
+//  ensures  eax == r;
+//
+//procedure proc_SampleLemma(p:int, M:[int]int);
+//  ensures (forall x:int :: M[x] == xor(x,p));
+//
+//procedure proc_SampleLemmaID(M:[int]int);
+//  ensures (forall x:int :: M[x] == x);
+//
+//function RdmOracle (tri:Tri, ret:int, MOld:Map, M:Map, index:int, randomSource:[int]int) : bool
+//{
+//     (MOld.Domain[tri] == true  ==> M == MOld && M.Range[tri] == ret)
+//  && (MOld.Domain[tri] == false ==> randomSource[index] == ret && M.Range == MOld.Range[tri := ret] && M.Domain == MOld.Domain[tri := true])
+//}
+//
+//
+//const stack_size__DafnyCC__Proc_sample:int := 0;
+//
+//procedure Proc_sample(M:[int]int) returns ($ghost_out:int);
+//  inout my r:regs, my core_state:core_state, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems;
+//  requires MemInv(me,init,state,core_state,(mem.map),mems);
+//  requires SMemRequireRA(stack_size__DafnyCC__Proc_sample, mems__stk(mems), esp, RET);
+//  requires OneOneMap(M);
+//  modifies state, efl, mems, $global_sample_index;
+//  ensures  esp == old(esp)+4;
+//  ensures  MemInv(me,init,state,core_state,(mem.map),mems);
+//  ensures  SMemEnsure(mems__stk(mems), old(mems__stk(mems)), esp, old(esp));
+//  //ensures  (exists eax:int ::
+//  //     $State == InsUpdate1(me, s, OReg(EAX), eax, s._cores[me]._efl)
+//  //  && SampleCall ($randomSource, old($global_sample_index), $global_sample_index, and(eax, 255)));
+//  ensures  $randomSource[old($global_sample_index)] == $ghost_out;
+//  ensures  old($global_sample_index) + 1 == $global_sample_index;
+//  ensures  eax == $ghost_out;
+
+function max(x:int, y:int):int
+{
+  if (x<=y) then y else x
+}
+
+}

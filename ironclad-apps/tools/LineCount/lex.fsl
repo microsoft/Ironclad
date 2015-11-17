@@ -1,0 +1,26 @@
+{
+open Lexing;;
+open Parse_util;;
+}
+
+rule comment = parse
+| "*/" { () }
+| "*)" { () }
+| "/*" { comment lexbuf ; comment lexbuf }
+| "(*" { comment lexbuf ; comment lexbuf }
+| "\n\r" { incr line; comment lexbuf }
+| "\r\n" { incr line; comment lexbuf }
+| ['\n''\r'] { incr line; comment lexbuf }
+| _ { comment lexbuf }
+and token = parse
+| "\n\r" { end_line (); incr line; token lexbuf }
+| "\r\n" { end_line (); incr line; token lexbuf }
+| ['\n''\r'] { end_line (); incr line; token lexbuf }
+| [' ''\t'] { token lexbuf }
+| "//"[^'\n''\r']* { token lexbuf }
+| "/*" { comment lexbuf ; token lexbuf }
+| "(*" { comment lexbuf ; token lexbuf }
+| ['"'][^'"''\n''\r']*['"'] { token lexbuf }
+| eof { EOF }
+| '\000' { EOF }
+| _ { content_on_line := true; token lexbuf }

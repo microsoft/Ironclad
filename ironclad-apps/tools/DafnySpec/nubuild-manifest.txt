@@ -1,0 +1,2 @@
+# This file only exists because NuBuild requires that it be here.
+# You could argue that this is a bug in NuBuild.

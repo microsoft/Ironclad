@@ -1,0 +1,549 @@
+//-private-import BaseSpec;
+//-private-import MemorySpec;
+//-private-import IoTypesSpec;
+//-private-import MachineStateSpec;
+//-private-import AssemblySpec;
+//-private-import InterruptsSpec;
+//-private-import IoSpec;
+//-private-import Overflow;
+//-private-import Core;
+//-private-import LogicalAddressing;
+//-private-import Util;
+//-private-import Stacks;
+//-private-import Partition;
+//-private-import Instructions;
+//-private-import Separation;
+//-private-import IntLemmasGc;
+//-private-import SimpleGcMemory;
+//-private-import SimpleCommon;
+//-private-import SimpleCollector;
+//-private-import IntLemmasMain;
+//-private-import IntLemmasBase;
+//-private-import IoMain;
+//-private-basmonly-import Trusted;
+//-private-basmonly-import Checked;
+//-private-import Heap;
+//-private-import Seq;
+//-private-import dafny_DafnyPrelude;
+//-private-import DafnyAssembly;
+//-private-import dafny_base_s;
+//-private-import dafny_power2_s;
+//-private-import dafny_bytes_and_words_s;
+//-private-import dafny_be_sequences_s;
+//-private-import dafny_integer_sequences_s;
+//-private-import dafny_seqs_simple_i;
+//-private-import dafny_power_s;
+//-private-import dafny_mul_nonlinear_i;
+//-private-import dafny_mul_i;
+//-private-import dafny_power_i;
+//-private-import dafny_div_def_i;
+//-private-import dafny_div_boogie_i;
+//-private-import dafny_div_nonlinear_i;
+//-private-import dafny_div_i;
+//-private-import dafny_repeat_digit_i;
+//-private-import dafny_assembly_s;
+//-private-import dafny_power2_i;
+//-private-import dafny_seqs_and_ints_i;
+//-private-import dafny_seqs_common_i;
+//-private-import dafny_Word32_i;
+//-private-import dafny_relational_s;
+//-private-import dafny_assembly_i;
+//-private-import dafny_arrays_i;
+//-private-import dafny_seqs_transforms_i;
+//-private-import dafny_seqs_reverse_i;
+//-private-import dafny_integer_sequences_i;
+//-private-import dafny_integer_sequences_premium_i;
+//-private-import dafny_assembly_premium_i;
+//-private-import dafny_BigNatX86Shim_i;
+//-private-import dafny_seqs_canonical_i;
+//-private-import dafny_CanonicalArrays_i;
+//-private-import dafny_FatNatCommon_i;
+//-private-import dafny_FleetNatCommon_i;
+//-private-import dafny_FleetNatAdd_i;
+//-private-import dafny_FleetNatMulLemmas_i;
+//-private-import dafny_FleetNatMulOpt_i;
+//-private-import dafny_FleetNatMulLoopOptLemmas_i;
+//-<NuBuild AddBoogieAxiom Assembly_axioms />
+//-<NuBuild AddBoogieAxiom Base_axioms />
+//-<NuBuild AddBoogieAxiom Memory_axioms />
+//-<NuBuild AddBoogieAxiom Word_axioms />
+//-<NuBuild AddBoogieAxiom Io_axioms />
+module implementation dafny_FleetNatMulLoopOpt_i
+{
+
+
+implementation Proc_FleetNatMul__one__loop__opt(my r_old:regs, const my core_state:core_state, linear stk_old:mem, linear statics_old:mem, linear io_old:IOState, linear mems_old:mems, $commonVars_old:commonVars, $gcVars_old:gcVars, $toAbs_old:[int]int, $absMem_old:[int][int]int, $stacksFrames_old:[int]Frames, objLayouts_old:[int]ObjLayout, heap_old:Heap, $ghost_c:ArrayOfInt, $ghost_bi:int, $ghost_a:ArrayOfInt, $ghost_adigits:int, $ghost_bv:int) returns(my r:regs, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems, $commonVars:commonVars, $gcVars:gcVars, $toAbs:[int]int, $absMem:[int][int]int, $stacksFrames:[int]Frames, objLayouts:[int]ObjLayout, heap:Heap, $ghost_carry:int)
+{
+    //- Standard boilerplate
+    var $absMem_tmp:[int][int]int;
+    var objLayouts_tmp:[int]ObjLayout;
+    var heap_tmp:Heap;
+    var obj_tmp:int;
+    var val_tmp:int;
+    var mod0:int;
+    var $ghost_pv:int;
+    var $ghost_oldcs:Seq___int;
+    var $ghost_alenm1:int;
+    var $ghost__temp__0:int;
+    var $ghost_clenm1:int;
+    var $ghost__temp__1:int;
+    var $ghost_j:int;
+    var $ghost_lastj:int;
+    var $ghost_lastcarry:int;
+    var $ghost_lastcs:Seq___int;
+    var $ghost_asq:Seq___int;
+    var $ghost_ci:int;
+    var $ghost__temp__5:int;
+    var $ghost__temp__6:int;
+    var $ghost_ai:int;
+    var $ghost_aj:int;
+    var $ghost_lastcj:int;
+    var $ghost_newcj:int;
+    var $ghost_c__abs:int;
+    var $ghost_a__abs:int;
+    var a_base:int;
+    var c_base:int;
+    var old_esi:int;
+    var old_edi:int;
+    var $ghost_mhi:int;
+    var $ghost_mlo:int;
+    var $ghost__temp__0:int;
+    var $ghost_add1:int;
+    var $ghost_carry1:int;
+    var $ghost_carry2:int;
+    var $ghost_add3:int;
+    var $ghost_carry3:int;
+    var $ghost_carry4:int;
+    var tmp:int;
+    assert fun_unroll(0);
+    assert fun_unroll(1);
+    call lemma_unroll_rec_fun____HASH_Seq__Length__FULL___int();
+    call lemma_unroll_fun____HASH_Seq__Length__FULL___int();
+    call lemma_fun_ensures_fun_Seq__Length___int();
+    call lemma_unroll_rec_fun____HASH_Seq__Build__FULL___int();
+    call lemma_unroll_fun____HASH_Seq__Build__FULL___int();
+    call lemma_unroll_rec_fun____HASH_Seq__Index__FULL___int();
+    call lemma_unroll_fun____HASH_Seq__Index__FULL___int();
+    call lemma_unroll_rec_fun____HASH_Seq__Append__FULL___int();
+    call lemma_unroll_fun____HASH_Seq__Append__FULL___int();
+    call lemma_unroll_rec_fun____HASH_Seq__Update__FULL___int();
+    call lemma_unroll_fun____HASH_Seq__Update__FULL___int();
+    call lemma_unroll_rec_fun____HASH_Seq__Take__FULL___int();
+    call lemma_unroll_fun____HASH_Seq__Take__FULL___int();
+    call lemma_unroll_rec_fun____HASH_Seq__Drop__FULL___int();
+    call lemma_unroll_fun____HASH_Seq__Drop__FULL___int();
+    call proc_Seq__Empty__ToZero___int();
+    call proc_Seq__Empty__FromZero___int();
+    call proc_Seq__Singleton__Length___int();
+    call proc_Seq__Build__Length___int();
+    call proc_Seq__Build__Index___int();
+    call proc_Seq__Append__Length___int();
+    call proc_Seq__Index__Singleton___int();
+    call proc_Seq__Append__Index___int();
+    call proc_Seq__Update__Length___int();
+    call proc_Seq__Index__Update___int();
+    call proc_Seq__Equal__Equiv___int();
+    call proc_Seq__Take__Length___int();
+    call proc_Seq__Take__Index___int();
+    call proc_Seq__Drop__Length___int();
+    call proc_Seq__Drop__Index___int();
+    call proc_Seq__Append__TakeDrop___int();
+    call proc_Seq__Update__CommuteTake1___int();
+    call proc_Seq__Update__CommuteTake2___int();
+    call proc_Seq__Update__CommuteDrop1___int();
+    call proc_Seq__Update__CommuteDrop2___int();
+    call proc_Seq__Build__CommuteDrop___int();
+    call proc_Seq__Take__Empty___int();
+    call proc_Seq__Drop__Empty___int();
+    call lemma_unroll_fun_Seq__FromArrayRange();
+    call proc_Seq__FromArray__Length();
+    call proc_Seq__FromArray__Index();
+    call proc_Seq__FromArray__Update();
+    call lemma_unroll_rec_fun____HASH_power2__FULL();
+    call lemma_unroll_fun____HASH_power2__FULL();
+    call lemma_fun_ensures_fun_power2();
+    call lemma_unroll_rec_fun____HASH_BEDigitSeqToInt__private__FULL();
+    call lemma_unroll_fun____HASH_BEDigitSeqToInt__private__FULL();
+    call lemma_unroll_rec_fun____HASH_BEIntToDigitSeq__private__FULL();
+    call lemma_unroll_fun____HASH_BEIntToDigitSeq__private__FULL();
+    call lemma_unroll_rec_fun_RepeatDigit();
+    call lemma_unroll_fun_RepeatDigit();
+    call lemma_unroll_rec_fun____HASH_Reverse__FULL();
+    call lemma_unroll_fun____HASH_Reverse__FULL();
+    call lemma_unroll_rec_fun____HASH_power__FULL();
+    call lemma_unroll_fun____HASH_power__FULL();
+    call lemma_unroll_rec_fun_mul__pos();
+    call lemma_unroll_fun_mul__pos();
+    call lemma_unroll_rec_fun_my__div__pos();
+    call lemma_unroll_fun_my__div__pos();
+    call lemma_unroll_rec_fun_my__mod__recursive();
+    call lemma_unroll_fun_my__mod__recursive();
+    call lemma_fun_ensures_fun_RepeatDigit__premium();
+    call lemma_unroll_rec_fun____HASH_SequenceOfZeros__FULL();
+    call lemma_unroll_fun____HASH_SequenceOfZeros__FULL();
+    call lemma_fun_ensures_fun_SequenceOfZeros();
+    call lemma_fun_ensures_fun_BitwiseAnd();
+    call lemma_fun_ensures_fun_BitwiseOr();
+    call lemma_fun_ensures_fun_BitwiseNot();
+    call lemma_fun_ensures_fun_BitwiseXor();
+    call lemma_fun_ensures_fun_RotateRight();
+    call lemma_fun_ensures_fun_RotateLeft();
+    call lemma_fun_ensures_fun_RightShift();
+    call lemma_fun_ensures_fun_LeftShift();
+    call lemma_fun_ensures_fun_Add32();
+    call lemma_fun_ensures_fun_Sub32();
+    call lemma_fun_ensures_fun_Mul32();
+    call lemma_fun_ensures_fun_Div32();
+    call lemma_fun_ensures_fun_Mod32();
+    call lemma_unroll_rec_fun____HASH_NatNumBits__FULL();
+    call lemma_unroll_fun____HASH_NatNumBits__FULL();
+    call lemma_fun_ensures_fun_NatNumBits();
+    call lemma_fun_ensures_fun_asm__Add();
+    call lemma_fun_ensures_fun_asm__Sub();
+    call lemma_fun_ensures_fun_asm__Mul();
+    call lemma_fun_ensures_fun_asm__Div();
+    call lemma_fun_ensures_fun_asm__Mod();
+    call lemma_fun_ensures_fun_asm__LeftShift();
+    call lemma_fun_ensures_fun_asm__RightShift();
+    call lemma_fun_ensures_fun_asm__RotateLeft();
+    call lemma_fun_ensures_fun_asm__RotateRight();
+    call lemma_fun_ensures_fun_asm__BitwiseNot();
+    call lemma_fun_ensures_fun_asm__BitwiseAnd();
+    call lemma_fun_ensures_fun_asm__BitwiseOr();
+    call lemma_fun_ensures_fun_asm__BitwiseXor();
+    call lemma_unroll_rec_fun____HASH_LEDigitSeqToInt__private__FULL();
+    call lemma_unroll_fun____HASH_LEDigitSeqToInt__private__FULL();
+    call lemma_fun_ensures_fun_BEDigitSeqToInt__premium();
+    call lemma_fun_ensures_fun_BEWordSeqToInt__premium();
+    call lemma_fun_ensures_fun_BEIntToDigitSeq__premium();
+    call lemma_fun_ensures_fun_BEIntToByteSeq__premium();
+    call lemma_fun_ensures_fun_BEWordToFourBytes__premium();
+    call lemma_fun_ensures_fun_BEWordToBitSeq__premium();
+    call lemma_fun_ensures_fun_BEWordSeqToBitSeq__premium();
+    call lemma_fun_ensures_fun_BEByteSeqToBitSeq__premium();
+    call lemma_fun_ensures_fun_BEWordSeqToByteSeq__premium();
+    call lemma_fun_ensures_fun_Asm__Add();
+    call lemma_fun_ensures_fun_Asm__Sub();
+    call lemma_fun_ensures_fun_Asm__Mul();
+    call lemma_fun_ensures_fun_Asm__Div();
+    call lemma_fun_ensures_fun_Asm__Mod();
+    call lemma_fun_ensures_fun_Asm__LeftShift();
+    call lemma_fun_ensures_fun_Asm__RightShift();
+    call lemma_fun_ensures_fun_Asm__RotateLeft();
+    call lemma_fun_ensures_fun_Asm__RotateRight();
+    call lemma_fun_ensures_fun_Asm__BitwiseNot();
+    call lemma_fun_ensures_fun_Asm__BitwiseAnd();
+    call lemma_fun_ensures_fun_Asm__BitwiseOr();
+    call lemma_fun_ensures_fun_Asm__BitwiseXor();
+    call lemma_unroll_rec_fun____HASH_Seq__Length__FULL___Seq___int();
+    call lemma_unroll_fun____HASH_Seq__Length__FULL___Seq___int();
+    call lemma_fun_ensures_fun_Seq__Length___Seq___int();
+    call lemma_unroll_rec_fun____HASH_Seq__Build__FULL___Seq___int();
+    call lemma_unroll_fun____HASH_Seq__Build__FULL___Seq___int();
+    call lemma_unroll_rec_fun____HASH_Seq__Index__FULL___Seq___int();
+    call lemma_unroll_fun____HASH_Seq__Index__FULL___Seq___int();
+    call lemma_unroll_rec_fun____HASH_Seq__Append__FULL___Seq___int();
+    call lemma_unroll_fun____HASH_Seq__Append__FULL___Seq___int();
+    call lemma_unroll_rec_fun____HASH_Seq__Update__FULL___Seq___int();
+    call lemma_unroll_fun____HASH_Seq__Update__FULL___Seq___int();
+    call lemma_unroll_rec_fun____HASH_Seq__Take__FULL___Seq___int();
+    call lemma_unroll_fun____HASH_Seq__Take__FULL___Seq___int();
+    call lemma_unroll_rec_fun____HASH_Seq__Drop__FULL___Seq___int();
+    call lemma_unroll_fun____HASH_Seq__Drop__FULL___Seq___int();
+    call proc_Seq__Empty__ToZero___Seq___int();
+    call proc_Seq__Empty__FromZero___Seq___int();
+    call proc_Seq__Singleton__Length___Seq___int();
+    call proc_Seq__Build__Length___Seq___int();
+    call proc_Seq__Build__Index___Seq___int();
+    call proc_Seq__Append__Length___Seq___int();
+    call proc_Seq__Index__Singleton___Seq___int();
+    call proc_Seq__Append__Index___Seq___int();
+    call proc_Seq__Update__Length___Seq___int();
+    call proc_Seq__Index__Update___Seq___int();
+    call proc_Seq__Equal__Equiv___Seq___int();
+    call proc_Seq__Take__Length___Seq___int();
+    call proc_Seq__Take__Index___Seq___int();
+    call proc_Seq__Drop__Length___Seq___int();
+    call proc_Seq__Drop__Index___Seq___int();
+    call proc_Seq__Append__TakeDrop___Seq___int();
+    call proc_Seq__Update__CommuteTake1___Seq___int();
+    call proc_Seq__Update__CommuteTake2___Seq___int();
+    call proc_Seq__Update__CommuteDrop1___Seq___int();
+    call proc_Seq__Update__CommuteDrop2___Seq___int();
+    call proc_Seq__Build__CommuteDrop___Seq___int();
+    call proc_Seq__Take__Empty___Seq___int();
+    call proc_Seq__Drop__Empty___Seq___int();
+    call lemma_fun_ensures_fun_Width();
+    call lemma_unroll_rec_fun_CanonicalizeSeq__def();
+    call lemma_unroll_fun_CanonicalizeSeq__def();
+    call lemma_fun_ensures_fun_CanonicalizeSeq();
+    call lemma_fun_ensures_fun_IsZeroValue();
+    call lemma_fun_ensures_fun_SelectDigits();
+    call lemma_unroll_rec_fun____HASH_MaxLen__def__FULL();
+    call lemma_unroll_fun____HASH_MaxLen__def__FULL();
+    call lemma_fun_ensures_fun_MaxLen();
+    call lemma_fun_ensures_fun_MaxLen3();
+    call lemma_fun_ensures_fun_ArrayDigitAt();
+    call lemma_fun_ensures_fun_ArrayDigitAt__add();
+    call lemma_fun_ensures_fun_ArrayDigitAt__sub();
+    call lemma_fun_ensures_fun_ArrayDigitAt__cmp();
+    call lemma_fun_ensures_fun_ArrayDigitAt__mul();
+    call lemma_fun_ensures_fun_J();
+    r := r_old;
+    stk := stk_old;
+    statics := statics_old;
+    io := io_old;
+    mems := mems_old;
+    $commonVars := $commonVars_old;
+    $gcVars := $gcVars_old;
+    $toAbs := $toAbs_old;
+    $absMem := $absMem_old;
+    $stacksFrames := $stacksFrames_old;
+    objLayouts := objLayouts_old;
+    heap := heap_old;
+    $ghost_c__abs := frameGet($stacksFrames, r_old.regs[ESP] + 4 + stackGcOffset);
+    $ghost_a__abs := frameGet($stacksFrames, r_old.regs[ESP] + 8 + stackGcOffset);
+    mod0 := ($ghost_c).arrAbs;
+    assert TV(r.regs[ESP]);
+    assert TO(0 - 1);
+    assert TO(279552 - 1);
+    assert TO(0 - 2);
+    assert TO(279552 - 2);
+    assert TO(0 - 3);
+    assert TO(279552 - 3);
+    assert TO(0 - 4);
+    assert TO(279552 - 4);
+    assert TO(0 - 5);
+    assert TO(279552 - 5);
+    assert TO(0 - 6);
+    assert TO(279552 - 6);
+    assert TO(0 - 7);
+    assert TO(279552 - 7);
+    assert TO(0 - 8);
+    assert TO(279552 - 8);
+    assert TO(0 - 9);
+    assert TO(279552 - 9);
+    assert TO(0 - 10);
+    assert TO(279552 - 10);
+    assert TO(0 - 11);
+    assert TO(279552 - 11);
+    assert TO(0 - 12);
+    assert TO(279552 - 12);
+    assert TO(0);
+    assert TO(279552);
+    assert TO(1);
+    assert TO(279553);
+    assert TO(2);
+    assert TO(279554);
+    assert TO(3);
+    assert TO(279555);
+    assert TO(4);
+    assert TO(279556);
+
+    assert $ghost_adigits > 0;
+    assert Arr_Length($ghost_a) - $ghost_adigits >= 0;
+    assert Arr_Length($ghost_a) - $ghost_adigits < Arr_Length($ghost_a);
+    $ghost_pv := fun_power2(32);
+    call proc_lemma__2toX();
+    $ghost_oldcs := fun_Seq__FromArray($absMem, $ghost_c);
+
+    //- Load array a ptr into edi
+    call r, mems := heapLoadStack(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $absMem, $toAbs, $stacksFrames, objLayouts, EDI, OMem(MReg(ESP, 0x111008)), EvalPtr(r, OMem(MReg(ESP, 0x111008))));
+    a_base := edi;
+    $ghost_a__abs := frameGet($stacksFrames, EvalPtr(r, OMem(MReg(ESP, 0x111008))));
+
+    //- Load a's length into eax
+    call r, mems := loadArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, EAX, OMem(MReg(EDI, 4)), (0 - 1), $ghost_a__abs, r.regs[EDI]);
+    assert eax == Arr_Length($ghost_a);
+    //- Save a copy for use in bound calculation
+    ecx := eax;
+
+    call r := instr_Sub(r, EAX, OConst(1));   
+    $ghost_alenm1 := eax;       //- == alenm1
+    call reveal_wrap32(Arr_Length($ghost_a) - 1);
+    assert $ghost_alenm1 == Arr_Length($ghost_a) - 1; 
+
+    //- Load array c ptr into esi
+    call r, mems := heapLoadStack(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $absMem, $toAbs, $stacksFrames, objLayouts, ESI, OMem(MReg(ESP, 0x111004)), EvalPtr(r, OMem(MReg(ESP, 0x111004))));
+    c_base := esi;
+    $ghost_c__abs := frameGet($stacksFrames, EvalPtr(r, OMem(MReg(ESP, 0x111004))));
+
+    //- Load c's length into ebx
+    call r, mems := loadArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, EBX, OMem(MReg(ESI, 4)), (0 - 1), $ghost_c__abs, r.regs[ESI]);
+
+    call r := instr_Sub(r, EBX, OConst(1));   
+    call reveal_wrap32(Arr_Length($ghost_c) - 1);
+    $ghost_clenm1 := ebx;       //- == clenm1
+
+    //- Grab bi from the stack
+    call ebp := Load(stk, esp + 8);  
+
+    //- Adjust clenm1 by bi
+    call r := instr_Sub(r, EBX, OReg(EBP));   
+    call reveal_wrap32(Arr_Length($ghost_c) - 1 - $ghost_bi);
+    assert ebx == Arr_Length($ghost_c) - 1 - $ghost_bi; 
+
+    //- Now create ptrs directly into the correct location in a and c respectively
+    call arrayElementProperties(core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, $ghost_alenm1, $ghost_a__abs, edi);   //- Proves we're within bounds for the Lea calculation
+    edx := edi;     //- Save a copy to use for the loop bound
+    call edi := Lea(edi + 4 * eax + 8);
+
+    call arrayElementProperties(core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, $ghost_clenm1 - $ghost_bi, $ghost_c__abs, esi);   //- Proves we're within bounds for the Lea calculation
+    call esi := Lea(esi + 4 * ebx + 8);
+
+    //- Establish partial sum invariant
+    call proc_lemma__BEWordSeqToInt__SelectDigitRange__empty(fun_Seq__FromArray($absMem, $ghost_a));
+
+    //- Grab adigits
+    call ebp := Load(stk, esp + 12);  
+
+    //- Compute the loop bound 
+    //- (take the a_ptr which is a.base + 8 + 4 * (a.Length - 1) and subtract 4*(adigits)
+    //- which is a.Length - 1 - adigits
+    assert ecx == Arr_Length($ghost_a);
+    call r := instr_Sub(r, ECX, OReg(EBP));   
+    call reveal_wrap32(Arr_Length($ghost_a) - $ghost_adigits);
+    assert $ghost_adigits > 0;
+    assert ecx == Arr_Length($ghost_a) - $ghost_adigits;
+    assert 0 <= ecx;
+    assert ecx < Arr_Length($ghost_a);
+    call arrayElementProperties(core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, Arr_Length($ghost_a) - $ghost_adigits, $ghost_a__abs, edx);   //- Proves we're within bounds for the Lea calculation
+    call edx := Lea(edx + 4 * ecx + 8); 
+    ebx := edx;  //- Ebx is now the appropriate loop bound
+    assert ebx == a_base + 4 * (Arr_Length($ghost_a) - $ghost_adigits) + 8; 
+
+    //- Grab bv for multiplication purposes 
+    call ebp := Load(stk, esp + 16);  
+
+    //- Initialize ecx for use as the current/last carry value 
+    ecx := 0;
+    $ghost_carry := ecx;
+
+    $ghost_j := 0;
+
+    assert {:split_here} true;
+
+    while (edi >= ebx) 
+        invariant MemInv(me,init,stk,statics,core_state,ptMem,mems);
+        invariant NucleusInv(objLayouts,$S,$toAbs,$absMem,$commonVars,$gcVars,me,init,stk,statics,core_state,ptMem,mems,$stacksFrames,io);
+        invariant SMemInvGcF(20, stk, old(stk_old), r.regs[ESP], old(r_old.regs[ESP]), $stacksFrames, $stacksFrames_old);
+        invariant HeapInv($absMem, objLayouts, heap);
+        invariant AbsExtend($toAbs, $toAbs_old, objLayouts, objLayouts_old);
+        invariant (forall i:int::{$absMem[i]}{heap.absData[i]} heap_old.absData[i] is AbsNone || (heap.absData[i] == heap_old.absData[i] && ($absMem[i] == $absMem_old[i] || i == (($ghost_c).arrAbs))));
+        invariant io._inCtr == io_old._inCtr && io._outCtr == io_old._outCtr;
+
+        //- loop invariants
+        invariant $ghost_carry == ecx;
+        invariant $ghost_bv == ebp;
+
+        invariant HeapAbsData(heap, $ghost_a__abs) == Abs_ArrayOfInt($ghost_a);
+        invariant HeapValue(objLayouts, true, $toAbs, a_base, $ghost_a__abs);
+        invariant $ghost_a__abs == $ghost_a.arrAbs;
+        invariant HeapAbsData(heap, $ghost_c__abs) == Abs_ArrayOfInt($ghost_c);
+        invariant HeapValue(objLayouts, true, $toAbs, c_base, $ghost_c__abs);
+        invariant $ghost_c__abs == $ghost_c.arrAbs;
+        invariant $ghost_bi >= 0;
+        invariant (INTERNAL_le_boogie(0, $ghost_j)) && (INTERNAL_le_boogie($ghost_j, $ghost_adigits));
+       
+
+        invariant edi == a_base + 4 * (Arr_Length($ghost_a) - 1 - $ghost_j) + 8; 
+        invariant ebx == a_base + 4 * (Arr_Length($ghost_a) - $ghost_adigits) + 8; 
+        invariant esi == c_base + 4 * (Arr_Length($ghost_c) - 1 - ($ghost_j + $ghost_bi)) + 8; 
+
+        invariant fun_IsDigitSeq($ghost_pv, fun_Seq__FromArray($absMem, $ghost_c));
+        invariant (INTERNAL_le_boogie(0, $ghost_carry)) && (INTERNAL_lt_boogie($ghost_carry, $ghost_pv));
+        invariant (INTERNAL_add_boogie(fun_BEWordSeqToInt(fun_Seq__FromArray($absMem, $ghost_c)), fun_INTERNAL__mul($ghost_carry, fun_power($ghost_pv, INTERNAL_add_boogie($ghost_j, $ghost_bi))))) == (INTERNAL_add_boogie(fun_BEWordSeqToInt($ghost_oldcs), fun_INTERNAL__mul(fun_INTERNAL__mul(fun_BEWordSeqToInt(fun_SelectDigitRange(fun_Seq__FromArray($absMem, $ghost_a), $ghost_j, 0)), $ghost_bv), fun_power($ghost_pv, $ghost_bi))));
+        invariant (forall $ghost__0_k:int ::  ((INTERNAL_le_boogie(0, $ghost__0_k)) && (INTERNAL_lt_boogie($ghost__0_k, INTERNAL_sub_boogie(INTERNAL_sub_boogie((Arr_Length($ghost_c)), 1), INTERNAL_add_boogie($ghost_j, $ghost_bi))))) ==> ((fun_INTERNAL__array__elems__index($absMem[$ghost_c.arrAbs], ($ghost__0_k))) == (old(fun_INTERNAL__array__elems__index($absMem_old[$ghost_c.arrAbs], ($ghost__0_k))))));
+    {
+        call proc_lemma__mod__properties();
+        call proc_lemma__2toX();
+        call proc_lemma__word32__Word32();
+        call reveal_WORD_HI();
+
+        $ghost_lastj := $ghost_j;
+        $ghost_lastcarry := $ghost_carry;
+        $ghost_lastcs := fun_Seq__FromArray($absMem, $ghost_c);
+        $ghost_asq := fun_Seq__FromArray($absMem, $ghost_a);
+
+        $ghost_ci := Arr_Length($ghost_c) - 1 - ($ghost_j + $ghost_bi);
+        $ghost_ai := Arr_Length($ghost_a) - 1 - $ghost_j;
+       
+        //- eax := a[ai];
+        call r, mems := loadArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, EAX, OMem(MReg(EDI, 0)), $ghost_ai, $ghost_a__abs, a_base);
+        $ghost_aj := eax;
+
+        call edx, eax := Mul64(eax, ebp);
+        $ghost_mhi := edx;
+        $ghost_mlo := eax;
+        call reveal_wrap32($ghost_aj * $ghost_bv);
+
+        assert TVM($ghost_aj, $ghost_bv);
+        assert TVD($ghost_aj * $ghost_bv, 0x100000000);
+        call proc_lemma__asm__Mul64($ghost_aj, $ghost_bv, $ghost_mhi, $ghost_mlo);
+
+        //- add1 (needs to be a direct call to instr_Add to bypass overflow check in logical add
+        call r := instr_Add(r, EAX, OReg(ECX));  //- eax == mlo + lastcarry
+        $ghost_add1 := eax;
+
+        call reveal_wrap32($ghost_mlo + $ghost_lastcarry);
+        $ghost_carry1 := if $ghost_add1 < $ghost_lastcarry then 1 else 0;
+        assert if Cf(r.efl) then $ghost_carry1 == 1 else $ghost_carry1 == 0;
+        call proc_lemma__asm__Add__properties($ghost_mlo, $ghost_lastcarry, $ghost_add1, $ghost_carry1);
+
+        //- Add the carry bit to mhi
+        call r := instr_AddCarry(r, EDX, OConst(0));   
+        call reveal_wrap32($ghost_mhi + $ghost_carry1);
+        assert edx == $ghost_mhi + $ghost_carry1;
+        assert !Cf(r.efl);
+
+        //- Load c into ecx, clobbering the no-longer-needed lastcarry
+        //- ecx := c[ci];
+        call r, mems := loadArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, ECX, OMem(MReg(ESI, 0)), $ghost_ci, $ghost_c__abs, c_base);
+        $ghost_lastcj := ecx;
+        
+        assert eax == wrap32($ghost_mlo + $ghost_lastcarry);
+        call eax := AddCarry(eax, ecx);  //- eax == mlo + lastcarry + lastcj
+        $ghost_newcj := eax;
+        $ghost_carry2 := if (wrap32($ghost_mlo + $ghost_lastcarry) + $ghost_lastcj) >= 0x100000000 then 1 else 0;
+        assert $ghost_newcj == wrap32(wrap32($ghost_mlo + $ghost_lastcarry) + $ghost_lastcj);
+
+        //- Write back the new values of c
+        call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MReg(ESI, 0)), OReg(EAX), $ghost_ci, eax, $ghost_c__abs, c_base);
+
+        //- Add the carry bit to mhi
+        call r := instr_AddCarry(r, EDX, OConst(0));   
+        assert edx == wrap32($ghost_mhi + $ghost_carry1 + $ghost_carry2);
+        $ghost_carry := edx;
+        ecx := edx;
+
+        assert $ghost_carry2 == if (wrap32($ghost_mlo + $ghost_lastcarry) + $ghost_lastcj) >= 0x100000000 then 1 else 0;
+        call reveal_wrap32($ghost_mlo + $ghost_lastcarry);
+        assert $ghost_carry2 == if (($ghost_mlo + $ghost_lastcarry) mod 0x100000000 + $ghost_lastcj) >= 0x100000000 then 1 else 0;
+        call reveal_wrap32(($ghost_mlo + $ghost_lastcarry) mod 0x100000000 + $ghost_lastcj);
+        call reveal_wrap32($ghost_mhi + $ghost_carry1 + $ghost_carry2);
+
+        //- Update pointers and counters
+        $ghost_j := $ghost_j + 1;
+        old_edi := edi;
+        call r := instr_Sub(r, EDI, OConst(4));
+        call reveal_wrap32(old_edi - 4);
+        assert edi == old_edi - 4;
+        old_esi := esi;
+        call r := instr_Sub(r, ESI, OConst(4));
+        call reveal_wrap32(old_esi - 4);
+        assert esi == old_esi - 4;
+
+        call proc_lemma__FleetNatMul__one__element($ghost_pv, $ghost_newcj, $ghost_carry, $ghost_aj, $ghost_bv, $ghost_lastcj, $ghost_lastcarry, $ghost_mlo, $ghost_mhi, $ghost_add1, $ghost_carry1, $ghost_carry2);
+        assert {:split_here} true;
+        call proc_lemma__FleetNatMul__one__partial__sum__induction($ghost_pv, $ghost_oldcs, $ghost_lastcs, fun_Seq__FromArray($absMem, $ghost_c), fun_Seq__FromArray($absMem, $ghost_a), $ghost_adigits, $ghost_bi, $ghost_bv, $ghost_j, $ghost_lastj, $ghost_carry, $ghost_lastcarry, $ghost_lastcj, $ghost_newcj);
+
+    }
+
+    assert $ghost_j == $ghost_adigits;
+
+    //- Store the final carrry back on the stack
+    call logical_Store(r, core_state, inout stk, OMem(MReg(ESP, 4)), OReg(ECX));  
+
+    Return;
+}
+}

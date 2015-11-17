@@ -1,0 +1,94 @@
+//-private-import BaseSpec;
+//-private-import MemorySpec;
+//-private-import IoTypesSpec;
+//-private-import MachineStateSpec;
+//-private-import AssemblySpec;
+//-private-import InterruptsSpec;
+//-private-import IoSpec;
+//-<NuBuild AddBoogieAxiom Base_axioms />
+//-<NuBuild AddBoogieAxiom Memory_axioms />
+//-<NuBuild AddBoogieAxiom Assembly_axioms />
+//-private-import Partition;
+//-
+//- Copyright (c) Microsoft Corporation.  All rights reserved.
+//-
+
+module interface Core
+  modifies init;
+{
+
+atomic ghost procedure setInit();
+  requires me == 0;
+  modifies init;
+  ensures  init;
+
+function LogicalToPhysical(c:core_state, logicalAddr:int):int
+{
+  LogicalToPhysicalViaSegment(c, DS, logicalAddr)
+}
+
+function LogicalToPhysicalSS(c:core_state, logicalAddr:int):int
+{
+  LogicalToPhysicalViaSegment(c, SS, logicalAddr)
+}
+
+function LogicalToPhysicalViaSegment(c:core_state, segment_index:int, logicalAddr:int):int
+{
+  let linearAddr:int := SegmentMap(c.seg_regs[segment_index], logicalAddr) in
+  if paging_enabled(c) then
+    PageMap(linearAddr, ?System, ?Write, c.caches.TLB, c.caches.TLB_activeLabel).<<int>>
+  else linearAddr
+}
+
+function DstPhysicalAddr(r:regs, c:core_state, dst:opn_mem):int
+{
+  LogicalToPhysical(c, EvalPtr(r, dst))
+}
+
+function DstPhysicalAddrSS(r:regs, c:core_state, dst:opn_mem):int
+{
+  LogicalToPhysicalSS(c, EvalPtr(r, dst))
+}
+
+function PartDstOk(r:regs, c:core_state, m:mem, dst:opn_mem):bool
+{
+  MemDstOk(r, c, m, dst) && (dst is OMem ==> m.dom[DstPhysicalAddr(r, c, dst)])
+}
+
+function PartDstOkSS(r:regs, c:core_state, m:mem, dst:opn_mem):bool
+{
+  DstOkViaSegment(r, c, m, SS, dst) && (dst is OMem ==> m.dom[DstPhysicalAddrSS(r, c, dst)])
+}
+
+atomic procedure core_Load(my r:regs, const my c:core_state, const linear m:mem, x:int, y:opn_mem) returns(my _r:regs);
+  requires MemSrcOk(r, c, m, y);
+  ensures  _r.regs == r.regs[x := EvalMem(r, c, m, y)];
+  ensures  _r.efl == r.efl;
+  ensures  word(_r.regs[x]);
+
+atomic procedure core_Store(const my r:regs, const my c:core_state, linear m:mem, x:opn_mem, y:opn) returns(linear _m:mem);
+  requires PartDstOk(r, c, m, x);
+  requires SrcOk(y);
+  ensures  _m == MemUpdate1(r, c, m, x, Eval(r, y));
+  ensures  word(EvalMem(r, c, _m, x));
+
+atomic procedure core_LoadStack(my r:regs, const my c:core_state, const linear m:mem, x:int, y:opn_mem) returns(my _r:regs);
+  requires SrcOkViaSegment(r, c, m, SS, y);
+  ensures  _r.regs == r.regs[x := EvalViaSegment(r, c, m, SS, y)];
+  ensures  _r.efl == r.efl;
+
+atomic procedure core_StoreStack(const my r:regs, const my c:core_state, linear m:mem, x:opn_mem, y:opn)
+  returns(linear _m:mem);
+  requires PartDstOkSS(r, c, m, x);
+  ensures  _m == StackUpdate1(r, c, m, x, Eval(r, y));
+
+atomic procedure core_Push(my r:regs, const my c:core_state, linear m:mem, v:opn)
+  returns(my _r:regs, linear _m:mem);
+  requires v is OReg && v != OReg(ESP);
+  requires SrcOk(v);
+  requires PartDstOkSS(r, c, m, OMem(MConst(sub(r.regs[ESP], 4))));
+  requires word(r.regs[ESP]) && r.regs[ESP] >= 4;
+  ensures  _r.regs == r.regs[ESP := sub(r.regs[ESP], 4)];
+  ensures  _r.efl == r.efl;
+  ensures  _m == StackUpdate1(r, c, m, OMem(MConst(sub(r.regs[ESP], 4))), Eval(r, v));
+}

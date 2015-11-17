@@ -1,0 +1,256 @@
+//-private-import BaseSpec;
+//-private-import MemorySpec;
+//-private-import IoTypesSpec;
+//-private-import MachineStateSpec;
+//-private-import AssemblySpec;
+//-private-import InterruptsSpec;
+//-private-import IoSpec;
+//-<NuBuild AddBoogieAxiom Base_axioms />
+//-<NuBuild AddBoogieAxiom Word_axioms />
+//-<NuBuild AddBoogieAxiom Memory_axioms />
+//-<NuBuild AddBoogieAxiom Assembly_axioms />
+//-private-import Core;
+//-private-import LogicalAddressing;
+//-private-import Overflow;
+//-private-import Util;
+//-private-import Stacks;
+//-private-import Partition;
+//-private-import Instructions;
+//-private-import Separation;
+//-private-import IntLemmasGc;
+//-private-import SimpleGcMemory;
+//-
+//- Copyright (c) Microsoft Corporation.  All rights reserved.
+//-
+
+module interface SimpleCommon
+{
+
+const ?GcCommon:int := 20;
+
+//- Common definitions and procedures shared between garbage collectors.
+//- This file is included by the garbage collectors.
+
+// Imports:
+//   - Trusted_i.bpl
+//   - VerifiedBitVectors_i.bpl
+
+/*****************************************************************************
+******************************************************************************
+**** VERIFIED
+******************************************************************************
+*****************************************************************************/
+
+function AlignedHeapAddr(i:int):bool { gcAddr(i) && Aligned(i) }
+
+//-////////////////////////////////////////////////////////////////////////////
+//- LOCAL REASONING
+//-////////////////////////////////////////////////////////////////////////////
+
+//- As a region evolves, it adds new mappings, but each mapping is
+//- permanent: RExtend ensures that new mappings do not overwrite old mappings.
+function RExtend(rOld:[int]int, rNew:[int]int):bool
+{
+  (forall i:int::{rOld[i]}{rNew[i]} rOld[i] != NO_ABS ==> rOld[i] == rNew[i])
+}
+
+function AbsMapped(val:int, rev:[int]int, abs:int):bool
+{
+  abs != NO_ABS && abs == rev[val]
+}
+
+// Both the mark-sweep and copying collectors only have two regions at
+// any given time.
+//var $r1:[int]int;
+//var $r2:[int]int;
+
+//-////////////////////////////////////////////////////////////////////////////
+//- STACKS
+//-////////////////////////////////////////////////////////////////////////////
+
+// TODO: clean up, move to right file
+
+function{:expand true} TStk($s:int) returns(bool) { true } // TODO: expand false
+
+//var $stackState:[int]StackState;
+
+var CurrentStack @ statics;
+type commonVars = commonVars(r1:[int]int, r2:[int]int, stackState:[int]StackState, gcSlice:[int]int);
+function commonVarsInv(x:commonVars, m:mem):bool
+{
+  m.dom[&CurrentStack]
+}
+#define $r1 $commonVars.r1
+#define $r2 $commonVars.r2
+#define $stackState $commonVars.stackState
+#define $gcSlice $commonVars.gcSlice
+
+atomic procedure initCommon();
+  inout my r:regs, my core_state:core_state, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems, $commonVars:commonVars, $toAbs:[int]int;
+  requires (forall i:int::{statics.dom[i]} memAddr(i) && !memAddrMain(i) ==> statics.dom[i]);
+  modifies $commonVars;
+  ensures  commonVarsInv($commonVars, statics);
+
+function StackTag(s:int, tMems:[int][int]int) returns(int) { tMems[s][?tLo + s * ?TSize + 0] }
+function StackEsp(s:int, tMems:[int][int]int) returns(int) { tMems[s][?tLo + s * ?TSize + 4] }
+function StackEbp(s:int, tMems:[int][int]int) returns(int) { tMems[s][?tLo + s * ?TSize + 8] }
+function StackEax(s:int, tMems:[int][int]int) returns(int) { tMems[s][?tLo + s * ?TSize + 12] }
+function StackEbx(s:int, tMems:[int][int]int) returns(int) { tMems[s][?tLo + s * ?TSize + 16] }
+function StackEcx(s:int, tMems:[int][int]int) returns(int) { tMems[s][?tLo + s * ?TSize + 20] }
+function StackEdx(s:int, tMems:[int][int]int) returns(int) { tMems[s][?tLo + s * ?TSize + 24] }
+function StackEsi(s:int, tMems:[int][int]int) returns(int) { tMems[s][?tLo + s * ?TSize + 28] }
+function StackEdi(s:int, tMems:[int][int]int) returns(int) { tMems[s][?tLo + s * ?TSize + 32] }
+function StackRA(s:int, tMems:[int][int]int, fMems:[int][int]int) returns(int) { fMems[s][StackEsp(s, tMems)] }
+function StackCS(s:int, tMems:[int][int]int, fMems:[int][int]int) returns(int) { fMems[s][StackEsp(s, tMems) + 4] }
+function StackEfl(s:int, tMems:[int][int]int, fMems:[int][int]int) returns(int) { fMems[s][StackEsp(s, tMems) + 8] }
+
+function IsEmpty($state:StackState) returns(bool)
+{
+  StackStateTag($state) == ?STACK_EMPTY
+}
+
+function IsYielded($state:StackState) returns(bool)
+{
+  StackStateTag($state) == ?STACK_YIELDED
+}
+
+function IsInterrupted($state:StackState) returns(bool)
+{
+  StackStateTag($state) == ?STACK_INTERRUPTED
+}
+
+function MutatorStackInv(objLayouts:[int]ObjLayout, $s:int, r:[int]int, $Frames:Frames, $fMem:[int]int) returns(bool)
+{
+  (forall i:int::{TV(i)} TV(i) ==> StackLo($s) <= i && i < StackHi($s) && Aligned(i) ==>
+    Value(objLayouts, true, r, $fMem[i], $Frames.Abss[i])
+  )
+}
+
+function GcStackInv(objLayouts:[int]ObjLayout, $s:int, r:[int]int, $Frames:Frames, $fMem:[int]int) returns(bool)
+{
+    StackInv($Frames)
+ && MutatorStackInv(objLayouts, $s, r, $Frames, $fMem)
+}
+
+//-////////////////////////////////////////////////////////////////////////////
+//- OBJECTS
+//-////////////////////////////////////////////////////////////////////////////
+
+//- Each object occupies a "slice" of the heap.  If an object occupies
+//- addresses i + 0 ... i + m, then slice[i + 0] == i && ... && slice[i + m] == i.
+//- This helps distinguish addresses that belong to different objects.
+//var $gcSlice:[int]int;
+
+// REVIEW: cut $toAbs here?
+function ObjInvBase(objLayouts:[int]ObjLayout, i:int, rs:[int]int, $toAbs:[int]int,
+  $absMem:[int][int]int, gcMem:mem, gcSlice:[int]int):bool
+{
+  gcAddr(i) && rs[i] != NO_ABS ==>
+      Aligned(i)
+   && AlignedHeapAddr(i + 4) // REVIEW: this is convenient, but is it necessary?
+   && VTable(objLayouts, rs[i], $absMem[rs[i]][1])
+   && !VFieldPtr(objLayouts, rs[i], 1) // REVIEW: necessary?
+   && numFields(objLayouts, rs[i]) >= 2 // REVIEW: necessary?
+   && ObjSize(objLayouts, rs[i], $absMem[rs[i]][1], $absMem[rs[i]][0])
+   && gcSlice[i] == i
+   && gcSlice[i + 4] == i // REVIEW: this is convenient, but is it necessary?
+}
+
+function ObjInvField(objLayouts:[int]ObjLayout, i:int, j:int, rs:[int]int, rt:[int]int, $toAbs:[int]int,
+  $absMem:[int][int]int, gcMem:mem, gcSlice:[int]int):bool
+{
+  gcAddr(i) && rs[i] != NO_ABS ==>
+      gcAddr(i + 4 * j) // REVIEW: necessary?
+   && gcSlice[i + 4 * j] == i
+   && Value(objLayouts, VFieldPtr(objLayouts, rs[i], j), rt, gcMem[i + 4 * j], $absMem[$toAbs[i]][j])
+}
+
+function ObjInvPartial(objLayouts:[int]ObjLayout, i:int, j1:int, j2:int, rs:[int]int, rt:[int]int, $toAbs:[int]int,
+  $absMem:[int][int]int, gcMem:mem, gcSlice:[int]int):bool
+{
+      ObjInvBase(objLayouts, i, rs, $toAbs, $absMem, gcMem, gcSlice)
+   && (forall j:int::{TO(j)} TO(j) ==> j1 <= j && j < j2 ==>
+        ObjInvField(objLayouts, i, j, rs, rt, $toAbs, $absMem, gcMem, gcSlice))
+}
+
+function ObjInv(objLayouts:[int]ObjLayout, i:int, rs:[int]int, rt:[int]int, $toAbs:[int]int, $absMem:[int][int]int,
+  gcMem:mem, gcSlice:[int]int) returns (bool)
+{
+  ObjInvPartial(objLayouts, i, 0, numFields(objLayouts, rs[i]), rs, rt, $toAbs, $absMem, gcMem, gcSlice)
+}
+
+//-////////////////////////////////////////////////////////////////////////////
+//- STATE
+//-////////////////////////////////////////////////////////////////////////////
+
+function IoInv(DECL_IoVars, pciMem:mem):bool; // { true }
+
+//function IoInv_Transparent(DECL_IoVars, pciMem:mem):bool
+//{
+//true
+//}
+function IoInv_Transparent(DECL_IoVars, pciMem:mem):bool
+{
+    //- Serial port has been initialized
+     serialPortConfigged()
+  //- We have enough device memory for the network driver
+  && ?devMemHi - ?devMemLo > 0x204004  
+//  && ?memHi == ?devMemLo
+//  && ?memHi == ?memLo + 0x7400
+  && ?devMemLo mod 0x10000 == 0 
+  &&
+  //- We properly maintain records of previously mapped devices
+  //- as tuples of (id, addr, size) in the pciLo to pciHi region
+  //- We use 16, so that it divides the size (1024) of PCI memory nicely
+  (forall addr:int, j:int::{pciMem[addr],TV(j)} TV(j) && 0 <= j &&
+    addr == ?pciLo + 16*j && addr <= ?pciHi - 16 ==>
+//    pciMem[addr] == 0xffffffff)
+//       //(IsValidPciId(pciMem[addr]) ==> false ))
+       (IsValidPciId(pciMem[addr]) ==> 
+           pciMem[addr + 4] == PciMemAddr(pciMem[addr]) 
+        && pciMem[addr + 8] == PciMemSize(pciMem[addr])
+        && word(PciMemAddr(pciMem[addr]))
+        && word(PciMemSize(pciMem[addr]))
+        && SafePciMemRegion(PciMemAddr(pciMem[addr]), PciMemSize(pciMem[addr]))
+        && io._pci.PciConfigState[pciMem[addr]] == 4 ))
+  &&
+  (forall i:int::{io._pci.PciConfigState[i]}
+        0 <= i && i < 65536
+     && (forall addr:int, j:int::{pciMem[addr],TV(j)}
+          TV(j) && 0 <= j && addr == ?pciLo + 16*j && addr <= ?pciHi - 16 
+          ==> pciMem[addr] != i)
+   ==> io._pci.PciConfigState[i] == 0)
+
+//    !(exists j:int :: {TV(j)} TV(j) && pciMem[?pciLo + 16*j] == i)
+//    ==> io._pci.PciConfigState[i] == 0)
+
+//  (forall i:int::{io._pci.PciConfigState[i]}
+//      0 <= i && i < 65536 ==>
+//          io._pci.PciConfigState[i] == 0 
+////        || io._pci.PciConfigState[i] == 4)
+//////  (forall i:int::{TV(i)} TV(i) ==>
+//////      0 <= i && i < 65536 ==>
+//////          (io._pci.PciConfigState[i] == 0))
+//       || (exists j:int :: {TV(j)} TV(j) && 
+//            pciMem[?pciLo + 12*j] == i &&
+//            pciMem[?pciLo + 12*j + 4] == PciMemAddr(i) &&
+//            pciMem[?pciLo + 12*j + 8] == PciMemSize(i) &&
+//            SafePciMemRegion(PciMemAddr(i), PciMemSize(i)) &&
+//            io._pci.PciConfigState[i] == 4 ))
+////  )
+  
+//    ((DmaAddr == 0 && !io._iom.IoMmuEnabled) || (DmaAddr == ?dmaLo && io._iom.IoMmuEnabled))
+// && ?dmaLo > 8 && word(?dmaLo - 8)
+// && (forall i:int::{TV(i)} TV(i) ==>
+//      0 <= i && i < 65536 ==>
+//          (pciMem[?pciLo + 8 * i] == 0 && io._pci.PciConfigState[i] == 0)
+//       || (pciMem[?pciLo + 8 * i] != 0 && io._pci.PciConfigState[i] == 4
+//            && PciMemAddr(i) == pciMem[?pciLo + 8 * i]
+//            && PciMemSize(i) == pciMem[?pciLo + 8 * i + 4]))
+}
+
+atomic ghost procedure reveal_IoInv();
+  ensures (forall io:IOState, pciMem:mem::{IoInv(io, pciMem)}
+            IoInv(io, pciMem) <==> IoInv_Transparent(io, pciMem));
+
+}

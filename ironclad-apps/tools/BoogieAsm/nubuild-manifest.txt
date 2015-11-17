@@ -1,0 +1,11 @@
+dependency ast.fs
+dependency emit_bpl.fs
+dependency lex.fsl
+dependency main.fs
+dependency makefile
+dependency makefile.fs
+dependency parse.fsy
+dependency parse_util.fs
+dependency SymdiffMerge.cs
+output boogieasm.exe
+output symdiffmerge.exe

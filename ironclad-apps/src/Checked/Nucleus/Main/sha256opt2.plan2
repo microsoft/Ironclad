@@ -1,0 +1,114 @@
+
+We need to use 5 registers out of the following 7:
+  eax, ebx, ecx, edx, edi, esi, ebp
+  r1,  r2,  r3,  r4,  r5
+
+Initially, we can use the extra to point to Ks and W
+
+Eventually, we should hard-code the Ks, giving us an extra register
+  - Use it to keep one state var?  Not sure it matters which.
+
+----------------------------------------------------------
+Start with my_maj.  Uses 4 registers.  Preserves a in r1
+----------------------------------------------------------
+r1 <- Load a
+Store r1
+r2 <- Load b
+Store r2
+r3 <- Load c
+Store r3
+r4 <- r2
+r2 <- And(r2, r1)   // b & a  // Need commutativity
+r4 <- And(r4, r3)   // b & c
+r3 <- And(r3, r1)   // c & a  // Need commutativity
+r2 <- Xor(r2, r3)
+r2 <- Xor(r2, r4)   // my_maj
+-------------------------------------   
+After above block, live: 
+  r1 == a
+  r2 == my_maj
+-------------------------------------   
+// Calculate bsig0
+r3 <- r1
+r4 <- r1
+r1 <- RotateRight(r1, 2)
+r3 <- RotateRight(r3, 13)
+r1 <- r1 xor r3
+r4 <- RotateRight(r4, 22)
+r1 <- r1 xor r4   // == bsig0
+r1 <- Add(r1, r2) // == T2
+-------------------------------------   
+After above block, live: 
+  r1 == T2
+-------------------------------------   
+// Calculate my_ch
+  r2 <- Load e
+  Store e
+  r4 <- r2
+  r4 <- not r4
+  r3 <- Load g
+  Store r3
+  r4 <- And(r4, r3) // !e & g
+  r3 <- Load f
+  Store r3
+  r3 <- And(r3, r2) // f & e  // Need commutativity
+  r3 <- Xor(r3, r4) // my_ch  // Need commutativity
+-------------------------------------   
+After above block, live: 
+  r1 == T2
+  r2 == e
+  r3 == my_ch
+-------------------------------------   
+  // Calculate bsig1                  
+  r4 <- r2
+  r5 <- r2
+  r4 <- RotateRight(r4, 6)
+  r5 <- RotateRight(r5, 11)
+  r4 <- r4 xor r5 
+  r2 <- RotateRight(r2, 25)
+  r4 <- r4 xor r2   // == bsig1
+-------------------------------------   
+After above block, live: 
+  r1 == T2
+  r3 == my_ch
+  r4 == bsig1
+-------------------------------------   
+// Calculate T1
+  r2 <- Load h
+  r2 <- Add(r2, r4) // Frees r4
+  r2 <- Add(r2, r3) // Frees r3
+  r2 <- Add(r2, Kconst)
+  r3 <- Load(Wregister, currentStepConst)
+  r2 <- Add(r2, r3) // T1
+-------------------------------------   
+After above block, live: 
+  r1 == T2
+  r2 == T1
+-------------------------------------   
+  r1 <- r1 + r2 // T2 + T1 == a_next    // May need a commutivity proof
+  Store r1
+  r1 <- Load d
+  r1 <- r1 + r2 // d + T1
+  Store r1 as e_next
+
+
+// Uses a
+//  var bsig0 := Asm_BitwiseXor(Asm_BitwiseXor(Asm_RotateRight(a, 2), Asm_RotateRight(a, 13)), Asm_RotateRight(a, 22));
+
+// Uses e
+// var bsig1 := Asm_BitwiseXor(Asm_BitwiseXor(Asm_RotateRight(e, 6), Asm_RotateRight(e, 11)), Asm_RotateRight(e, 25));
+
+// Uses e, f, g
+// var my_ch := Asm_BitwiseXor(Asm_BitwiseAnd(e, f), Asm_BitwiseAnd(Asm_BitwiseNot(e), g));
+
+// Uses a, b, c
+// var my_maj := Asm_BitwiseXor(Asm_BitwiseXor(Asm_BitwiseAnd(a, b), Asm_BitwiseAnd(a, c)), Asm_BitwiseAnd(b, c));
+
+// Uses h
+//var T1 := Asm_Add(Asm_Add(Asm_Add(Asm_Add(h, bsig1), my_ch), Ks[currentStep]), W[currentStep]);
+
+//var T2 := Asm_Add(bsig0, my_maj);
+
+// Uses d
+    a_next, b_next, c_next, d_next, e_next, f_next, g_next, h_next := Asm_Add(T1, T2), a, b, c, Asm_Add(d, T1), e, f, g;
+

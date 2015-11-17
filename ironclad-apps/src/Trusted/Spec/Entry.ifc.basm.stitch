@@ -1,0 +1,133 @@
+#line 1 Entry.ifc.basm.stitch
+//
+// Copyright (c) Microsoft Corporation.  All rights reserved.
+//
+
+//readonly var $ghost_sample_index:int;
+
+//////////////////////////////////////////////////////////////////////////////
+//
+// This procedure is the entry point from the boot loader/SKINIT
+//
+//////////////////////////////////////////////////////////////////////////////
+// 
+//  After an SKINIT (see Section 15.27 in AMD's Volume 2: System Programming): 
+//  - eax points to the beginning of the SL
+//  - At the beginning of the code, there is a 16-bit pointer to our entry point,
+//    followed by a 16-bit length field that indicates the end of our code and static data
+//  - esp points at eax + 64K
+//  - CS and SS are set to full, flat mappings
+
+#ifdef AppLoader
+procedure LoaderEntryPoint(
+    my r:regs,
+    my core_state:core_state,
+    linear initState:InitStateMachine,
+    linear mem:mem,
+    linear io:IOState,
+    linear dev_states:DEV_StateMachines,
+    $sl_len:int, $cpu_info:int);
+  requires initState is EntryPoint;
+  requires ?CodeBase == r.regs[EAX];
+  requires Aligned(?CodeBase) && ?CodeBase mod 0x10000 == 0;  // SLB must be 64K aligned
+  // Spec says $sl_len <= 65535 = 64K-1, but we have a more stringent requirement 
+  // Assembler must guarantee the SL is only 35K, to allow 8K for stack and heap use
+  requires ?memLo == ?CodeBase + 58*1024;     // Usable memory between end of the SL and the end of the SLB
+  requires (forall i:int::{memAddr(i)}{mem.dom[i]} 
+           ?memLo <= i && i < ?CodeBase + 0x10000 <==> mem.dom[i]);  // Can only access the 64K of SKINIT-protected memory
+  requires r.regs[ESP] == add(?CodeBase, 0x10000);
+  requires ValidPrePagingState(core_state.cregs[CR0]);
+  requires core_state.seg_regs[SS].descriptor.segBase == 0 && 
+           core_state.seg_regs[SS].descriptor.segType == ?SegmentDescriptorTypeData;
+  requires ?memHi == 0x08000000;  // Eventually, DEV permits 128 MB, but note mem.dom above is restricted to 64K initially
+  requires (forall i:int::{memAddr(i)} ?memLo <= i && i < ?memHi ==> memAddr(i));
+  requires me == 0;     // Must be run on the bootstrap processor
+  requires !init;
+
+  // Trusted code has not yet done anything to the PCI configuration
+  requires (forall i:int::{PciConfigState#PciState(_pci#IOState(io))[i]} io._pci.PciConfigState[i] == 0); // TODO: fix triggering
+
+  // Trusted code has not yet configured any of the DEVs beyond what SKINIT provides
+  requires (forall i:int::{ dev_states.states[i] } dev_states.states[i] is Init);       
+
+  // Same number of IO events initially
+  requires public(io._inCtr);
+  requires public(io._outCtr);
+
+  // Initialize ghost TPM state
+  requires fun_TPM__valid($ghost_TPM);
+  requires fun_TPM__satisfies__integrity__policy($ghost_TPM);
+  requires $ghost_IoMemPerm is Null;
+  requires fun_Seq__Equal___Seq___int(PCR_19#TPM_build($ghost_TPM), fun_Seq__Empty___Seq___int());
+
+  modifies init;
+  modifies $commonVars, $gcVars, $Time;
+  modifies $IdtMem, $IdtMemOk, $IdtOk;
+  modifies $TimerSeq, $TimerFreq, $PicSeq;
+  modifies ptMem;
+  modifies $ghost_IoMemPerm;
+  modifies $ghost_TPM;
+#endif
+
+//////////////////////////////////////////////////////////////////////////////
+//
+// This procedure is the entry point for normal apps launched via AppLoader
+// WARNING: DO NOT ADD ANY REQUIREMENTS TO THIS PROCEDURE!!!
+// If you have general requirements, add them to AppLoaderContract.ifc.basm.
+//
+//////////////////////////////////////////////////////////////////////////////
+#ifndef AppLoader
+procedure AppEntryPoint(
+    my r:regs,
+    my core_state:core_state,
+    linear initState:InitStateMachine,
+    linear mem:mem,
+    linear code_mem:mem,
+    linear io:IOState,
+    app_entry:int,
+    app_code_base:int,
+    code_word_seq:Seq___int
+    );
+  requires AppLoaderContractGeneric(me, init, r, core_state, initState, mem, code_mem, io, app_entry, app_code_base, code_word_seq);
+
+  // Same number of IO events initially.   Must be here instead of AppLoaderContract, since we can't use public in functions
+  requires public(io._inCtr);
+  requires public(io._outCtr);
+
+
+//- SENTINEL_APP_SPECIFIC_GOES_HERE
+
+  modifies init;
+  modifies $commonVars, $gcVars, $Time;
+  modifies $IdtMem, $IdtMemOk, $IdtOk;
+  modifies $TimerSeq, $TimerFreq, $PicSeq;
+  modifies ptMem;
+  modifies $ghost_IoMemPerm;
+  ensures false;
+
+#endif
+
+
+
+// TODO add this interrupt handler here to allow reasoning about syscalls and preemption of user-mode code.
+/*
+procedure InterruptHandler(linear s:state, $_stackState:[int]StackState, $ebp:int, $esp:int, $eip:int) returns(linear statics:mem, linear io:IOState);
+  requires word(eax) && word(ebx) && word(ecx) && word(edx) && word(esi) && word(edi) && word(ebp) && word(esp);
+  requires isStack($S) && $StackState[$S] == StackRunning;
+  
+  requires SpRequire($S, esp, 12);
+  requires $_stackState == $StackState
+              [$S := StackInterrupted(eax, ebx, ecx, edx, esi, edi, ebp, esp + 12, $Mem[esp], $Mem[esp + 4], $Mem[esp + 8])]
+              [?InterruptStack := StackRunning];
+  requires (StackStateTag($StackState[?InterruptStack]) == ?STACK_YIELDED ==>
+               $RET == ReturnToAddr($eip)
+            && $StackState[?InterruptStack] == StackYielded($ebp, $esp, $eip));
+//  modifies eax, ebx, ecx, edx, esi, edi, ebp, esp;
+  modifies $commonVars, $gcVars, $Time, core, $part, mems, $sepVars;
+//  modifies StackCheck;
+  ensures  StackCheckInv(?InterruptStack, StackCheck);
+  ensures  (StackStateTag($StackState[?InterruptStack]) == ?STACK_YIELDED ==>
+               NucleusInv(?InterruptStack, $_stackState, $toAbs, $AbsMem, $commonVars, $gcVars, state, core, $part, mems, $sepVars, $StacksFrames, $IoMmuEnabled, $PciConfigState, $ioVars)
+            && ebp == $ebp
+            && esp == $esp);
+*/

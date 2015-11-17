@@ -1,0 +1,240 @@
+//-private-import BaseSpec;
+//-private-import MemorySpec;
+//-private-import IntSpec;
+//-private-import BitVectorLemmasGc;
+//-<NuBuild AddBoogieAxiom Word_axioms />
+//-<NuBuild AddBoogieAxiom IntSpec_axioms />
+//-
+//- Copyright (c) Microsoft Corporation.  All rights reserved.
+//-
+
+module implementation IntLemmasGc
+{
+
+function implementation BitIndex(i0:int, i:int):int { 4 * shr(i - i0, 7) }
+
+function implementation BitZero(x:int, i0:int, i:int):bool
+{
+  0 == and(x, shl(1, and(shr(i - i0, 2), 31)))
+}
+
+function implementation ColorIndex(i0:int, i:int):int { 4 * shr(i - i0, 6) }
+
+function implementation ColorGet(x:int, i0:int, i:int):int
+{
+  and(shr(x, and(shr(i - i0, 1), 31)), 3)
+}
+
+atomic ghost procedure _a($b1:bv32, $b2:bv32)
+  requires word(add(I($b1), I($b2)));
+  ensures  add(I($b1), I($b2)) == I($add($b1, $b2));
+{
+}
+
+atomic ghost procedure _s($b1:bv32, $b2:bv32)
+  requires word(sub(I($b1), I($b2)));
+  ensures  sub(I($b1), I($b2)) == I($sub($b1, $b2));
+{
+}
+
+atomic ghost procedure _m($b1:bv32, $b2:bv32)
+  requires word(mul(I($b1), I($b2)));
+  ensures  mul(I($b1), I($b2)) == I($mul($b1, $b2));
+{
+}
+
+atomic ghost procedure __const()
+  ensures 0 == I(0bv32);
+  ensures 2 == I(2bv32);
+  ensures 3 == I(3bv32);
+  ensures 4 == I(4bv32);
+  ensures 5 == I(5bv32);
+  ensures 6 == I(6bv32);
+  ensures 7 == I(7bv32);
+  ensures 16 == I(16bv32);
+  ensures 32 == I(32bv32);
+  ensures 31 == I(31bv32);
+  ensures 64 == I(64bv32);
+  ensures 63 == I(63bv32);
+  ensures 128 == I(128bv32);
+  ensures 127 == I(127bv32);
+  ensures 256 == I(256bv32);
+  ensures 16777215 == I(16777215bv32);
+  ensures 33554431 == I(33554431bv32);
+  ensures 67108863 == I(67108863bv32);
+{
+  call _const_gc();
+  call _s(1bv32, 1bv32);
+  call _a(1bv32, 1bv32);
+  call _a(2bv32, 1bv32);
+  call _a(2bv32, 2bv32);
+  call _a(4bv32, 1bv32);
+  call _a(5bv32, 1bv32);
+  call _a(5bv32, 2bv32);
+  call _m(4bv32, 4bv32);
+  call _a(16bv32, 16bv32);
+  call _s(32bv32, 1bv32);
+  call _a(32bv32, 32bv32);
+  call _s(64bv32, 1bv32);
+  call _m(32bv32, 4bv32);
+  call _s(128bv32, 1bv32);
+  call _m(16bv32, 16bv32);
+  call _a(256bv32, 256bv32);
+  call _m(256bv32, 256bv32);
+  call _s(65536bv32, 1bv32);
+  call _m(65536bv32, 256bv32);
+  call _s(16777216bv32, 1bv32);
+  call _m(65536bv32, 65535bv32);
+  call _m(65536bv32, 512bv32);
+  call _s(33554432bv32, 1bv32);
+  call _a(33554432bv32, 33554432bv32);
+  call _s(67108864bv32, 1bv32);
+}
+
+atomic ghost procedure __const2()
+  ensures 65535 == I(65535bv32);
+  ensures 65536 == I(65536bv32);
+  ensures add(add(2147483647, 2147483647), 1) == I(4294967295bv32);
+  ensures sub(add(2147483647, 2147483647), 2) == I(4294967292bv32);
+{
+  call __const();
+  call _const_gc();
+  call _m(256bv32, 256bv32);
+  call _s(65536bv32, 1bv32);
+  call _m(65536bv32, 65535bv32);
+  call _a(4294901760bv32, 65535bv32);
+  call _s(4294967295bv32, 3bv32);
+}
+
+atomic ghost procedure __const3()
+  ensures 4096 == I(4096bv32);
+  ensures 4095 == I(4095bv32);
+{
+  call __const();
+  call _const_gc();
+  call _m(64bv32, 64bv32);
+  call _s(4096bv32, 1bv32);
+}
+
+atomic ghost procedure __const4()
+  ensures 2097152 == I(2097152bv32);
+  ensures 2097151 == I(2097151bv32);
+{
+  call __const();
+  call _const_gc();
+  call _m(256bv32, 256bv32);
+  call _m(65536bv32, 32bv32);
+  call _s(2097152bv32, 1bv32);
+}
+
+implementation __zeroAligned()
+{
+  call __const();
+  call _zeroAligned();
+}
+
+implementation __andAligned($x:int)
+{
+  call __const();
+  call _andAligned(B($x));
+}
+
+implementation __addAligned($x:int, $y:int)
+{
+  call __const();
+  call _addAligned(B($x), B($y));
+}
+
+implementation __subAligned($x:int, $y:int)
+{
+  call __const();
+  call _subAligned(B($x), B($y));
+}
+
+implementation __notAligned($i:int)
+{
+  call __const();
+  call __const2();
+  call _notAligned(B($i));
+  assert le($i, 4294967292);
+}
+
+implementation __is4kAligned($x:int)
+{
+  call __const();
+  call __const3();
+  call _is4kAligned(B($x));
+  assert le(and($x, 4095), 4095);
+}
+
+implementation __is2m4kAligned($x:int)
+{
+  call __const();
+  call __const3();
+  call __const4();
+  call _is2m4kAligned(B($x));
+  assert le(and($x, 2097151), 2097151);
+}
+
+implementation __add4kAligned($x:int)
+{
+  call __const();
+  call __const3();
+  call _add4kAligned(B($x));
+}
+
+atomic ghost procedure helper()
+  ensures (forall b1:bv32, b2:bv32::{$add(b1, b2)} word(add(I(b1), I(b2))) ==> add(I(b1), I(b2)) == I($add(b1, b2)));
+  ensures (forall b1:bv32, b2:bv32::{$sub(b1, b2)} word(sub(I(b1), I(b2))) ==> sub(I(b1), I(b2)) == I($sub(b1, b2)));
+  ensures (forall b1:bv32, b2:bv32::{$mul(b1, b2)} word(mul(I(b1), I(b2))) ==> mul(I(b1), I(b2)) == I($mul(b1, b2)));
+  ensures (forall b1:bv32, b2:bv32::{$le(b1, b2)} le(I(b1), I(b2)) <==> $le(b1, b2));
+{
+}
+
+implementation __initialize($unitSize:int, $heapLo:int)
+{
+  call __const();
+  call helper();
+  call _initialize(B($unitSize));
+}
+
+implementation __bb4Zero($a:[int]int, $off:int, $aBase:int, $bb:[int]int, $i0:int, $i1:int, $i2:int, $g1:int, $g2:int, $idx:int)
+{
+  call __const();
+  call helper();
+  call _bb4Zero($a, $off, $aBase, $bb, $i0, $i1, $i2, $g1, $g2, $idx);
+}
+
+implementation __bb4GetBit($a:[int]int, $off:int, $aBase:int, $bb:[int]int, $i0:int, $i1:int, $i2:int, $k:int, $idx:int, $bbb:int, $g1:int, $g2:int)
+{
+  call __const();
+  call _bb4GetBit($i0, $k);
+}
+
+implementation __bb4SetBit($a:[int]int, $on:int, $off:int, $aBase:int, $bb:[int]int, $i0:int, $i1:int, $i2:int, $k:int, $idx:int, $bbb:int, $ret:[int]int, $g1:int, $g2:int)
+{
+  call __const();
+  call _bb4SetBit($a, $on, $off, $aBase, $bb, $i0, $i1, $i2, $k, $idx, $bbb, $ret, $g1, $g2);
+}
+
+implementation __bb4Zero2($a:[int]int, $aBase:int, $bb:[int]int, $i0:int, $i1:int, $i2:int, $g1:int, $g2:int, $idx:int)
+{
+  call __const();
+  call helper();
+  call _bb4Zero2($a, $aBase, $bb, $i0, $i1, $i2, $g1, $g2, $idx);
+}
+
+implementation __bb4Get2Bit($a:[int]int, $aBase:int, $bb:[int]int, $i0:int, $i1:int, $i2:int, $k:int, $idx:int, $bbb:int, $g1:int, $g2:int)
+{
+  call __const();
+  call _bb4Get2Bit($i0, $k);
+}
+
+implementation __bb4Set2Bit($a:[int]int, $val:int, $aBase:int, $bb:[int]int, $i0:int, $i1:int, $i2:int, $k:int, $idx:int, $bbb:int, $_bbb:int, $ret:[int]int, $g1:int, $g2:int)
+{
+  call __const();
+  call helper();
+  call _bb4Set2Bit($a, $val, $aBase, $bb, $i0, $i1, $i2, $k, $idx, $bbb, $_bbb, $ret, $g1, $g2);
+}
+
+}

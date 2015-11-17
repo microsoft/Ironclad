@@ -1,0 +1,565 @@
+//-<NuBuild BasmEnableSymdiff true />
+//-private-import BaseSpec;
+//-private-import MemorySpec;
+//-private-import IoTypesSpec;
+//-private-import MachineStateSpec;
+//-private-import AssemblySpec;
+//-private-import InterruptsSpec;
+//-private-import IoSpec;
+//-<NuBuild AddBoogieAxiom Base_axioms />
+//-<NuBuild AddBoogieAxiom Word_axioms />
+//-<NuBuild AddBoogieAxiom Memory_axioms />
+//-<NuBuild AddBoogieAxiom Assembly_axioms />
+//-<NuBuild AddBoogieAxiom Io_axioms />
+//-private-import Core;
+//-private-import LogicalAddressing;
+//-private-import Overflow;
+//-private-import Util;
+//-private-import Stacks;
+//-private-import Partition;
+//-private-import Instructions;
+//-private-import Separation;
+//-private-import IntLemmasBase;
+//-private-import IntLemmasGc;
+//-private-import SimpleGcMemory;
+//-private-import SimpleCommon;
+//-private-import SimpleCollector;
+//-private-import IoMain;
+//-private-import IntLemmasMain;
+//-private-basmonly-import Trusted;
+//-private-basmonly-import Checked;
+//-private-import Heap;
+//-private-import Seq;
+//-private-import dafny_DafnyPrelude;
+//-private-import DafnyAssembly;
+//-private-import PCI;
+//-private-import IntelNIC;
+//-private-import dafny_relational_s;
+//-private-import dafny_base_s;
+//-private-import dafny_power2_s;
+//-private-import dafny_bytes_and_words_s;
+//-<NuBuild AddBoogieFlag /timeLimit:300 />
+//-<NuBuild AddBoogieFlag /trace />
+//-<NuBuild AddBoogieFlag /z3opt:NL_ARITH=false />
+
+module implementation dafny_pci_i
+{
+implementation proc_reveal__mod4()
+{
+    forall $ghost_n:int::fun_mod4($ghost_n) == fun____HASH_mod4__FULL($ghost_n)
+    {
+        assert unhide_fun_mod4($ghost_n);
+    }
+}
+implementation proc_reveal__mod16()
+{
+    forall $ghost_n:int::fun_mod16($ghost_n) == fun____HASH_mod16__FULL($ghost_n)
+    {
+        assert unhide_fun_mod16($ghost_n);
+    }
+}
+implementation proc_reveal__mod128()
+{
+    forall $ghost_n:int::fun_mod128($ghost_n) == fun____HASH_mod128__FULL($ghost_n)
+    {
+        assert unhide_fun_mod128($ghost_n);
+    }
+}
+implementation proc_reveal__div16()
+{
+    forall $ghost_n:int::fun_div16($ghost_n) == fun____HASH_div16__FULL($ghost_n)
+    {
+        assert unhide_fun_div16($ghost_n);
+    }
+}
+
+function implementation fun_IsValidPciId($ghost_id:int):bool
+{
+  IsValidPciId($ghost_id)
+}
+function implementation fun_PciMemAddr($ghost_id:int):int
+{
+  PciMemAddr($ghost_id)
+}
+function implementation fun_PciMemSize($ghost_id:int):int
+{
+  PciMemSize($ghost_id)
+}
+function implementation fun_DeviceMemAddr():int
+{
+  ?devMemLo
+}
+function implementation fun_DeviceMemSize():int
+{
+  ?devMemHi - ?devMemLo
+}
+
+implementation Proc_NetworkPciMemSetup(my r_old:regs, const my core_state:core_state, linear stk_old:mem, linear statics_old:mem, linear io_old:IOState, linear mems_old:mems, $commonVars_old:commonVars, $gcVars_old:gcVars, $toAbs_old:[int]int, $absMem_old:[int][int]int, $stacksFrames_old:[int]Frames, objLayouts_old:[int]ObjLayout, heap_old:Heap) returns(my r:regs, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems, $commonVars:commonVars, $gcVars:gcVars, $toAbs:[int]int, $absMem:[int][int]int, $stacksFrames:[int]Frames, objLayouts:[int]ObjLayout, heap:Heap, $ghost_id:int, $ghost_size:int, $ghost_addr:int, $ghost_device_mem_addr:int)
+{
+    var $absMem_tmp:[int][int]int;
+    var objLayouts_tmp:[int]ObjLayout;
+    var heap_tmp:Heap;
+    var obj_tmp:int;
+    var val_tmp:int;
+    var mem_tmp:[int]int;
+    assert fun_unroll(0);
+    assert fun_unroll(1);
+    r := r_old;
+    stk := stk_old;
+    statics := statics_old;
+    io := io_old;
+    mems := mems_old;
+    $commonVars := $commonVars_old;
+    $gcVars := $gcVars_old;
+    $toAbs := $toAbs_old;
+    $absMem := $absMem_old;
+    $stacksFrames := $stacksFrames_old;
+    objLayouts := objLayouts_old;
+    heap := heap_old;
+    assert TV(esp);
+    assert TO(0);
+    assert TO(768);
+    assert TO(1);
+    assert TO(769);
+    assert TO(2);
+    assert TO(770);
+    assert TO(3);
+    assert TO(771);
+    assert TO(4);
+    assert TO(772);
+
+    call map_network_card();
+
+    edx := eax;
+
+    call Store(inout stk, esp + 4, ecx);
+    $ghost_id := ecx;
+
+    call Store(inout stk, esp + 8, edx);
+    $ghost_size := edx;
+
+    call Store(inout stk, esp + 12, ebx);
+    $ghost_addr := ebx;
+
+    call reveal_IoInv();
+    assert IoInv_Transparent($IoVars, $pciMem);
+    call reveal_WORD_HI();
+    call proc_lemma__power2__32();
+
+//    edx := SLo; // == ?memLo
+//    assert edx == ?memLo;
+//    assert ?memHi == ?devMemLo;
+//    assert ?memHi == ?memLo + 0x7400;
+//
+////    assert ?devMemHi - ?devMemLo > 0x204004;
+////    assert ?devMemLo >= 0;
+////    assert word(edx);
+////    assert word(?devMemHi);
+////    assert word(?devMemLo);
+//
+//    call edx := Add(edx, 0x7400); // == ?memHi == ?devMemLo
+//
+//    assert edx == ?devMemLo;
+    edx := 0x08000000;
+
+    call Store(inout stk, esp + 16, edx);
+    $ghost_device_mem_addr := edx;
+
+    assert ?devMemLo mod 0x10000 == 0;
+    call proc_reveal__mod16();  // Need to reveal it, so we can prove it's true
+    
+    // dummy method body for axiom
+    Return;
+}
+implementation Proc_PciMemStore(my r_old:regs, const my core_state:core_state, linear stk_old:mem, linear statics_old:mem, linear io_old:IOState, linear mems_old:mems, $commonVars_old:commonVars, $gcVars_old:gcVars, $toAbs_old:[int]int, $absMem_old:[int][int]int, $stacksFrames_old:[int]Frames, objLayouts_old:[int]ObjLayout, heap_old:Heap, $ghost_id:int, $ghost_dst:int, $ghost_val:int) returns(my r:regs, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems, $commonVars:commonVars, $gcVars:gcVars, $toAbs:[int]int, $absMem:[int][int]int, $stacksFrames:[int]Frames, objLayouts:[int]ObjLayout, heap:Heap)
+{
+    call reveal_MemInvDetails();
+    var $absMem_tmp:[int][int]int;
+    var objLayouts_tmp:[int]ObjLayout;
+    var heap_tmp:Heap;
+    var obj_tmp:int;
+    var val_tmp:int;
+    var mem_tmp:[int]int;
+    assert fun_unroll(0);
+    assert fun_unroll(1);
+    r := r_old;
+    stk := stk_old;
+    statics := statics_old;
+    io := io_old;
+    mems := mems_old;
+    $commonVars := $commonVars_old;
+    $gcVars := $gcVars_old;
+    $toAbs := $toAbs_old;
+    $absMem := $absMem_old;
+    $stacksFrames := $stacksFrames_old;
+    objLayouts := objLayouts_old;
+    heap := heap_old;
+    assert TV(esp);
+    assert TO(0);
+    assert TO(768);
+    assert TO(1);
+    assert TO(769);
+    assert TO(2);
+    assert TO(770);
+    assert TO(3);
+    assert TO(771);
+
+    //- Read arguments off the stack
+    call ebx := Load(stk, esp + 4);  //- id
+    call ecx := Load(stk, esp + 8);  //- dst
+    call edx := Load(stk, esp + 12); //- val
+
+    //- Setup args to lookupMapping to ensure we've configured this device
+    esi := ebx;
+    edi := PciLo;
+    edx := edi;
+    call edx := Add(edx, 1024);  //- == ?pciHi
+    call lookupMapping(ebx, edi, edx);
+
+    if (ecx != 1) {   //- Failed to find the mapping!
+      eax := 0x55550050;
+      call debugBreak();
+    }
+    
+    //- Re-read arguments off the stack
+    call ebx := Load(stk, esp + 4);  //- id
+    call ecx := Load(stk, esp + 8);  //- dst
+    call edx := Load(stk, esp + 12); //- val
+
+    call reveal_IoInv();
+    assert IoInv_Transparent($IoVars, $pciMem);
+    call PciMemStore32(ebx, ecx, edx);
+  
+    call reveal_IoInv();
+
+//    assert $pciMem == old($pciMem);
+//    assert io._pci == old(io._pci);
+//    assert IoInv_Transparent($IoVars, $pciMem);
+
+//    assert &&& &&&  (forall addr:int, j:int::{$pciMem[addr],TV(j)} TV(j) && 0 <= j &&
+//    addr == ?pciLo + 16*j && addr <= ?pciHi - 16 ==>
+//       (IsValidPciId($pciMem[addr]) ==> 
+//           $pciMem[addr + 4] == PciMemAddr($pciMem[addr]) 
+//        && $pciMem[addr + 8] == PciMemSize($pciMem[addr])
+//        && SafePciMemRegion(PciMemAddr($pciMem[addr]), PciMemSize($pciMem[addr]))
+//        && io._pci.PciConfigState[$pciMem[addr]] == 4 ));
+
+//    assert &&& &&& IoInv_Transparent($IoVars, $pciMem);
+//    assert &&& &&& NucleusInv(objLayouts,$S,$toAbs,$absMem,$commonVars__id,$gcVars__id,$ioVars__id,$commonVars,$gcVars,me,init,$State,core,ptOwner__id,(mem.map),$part,my_part,$mem__id,$sepVars__id,mems,$sepVars,$stacksFrames,state._io,$ioVars);
+
+    // dummy method body for axiom
+    Return;
+
+
+}
+implementation Proc_PciMemLoad(my r_old:regs, const my core_state:core_state, linear stk_old:mem, linear statics_old:mem, linear io_old:IOState, linear mems_old:mems, $commonVars_old:commonVars, $gcVars_old:gcVars, $toAbs_old:[int]int, $absMem_old:[int][int]int, $stacksFrames_old:[int]Frames, objLayouts_old:[int]ObjLayout, heap_old:Heap, $ghost_id:int, $ghost_src:int) returns(my r:regs, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems, $commonVars:commonVars, $gcVars:gcVars, $toAbs:[int]int, $absMem:[int][int]int, $stacksFrames:[int]Frames, objLayouts:[int]ObjLayout, heap:Heap, $ghost_val:int)
+{
+    call reveal_MemInvDetails();
+    var $absMem_tmp:[int][int]int;
+    var objLayouts_tmp:[int]ObjLayout;
+    var heap_tmp:Heap;
+    var obj_tmp:int;
+    var val_tmp:int;
+    var mem_tmp:[int]int;
+    assert fun_unroll(0);
+    assert fun_unroll(1);
+    r := r_old;
+    stk := stk_old;
+    statics := statics_old;
+    io := io_old;
+    mems := mems_old;
+    $commonVars := $commonVars_old;
+    $gcVars := $gcVars_old;
+    $toAbs := $toAbs_old;
+    $absMem := $absMem_old;
+    $stacksFrames := $stacksFrames_old;
+    objLayouts := objLayouts_old;
+    heap := heap_old;
+    assert TV(esp);
+    assert TO(0);
+    assert TO(768);
+    assert TO(1);
+    assert TO(769);
+    assert TO(2);
+    assert TO(770);
+    assert TO(3);
+    assert TO(771);
+
+    call ecx := Load(stk, esp + 8);  //- id 
+    call edx := Load(stk, esp + 12); //- src
+
+    //- Setup args to lookupMapping to ensure we've configured this device
+    esi := ecx;
+    edi := PciLo;
+    edx := edi;
+    call edx := Add(edx, 1024);  //- == ?pciHi
+    call lookupMapping(ecx, edi, edx);
+
+    if (ecx != 1) {   //- Failed to find the mapping!
+      eax := 0x55550051;
+      call debugBreak();
+    }
+    
+    //- Re-read arguments off the stack
+    call ecx := Load(stk, esp + 8);  //- id 
+    call edx := Load(stk, esp + 12); //- src
+
+    call reveal_IoInv();
+    assert IoInv_Transparent($IoVars, $pciMem);
+
+    call ebx := PciMemLoad32(ecx, edx);
+    assert word(ebx);
+    call reveal_IoInv();
+
+    //- Store the return val
+    call Store(inout stk, esp + 4, ebx);
+    $ghost_val := ebx;
+    assert word(ebx);
+
+    call reveal_WORD_HI();
+    call proc_lemma__power2__32();
+    // dummy method body for axiom
+    Return;
+}
+implementation proc_DeviceMemStore(my r_old:regs, linear io_old:IOState, objLayouts:[int]ObjLayout, $S:int, $toAbs:[int]int, $absMem:[int][int]int, $commonVars:commonVars, $gcVars:gcVars, init:bool, stk:mem, statics:mem, core_state:core_state, ptMem:mem, mems:mems, $stacksFrames:[int]Frames, $ghost_dst:int, $ghost_val:int, $opn_dst:opn_mem, $opn_val:opn) returns(my r:regs, linear io:IOState)
+{
+    r := r_old;
+    io := io_old;
+
+    call reveal_IoInv();
+    assert IoInv_Transparent($IoVars, $pciMem);
+    call io := instr_DeviceStore(r, io, $opn_dst, $opn_val);
+  
+    call reveal_IoInv();
+}
+implementation proc_DeviceMemLoad(my r_old:regs, linear io_old:IOState, objLayouts:[int]ObjLayout, $S:int, $toAbs:[int]int, $absMem:[int][int]int, $commonVars:commonVars, $gcVars:gcVars, init:bool, stk:mem, statics:mem, core_state:core_state, ptMem:mem, mems:mems, $stacksFrames:[int]Frames, $ghost_src:int, $opn_src:opn_mem, $opn_val:int) returns(my r:regs, linear io:IOState, $ghost_val:int)
+{
+    r := r_old;
+    io := io_old;
+
+    call reveal_IoInv();
+    assert IoInv_Transparent($IoVars, $pciMem);
+
+    call r, io := instr_DeviceLoad(r, io, $opn_val, $opn_src);
+    call reveal_IoInv();
+
+    call reveal_WORD_HI();
+    call proc_lemma__power2__32();
+    $ghost_val := r.regs[$opn_val];
+}
+//implementation Proc_little__endian__bytes__to__word(my r_old:regs, const my core_state:core_state, linear stk_old:mem, linear statics_old:mem, linear io_old:IOState, linear mems_old:mems, $commonVars_old:commonVars, $gcVars_old:gcVars, $toAbs_old:[int]int, $absMem_old:[int][int]int, $stacksFrames_old:[int]Frames, objLayouts_old:[int]ObjLayout, heap_old:Heap, $ghost_bytes:Seq___int) returns(my r:regs, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems, $commonVars:commonVars, $gcVars:gcVars, $toAbs:[int]int, $absMem:[int][int]int, $stacksFrames:[int]Frames, objLayouts:[int]ObjLayout, heap:Heap, $ghost_w:int)
+//{
+//    var $absMem_tmp:[int][int]int;
+//    var objLayouts_tmp:[int]ObjLayout;
+//    var heap_tmp:Heap;
+//    var obj_tmp:int;
+//    var val_tmp:int;
+//    var mem_tmp:[int]int;
+//    var $ghost_bytes__abs:int;
+//    assert fun_unroll(0);
+//    assert fun_unroll(1);
+//    call lemma_fun_ensures_fun_asm__Add();
+//    call lemma_fun_ensures_fun_asm__Sub();
+//    call lemma_fun_ensures_fun_asm__Mul();
+//    call lemma_fun_ensures_fun_asm__Div();
+//    call lemma_fun_ensures_fun_asm__Mod();
+//    call lemma_fun_ensures_fun_asm__LeftShift();
+//    call lemma_fun_ensures_fun_asm__RightShift();
+//    call lemma_fun_ensures_fun_asm__RotateLeft();
+//    call lemma_fun_ensures_fun_asm__RotateRight();
+//    call lemma_fun_ensures_fun_asm__BitwiseNot();
+//    call lemma_fun_ensures_fun_asm__BitwiseAnd();
+//    call lemma_fun_ensures_fun_asm__BitwiseOr();
+//    call lemma_fun_ensures_fun_asm__BitwiseXor();
+//    call lemma_unroll_fun_INTERNAL__mul__pos();
+//    call lemma_unroll_fun_INTERNAL__mod__recursive();
+//    call lemma_unroll_fun_INTERNAL__div__pos();
+//    call lemma_unroll_fun_Seq__Length__FULL___int();
+//    call lemma_fun_ensures_fun_Seq__Length___int();
+//    call lemma_unroll_fun_Seq__Build__FULL___int();
+//    call lemma_unroll_fun_Seq__Index__FULL___int();
+//    call lemma_unroll_fun_Seq__Append__FULL___int();
+//    call lemma_unroll_fun_Seq__Update__FULL___int();
+//    call lemma_unroll_fun_Seq__Take__FULL___int();
+//    call lemma_unroll_fun_Seq__Drop__FULL___int();
+//    call proc_Seq__Empty__ToZero___int();
+//    call proc_Seq__Empty__FromZero___int();
+//    call proc_Seq__Singleton__Length___int();
+//    call proc_Seq__Build__Length___int();
+//    call proc_Seq__Build__Index___int();
+//    call proc_Seq__Append__Length___int();
+//    call proc_Seq__Index__Singleton___int();
+//    call proc_Seq__Append__Index___int();
+//    call proc_Seq__Update__Length___int();
+//    call proc_Seq__Index__Update___int();
+//    call proc_Seq__Equal__Equiv___int();
+//    call proc_Seq__Take__Length___int();
+//    call proc_Seq__Take__Index___int();
+//    call proc_Seq__Drop__Length___int();
+//    call proc_Seq__Drop__Index___int();
+//    call proc_Seq__Append__TakeDrop___int();
+//    call proc_Seq__Update__CommuteTake1___int();
+//    call proc_Seq__Update__CommuteTake2___int();
+//    call proc_Seq__Update__CommuteDrop1___int();
+//    call proc_Seq__Update__CommuteDrop2___int();
+//    call proc_Seq__Build__CommuteDrop___int();
+//    call proc_Seq__Take__Empty___int();
+//    call proc_Seq__Drop__Empty___int();
+//    call lemma_unroll_fun_Seq__FromArrayRange();
+//    call proc_Seq__FromArray__Length();
+//    call proc_Seq__FromArray__Index();
+//    call proc_Seq__FromArray__Update();
+//    call lemma_unroll_fun_power2__FULL();
+//    call lemma_fun_ensures_fun_power2();
+//    call lemma_unroll_fun_BEDigitSeq__IntValue__FULL();
+//    call lemma_unroll_fun_Seq__Length__FULL___bool();
+//    call lemma_fun_ensures_fun_Seq__Length___bool();
+//    call lemma_unroll_fun_Seq__Build__FULL___bool();
+//    call lemma_unroll_fun_Seq__Index__FULL___bool();
+//    call lemma_unroll_fun_Seq__Append__FULL___bool();
+//    call lemma_unroll_fun_Seq__Update__FULL___bool();
+//    call lemma_unroll_fun_Seq__Take__FULL___bool();
+//    call lemma_unroll_fun_Seq__Drop__FULL___bool();
+//    call proc_Seq__Empty__ToZero___bool();
+//    call proc_Seq__Empty__FromZero___bool();
+//    call proc_Seq__Singleton__Length___bool();
+//    call proc_Seq__Build__Length___bool();
+//    call proc_Seq__Build__Index___bool();
+//    call proc_Seq__Append__Length___bool();
+//    call proc_Seq__Index__Singleton___bool();
+//    call proc_Seq__Append__Index___bool();
+//    call proc_Seq__Update__Length___bool();
+//    call proc_Seq__Index__Update___bool();
+//    call proc_Seq__Equal__Equiv___bool();
+//    call proc_Seq__Take__Length___bool();
+//    call proc_Seq__Take__Index___bool();
+//    call proc_Seq__Drop__Length___bool();
+//    call proc_Seq__Drop__Index___bool();
+//    call proc_Seq__Append__TakeDrop___bool();
+//    call proc_Seq__Update__CommuteTake1___bool();
+//    call proc_Seq__Update__CommuteTake2___bool();
+//    call proc_Seq__Update__CommuteDrop1___bool();
+//    call proc_Seq__Update__CommuteDrop2___bool();
+//    call proc_Seq__Build__CommuteDrop___bool();
+//    call proc_Seq__Take__Empty___bool();
+//    call proc_Seq__Drop__Empty___bool();
+//    call lemma_unroll_fun_SeqToInt__FULL();
+//    call lemma_fun_ensures_fun_SeqToInt();
+//    call lemma_unroll_fun_IntToSeq__FULL();
+//    call lemma_fun_ensures_fun_IntToSeq();
+//    call lemma_fun_ensures_fun_WordToSeq();
+//    call lemma_fun_ensures_fun_word__to__bytes();
+//    call lemma_unroll_fun_WordSeqToByteSeq__FULL();
+//    call lemma_fun_ensures_fun_WordSeqToByteSeq();
+//    call lemma_fun_ensures_fun_ByteSeqToWordSeq();
+//    call lemma_unroll_fun_WordSeqToBits__FULL();
+//    call lemma_fun_ensures_fun_WordSeqToBits();
+//    call lemma_unroll_fun_WordSeqToNBits__FULL();
+//    call lemma_fun_ensures_fun_WordSeqToNBits();
+//    call lemma_fun_ensures_fun_ArrayToBitSequence();
+//    call lemma_unroll_fun_SequenceOfFalses__FULL();
+//    call lemma_fun_ensures_fun_SequenceOfFalses();
+//    call lemma_unroll_fun_ByteToBoolSeqInner__FULL();
+//    call lemma_fun_ensures_fun_ByteToBoolSeqInner();
+//    call lemma_fun_ensures_fun_ByteToBoolSeq();
+//    call lemma_unroll_fun_ByteSeqToBoolSeq__FULL();
+//    call lemma_fun_ensures_fun_ByteSeqToBoolSeq();
+//    call lemma_fun_ensures_fun_AddInstruction();
+//    call lemma_fun_ensures_fun_SubInstruction();
+//    call lemma_fun_ensures_fun_LeftShiftInstruction();
+//    call lemma_fun_ensures_fun_RightShiftInstruction();
+//    call lemma_fun_ensures_fun_RotateRightInstruction();
+//    call lemma_fun_ensures_fun_RotateLeftInstruction();
+//    call lemma_fun_ensures_fun_BitwiseNotInstruction();
+//    call lemma_fun_ensures_fun_BitwiseAndInstruction();
+//    call lemma_fun_ensures_fun_BitwiseOrInstruction();
+//    call lemma_fun_ensures_fun_BitwiseXorInstruction();
+//    call lemma_unroll_fun_power__FULL();
+//    r := r_old;
+//    stk := stk_old;
+//    statics := statics_old;
+//    io := io_old;
+//    mems := mems_old;
+//    $commonVars := $commonVars_old;
+//    $gcVars := $gcVars_old;
+//    $toAbs := $toAbs_old;
+//    $absMem := $absMem_old;
+//    $stacksFrames := $stacksFrames_old;
+//    objLayouts := objLayouts_old;
+//    heap := heap_old;
+//    $ghost_bytes__abs := frameGet($stacksFrames, (core_old._regs)[ESP] + 4 + stackGcOffset);
+//    assert TV(esp);
+//    assert TO(0);
+//    assert TO(768);
+//    assert TO(1);
+//    assert TO(769);
+//
+//    // dummy method body for axiom
+//    Return;
+//}
+
+implementation Proc_debug__print(my r_old:regs, const my core_state:core_state, linear stk_old:mem, linear statics_old:mem, linear io_old:IOState, linear mems_old:mems, $commonVars_old:commonVars, $gcVars_old:gcVars, $toAbs_old:[int]int, $absMem_old:[int][int]int, $stacksFrames_old:[int]Frames, objLayouts_old:[int]ObjLayout, heap_old:Heap, $ghost_loc:int, $ghost_val:int) returns(my r:regs, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems, $commonVars:commonVars, $gcVars:gcVars, $toAbs:[int]int, $absMem:[int][int]int, $stacksFrames:[int]Frames, objLayouts:[int]ObjLayout, heap:Heap)
+{
+    var $absMem_tmp:[int][int]int;
+    var objLayouts_tmp:[int]ObjLayout;
+    var heap_tmp:Heap;
+    var obj_tmp:int;
+    var val_tmp:int;
+    var mem_tmp:[int]int;
+    assert fun_unroll(0);
+    assert fun_unroll(1);
+    r := r_old;
+    stk := stk_old;
+    statics := statics_old;
+    io := io_old;
+    mems:= mems_old;
+    $commonVars := $commonVars_old;
+    $gcVars := $gcVars_old;
+    $toAbs := $toAbs_old;
+    $absMem := $absMem_old;
+    $stacksFrames := $stacksFrames_old;
+    objLayouts := objLayouts_old;
+    heap := heap_old;
+    assert TV(esp);
+    assert TO(0);
+    assert TO(768);
+    assert TO(1);
+    assert TO(769);
+    assert TO(2);
+    assert TO(770);
+
+
+    //- Read arguments off the stack
+    call ebx := Load(stk, esp + 4);  //- loc
+    call ecx := Load(stk, esp + 8);  //- val
+
+    ebp := ecx; //- Save a copy
+
+    //- Assuming for now that loc (in ebx) is only 8 bits
+    call reveal_IoInv();        //- Prove that serial port has been configured
+    call serialDbgByteOut();
+
+    //- Write out a space
+    ecx := 32;
+    call serialDbgDataOut8();
+
+    //- Write out val
+    esi := ebp;
+    call serialDbgWordOut();
+    call serialDbgNewlineOut();
+//-    call Proc_SerialDbgWordOut();
+//-    call Proc_SerialDbgNewlineOut();
+
+    //- Re-read arguments off the stack
+    call ebx := Load(stk, esp + 4);  //- loc
+    call ecx := Load(stk, esp + 8);  //- val
+
+    //- Write to the screen
+    eax := ecx;
+    edx := ebx;
+    call writeHex();
+
+    Return;
+}
+
+}

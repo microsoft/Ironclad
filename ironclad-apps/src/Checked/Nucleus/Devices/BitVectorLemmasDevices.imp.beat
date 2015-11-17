@@ -1,0 +1,20 @@
+//-
+//- Copyright (c) Microsoft Corporation.  All rights reserved.
+//-
+//-private-import BaseSpec;
+//-private-import MemorySpec;
+//-<NuBuild AddBoogieAxiom BitVector_axioms />
+//-private-import BitVectorLemmasGc;
+//-<NuBuild AddBoogieAxiom Word_axioms />
+//-<NuBuild AddBoogieAxiom IntSpec_axioms />
+//-<NuBuild AddBoogieFlag /restartProver />
+//-<NuBuild AddBoogieFlag /proverOpt:OPTIMIZE_FOR_BV=true />
+
+
+module implementation BitVectorLemmasDevices
+{
+
+implementation _constDevices() {}
+implementation _lemma_and7_implies_mod_4() {}
+implementation _lemma_shl_1() {}
+}

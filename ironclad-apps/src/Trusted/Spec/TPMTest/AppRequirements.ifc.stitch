@@ -1,0 +1,4 @@
+  requires fun_TPM__valid($ghost_TPM);
+  requires fun_TPM__satisfies__integrity__policy($ghost_TPM);
+  requires $ghost_IoMemPerm is Null;
+  modifies $ghost_TPM;

@@ -1,0 +1,747 @@
+//-private-import BaseSpec;
+//-private-import MemorySpec;
+//-private-import IoTypesSpec;
+//-private-import MachineStateSpec;
+//-private-import AssemblySpec;
+//-private-import InterruptsSpec;
+//-private-import IoSpec;
+//-<NuBuild AddBoogieAxiom Base_axioms />
+//-<NuBuild AddBoogieAxiom Word_axioms />
+//-<NuBuild AddBoogieAxiom Memory_axioms />
+//-<NuBuild AddBoogieAxiom Assembly_axioms />
+//-<NuBuild AddBoogieAxiom Io_axioms />
+//-private-import Core;
+//-private-import LogicalAddressing;
+//-private-import Overflow;
+//-private-import Util;
+//-private-import Stacks;
+//-private-import Partition;
+//-private-import Instructions;
+//-private-import Separation;
+//-private-import IntLemmasBase;
+//-private-import IntLemmasGc;
+//-private-import SimpleGcMemory;
+//-private-import SimpleCommon;
+//-private-import SimpleCollector;
+//-
+//- Copyright (c) Microsoft Corporation.  All rights reserved.
+//-
+
+//- Functions to interact with the PCI bus and its devices
+
+//-<NuBuild BasmEnableSymdiff true />
+module implementation PCI
+{
+
+procedure pciConfigAddr($id:int, $offset:int)
+  inout my r:regs, my core_state:core_state, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems, $commonVars:commonVars, $gcVars:gcVars;
+  inout $absMem:[int][int]int, $toAbs:[int]int, $stacksFrames:[int]Frames, objLayouts:[int]ObjLayout;
+  requires IsValidPciId($id);
+  requires IsValidPciOffset($offset);
+  requires ecx == $id;
+  requires edx == $offset;
+  requires logical_addressing_inv(init, ptMem, core_state);
+  requires MemInv($Mem_Vars);
+  requires public($id);
+  requires public($offset);
+  requires public(io._inCtr);
+  requires public(io._outCtr);
+//  requires NucleusInv(objLayouts, $S, $toAbs, $absMem, GcVars, $Mem_Vars, $stacksFrames, $IoVars);  
+  modifies io, efl, eax, edx;
+  ensures  io._pci.PciConfigId == $id;
+  ensures  io._pci.PciConfigOffset == $offset;
+  ensures  edx == 0xcfc;
+  //- The following is the strongest we can say (can't say IoInv), because we use pciConfigAddr when IoInv isn't true
+  //- Hence we can't require it, and thus can't ensure it
+  ensures  (forall i:int::{io._pci.PciConfigState[i]}
+            0 <= i && i < 65536 ==> (io._pci.PciConfigState[i] == old(io)._pci.PciConfigState[i])); 
+  ensures  (forall addr:int :: ?pciLo <= addr && addr < ?pciHi ==> $pciMem[addr] == old($pciMem[addr]));
+  ensures  logical_addressing_inv(init, ptMem, core_state);
+  ensures  MemInv($Mem_Vars);
+  ensures  public(io._inCtr);
+  ensures  public(io._outCtr);
+//  ensures  NucleusInv(objLayouts, $S, $toAbs, $absMem, GcVars, $Mem_Vars, $stacksFrames, $IoVars);  
+{
+  call reveal_IoInv();
+  eax := ecx;
+  call eax := Shl(eax, 8);
+  call eax := Or(eax, edx);
+  edx := 0x7fffffff;
+  call edx := AddChecked(edx, 1);
+  call eax := Or(eax, edx);
+  edx := 0xcf8;
+  //assert IoInv_Transparent($IoVars, $pciMem);
+  call PciConfigAddrOut32($id, $offset);
+  //assert IoInv_Transparent($IoVars, $pciMem);
+  edx := 0xcfc;
+  //assert IoInv_Transparent($IoVars, $pciMem);
+  call reveal_IoInv();
+  //assert IoInv($IoVars, $pciMem);
+}
+
+// Searches our table of existing PCI mappings for the ID provided
+// Returns the mapping's address (ebx) and size (eax), if found.
+// Else sets ecx to 0 and returns a suggested slot (eax) for the new mapping
+//procedure lookupMapping(id:int, pLo:int, pHi:int)
+//  inout my r:regs, my core_state:core_state, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems, $commonVars:commonVars, $gcVars:gcVars;
+//  inout $absMem:[int][int]int, $toAbs:[int]int, $stacksFrames:[int]Frames, objLayouts:[int]ObjLayout;
+//  //inout iovars:ioVars;
+//  requires IsValidPciId(id);
+//  requires esi == id;
+//  requires edi == pLo && pLo == ?pciLo;
+//  requires edx == pHi && pHi == ?pciHi;
+//  requires (?pciHi - ?pciLo) mod 16 == 0;
+//  requires Aligned(?pciLo);
+//  requires logical_addressing_inv(init, ptMem, core_state);
+//  requires NucleusInv(objLayouts, $S, $toAbs, $absMem, GcVars, $Mem_Vars, $stacksFrames, $IoVars);
+//  modifies state, efl, eax, ebx, ecx, edi, ebp;
+//  ensures ecx == 1 ==> eax == PciMemSize(id) && ebx == PciMemAddr(id) 
+//                       && io._pci.PciConfigState[id] == 4;
+//  ensures ecx == 0 ==> io._pci.PciConfigState[id] == 0;
+//  ensures ecx == 0 ==> ?pciLo <= ebx && ebx < ?pciHi && Aligned(ebx) && !IsValidPciId($pciMem[ebx]) &&
+//          (exists j:int :: TV(j) && 0 <= j && ebx == ?pciLo + 16*j);
+////  ensures ecx == 0 ==> ?pciLo <= ebx && ebx < ?pciHi && Aligned(ebx) && !IsValidPciId($pciMem[ebx]) &&
+////          (exists j:int :: TV(j) && 0 <= j && ebx == ?pciLo + 16*j);
+//  ensures ecx == 0 || ecx == 1;
+//  ensures logical_addressing_inv(init, ptMem, core);
+//  ensures NucleusInv(objLayouts, $S, $toAbs, $absMem, GcVars, $Mem_Vars, $stacksFrames, $IoVars);  
+implementation lookupMapping(id:int, pLo:int, pHi:int)
+{
+  call reveal_MemInvDetails();
+  var i:int := 0;
+  ecx := 0;
+  ebx := PciLo;   //- If we don't find an empty slot, default to overwriting the first one
+  assert TV(0);
+  call reveal_IoInv();
+  assert TV(0);
+  assert (exists j:int :: {TV(j)} ebx == ?pciLo + 16*j);
+  while(edi < edx) 
+    invariant mems == old(mems);
+    invariant edi == ?pciLo + 16*i;
+    invariant ?pciLo <= edi && edi <= ?pciHi;
+    invariant esi == id;
+    invariant IsValidPciId(id);
+    invariant ecx == 1 || ecx == 0;
+    invariant ecx == 1 ==> eax == PciMemSize(id) && ebx == PciMemAddr(id)
+                           && word(PciMemSize(id)) && word(PciMemAddr(id))
+                           && io._pci.PciConfigState[id] == 4;
+    invariant ecx == 0 ==> ?pciLo <= ebx && ebx < ?pciHi && Aligned(ebx) &&
+                           (exists j:int :: TV(j) && 0 <= j && ebx == ?pciLo + 16*j);
+    invariant ecx == 0 ==> (forall j:int :: {TV(j)} TV(j) && 0 <= j && j < i ==> 
+                            mems.pci[?pciLo + 16*j] != id);
+    invariant ecx == 0 ==> (forall addr:int, j:int::{$pciMem[addr],TV(j)} TV(j) && 0 <= j
+                            && addr == ?pciLo + 16*j && ?pciLo <= addr && addr < edi 
+                            ==> $pciMem[addr] != id);
+    invariant logical_addressing_inv(init, ptMem, core_state);
+    invariant NucleusInv(objLayouts, $S, $toAbs, $absMem, GcVars, $Mem_Vars, $stacksFrames, $IoVars);  
+    //invariant public(eax);
+    //invariant public(ebx);
+    //invariant public(ecx);
+    invariant public(edx);
+    invariant public(edi);
+    invariant public(esi);
+    invariant public(io._inCtr);
+    invariant public(io._outCtr);
+  {
+    call reveal_IoInv();
+    assert Aligned(?pciLo) && TV(?pciLo) && TO(4*i);
+    call ebp := Load($pciMem, edi);
+    if (ebp == esi) {
+      ecx := 1;
+      assert TV(edi) && TO(1) && TO(2);
+      call ebx := Load($pciMem, edi + 4);
+      call eax := Load($pciMem, edi + 8);
+      assert TV(i);
+      assert ebx == PciMemAddr(id);
+      assert eax == PciMemSize(id);
+    }
+
+    if (ebp == 0xffffffff) {
+      if (ecx != 1) { //- Only save a slot if we haven't already found it
+        //- Save an empty slot we can use if we don't find the mapping
+        ebx := edi;
+        assert ebx == ?pciLo + 16*i;
+        assert TV(i) && (exists j:int :: ebx == ?pciLo + 16*j);
+        assert Aligned(?pciLo) && TV(?pciLo) && TO(4*i);
+        assert ?pciLo <= ebx && ebx < ?pciHi;
+      }
+    }
+    
+    edi := edi + 16;
+    i := i + 1;
+  }
+
+  if (ecx == 0) {
+    call ebp := Load($pciMem, ebx);
+    // TODO: Turn this into a static check based on ghost counter of # of mapped PCI devices
+    if (ebp < 65536) {  //- ebx is pointed at a valid PCI id -- die instead of clobbering it
+      eax := 0x5555002f;
+      call debugBreak();
+    }
+  }
+
+//  assert ecx == 0 ==> $pciMem[ebx] >= 65536;
+//  assert ecx == 0 ==> !IsValidPciId($pciMem[ebx]); 
+//  assert ecx == 0 ==> ?pciLo <= ebx && ebx < ?pciHi && Aligned(ebx) && !IsValidPciId($pciMem[ebx]);
+//  assert ecx == 0 ==> (exists j:int :: {TV(j)} TV(j) && 0 <= j && ebx == ?pciLo + 16*j);
+//  assert ecx == 0 ==> ?pciLo <= ebx && ebx < ?pciHi && Aligned(ebx) && !IsValidPciId($pciMem[ebx]) &&
+//          (exists j:int :: TV(j) && 0 <= j && ebx == ?pciLo + 16*j);
+
+//  assert ecx == 0 ==> ?pciLo <= ebx && ebx < ?pciHi && 
+//          (exists j:int :: ebx == ?pciLo + 16*j && TV(?pciLo) && TO(4*j) && Aligned(ebx));
+//  assert ecx == 0 ==> (exists j:int :: ebx == ?pciLo + 16*j);
+//  assert Aligned(?pciLo) && TV(?pciLo); // && TO(4*j);
+//  assert Aligned(ebx);
+  call reveal_IoInv();
+}
+
+
+
+//procedure stack_test($id:int)
+//  inout my r:regs, my core_state:core_state, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems, $commonVars:commonVars, $gcVars:gcVars;
+//  inout $absMem:[int][int]int, $toAbs:[int]int, $stacksFrames:[int]Frames, objLayouts:[int]ObjLayout;
+//  requires ecx == $id;
+//  requires 0 <= $id && $id < 65536;
+//  requires $id mod 4 == 0;
+//  requires (exists ret:int :: PciConfigReadResult($id, 0, ret) && ret != 0xffff);
+//  //requires SMemRequire(28, stk, esp);
+//  requires SMemRequireInline(28, 8, stk, esp);
+//  requires logical_addressing_inv(init, ptMem, core_state);
+//  requires NucleusInv(objLayouts, $S, $toAbs, $absMem, GcVars, $Mem_Vars, $stacksFrames, $IoVars);  
+//  modifies state, efl, eax, ebx, ecx, edx, esi, edi;
+//  modifies mems;
+//  ensures  logical_addressing_inv(init, ptMem, core_state);
+//  ensures  NucleusInv(objLayouts, $S, $toAbs, $absMem, GcVars, $Mem_Vars, $stacksFrames, $IoVars);
+//{
+//  var temp @ stk[esp + 0] := ecx;
+//  assert TV(esp) && TO(1);
+//  var temp2 @ stk[esp + 4] := ecx;
+//
+//}
+
+
+// ecx = id
+// edx = offset
+//implementation pciConfigRead32($id:int, $offset:int)
+//{
+//  eax := edx;
+//  call eax := And(eax, 3);
+//  if (eax != 0)
+//  {
+//    eax := 0x55550026;
+//    call debugBreak();
+//  }
+//  assert (0 <= $id && $id < 65536);
+//  call pciConfigAddr($id, $offset);
+//  call /*eax :=*/ PciConfigDataIn32($id, $offset);
+//}
+
+//procedure pciConfigDataIn32(id:int, offset:int)
+//  inout my r:regs, my core_state:core_state, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems, $commonVars:commonVars, $gcVars:gcVars;
+//  inout $absMem:[int][int]int, $toAbs:[int]int, $stacksFrames:[int]Frames, objLayouts:[int]ObjLayout;
+//  requires IsValidPciId(id);
+//  requires IsValidPciOffset(offset);
+//  requires id == io._pci.PciConfigId;
+//  requires offset == io._pci.PciConfigOffset;
+//  requires old(regs)[EDX] == 0xcfc;
+//  requires NucleusInv(objLayouts, $S, $toAbs, $absMem, GcVars, $Mem_Vars, $stacksFrames, $IoVars);  
+//  //requires IoInv($IoVars, $pciMem);
+//  requires logical_addressing_inv(init, ptMem, core_state);
+//  modifies state, efl, eax, edx;
+//  ensures  (exists eax_val:int ::
+//    $State._cores[me] == LogicalCoreUpdate1(old($State._cores[me]), OReg(EAX), eax, core._efl)
+//    && PciConfigReadResult(id, offset, eax_val)
+//    && (old($State)._io._pci.PciConfigState[id] == 0 && offset == 16 && and(eax_val, 15) == 0 ==> PciMemAddr(id) == eax_val)
+//    && (old($State)._io._pci.PciConfigState[id] == 2 && offset == 16                      ==> PciMemSize(id) == 1 + neg(eax_val))
+//    && word(eax_val));
+//  //ensures  IoInv($IoVars, $pciMem);
+//  ensures  logical_addressing_inv(init, ptMem, core_state);
+//  ensures  NucleusInv(objLayouts, $S, $toAbs, $absMem, GcVars, $Mem_Vars, $stacksFrames, $IoVars);
+//{
+//  call reveal_IoInv();
+//  assert (forall i:int::{io._pci.PciConfigState[i]} 0 <= i && i < 65536 ==> (io._pci.PciConfigState[i] == 0));
+//  call /*eax :=*/ PciConfigDataIn32(id, offset);
+//  assert state._io == old(state._io);
+//  assert (forall i:int::{io._pci.PciConfigState[i]} 0 <= i && i < 65536 ==> (io._pci.PciConfigState[i] == 0));
+//  call reveal_IoInv();
+//  assert &&& &&& IoInv_Transparent($IoVars, $pciMem);
+//}
+
+
+
+implementation pciFindDeviceVendor(device_vendor_id:int)
+{
+  //var found  @ edi;
+  var pci_id @ esi;
+
+  //- Walk through the PCI device space looking for a match
+  var matching_id @ ebx := 65536;
+  pci_id := 0;
+  while (pci_id < 65536)
+    invariant device_vendor_id == ebp;
+    invariant 0 <= pci_id && pci_id <= 65536;
+    invariant matching_id != 65536 ==> IsValidPciId(matching_id);
+    invariant matching_id != 65536 ==> PciConfigReadResult(matching_id,  0, device_vendor_id);
+    invariant NucleusInv(objLayouts, $S, $toAbs, $absMem, GcVars, $Mem_Vars, $stacksFrames, $IoVars);  
+    invariant public(pci_id); 
+    invariant public(matching_id);
+    invariant public(ebp);
+    invariant public(io._inCtr);
+    invariant public(io._outCtr);
+  {
+    call reveal_IoInv();
+    ecx := pci_id;
+    edx := 0;
+    call pciConfigAddr(pci_id, 0);
+    call /* eax := */ PciConfigDataIn32(pci_id, 0);
+    call reveal_IoInv();
+
+    if (eax == ebp) {
+      matching_id := pci_id;
+    }
+
+    pci_id := pci_id + 1;
+  }
+
+  if (matching_id == 65536) {
+    //- We didn't actually find it :(
+    eax := 0x55550020;
+    call debugBreak();
+  }
+
+  eax := matching_id;
+}
+
+implementation pciMemMap(pLo:int, pHi:int, $id:int)
+{
+  call reveal_MemInvDetails();
+  call reveal_IoInv();
+  eax := ecx;
+
+  //- Check whether we've already mapped this device
+  esi := ecx;
+  call lookupMapping($id, pLo, pHi);
+  if (ecx == 1) {
+    //- Found a previous mapping -- panic!
+    eax := 0x55550051;
+    call debugBreak();
+//    // Found a previous mapping!  Our work here is done
+//    ecx := esi;
+  } else { 
+    var emptySlot@ebx; // Save the slot that lookupMapping found for us
+    assert ecx == 0;
+    assert ?pciLo <= ebx && ebx < ?pciHi && Aligned(ebx) && 
+            (exists j:int :: 0 <= j && ebx == ?pciLo + 16*j);
+//    assert ?pciLo <= ebx && ebx < ?pciHi && Aligned(ebx) && !IsValidPciId($pciMem[ebx]) &&
+//            (exists j:int :: 0 <= j && ebx == ?pciLo + 16*j);
+    assert (exists j:int :: {TV(j)} TV(j) && 0 <= j && ebx == ?pciLo + 16*j);
+    assert (exists j:int :: 0 <= j && ebx == ?pciLo + 16*j);
+
+    //- Device and Vendor ID
+    edx := 0;
+    ecx := esi;
+    call reveal_IoInv();
+    assert IoInv_Transparent($IoVars, $pciMem);
+    call pciConfigAddr($id, 0);
+    assert IoInv_Transparent($IoVars, $pciMem);
+    call /*eax :=*/ PciConfigDataIn32($id, 0);
+    var dev_vendor_id:int := eax;
+    call eax := And(eax, 65535);
+    if (eax == 65535)
+    {
+      eax := 0x55550021;
+      call debugBreak();
+    }
+
+    //- Status and Command registers
+    edx := 4;
+    call pciConfigAddr($id, 4);
+    call /*eax :=*/ PciConfigDataIn32($id, 4);
+    var status_cmd @ ebp := eax;
+    assert IoInv_Transparent($IoVars, $pciMem);
+
+    //- BIST || Header Type || LatencyTimer || CacheLineSize
+    edx := 12;
+    call pciConfigAddr($id, 12);
+    call /*eax :=*/ PciConfigDataIn32($id, 12);
+    var header @ esi := eax;
+
+    //- Grab the first base address register (BAR)
+    edx := 16;
+    call pciConfigAddr($id, 16);
+    call /*eax :=*/ PciConfigDataIn32($id, 16);
+    var bar @ edi := eax;
+
+    //- Check HeaderType is Type 0 (normal PCI, not a bridge or a CardBus)
+    eax := header;
+    var ghost_header:int := header; //- Save a ghost copy, so we can reuse esi
+    call eax := Shr(eax, 16);
+    call eax := And(eax, 0xff);
+    if (eax != 0)
+    {
+      eax := 0x55550022;
+      call debugBreak();
+    }
+    assert IoInv_Transparent($IoVars, $pciMem);
+
+    //- Check MemoryAddress type (lower three bits must be 0 for memory-mapped BAR)
+    eax := bar;
+    call eax := And(eax, 15);
+    if (eax != 0)
+    {
+      eax := 0x55550023;
+      call debugBreak();
+    }
+
+    //- Make sure the address is in a sane location
+    if (bar < 0xC0000000) 
+    {
+      eax := 0x55550024;
+      call debugBreak();
+    }
+
+    //- Walkthrough PCI memory mapping state machine
+
+    call reveal_IoInv();
+    assert IoInv_Transparent($IoVars, $pciMem);
+
+    //- State 0 - Disable memory mapping
+    edx := 4;
+    call pciConfigAddr($id, 4);
+    esi := 0xfffffffd;
+    eax := status_cmd;
+    call reveal_IoInv();
+    call eax := And(eax, esi);
+    call PciConfigDataOut32($id, 4, dev_vendor_id, status_cmd, ghost_header, bar);
+
+    //- State 1 - Ask the device what size it wants
+    edx := 16;
+    call pciConfigAddr($id, 16);
+    eax := 0xffffffff;
+    call PciConfigDataOut32($id, 16, dev_vendor_id, status_cmd, ghost_header, bar);
+
+    edx := 16;
+    call pciConfigAddr($id, 16);
+    call /*eax :=*/ PciConfigDataIn32($id, 16);
+
+    //- Calculate the size requested as (~eax)+1
+    call eax := Not(eax);
+    call eax := AddChecked(eax, 1);
+    assert (eax == PciMemSize($id));
+    var sizeBits @ esi := eax;    
+
+    //- Make sure we're not going to clobber the TPM
+    call eax := AddChecked(eax, bar);
+    if (eax >= 0xFED40000)
+    {
+      eax := bar;
+      if (eax < 0xFED45000) 
+      {
+        eax := 0x55550025;
+        call debugBreak();
+      }
+    }
+
+    //- State 2 - Restore the previous address
+    edx := 16;
+    call pciConfigAddr($id, 16);
+    eax := bar;
+    call PciConfigDataOut32($id, 16, dev_vendor_id, status_cmd, ghost_header, bar);
+
+    //- State 3 - Turn memory mapping back on
+    edx := 4;
+    call pciConfigAddr($id, 4);
+    eax := status_cmd;
+    call eax := Or(eax, 2);
+    call PciConfigDataOut32($id, 4, dev_vendor_id, status_cmd, ghost_header, bar);
+
+    //- State 4 - Store and return the results
+    assert Aligned(emptySlot) && TV(emptySlot) && TO(1) && TO(2);
+    call Store(inout mems.pci, emptySlot, ecx);
+    call Store(inout mems.pci, emptySlot + 4, bar);
+    call Store(inout mems.pci, emptySlot + 8, sizeBits);
+
+    call reveal_IoInv();
+//    assert PciMemAddr($id) == bar;
+//    assert PciMemSize($id) == sizeBits;
+//    assert SafePciMemRegion(bar, sizeBits);
+//    assert io._pci.PciConfigState[$id] == 4;
+//    assert $pciMem[emptySlot] == $id;
+//    assert $pciMem[emptySlot+4] == PciMemAddr($pciMem[emptySlot]);
+//    assert $pciMem[emptySlot+8] == PciMemSize($pciMem[emptySlot]);
+
+//    assert   (forall addr:int, j:int::{$pciMem[addr],TV(j)} TV(j) && 0 <= j &&
+//          addr == ?pciLo + 16*j && addr <= ?pciHi - 16 ==>
+//       (IsValidPciId($pciMem[addr]) ==> 
+//           $pciMem[addr + 4] == PciMemAddr($pciMem[addr]) 
+//        && $pciMem[addr + 8] == PciMemSize($pciMem[addr])
+//        && SafePciMemRegion(PciMemAddr($pciMem[addr]), PciMemSize($pciMem[addr]))
+//        && io._pci.PciConfigState[$pciMem[addr]] == 4 )) ;
+
+//    assert ?pciLo <= ebx && ebx <= ?pciHi - 16;
+//    assert (exists j:int :: {TV(j)} TV(j) && 0 <= j && ebx == ?pciLo + 16*j);
+//    assert (exists j:int :: {TV(j)} TV(j) && 0 <= j && ebx == ?pciLo + 16*j && ebx <= ?pciHi - 16);
+//    assert (exists j:int :: {TV(j)} TV(j) && 0 <= j && ebx == ?pciLo + 16*j && ebx <= ?pciHi - 16 && $pciMem[ebx]==$id && true);
+    assert (exists j:int :: {TV(j)} TV(j) && 0 <= j && ebx == ?pciLo + 16*j && ebx <= ?pciHi - 16 && $pciMem[ebx]==$id && TV(j));
+//    assert $pciMem[ebx] == $id;
+//    assert (forall addr:int, j:int::{$pciMem[addr],TV(j)} TV(j) && 0 <= j
+//            && addr == ?pciLo + 16*j && addr <= ?pciHi - 16 
+//            ==> $pciMem[addr] != $id);
+//    assert (exists j:int:: {TV(j)} (0 <= j
+//            && ebx == ?pciLo + 16*j && ebx <= ?pciHi - 16 
+//            && $pciMem[ebx] == $id && TV(j)));
+//    assert (exists j:int::{TV(j)} (0 <= j
+//            && ebx == ?pciLo + 16*j && ebx <= ?pciHi - 16 
+//            && $pciMem[ebx] == $id));
+//    assert (exists addr:int, j:int::{$pciMem[addr],TV(j)} (TV(j) && 0 <= j
+//            && addr == ?pciLo + 16*j && addr <= ?pciHi - 16 
+//            && $pciMem[addr] == $id));
+//    assert (exists addr:int, j:int::{$pciMem[addr],TV(j)} !(TV(j) && 0 <= j
+//            && addr == ?pciLo + 16*j && addr <= ?pciHi - 16 
+//            ==> $pciMem[addr] != $id));
+//    assert !(forall addr:int, j:int::{$pciMem[addr],TV(j)} TV(j) && 0 <= j
+//            && addr == ?pciLo + 16*j && addr <= ?pciHi - 16 
+//            ==> $pciMem[addr] != $id);
+//
+//    assert(forall i:int::{io._pci.PciConfigState[i]}
+//            0 <= i && i < 65536 && i == $id &&
+//          (forall addr:int, j:int::{$pciMem[addr],TV(j)} TV(j) && 0 <= j
+//            && addr == ?pciLo + 16*j && addr <= ?pciHi - 16 
+//            ==> $pciMem[addr] != i)
+//           ==> io._pci.PciConfigState[i] == 0);
+//
+//    assert (forall addr:int, j:int::{$pciMem[addr],TV(j)} TV(j) && 0 <= j
+//            && addr == ?pciLo + 16*j && addr <= ?pciHi - 16 && addr != ebx
+//            ==> $pciMem[addr] == old($pciMem[addr]));
+//
+//    assert(forall i:int::{io._pci.PciConfigState[i]}
+//            0 <= i && i < 65536 && i != $id 
+//           ==> io._pci.PciConfigState[i] == old(io._pci.PciConfigState[i]));
+//
+//    assert old(IoInv_Transparent($IoVars, $pciMem));
+//
+//    assert(forall i:int::{old(io._pci.PciConfigState[i])}
+//            0 <= i && i < 65536 && i != $id &&
+//          (forall addr:int, j:int::{old($pciMem[addr]),TV(j)} TV(j) && 0 <= j
+//            && addr == ?pciLo + 16*j && addr <= ?pciHi - 16 
+//            ==> old($pciMem[addr]) != i)
+//           ==> old(io._pci.PciConfigState[i]) == 0);
+//
+//    assert(forall i:int::{io._pci.PciConfigState[i]}
+//            0 <= i && i < 65536 && i != $id &&
+//          (forall addr:int, j:int::{old($pciMem[addr]),TV(j)} TV(j) && 0 <= j
+//            && addr == ?pciLo + 16*j && addr <= ?pciHi - 16 
+//            ==> old($pciMem[addr]) != i)
+//           ==> io._pci.PciConfigState[i] == 0);
+//  
+//    assert(forall i:int, addr:int, j:int::{io._pci.PciConfigState[i],TV(j),$pciMem[addr]}
+//            TV(j) && 0 <= j &&
+//            0 <= i && i < 65536 && i != $id 
+//            && addr == ?pciLo + 16*j && addr <= ?pciHi - 16 && addr != ebx
+//            ==>
+//            (old($pciMem[addr]) == i ==> $pciMem[addr] == i) 
+//           );
+
+//    assert(forall i:int, addr:int, j:int::{TV(i),TV(j),$pciMem[addr]}
+//            IsValidOtherId(i, $id) &&
+//            InTableAt(i, j, old($pciMem), ebx) ==> InTableAt(i, j, $pciMem, ebx)
+//
+//            && TV(j) && 0 <= j 
+//            && addr == ?pciLo + 16*j && addr <= ?pciHi - 16 && addr != ebx
+//            ==>
+//            (old($pciMem[addr]) == i ==> $pciMem[addr] == i) 
+//           );
+
+//    assert(forall i:int, addr:int, j:int::{TV(i),TV(j),$pciMem[addr]}
+//            0 <= i && i < 65536 && i != $id 
+//            && TV(j) && 0 <= j 
+//            && addr == ?pciLo + 16*j && addr <= ?pciHi - 16 && addr != ebx
+//            ==>
+//            (old($pciMem[addr]) == i ==> $pciMem[addr] == i) 
+//           );
+//
+//    assert(forall i:int::
+//            0 <= i && i < 65536 && i != $id && TV(i) ==> 
+//          (forall addr:int, j:int:: TV(i) && TV(j) && 0 <= j
+//            && addr == ?pciLo + 16*j && addr <= ?pciHi - 16 && addr != ebx
+//            ==>
+//            (old($pciMem[addr]) == i ==> $pciMem[addr] == i) 
+//           ));
+//
+    assert(forall i:int::{io._pci.PciConfigState[i]}
+            0 <= i && i < 65536 && i != $id ==>
+          (forall addr:int, j:int::TV(j) && 0 <= j
+            && addr == ?pciLo + 16*j && addr <= ?pciHi - 16 && addr != ebx
+            ==>
+            (old($pciMem[addr]) == i ==> $pciMem[addr] == i) 
+           ));
+
+//    assert(forall i:int::{io._pci.PciConfigState[i]}
+//            0 <= i && i < 65536 && i != $id ==>
+//            (exists addr:int, j:int::TV(j) && TO(j) && 0 <= j
+//              && addr == ?pciLo + 16*j && addr <= ?pciHi - 16  && addr != ebx
+//              ==> (old($pciMem[addr]) == i) ==> $pciMem[addr] == i));
+//
+//    assert(forall i:int::{io._pci.PciConfigState[i]}
+//            0 <= i && i < 65536 && i != $id &&
+//          (exists addr:int, j:int::TV(j) && TO(j) && 0 <= j
+//            && addr == ?pciLo + 16*j && addr <= ?pciHi - 16  && addr != ebx
+//            && old($pciMem[addr]) == i)
+//          ==>
+//          (exists addr:int, j:int::{TO(j),$pciMem[addr]} TV(j) && 0 <= j
+//            && addr == ?pciLo + 16*j && addr <= ?pciHi - 16  && addr != ebx
+//            && $pciMem[addr] == i) );
+//
+//    assert(forall i:int::{io._pci.PciConfigState[i]}
+//            0 <= i && i < 65536 && i != $id &&
+//          (exists addr:int, j:int::TV(j) && TO(j) && 0 <= j
+//            && addr == ?pciLo + 16*j && addr <= ?pciHi - 16
+//            && old($pciMem[addr]) == i)
+//          ==>
+//          (exists addr:int, j:int::{TO(j),$pciMem[addr]} TV(j) && 0 <= j
+//            && addr == ?pciLo + 16*j && addr <= ?pciHi - 16
+//            && $pciMem[addr] == i) );
+
+//    assert(forall i:int::{io._pci.PciConfigState[i]}
+//            0 <= i && i < 65536 && i != $id &&
+//          (forall addr:int, j:int::{$pciMem[addr],TV(j)} TV(j) && 0 <= j
+//            && addr == ?pciLo + 16*j && addr <= ?pciHi - 16 
+//            ==> $pciMem[addr] != i)
+//           ==> io._pci.PciConfigState[i] == 0);
+//
+//    assert(forall i:int::{io._pci.PciConfigState[i]}
+//            0 <= i && i < 65536 && 
+//          (forall addr:int, j:int::{$pciMem[addr],TV(j)} TV(j) && 0 <= j
+//            && addr == ?pciLo + 16*j && addr <= ?pciHi - 16 
+//            ==> $pciMem[addr] != i)
+//           ==> io._pci.PciConfigState[i] == 0);
+//
+//
+//    assert IoInv_Transparent($IoVars, $pciMem);
+//    assert &&& &&& &&& NucleusInv(objLayouts, $S, $toAbs, $absMem, GcVars, $Mem_Vars, $stacksFrames, $IoVars);
+    eax := sizeBits;
+    ebx := bar;
+  }
+}
+
+//implementation PciDmaBuffer()
+//{
+//  call revealInv1($S, $StackState);
+//  call reveal_IoInv();
+//  eax := DmaAddr;
+//  if (eax != 0)
+//  {
+//    eax := eax - 8;
+//  }
+//  return;
+//}
+//
+//implementation PciDmaPhysicalAddr()
+//{
+//  call revealInv1($S, $StackState);
+//  call reveal_IoInv();
+//  eax := DmaAddr;
+//  return;
+//}
+//
+//implementation PciMemRead32($id:int, $offset:int)
+//{
+//  call revealInv1($S, $StackState);
+//  call reveal_IoInv();
+//  call fLoad($S, esp);  // tie mem into fmem
+//  assert TV($id) && TV(?pciLo) && TO(2 * ecx) && TO(2 * ecx + 1);
+//
+//  eax := DmaAddr;
+//  if (eax == 0)
+//  {
+//    // IO-MMU not enabled
+//    eax := 0x5555002a;
+//    call debugBreak();
+//  }
+//
+//  if (ecx >= 65536)
+//  {
+//    eax := 0x55550027;
+//    call debugBreak();
+//  }
+//
+//  ebx := PciLo;
+//  call esi := Load(mems.pci, ebx + 8 * ecx);
+//  if (esi == 0)
+//  {
+//    // $id not yet set up by PciMemSetup
+//    eax := 0x55550028;
+//    call debugBreak();
+//  }
+//
+//  call edi := Load(mems.pci, ebx + 8 * ecx + 4);
+//
+//  eax := edx;
+//  call eax := AddChecked(eax, 4);
+//  if (eax > edi)
+//  {
+//    // $offset out of bounds
+//    eax := 0x55550029;
+//    call debugBreak();
+//  }
+//
+//  call eax := PciMemLoad32($id, esi + 1 * edx);
+//
+//  call fLoad($S, esp);  // tie fmem back to mem
+//  return;
+//}
+//
+//implementation PciMemWrite32($id:int, $offset:int, $val:int)
+//{
+//  call revealInv1($S, $StackState);
+//  call reveal_IoInv();
+//  call fLoad($S, esp);  // tie mem to fmem
+//  assert TV($id) && TV(?pciLo) && TO(2 * ecx) && TO(2 * ecx + 1);
+//
+//  assert TO(1) && TV(esp);
+//  call eax := Load(mems.frm/*[$S]*/, esp + 4);
+//
+//  eax := DmaAddr;
+//  if (eax == 0)
+//  {
+//    // IO-MMU not enabled
+//    eax := 0x5555002b;
+//    call debugBreak();
+//  }
+//
+//  if (ecx >= 65536)
+//  {
+//    eax := 0x5555002c;
+//    call debugBreak();
+//  }
+//
+//  ebx := PciLo;
+//  call esi := Load(mems.pci, ebx + 8 * ecx);
+//  if (esi == 0)
+//  {
+//    // $id not yet set up by PciMemSetup
+//    eax := 0x5555002d;
+//    call debugBreak();
+//  }
+//
+//  call edi := Load(mems.pci, ebx + 8 * ecx + 4);
+//
+//  eax := edx;
+//  call eax := AddChecked(eax, 4);
+//  if (eax > edi)
+//  {
+//    // $offset out of bounds
+//    eax := 0x5555002e;
+//    call debugBreak();
+//  }
+//
+//  call eax := Load(mems.frm/*[$S]*/, esp + 4);
+//  call PciMemStore32($id, esi + 1 * edx, eax);
+//
+//  call fLoad($S, esp);  // tie fmem back to mem
+//  return;
+//}
+
+
+
+}

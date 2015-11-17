@@ -1,0 +1,63 @@
+//-private-import BaseSpec;
+//-private-import MemorySpec;
+//-<NuBuild AddBoogieAxiom BitVector_axioms />
+//-<NuBuild AddBoogieAxiom Word_axioms />
+//-<NuBuild AddBoogieAxiom IntSpec_axioms />
+//-<NuBuild AddBoogieFlag /restartProver />
+//-<NuBuild AddBoogieFlag /proverOpt:OPTIMIZE_FOR_BV=true />
+//-
+//- Copyright (c) Microsoft Corporation.  All rights reserved.
+//-
+
+module implementation BitVectorLemmasBase
+{
+
+implementation _const_base() {} 
+
+implementation _shl_1_ge_1() {}
+
+implementation _alignment_is_mod4_lemma() {}
+
+implementation _alignment_4k_is_mod4096_lemma() {}
+
+implementation _alignment_dominance_lemma($ptr:bv32) {}
+
+implementation _lower_bits_dont_matter_lemma($ptr:bv32, $bitPos:bv32) {}
+
+implementation _get_set_lemma() {}
+
+implementation _clear_LSBs_lemma() {}
+
+implementation _upper_bits_clear_ubound_lemma() {}
+
+implementation _upper_bits_clear_lbound_lemma() {}
+
+implementation _clear_less_than_equal_lemma() {}
+
+implementation _clear_12_lemma() {}
+
+implementation _clear_select_consistent_lemma() {}
+
+implementation _select_non_negative_lemma() {}
+
+implementation _select_preserves_word_lemma() {}
+
+implementation _and_bounds() {}
+
+implementation _shr_decreases() {}
+
+implementation _shr_preserves_word_lemma() {}
+
+implementation _or_with_3_lemma() {}
+
+implementation _or_with_7_lemma() {}
+
+implementation _or_with_pow2_31_lemma() {}
+
+implementation _pointer_pieces_lemma() {}
+
+implementation _ptr_offsets_lemma() {}
+
+implementation _ptr_reconstruction_lemma() {}
+
+}

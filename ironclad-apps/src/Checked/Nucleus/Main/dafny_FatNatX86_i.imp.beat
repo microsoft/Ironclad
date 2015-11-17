@@ -1,0 +1,1515 @@
+    //-private-import BaseSpec;
+    //-private-import MemorySpec;
+    //-private-import IoTypesSpec;
+    //-private-import MachineStateSpec;
+    //-private-import AssemblySpec;
+    //-private-import InterruptsSpec;
+    //-private-import IoSpec;
+    //-private-import Overflow;
+    //-private-import Core;
+    //-private-import LogicalAddressing;
+    //-private-import Util;
+    //-private-import Stacks;
+    //-private-import Partition;
+    //-private-import Instructions;
+    //-private-import Separation;
+    //-private-import IntLemmasGc;
+    //-private-import SimpleGcMemory;
+    //-private-import SimpleCommon;
+    //-private-import SimpleCollector;
+    //-private-import IntLemmasMain;
+    //-private-import IntLemmasBase;
+    //-private-import IoMain;
+    //-private-basmonly-import Trusted;
+    //-private-basmonly-import Checked;
+    //-private-import Heap;
+    //-private-import Seq;
+    //-private-import dafny_DafnyPrelude;
+    //-private-import DafnyAssembly;
+    //-private-import dafny_base_s;
+    //-private-import dafny_power2_s;
+    //-private-import dafny_bytes_and_words_s;
+    //-private-import dafny_be_sequences_s;
+    //-private-import dafny_integer_sequences_s;
+    //-private-import dafny_seqs_simple_i;
+    //-private-import dafny_power_s;
+    //-private-import dafny_mul_nonlinear_i;
+    //-private-import dafny_mul_i;
+    //-private-import dafny_power_i;
+    //-private-import dafny_div_def_i;
+    //-private-import dafny_div_boogie_i;
+    //-private-import dafny_div_nonlinear_i;
+    //-private-import dafny_div_i;
+    //-private-import dafny_repeat_digit_i;
+    //-private-import dafny_assembly_s;
+    //-private-import dafny_power2_i;
+    //-private-import dafny_seqs_and_ints_i;
+    //-private-import dafny_seqs_common_i;
+    //-private-import dafny_Word32_i;
+    //-private-import dafny_relational_s;
+    //-private-import dafny_assembly_i;
+    //-private-import dafny_arrays_i;
+    //-private-import dafny_seqs_transforms_i;
+    //-private-import dafny_seqs_reverse_i;
+    //-private-import dafny_integer_sequences_i;
+    //-private-import dafny_integer_sequences_premium_i;
+    //-private-import dafny_assembly_premium_i;
+    //-private-import dafny_BigNatX86Shim_i;
+    //-private-import dafny_seqs_canonical_i;
+    //-private-import dafny_CanonicalArrays_i;
+    //-private-import dafny_FatNatCommon_i;
+//-<NuBuild AddBoogieAxiom Base_axioms />
+//-<NuBuild AddBoogieAxiom Word_axioms />
+//-<NuBuild AddBoogieAxiom Memory_axioms />
+//-<NuBuild AddBoogieAxiom Assembly_axioms />
+//-<NuBuild AddBoogieAxiom Io_axioms />
+
+module implementation dafny_FatNatX86_i
+{
+
+procedure arrayAdd(my r_old:regs, const my core_state:core_state, linear stk_old:mem, linear statics_old:mem, linear io_old:IOState, linear mems_old:mems, $commonVars_old:commonVars, $gcVars_old:gcVars, $toAbs_old:[int]int, $absMem_old:[int][int]int, $stacksFrames_old:[int]Frames, objLayouts_old:[int]ObjLayout, heap_old:Heap, $ghost_a:ArrayOfInt, $ghost_b:ArrayOfInt, $ghost_s:ArrayOfInt, a_opn:opn_mem, $ghost_a__abs:int, a_base:int, a_offset:int, b_opn:opn_mem, $ghost_b__abs:int, b_base:int, b_offset:int, s_opn:opn_mem, $ghost_s__abs:int, s_base:int, s_offset:int, $ghost_si:int, index_offset:int, old_carries:Seq___int, old_carry:int) returns(my r:regs, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems, $commonVars:commonVars, $gcVars:gcVars, $toAbs:[int]int, $absMem:[int][int]int, $stacksFrames:[int]Frames, objLayouts:[int]ObjLayout, heap:Heap, new_carry:int, new_carries:Seq___int)
+    requires MemInv(me,init,stk_old,statics_old,core_state,ptMem,mems_old);
+    requires NucleusInv(objLayouts_old,$S,$toAbs_old,$absMem_old,$commonVars_old,$gcVars_old,me,init,stk_old,statics_old,core_state,ptMem,mems_old,$stacksFrames_old,io_old);
+    requires HeapInv($absMem_old, objLayouts_old, heap_old);
+    requires $ghost_a != (ArrayOfInt(0 - 1, NO_ABS));
+    requires fun_IsWordSeq(fun_Seq__FromArray($absMem_old, $ghost_a));
+    requires $ghost_b != (ArrayOfInt(0 - 1, NO_ABS));
+    requires fun_IsWordSeq(fun_Seq__FromArray($absMem_old, $ghost_b));
+    requires $ghost_s != (ArrayOfInt(0 - 1, NO_ABS));
+    requires $ghost_b != $ghost_s;
+    requires $ghost_a != $ghost_s;
+    requires $ghost_a__abs != $ghost_s__abs;
+    requires $ghost_b__abs != $ghost_s__abs;
+
+    requires s_offset == Arr_Length($ghost_s) - 1 - $ghost_si + index_offset;
+
+    requires old_carry == if (Cf(r_old.efl)) then 1 else 0;
+
+    requires $ghost_a.arrAbs == $ghost_a__abs;
+    requires HeapAbsData(heap_old, $ghost_a__abs) is Abs_ArrayOfInt;
+    requires 0 <= a_offset && a_offset < HeapAbsData(heap_old, $ghost_a__abs).arr.arrCount;
+    requires HeapValue(objLayouts_old, true, $toAbs_old, a_base, $ghost_a__abs);
+    requires EvalPtrOk(a_opn);
+    requires EvalPtr(r_old, a_opn) == a_base + 4 * (2 + a_offset);
+    requires a_opn._ptr is MReg && a_opn._ptr._mreg == EAX;
+
+    requires $ghost_b.arrAbs == $ghost_b__abs;
+    requires HeapAbsData(heap_old, $ghost_b__abs) is Abs_ArrayOfInt;
+    requires 0 <= b_offset && b_offset < HeapAbsData(heap_old, $ghost_b__abs).arr.arrCount;
+    requires HeapValue(objLayouts_old, true, $toAbs_old, b_base, $ghost_b__abs);
+    requires EvalPtrOk(b_opn);
+    requires EvalPtr(r_old, b_opn) == b_base + 4 * (2 + b_offset);
+    requires b_opn._ptr is MReg && b_opn._ptr._mreg == EBX;
+
+    requires $ghost_s.arrAbs == $ghost_s__abs;
+    requires HeapAbsData(heap_old, $ghost_s__abs) is Abs_ArrayOfInt;
+    requires 0 <= s_offset && s_offset < HeapAbsData(heap_old, $ghost_s__abs).arr.arrCount;
+    requires HeapValue(objLayouts_old, true, $toAbs_old, s_base, $ghost_s__abs);
+    requires EvalPtrOk(s_opn);
+    requires EvalPtr(r_old, s_opn) == s_base + 4 * (2 + s_offset);
+    requires s_opn._ptr is MReg && s_opn._ptr._mreg == ECX;
+
+    modifies $Time;
+    ensures  stk == stk_old;
+    ensures  $stacksFrames == $stacksFrames_old;
+    ensures (forall i:int::{$stacksFrames[$S].Abss[i]} i != EvalPtr(r_old, s_opn) ==> $stacksFrames[$S].Abss[i] == $stacksFrames_old[$S].Abss[i]);
+
+    ensures  MemInv(me,init,stk,statics,core_state,ptMem,mems);
+    ensures  NucleusInv(objLayouts,$S,$toAbs,$absMem,$commonVars,$gcVars,me,init,stk,statics,core_state,ptMem,mems,$stacksFrames,io);
+    ensures  HeapInv($absMem, objLayouts, heap);
+    ensures  AbsExtend($toAbs, $toAbs_old, objLayouts, objLayouts_old);
+    ensures  (forall i:int::{$absMem[i]}{heap.absData[i]} heap_old.absData[i] is AbsNone || (heap.absData[i] == heap_old.absData[i] && ($absMem[i] == $absMem_old[i] || i == (($ghost_s).arrAbs))));
+    ensures  io._inCtr == io_old._inCtr && io._outCtr == io_old._outCtr;
+    //- Only havocs edi, ebp
+    ensures r.regs[EAX] == r_old.regs[EAX];
+    ensures r.regs[EBX] == r_old.regs[EBX];
+    ensures r.regs[ECX] == r_old.regs[ECX];
+    ensures r.regs[EDX] == r_old.regs[EDX];
+    ensures r.regs[ESI] == r_old.regs[ESI];
+    ensures r.regs[ESP] == r_old.regs[ESP];
+
+    ensures HeapValue(objLayouts, true, $toAbs, a_base, $ghost_a__abs);
+    ensures HeapValue(objLayouts, true, $toAbs, b_base, $ghost_b__abs);
+    ensures HeapValue(objLayouts, true, $toAbs, s_base, $ghost_s__abs);
+
+    ensures new_carry == if (Cf(r.efl)) then 1 else 0;
+    ensures new_carry == if ((fun_INTERNAL__array__elems__index($absMem[$ghost_a__abs], a_offset) + fun_INTERNAL__array__elems__index($absMem[$ghost_b__abs], b_offset) + old_carry) >= WORD_HI) then 1 else 0;
+    ensures fun_INTERNAL__array__elems__index($absMem[$ghost_s__abs], s_offset) == fun_mod0x100000000(fun_INTERNAL__array__elems__index($absMem[$ghost_a__abs], a_offset) + fun_INTERNAL__array__elems__index($absMem[$ghost_b__abs], b_offset) + old_carry);
+
+    //- Arrays A and B are unmodified
+    ensures  (forall j:int :: { fun_INTERNAL__array__elems__index($absMem[$ghost_a.arrAbs], j) } (((INTERNAL_le_boogie(0, j)) && (INTERNAL_lt_boogie(j, (Arr_Length($ghost_a)))))) ==> ((fun_INTERNAL__array__elems__index($absMem[$ghost_a.arrAbs], j)) == (old(fun_INTERNAL__array__elems__index($absMem_old[$ghost_a.arrAbs], j)))));
+    ensures  (forall j:int :: { fun_INTERNAL__array__elems__index($absMem[$ghost_b.arrAbs], j) } (((INTERNAL_le_boogie(0, j)) && (INTERNAL_lt_boogie(j, (Arr_Length($ghost_b)))))) ==> ((fun_INTERNAL__array__elems__index($absMem[$ghost_b.arrAbs], j)) == (old(fun_INTERNAL__array__elems__index($absMem_old[$ghost_b.arrAbs], j)))));
+
+    //- Array S is unmodified except for the one entry we touch
+    ensures  (forall j:int :: { fun_INTERNAL__array__elems__index($absMem[$ghost_s.arrAbs], j) } (((INTERNAL_le_boogie(0, j)) && (INTERNAL_lt_boogie(j, (Arr_Length($ghost_s))))) && j != s_offset) ==> ((fun_INTERNAL__array__elems__index($absMem[$ghost_s.arrAbs], j)) == (old(fun_INTERNAL__array__elems__index($absMem_old[$ghost_s.arrAbs], j)))));
+
+    ensures fun_Seq__Length___int(new_carries) == fun_Seq__Length___int(old_carries) + 1;
+    ensures (forall i:int :: 0 <= i && i < fun_Seq__Length___int(old_carries) ==> fun_Seq__Index___int(new_carries, i) == fun_Seq__Index___int(old_carries, i));
+    ensures fun_Seq__Index___int(new_carries, fun_Seq__Length___int(new_carries) - 1) == new_carry;
+{
+    //- Boilerplate variable propagation
+    r := r_old;
+    stk := stk_old;
+    statics := statics_old;
+    io := io_old;
+    mems := mems_old;
+    $commonVars := $commonVars_old;
+    $gcVars := $gcVars_old;
+    $toAbs := $toAbs_old;
+    $absMem := $absMem_old;
+    $stacksFrames := $stacksFrames_old;
+    objLayouts := objLayouts_old;
+    heap := heap_old;
+
+    //- Teach Beat about Dafny sequence operations
+    call proc_Seq__Empty__ToZero___int();
+    call proc_Seq__Empty__FromZero___int();
+    call proc_Seq__Singleton__Length___int();
+    call proc_Seq__Build__Length___int();
+    call proc_Seq__Build__Index___int();
+    call proc_Seq__Append__Length___int();
+    call proc_Seq__Index__Singleton___int();
+    call proc_Seq__Append__Index___int();
+    call proc_Seq__Update__Length___int();
+    call proc_Seq__Index__Update___int();
+    call proc_Seq__Equal__Equiv___int();
+    call proc_Seq__Take__Length___int();
+    call proc_Seq__Take__Index___int();
+    call proc_Seq__Drop__Length___int();
+    call proc_Seq__Drop__Index___int();
+    call proc_Seq__Append__TakeDrop___int();
+    call proc_Seq__Update__CommuteTake1___int();
+    call proc_Seq__Update__CommuteTake2___int();
+    call proc_Seq__Update__CommuteDrop1___int();
+    call proc_Seq__Update__CommuteDrop2___int();
+    call proc_Seq__Build__CommuteDrop___int();
+    call proc_Seq__Take__Empty___int();
+    call proc_Seq__Drop__Empty___int();
+
+    call proc_lemma__2toX();
+
+    call r, mems := loadArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, EDI, a_opn, a_offset, $ghost_a__abs, a_base);  //- edi <- a[aii+1]
+    call r, mems := loadArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, EBP, b_opn, b_offset, $ghost_b__abs, b_base);  //- ebp <- b[bii+1]
+
+    var old_edi:int := edi;
+    var next_efl:int := r.efl;
+    call edi := AddCarry(edi, ebp);     //- edi == a[aii+index_offset] + b[bii+index_offset] + carry
+    call reveal_wrap32(old_edi + ebp + old_carry);
+    new_carry := if (old_edi + ebp + old_carry >= WORD_HI) then 1 else 0;
+    new_carries := fun_Seq__Append___int(old_carries, fun_Seq__Build___int(fun_Seq__Empty___int(), new_carry));
+
+    //- Write the result in edi back to s[sii+index_offset]
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, s_opn, OReg(EDI), s_offset, edi, $ghost_s__abs, s_base);
+
+    call reveal_wrap32(fun_INTERNAL__array__elems__index($absMem[$ghost_a__abs], a_offset) + fun_INTERNAL__array__elems__index($absMem[$ghost_b__abs], b_offset) + old_carry);
+    call reveal_WORD_HI();
+}
+
+
+
+procedure arrayAdd4(my r_old:regs, const my core_state:core_state, linear stk_old:mem, linear statics_old:mem, linear io_old:IOState, linear mems_old:mems, $commonVars_old:commonVars, $gcVars_old:gcVars, $toAbs_old:[int]int, $absMem_old:[int][int]int, $stacksFrames_old:[int]Frames, objLayouts_old:[int]ObjLayout, heap_old:Heap, $ghost_a:ArrayOfInt, $ghost_b:ArrayOfInt, $ghost_s:ArrayOfInt, a_opn1:opn_mem, a_opn2:opn_mem, a_opn3:opn_mem, a_opn4:opn_mem,$ghost_a__abs:int, a_base:int, a_offset1:int, a_offset2:int, a_offset3:int, a_offset4:int, b_opn1:opn_mem, b_opn2:opn_mem, b_opn3:opn_mem, b_opn4:opn_mem, $ghost_b__abs:int, b_base:int, b_offset1:int, b_offset2:int, b_offset3:int, b_offset4:int, s_opn1:opn_mem, s_opn2:opn_mem, s_opn3:opn_mem, s_opn4:opn_mem, $ghost_s__abs:int, s_base:int, s_offset1:int, s_offset2:int, s_offset3:int, s_offset4:int, $ghost_si:int, index_offset1:int, index_offset2:int, index_offset3:int, index_offset4:int, old_carries:Seq___int, old_carry:int) returns(my r:regs, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems, $commonVars:commonVars, $gcVars:gcVars, $toAbs:[int]int, $absMem:[int][int]int, $stacksFrames:[int]Frames, objLayouts:[int]ObjLayout, heap:Heap, new_carry:int, new_carries:Seq___int)
+    requires MemInv(me,init,stk_old,statics_old,core_state,ptMem,mems_old);
+    requires NucleusInv(objLayouts_old,$S,$toAbs_old,$absMem_old,$commonVars_old,$gcVars_old,me,init,stk_old,statics_old,core_state,ptMem,mems_old,$stacksFrames_old,io_old);
+    requires HeapInv($absMem_old, objLayouts_old, heap_old);
+    requires $ghost_a != (ArrayOfInt(0 - 1, NO_ABS));
+    requires fun_IsWordSeq(fun_Seq__FromArray($absMem_old, $ghost_a));
+    requires $ghost_b != (ArrayOfInt(0 - 1, NO_ABS));
+    requires fun_IsWordSeq(fun_Seq__FromArray($absMem_old, $ghost_b));
+    requires $ghost_s != (ArrayOfInt(0 - 1, NO_ABS));
+    requires $ghost_b != $ghost_s;
+    requires $ghost_a != $ghost_s;
+    requires $ghost_a__abs != $ghost_s__abs;
+    requires $ghost_b__abs != $ghost_s__abs;
+
+    requires s_offset1 == Arr_Length($ghost_s) - 1 - $ghost_si + index_offset1;
+    requires s_offset2 == Arr_Length($ghost_s) - 1 - $ghost_si + index_offset2;
+    requires s_offset3 == Arr_Length($ghost_s) - 1 - $ghost_si + index_offset3;
+    requires s_offset4 == Arr_Length($ghost_s) - 1 - $ghost_si + index_offset4;
+
+    requires old_carry == if (Cf(r_old.efl)) then 1 else 0;
+
+    requires $ghost_a.arrAbs == $ghost_a__abs;
+    requires HeapAbsData(heap_old, $ghost_a__abs) is Abs_ArrayOfInt;
+    requires 0 <= a_offset1 && a_offset1 < HeapAbsData(heap_old, $ghost_a__abs).arr.arrCount;
+    requires 0 <= a_offset2 && a_offset2 < HeapAbsData(heap_old, $ghost_a__abs).arr.arrCount;
+    requires 0 <= a_offset3 && a_offset3 < HeapAbsData(heap_old, $ghost_a__abs).arr.arrCount;
+    requires 0 <= a_offset4 && a_offset4 < HeapAbsData(heap_old, $ghost_a__abs).arr.arrCount;
+    requires HeapValue(objLayouts_old, true, $toAbs_old, a_base, $ghost_a__abs);
+    requires EvalPtrOk(a_opn1);
+    requires EvalPtrOk(a_opn2);
+    requires EvalPtrOk(a_opn3);
+    requires EvalPtrOk(a_opn4);
+    requires EvalPtr(r_old, a_opn1) == a_base + 4 * (2 + a_offset1);
+    requires EvalPtr(r_old, a_opn2) == a_base + 4 * (2 + a_offset2);
+    requires EvalPtr(r_old, a_opn3) == a_base + 4 * (2 + a_offset3);
+    requires EvalPtr(r_old, a_opn4) == a_base + 4 * (2 + a_offset4);
+    requires a_offset1 == a_offset2 + 1 && a_offset2 == a_offset3 + 1 && a_offset3 == a_offset4 + 1;
+    requires a_opn1._ptr is MReg && a_opn1._ptr._mreg == EAX;
+    requires a_opn2._ptr is MReg && a_opn2._ptr._mreg == EAX;
+    requires a_opn3._ptr is MReg && a_opn3._ptr._mreg == EAX;
+    requires a_opn4._ptr is MReg && a_opn4._ptr._mreg == EAX;
+
+    requires $ghost_b.arrAbs == $ghost_b__abs;
+    requires HeapAbsData(heap_old, $ghost_b__abs) is Abs_ArrayOfInt;
+    requires 0 <= b_offset1 && b_offset1 < HeapAbsData(heap_old, $ghost_b__abs).arr.arrCount;
+    requires 0 <= b_offset2 && b_offset2 < HeapAbsData(heap_old, $ghost_b__abs).arr.arrCount;
+    requires 0 <= b_offset3 && b_offset3 < HeapAbsData(heap_old, $ghost_b__abs).arr.arrCount;
+    requires 0 <= b_offset4 && b_offset4 < HeapAbsData(heap_old, $ghost_b__abs).arr.arrCount;
+    requires HeapValue(objLayouts_old, true, $toAbs_old, b_base, $ghost_b__abs);
+    requires EvalPtrOk(b_opn1);
+    requires EvalPtrOk(b_opn2);
+    requires EvalPtrOk(b_opn3);
+    requires EvalPtrOk(b_opn4);
+    requires EvalPtr(r_old, b_opn1) == b_base + 4 * (2 + b_offset1);
+    requires EvalPtr(r_old, b_opn2) == b_base + 4 * (2 + b_offset2);
+    requires EvalPtr(r_old, b_opn3) == b_base + 4 * (2 + b_offset3);
+    requires EvalPtr(r_old, b_opn4) == b_base + 4 * (2 + b_offset4);
+    requires b_offset1 == b_offset2 + 1 && b_offset2 == b_offset3 + 1 && b_offset3 == b_offset4 + 1;
+    requires b_opn1._ptr is MReg && b_opn1._ptr._mreg == EBX;
+    requires b_opn2._ptr is MReg && b_opn2._ptr._mreg == EBX;
+    requires b_opn3._ptr is MReg && b_opn3._ptr._mreg == EBX;
+    requires b_opn4._ptr is MReg && b_opn4._ptr._mreg == EBX;
+
+    requires $ghost_s.arrAbs == $ghost_s__abs;
+    requires HeapAbsData(heap_old, $ghost_s__abs) is Abs_ArrayOfInt;
+    requires 0 <= s_offset1 && s_offset1 < HeapAbsData(heap_old, $ghost_s__abs).arr.arrCount;
+    requires 0 <= s_offset2 && s_offset2 < HeapAbsData(heap_old, $ghost_s__abs).arr.arrCount;
+    requires 0 <= s_offset3 && s_offset3 < HeapAbsData(heap_old, $ghost_s__abs).arr.arrCount;
+    requires 0 <= s_offset4 && s_offset4 < HeapAbsData(heap_old, $ghost_s__abs).arr.arrCount;
+
+    requires INTERNAL_lt_boogie(s_offset1, (Arr_Length($ghost_s)));
+    requires INTERNAL_lt_boogie(s_offset2, (Arr_Length($ghost_s)));
+    requires INTERNAL_lt_boogie(s_offset3, (Arr_Length($ghost_s)));
+    requires INTERNAL_lt_boogie(s_offset4, (Arr_Length($ghost_s)));
+
+    requires HeapValue(objLayouts_old, true, $toAbs_old, s_base, $ghost_s__abs);
+
+    requires EvalPtrOk(s_opn1);
+    requires EvalPtrOk(s_opn2);
+    requires EvalPtrOk(s_opn3);
+    requires EvalPtrOk(s_opn4);
+    requires EvalPtr(r_old, s_opn1) == s_base + 4 * (2 + s_offset1);
+    requires EvalPtr(r_old, s_opn2) == s_base + 4 * (2 + s_offset2);
+    requires EvalPtr(r_old, s_opn3) == s_base + 4 * (2 + s_offset3);
+    requires EvalPtr(r_old, s_opn4) == s_base + 4 * (2 + s_offset4);
+    requires s_offset1 == s_offset2 + 1 && s_offset2 == s_offset3 + 1 && s_offset3 == s_offset4 + 1;
+    requires s_opn1._ptr is MReg && s_opn1._ptr._mreg == ECX;
+    requires s_opn2._ptr is MReg && s_opn2._ptr._mreg == ECX;
+    requires s_opn3._ptr is MReg && s_opn3._ptr._mreg == ECX;
+    requires s_opn4._ptr is MReg && s_opn4._ptr._mreg == ECX;
+
+    requires fun_Seq__Length___int(old_carries) > 0;
+    requires fun_Seq__Index___int(old_carries, fun_Seq__Length___int(old_carries) - 1) == old_carry;
+
+    modifies $Time;
+    ensures  stk == stk_old;
+    ensures  $stacksFrames == $stacksFrames_old;
+    ensures (forall i:int::{$stacksFrames[$S].Abss[i]} i != EvalPtr(r_old, s_opn1) && i != EvalPtr(r_old, s_opn2) && i != EvalPtr(r_old, s_opn3) && i != EvalPtr(r_old, s_opn4) ==> $stacksFrames[$S].Abss[i] == $stacksFrames_old[$S].Abss[i]);
+
+    ensures  MemInv(me,init,stk,statics,core_state,ptMem,mems);
+    ensures  NucleusInv(objLayouts,$S,$toAbs,$absMem,$commonVars,$gcVars,me,init,stk,statics,core_state,ptMem,mems,$stacksFrames,io);
+    ensures  HeapInv($absMem, objLayouts, heap);
+    ensures  AbsExtend($toAbs, $toAbs_old, objLayouts, objLayouts_old);
+    ensures  (forall i:int::{$absMem[i]}{heap.absData[i]} heap_old.absData[i] is AbsNone || (heap.absData[i] == heap_old.absData[i] && ($absMem[i] == $absMem_old[i] || i == (($ghost_s).arrAbs))));
+    ensures  io._inCtr == io_old._inCtr && io._outCtr == io_old._outCtr;
+    //- Only havocs edi, ebp
+    ensures r.regs[EAX] == r_old.regs[EAX];
+    ensures r.regs[EBX] == r_old.regs[EBX];
+    ensures r.regs[ECX] == r_old.regs[ECX];
+    ensures r.regs[EDX] == r_old.regs[EDX];
+    ensures r.regs[ESI] == r_old.regs[ESI];
+    ensures r.regs[ESP] == r_old.regs[ESP];
+
+    ensures HeapValue(objLayouts, true, $toAbs, a_base, $ghost_a__abs);
+    ensures HeapValue(objLayouts, true, $toAbs, b_base, $ghost_b__abs);
+    ensures HeapValue(objLayouts, true, $toAbs, s_base, $ghost_s__abs);
+
+    ensures new_carry == if (Cf(r.efl)) then 1 else 0;
+    ensures new_carry == if ((fun_INTERNAL__array__elems__index($absMem[$ghost_a__abs], a_offset4) + fun_INTERNAL__array__elems__index($absMem[$ghost_b__abs], b_offset4) + fun_Seq__Index___int(new_carries, fun_Seq__Length___int(new_carries) - 2)) >= WORD_HI) then 1 else 0;
+    //if ((fun_INTERNAL__array__elems__index($absMem[$ghost_a__abs], a_offset4) + fun_INTERNAL__array__elems__index($absMem[$ghost_b__abs], b_offset4) + old_carry) >= WORD_HI) then 1 else 0;
+    ensures fun_INTERNAL__array__elems__index($absMem[$ghost_s__abs], s_offset1) == fun_mod0x100000000(fun_INTERNAL__array__elems__index($absMem[$ghost_a__abs], a_offset1) + fun_INTERNAL__array__elems__index($absMem[$ghost_b__abs], b_offset1) + old_carry);
+    ensures fun_INTERNAL__array__elems__index($absMem[$ghost_s__abs], s_offset2) == fun_mod0x100000000(fun_INTERNAL__array__elems__index($absMem[$ghost_a__abs], a_offset2) + fun_INTERNAL__array__elems__index($absMem[$ghost_b__abs], b_offset2) + fun_Seq__Index___int(new_carries, fun_Seq__Length___int(new_carries) - 4));
+    ensures fun_INTERNAL__array__elems__index($absMem[$ghost_s__abs], s_offset3) == fun_mod0x100000000(fun_INTERNAL__array__elems__index($absMem[$ghost_a__abs], a_offset3) + fun_INTERNAL__array__elems__index($absMem[$ghost_b__abs], b_offset3) + fun_Seq__Index___int(new_carries, fun_Seq__Length___int(new_carries) - 3));
+    ensures fun_INTERNAL__array__elems__index($absMem[$ghost_s__abs], s_offset4) == fun_mod0x100000000(fun_INTERNAL__array__elems__index($absMem[$ghost_a__abs], a_offset4) + fun_INTERNAL__array__elems__index($absMem[$ghost_b__abs], b_offset4) + fun_Seq__Index___int(new_carries, fun_Seq__Length___int(new_carries) - 2));
+
+    //- Arrays A and B are unmodified
+    ensures  (forall j:int :: { fun_INTERNAL__array__elems__index($absMem[$ghost_a.arrAbs], j) } (((INTERNAL_le_boogie(0, j)) && (INTERNAL_lt_boogie(j, (Arr_Length($ghost_a)))))) ==> ((fun_INTERNAL__array__elems__index($absMem[$ghost_a.arrAbs], j)) == (old(fun_INTERNAL__array__elems__index($absMem_old[$ghost_a.arrAbs], j)))));
+    ensures  (forall j:int :: { fun_INTERNAL__array__elems__index($absMem[$ghost_b.arrAbs], j) } (((INTERNAL_le_boogie(0, j)) && (INTERNAL_lt_boogie(j, (Arr_Length($ghost_b)))))) ==> ((fun_INTERNAL__array__elems__index($absMem[$ghost_b.arrAbs], j)) == (old(fun_INTERNAL__array__elems__index($absMem_old[$ghost_b.arrAbs], j)))));
+
+    //- Array S is unmodified except for the four entries we touch
+    ensures  (forall j:int :: { fun_INTERNAL__array__elems__index($absMem[$ghost_s.arrAbs], j) } (((INTERNAL_le_boogie(0, j)) && (INTERNAL_lt_boogie(j, (Arr_Length($ghost_s))))) && j != s_offset1 && j != s_offset2 && j != s_offset3 && j != s_offset4) ==> ((fun_INTERNAL__array__elems__index($absMem[$ghost_s.arrAbs], j)) == (old(fun_INTERNAL__array__elems__index($absMem_old[$ghost_s.arrAbs], j)))));
+
+    ensures fun_Seq__Length___int(new_carries) == fun_Seq__Length___int(old_carries) + 4;
+    ensures (forall i:int :: 0 <= i && i < fun_Seq__Length___int(old_carries) ==> fun_Seq__Index___int(new_carries, i) == fun_Seq__Index___int(old_carries, i));
+    ensures fun_Seq__Index___int(new_carries, fun_Seq__Length___int(new_carries) - 4) == if ((fun_INTERNAL__array__elems__index($absMem[$ghost_a__abs], a_offset1) + fun_INTERNAL__array__elems__index($absMem[$ghost_b__abs], b_offset1) + old_carry) >= WORD_HI) then 1 else 0;
+    ensures fun_Seq__Index___int(new_carries, fun_Seq__Length___int(new_carries) - 3) == if ((fun_INTERNAL__array__elems__index($absMem[$ghost_a__abs], a_offset2) + fun_INTERNAL__array__elems__index($absMem[$ghost_b__abs], b_offset2) + fun_Seq__Index___int(new_carries, fun_Seq__Length___int(new_carries) - 4)) >= WORD_HI) then 1 else 0;
+    ensures fun_Seq__Index___int(new_carries, fun_Seq__Length___int(new_carries) - 2) == if ((fun_INTERNAL__array__elems__index($absMem[$ghost_a__abs], a_offset3) + fun_INTERNAL__array__elems__index($absMem[$ghost_b__abs], b_offset3) + fun_Seq__Index___int(new_carries, fun_Seq__Length___int(new_carries) - 3)) >= WORD_HI) then 1 else 0;
+    ensures fun_Seq__Index___int(new_carries, fun_Seq__Length___int(new_carries) - 1) == new_carry;
+
+    ensures (forall i:int :: TV(i) && 1 <= i && i <= 4 ==> fun_Seq__Index___int(new_carries, fun_Seq__Length___int(new_carries) - i) == if ((fun_INTERNAL__array__elems__index($absMem[$ghost_a__abs], a_offset4 + i - 1) + fun_INTERNAL__array__elems__index($absMem[$ghost_b__abs], b_offset4 + i - 1) + fun_Seq__Index___int(new_carries, fun_Seq__Length___int(new_carries) - (i+1))) >= WORD_HI) then 1 else 0);
+{
+    var $ghost_carries:Seq___int;
+    var carry1:int;
+    var carry2:int;
+    var carry3:int;
+    //- Boilerplate variable propagation
+    r := r_old;
+    stk := stk_old;
+    statics := statics_old;
+    io := io_old;
+    mems := mems_old;
+    $commonVars := $commonVars_old;
+    $gcVars := $gcVars_old;
+    $toAbs := $toAbs_old;
+    $absMem := $absMem_old;
+    $stacksFrames := $stacksFrames_old;
+    objLayouts := objLayouts_old;
+    heap := heap_old;
+
+    //- Teach Beat about Dafny sequence operations
+    call proc_Seq__Empty__ToZero___int();
+    call proc_Seq__Empty__FromZero___int();
+    call proc_Seq__Singleton__Length___int();
+    call proc_Seq__Build__Length___int();
+    call proc_Seq__Build__Index___int();
+    call proc_Seq__Append__Length___int();
+    call proc_Seq__Index__Singleton___int();
+    call proc_Seq__Append__Index___int();
+    call proc_Seq__Update__Length___int();
+    call proc_Seq__Index__Update___int();
+    call proc_Seq__Equal__Equiv___int();
+    call proc_Seq__Take__Length___int();
+    call proc_Seq__Take__Index___int();
+    call proc_Seq__Drop__Length___int();
+    call proc_Seq__Drop__Index___int();
+    call proc_Seq__Append__TakeDrop___int();
+    call proc_Seq__Update__CommuteTake1___int();
+    call proc_Seq__Update__CommuteTake2___int();
+    call proc_Seq__Update__CommuteDrop1___int();
+    call proc_Seq__Update__CommuteDrop2___int();
+    call proc_Seq__Build__CommuteDrop___int();
+    call proc_Seq__Take__Empty___int();
+    call proc_Seq__Drop__Empty___int();
+
+    call proc_lemma__2toX();
+
+    $ghost_carries := old_carries;
+    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry1, $ghost_carries := 
+        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+                 $ghost_a, $ghost_b, $ghost_s, 
+                 a_opn1, $ghost_a__abs, a_base, a_offset1,
+                 b_opn1, $ghost_b__abs, b_base, b_offset1,
+                 s_opn1, $ghost_s__abs, s_base, s_offset1,
+                 $ghost_si, index_offset1, $ghost_carries, old_carry);
+
+    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry2, $ghost_carries := 
+        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+                 $ghost_a, $ghost_b, $ghost_s, 
+                 a_opn2, $ghost_a__abs, a_base, a_offset2,
+                 b_opn2, $ghost_b__abs, b_base, b_offset2,
+                 s_opn2, $ghost_s__abs, s_base, s_offset2,
+                 $ghost_si, index_offset2, $ghost_carries, carry1);
+
+    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry3, $ghost_carries := 
+        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+                 $ghost_a, $ghost_b, $ghost_s, 
+                 a_opn3, $ghost_a__abs, a_base, a_offset3,
+                 b_opn3, $ghost_b__abs, b_base, b_offset3,
+                 s_opn3, $ghost_s__abs, s_base, s_offset3,
+                 $ghost_si, index_offset3, $ghost_carries, carry2);
+    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, new_carry, $ghost_carries := 
+        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+                 $ghost_a, $ghost_b, $ghost_s, 
+                 a_opn4, $ghost_a__abs, a_base, a_offset4,
+                 b_opn4, $ghost_b__abs, b_base, b_offset4,
+                 s_opn4, $ghost_s__abs, s_base, s_offset4,
+                 $ghost_si, index_offset4, $ghost_carries, carry3);
+
+    new_carries := $ghost_carries;
+}
+
+implementation Proc_Add32__unrolled__8(my r_old:regs, const my core_state:core_state, linear stk_old:mem, linear statics_old:mem, linear io_old:IOState, linear mems_old:mems, $commonVars_old:commonVars, $gcVars_old:gcVars, $toAbs_old:[int]int, $absMem_old:[int][int]int, $stacksFrames_old:[int]Frames, objLayouts_old:[int]ObjLayout, heap_old:Heap, $ghost_a:ArrayOfInt, $ghost_ai:int, $ghost_b:ArrayOfInt, $ghost_bi:int, $ghost_s:ArrayOfInt, $ghost_si:int, $ghost_c_in:int) returns(my r:regs, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems, $commonVars:commonVars, $gcVars:gcVars, $toAbs:[int]int, $absMem:[int][int]int, $stacksFrames:[int]Frames, objLayouts:[int]ObjLayout, heap:Heap, $ghost_c_out:int, $ghost_carries:Seq___int)
+{
+    var $ghost_a__abs:int;
+    var $ghost_b__abs:int;
+    var $ghost_s__abs:int;
+    var gcStackOffset:int;
+
+    //- Boilerplate variable propagation
+    r := r_old;
+    stk := stk_old;
+    statics := statics_old;
+    io := io_old;
+    mems := mems_old;
+    $commonVars := $commonVars_old;
+    $gcVars := $gcVars_old;
+    $toAbs := $toAbs_old;
+    $absMem := $absMem_old;
+    $stacksFrames := $stacksFrames_old;
+    objLayouts := objLayouts_old;
+    heap := heap_old;
+
+    //- Teach Beat about Dafny sequence operations
+    call proc_Seq__Empty__ToZero___int();
+    call proc_Seq__Empty__FromZero___int();
+    call proc_Seq__Singleton__Length___int();
+    call proc_Seq__Build__Length___int();
+    call proc_Seq__Build__Index___int();
+    call proc_Seq__Append__Length___int();
+    call proc_Seq__Index__Singleton___int();
+    call proc_Seq__Append__Index___int();
+    call proc_Seq__Update__Length___int();
+    call proc_Seq__Index__Update___int();
+    call proc_Seq__Equal__Equiv___int();
+    call proc_Seq__Take__Length___int();
+    call proc_Seq__Take__Index___int();
+    call proc_Seq__Drop__Length___int();
+    call proc_Seq__Drop__Index___int();
+    call proc_Seq__Append__TakeDrop___int();
+    //- call proc_Seq__Append__TakeDrop__Restricted___int();
+    call proc_Seq__Update__CommuteTake1___int();
+    call proc_Seq__Update__CommuteTake2___int();
+    call proc_Seq__Update__CommuteDrop1___int();
+    call proc_Seq__Update__CommuteDrop2___int();
+    call proc_Seq__Build__CommuteDrop___int();
+    call proc_Seq__Take__Empty___int();
+    call proc_Seq__Drop__Empty___int();
+
+    gcStackOffset := 0x111000;
+
+    call proc_lemma__2toX();
+
+    assert Aligned(esp);
+    //- Prove that we can load arguments from the stack (b/c accesses are aligned)
+    assert TV(esp) && TO(0) && TO(1) && TO(2) && TO(3) && TO(4) && TO(5);
+
+    //- Prove that we can load arguments from the GC stack (b/c accesses are aligned)
+    assert TO(0x44401) && TO(0x44402) && TO(0x44403);  //- (gcStackOffset + {4,8,12}) / 4
+
+    //- Load pointer to array a into edx
+    call r, mems := heapLoadStack(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $absMem, $toAbs, $stacksFrames, objLayouts, EDX, OMem(MReg(ESP, 0x111004)), EvalPtr(r, OMem(MReg(ESP, 0x111004)))); //- 0x111004 = gcStackOffset + 4
+    var a_base:int;
+    a_base := edx;
+    $ghost_a__abs := frameGet($stacksFrames, EvalPtr(r, OMem(MReg(ESP, gcStackOffset + 4))));
+
+    //- Load its length into eax
+    call r, mems := loadArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, EAX, OMem(MReg(EDX, 4)), 0 - 1, $ghost_a__abs, r.regs[EDX]);
+
+    //- Adjust to the "beginning" of the values we care about
+    eax := eax - 1;
+    call edi := Load(stk, esp + 8);  //- grab ai
+    eax := eax - edi;
+    var aii:int := eax;
+    assert aii == Arr_Length($ghost_a) - 1 - $ghost_ai;
+
+    //- Convert aii into a memory pointer
+    call arrayElementProperties(core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, aii, $ghost_a__abs, edx);   //- Proves we're within bounds for the Lea calculation
+    call eax := Lea(edx + 4 * eax + 8);
+    var aii_ptr @ eax; 
+
+    //- Load pointer to array b into edx
+    call r, mems := heapLoadStack(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $absMem, $toAbs, $stacksFrames, objLayouts, EDX, OMem(MReg(ESP, 0x111008)), EvalPtr(r, OMem(MReg(ESP, 0x111008)))); //- 0x111008 = gcStackOffset + 8
+    var b_base:int;
+    b_base := edx;
+    $ghost_b__abs := frameGet($stacksFrames, EvalPtr(r, OMem(MReg(ESP, gcStackOffset + 8))));
+
+    //- Load its length into ebx
+    call r, mems := loadArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, EBX, OMem(MReg(EDX, 4)), 0 - 1, $ghost_b__abs, r.regs[EDX]);
+
+    //- Adjust to the "beginning" of the values we care about
+    ebx := ebx - 1;
+    call edi := Load(stk, esp + 12);  //- grab bi
+    ebx := ebx - edi;
+    var bii:int := ebx;
+    assert bii == Arr_Length($ghost_b) - 1 - $ghost_bi;
+
+    //- Convert aii into a memory pointer
+    call arrayElementProperties(core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, bii, $ghost_b__abs, edx);   //- Proves we're within bounds for the Lea calculation
+    call ebx := Lea(edx + 4 * ebx + 8);
+    var bii_ptr @ ebx; 
+
+    //- Load pointer to array s into edx
+    call r, mems := heapLoadStack(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $absMem, $toAbs, $stacksFrames, objLayouts, EDX, OMem(MReg(ESP, 0x11100c)), EvalPtr(r, OMem(MReg(ESP, 0x11100c))));  //- 0x11100c == gcStackOffset + 12
+    var s_base:int;
+    s_base := edx;
+    $ghost_s__abs := frameGet($stacksFrames, EvalPtr(r, OMem(MReg(ESP, gcStackOffset + 12))));
+
+    //- Load its length into ecx
+    call r, mems := loadArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, ECX, OMem(MReg(EDX, 4)), 0 - 1, $ghost_s__abs, r.regs[EDX]);
+
+    //- Adjust to the "beginning" of the values we care about
+    ecx := ecx - 1;
+    call edi := Load(stk, esp + 16);  //- grab si
+    ecx := ecx - edi;
+    var sii:int := ecx;
+    assert sii == Arr_Length($ghost_s) - 1 - $ghost_si;
+
+    //- Convert sii into a memory pointer
+    call arrayElementProperties(core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, sii, $ghost_s__abs, edx);   //- Proves we're within bounds for the Lea calculation
+    call ecx := Lea(edx + 4 * ecx + 8);
+    var sii_ptr @ ecx; 
+
+    //-///////////// Start computing //////////////////////////
+
+    //- First, "load" c_in into CF via a sneaky addition
+    call edi := Load(stk, esp + 20);  //- grab c_in
+    assert edi == $ghost_c_in;
+    call r := instr_Add(r, EDI, OConst(0xffffffff));   
+    assert Cf(r.efl) == ($ghost_c_in == 1);
+
+    //- Build the carries sequence
+    $ghost_carries := fun_Seq__Build___int(fun_Seq__Empty___int(), $ghost_c_in);
+
+    var carry:int;
+    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+        arrayAdd4(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+                 $ghost_a, $ghost_b, $ghost_s, 
+                 OMem(MReg(EAX, 0)), OMem(MReg(EAX, (-4))), OMem(MReg(EAX, (-8))), OMem(MReg(EAX, (-12))), 
+                 $ghost_a__abs, a_base, 
+                 aii-0, aii-1, aii-2, aii-3,
+                 OMem(MReg(EBX, 0)), OMem(MReg(EBX, (-4))), OMem(MReg(EBX, (-8))), OMem(MReg(EBX, (-12))), 
+                 $ghost_b__abs, b_base, 
+                 bii-0, bii-1, bii-2, bii-3,
+                 OMem(MReg(ECX, 0)), OMem(MReg(ECX, (-4))), OMem(MReg(ECX, (-8))), OMem(MReg(ECX, (-12))), 
+                 $ghost_s__abs, s_base, 
+                 sii-0, sii-1, sii-2, sii-3,
+                 $ghost_si, 0, (-1), (-2), (-3), $ghost_carries, $ghost_c_in);
+
+    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+        arrayAdd4(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+                 $ghost_a, $ghost_b, $ghost_s, 
+                 OMem(MReg(EAX, (-16))), OMem(MReg(EAX, (-20))), OMem(MReg(EAX, (-24))), OMem(MReg(EAX, (-28))), 
+                 $ghost_a__abs, a_base, 
+                 aii-4, aii-5, aii-6, aii-7,
+                 OMem(MReg(EBX, (-16))), OMem(MReg(EBX, (-20))), OMem(MReg(EBX, (-24))), OMem(MReg(EBX, (-28))), 
+                 $ghost_b__abs, b_base, 
+                 bii-4, bii-5, bii-6, bii-7,
+                 OMem(MReg(ECX, (-16))), OMem(MReg(ECX, (-20))), OMem(MReg(ECX, (-24))), OMem(MReg(ECX, (-28))), 
+                 $ghost_s__abs, s_base, 
+                 sii-4, sii-5, sii-6, sii-7,
+                 $ghost_si, (-4), (-5), (-6), (-7), $ghost_carries, carry);
+
+    //- Extract the final carry bit from EFL
+    eax := 0;
+    call r := instr_GetCf(r, EAX);
+    assert Aligned(esp);
+    assert Aligned(esp + 4);
+    call Store(inout stk, esp + 4, eax);
+    $ghost_c_out := carry;
+
+    assert $ghost_a.arrAbs != $ghost_s.arrAbs;
+
+    Return;
+}
+
+//implementation Proc_Add32__unrolled__8(my r_old:regs, const my core_state:core_state, linear stk_old:mem, linear statics_old:mem, linear io_old:IOState, linear mems_old:mems, $commonVars_old:commonVars, $gcVars_old:gcVars, $toAbs_old:[int]int, $absMem_old:[int][int]int, $stacksFrames_old:[int]Frames, objLayouts_old:[int]ObjLayout, heap_old:Heap, $ghost_a:ArrayOfInt, $ghost_ai:int, $ghost_b:ArrayOfInt, $ghost_bi:int, $ghost_s:ArrayOfInt, $ghost_si:int, $ghost_c_in:int) returns(my r:regs, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems, $commonVars:commonVars, $gcVars:gcVars, $toAbs:[int]int, $absMem:[int][int]int, $stacksFrames:[int]Frames, objLayouts:[int]ObjLayout, heap:Heap, $ghost_c_out:int, $ghost_carries:Seq___int)
+//{
+//    var $ghost_a__abs:int;
+//    var $ghost_b__abs:int;
+//    var $ghost_s__abs:int;
+//    var gcStackOffset:int;
+//
+//    // Boilerplate variable propagation
+//    r := r_old;
+//    stk := stk_old;
+//    statics := statics_old;
+//    io := io_old;
+//    mems := mems_old;
+//    $commonVars := $commonVars_old;
+//    $gcVars := $gcVars_old;
+//    $toAbs := $toAbs_old;
+//    $absMem := $absMem_old;
+//    $stacksFrames := $stacksFrames_old;
+//    objLayouts := objLayouts_old;
+//    heap := heap_old;
+//
+//    // Teach Beat about Dafny sequence operations
+//    call proc_Seq__Empty__ToZero___int();
+//    call proc_Seq__Empty__FromZero___int();
+//    call proc_Seq__Singleton__Length___int();
+//    call proc_Seq__Build__Length___int();
+//    call proc_Seq__Build__Index___int();
+//    call proc_Seq__Append__Length___int();
+//    call proc_Seq__Index__Singleton___int();
+//    call proc_Seq__Append__Index___int();
+//    call proc_Seq__Update__Length___int();
+//    call proc_Seq__Index__Update___int();
+//    call proc_Seq__Equal__Equiv___int();
+//    call proc_Seq__Take__Length___int();
+//    call proc_Seq__Take__Index___int();
+//    call proc_Seq__Drop__Length___int();
+//    call proc_Seq__Drop__Index___int();
+//    call proc_Seq__Append__TakeDrop___int();
+//    // call proc_Seq__Append__TakeDrop__Restricted___int();
+//    call proc_Seq__Update__CommuteTake1___int();
+//    call proc_Seq__Update__CommuteTake2___int();
+//    call proc_Seq__Update__CommuteDrop1___int();
+//    call proc_Seq__Update__CommuteDrop2___int();
+//    call proc_Seq__Build__CommuteDrop___int();
+//    call proc_Seq__Take__Empty___int();
+//    call proc_Seq__Drop__Empty___int();
+//
+//    gcStackOffset := 0x111000;
+//
+//    call proc_lemma__2toX();
+//
+//    assert Aligned(esp);
+//    // Prove that we can load arguments from the stack (b/c accesses are aligned)
+//    assert TV(esp) && TO(0) && TO(1) && TO(2) && TO(3) && TO(4) && TO(5);
+//
+//    // Prove that we can load arguments from the GC stack (b/c accesses are aligned)
+//    assert TO(0x44401) && TO(0x44402) && TO(0x44403);  // (gcStackOffset + {4,8,12}) / 4
+//
+//    // Load pointer to array a into edx
+//    call r, mems := heapLoadStack(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $absMem, $toAbs, $stacksFrames, objLayouts, EDX, OMem(MReg(ESP, 0x111004)), EvalPtr(r, OMem(MReg(ESP, 0x111004)))); // 0x111004 = gcStackOffset + 4
+//    var a_base:int;
+//    a_base := edx;
+//    $ghost_a__abs := frameGet($stacksFrames, EvalPtr(r, OMem(MReg(ESP, gcStackOffset + 4))));
+//
+//    // Load its length into eax
+//    call r, mems := loadArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, EAX, OMem(MReg(EDX, 4)), 0 - 1, $ghost_a__abs, r.regs[EDX]);
+//
+//    // Adjust to the "beginning" of the values we care about
+//    eax := eax - 1;
+//    call edi := Load(stk, esp + 8);  // grab ai
+//    eax := eax - edi;
+//    var aii:int := eax;
+//    assert aii == Arr_Length($ghost_a) - 1 - $ghost_ai;
+//
+//    // Convert aii into a memory pointer
+//    call arrayElementProperties(core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, aii, $ghost_a__abs, edx);   // Proves we're within bounds for the Lea calculation
+//    call eax := Lea(edx + 4 * eax + 8);
+//    var aii_ptr @ eax; 
+//
+//    // Load pointer to array b into edx
+//    call r, mems := heapLoadStack(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $absMem, $toAbs, $stacksFrames, objLayouts, EDX, OMem(MReg(ESP, 0x111008)), EvalPtr(r, OMem(MReg(ESP, 0x111008)))); // 0x111008 = gcStackOffset + 8
+//    var b_base:int;
+//    b_base := edx;
+//    $ghost_b__abs := frameGet($stacksFrames, EvalPtr(r, OMem(MReg(ESP, gcStackOffset + 8))));
+//
+//    // Load its length into ebx
+//    call r, mems := loadArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, EBX, OMem(MReg(EDX, 4)), 0 - 1, $ghost_b__abs, r.regs[EDX]);
+//
+//    // Adjust to the "beginning" of the values we care about
+//    ebx := ebx - 1;
+//    call edi := Load(stk, esp + 12);  // grab bi
+//    ebx := ebx - edi;
+//    var bii:int := ebx;
+//    assert bii == Arr_Length($ghost_b) - 1 - $ghost_bi;
+//
+//    // Convert aii into a memory pointer
+//    call arrayElementProperties(core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, bii, $ghost_b__abs, edx);   // Proves we're within bounds for the Lea calculation
+//    call ebx := Lea(edx + 4 * ebx + 8);
+//    var bii_ptr @ ebx; 
+//
+//    // Load pointer to array s into edx
+//    call r, mems := heapLoadStack(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $absMem, $toAbs, $stacksFrames, objLayouts, EDX, OMem(MReg(ESP, 0x11100c)), EvalPtr(r, OMem(MReg(ESP, 0x11100c))));  // 0x11100c == gcStackOffset + 12
+//    var s_base:int;
+//    s_base := edx;
+//    $ghost_s__abs := frameGet($stacksFrames, EvalPtr(r, OMem(MReg(ESP, gcStackOffset + 12))));
+//
+//    // Load its length into ecx
+//    call r, mems := loadArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, ECX, OMem(MReg(EDX, 4)), 0 - 1, $ghost_s__abs, r.regs[EDX]);
+//
+//    // Adjust to the "beginning" of the values we care about
+//    ecx := ecx - 1;
+//    call edi := Load(stk, esp + 16);  // grab si
+//    ecx := ecx - edi;
+//    var sii:int := ecx;
+//    assert sii == Arr_Length($ghost_s) - 1 - $ghost_si;
+//
+//    // Convert sii into a memory pointer
+//    call arrayElementProperties(core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, sii, $ghost_s__abs, edx);   // Proves we're within bounds for the Lea calculation
+//    call ecx := Lea(edx + 4 * ecx + 8);
+//    var sii_ptr @ ecx; 
+//
+//    /////////////// Start computing //////////////////////////
+//
+//    // First, "load" c_in into CF via a sneaky addition
+//    call edi := Load(stk, esp + 20);  // grab c_in
+//    assert edi == $ghost_c_in;
+//    call r := instr_Add(r, EDI, OConst(0xffffffff));   
+//    assert Cf(r.efl) == ($ghost_c_in == 1);
+//
+//    // Build the carries sequence
+//    $ghost_carries := fun_Seq__Build___int(fun_Seq__Empty___int(), $ghost_c_in);
+//
+//    var carry:int;
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+//        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+//                 $ghost_a, $ghost_b, $ghost_s, 
+//                 OMem(MReg(EAX, 0)), $ghost_a__abs, a_base, aii-0,
+//                 OMem(MReg(EBX, 0)), $ghost_b__abs, b_base, bii-0,
+//                 OMem(MReg(ECX, 0)), $ghost_s__abs, s_base, sii-0,
+//                 $ghost_si, 0, $ghost_carries, $ghost_c_in);
+//
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+//        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+//                 $ghost_a, $ghost_b, $ghost_s, 
+//                 OMem(MReg(EAX, (-4))), $ghost_a__abs, a_base, aii-1,
+//                 OMem(MReg(EBX, (-4))), $ghost_b__abs, b_base, bii-1,
+//                 OMem(MReg(ECX, (-4))), $ghost_s__abs, s_base, sii-1,
+//                 $ghost_si, (-1), $ghost_carries, carry);
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+//        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+//                 $ghost_a, $ghost_b, $ghost_s, 
+//                 OMem(MReg(EAX, (-8))), $ghost_a__abs, a_base, aii-2,
+//                 OMem(MReg(EBX, (-8))), $ghost_b__abs, b_base, bii-2,
+//                 OMem(MReg(ECX, (-8))), $ghost_s__abs, s_base, sii-2,
+//                 $ghost_si, (-2), $ghost_carries, carry);
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+//        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+//                 $ghost_a, $ghost_b, $ghost_s, 
+//                 OMem(MReg(EAX, (-12))), $ghost_a__abs, a_base, aii-3,
+//                 OMem(MReg(EBX, (-12))), $ghost_b__abs, b_base, bii-3,
+//                 OMem(MReg(ECX, (-12))), $ghost_s__abs, s_base, sii-3,
+//                 $ghost_si, (-3), $ghost_carries, carry);
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+//        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+//                 $ghost_a, $ghost_b, $ghost_s, 
+//                 OMem(MReg(EAX, (-16))), $ghost_a__abs, a_base, aii-4,
+//                 OMem(MReg(EBX, (-16))), $ghost_b__abs, b_base, bii-4,
+//                 OMem(MReg(ECX, (-16))), $ghost_s__abs, s_base, sii-4,
+//                 $ghost_si, (-4), $ghost_carries, carry);
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+//        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+//                 $ghost_a, $ghost_b, $ghost_s, 
+//                 OMem(MReg(EAX, (-20))), $ghost_a__abs, a_base, aii-5,
+//                 OMem(MReg(EBX, (-20))), $ghost_b__abs, b_base, bii-5,
+//                 OMem(MReg(ECX, (-20))), $ghost_s__abs, s_base, sii-5,
+//                 $ghost_si, (-5), $ghost_carries, carry);
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+//        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+//                 $ghost_a, $ghost_b, $ghost_s, 
+//                 OMem(MReg(EAX, (-24))), $ghost_a__abs, a_base, aii-6,
+//                 OMem(MReg(EBX, (-24))), $ghost_b__abs, b_base, bii-6,
+//                 OMem(MReg(ECX, (-24))), $ghost_s__abs, s_base, sii-6,
+//                 $ghost_si, (-6), $ghost_carries, carry);
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+//        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+//                 $ghost_a, $ghost_b, $ghost_s, 
+//                 OMem(MReg(EAX, (-28))), $ghost_a__abs, a_base, aii-7,
+//                 OMem(MReg(EBX, (-28))), $ghost_b__abs, b_base, bii-7,
+//                 OMem(MReg(ECX, (-28))), $ghost_s__abs, s_base, sii-7,
+//                 $ghost_si, (-7), $ghost_carries, carry);
+//
+//    // Extract the final carry bit from EFL
+//    eax := 0;
+//    call r := instr_GetCf(r, EAX);
+//    assert Aligned(esp);
+//    assert Aligned(esp + 4);
+//    call Store(inout stk, esp + 4, eax);
+//    $ghost_c_out := carry;
+//
+//    assert $ghost_a.arrAbs != $ghost_s.arrAbs;
+//
+//    Return;
+//}
+
+
+
+implementation Proc_Add32__unrolled__16(my r_old:regs, const my core_state:core_state, linear stk_old:mem, linear statics_old:mem, linear io_old:IOState, linear mems_old:mems, $commonVars_old:commonVars, $gcVars_old:gcVars, $toAbs_old:[int]int, $absMem_old:[int][int]int, $stacksFrames_old:[int]Frames, objLayouts_old:[int]ObjLayout, heap_old:Heap, $ghost_a:ArrayOfInt, $ghost_ai:int, $ghost_b:ArrayOfInt, $ghost_bi:int, $ghost_s:ArrayOfInt, $ghost_si:int, $ghost_c_in:int) returns(my r:regs, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems, $commonVars:commonVars, $gcVars:gcVars, $toAbs:[int]int, $absMem:[int][int]int, $stacksFrames:[int]Frames, objLayouts:[int]ObjLayout, heap:Heap, $ghost_c_out:int, $ghost_carries:Seq___int)
+{
+    var $ghost_a__abs:int;
+    var $ghost_b__abs:int;
+    var $ghost_s__abs:int;
+    var gcStackOffset:int;
+
+    //- Boilerplate variable propagation
+    r := r_old;
+    stk := stk_old;
+    statics := statics_old;
+    io := io_old;
+    mems := mems_old;
+    $commonVars := $commonVars_old;
+    $gcVars := $gcVars_old;
+    $toAbs := $toAbs_old;
+    $absMem := $absMem_old;
+    $stacksFrames := $stacksFrames_old;
+    objLayouts := objLayouts_old;
+    heap := heap_old;
+
+    //- Teach Beat about Dafny sequence operations
+    call proc_Seq__Empty__ToZero___int();
+    call proc_Seq__Empty__FromZero___int();
+    call proc_Seq__Singleton__Length___int();
+    call proc_Seq__Build__Length___int();
+    call proc_Seq__Build__Index___int();
+    call proc_Seq__Append__Length___int();
+    call proc_Seq__Index__Singleton___int();
+    call proc_Seq__Append__Index___int();
+    call proc_Seq__Update__Length___int();
+    call proc_Seq__Index__Update___int();
+    call proc_Seq__Equal__Equiv___int();
+    call proc_Seq__Take__Length___int();
+    call proc_Seq__Take__Index___int();
+    call proc_Seq__Drop__Length___int();
+    call proc_Seq__Drop__Index___int();
+    call proc_Seq__Append__TakeDrop___int();
+    //- call proc_Seq__Append__TakeDrop__Restricted___int();
+    call proc_Seq__Update__CommuteTake1___int();
+    call proc_Seq__Update__CommuteTake2___int();
+    call proc_Seq__Update__CommuteDrop1___int();
+    call proc_Seq__Update__CommuteDrop2___int();
+    call proc_Seq__Build__CommuteDrop___int();
+    call proc_Seq__Take__Empty___int();
+    call proc_Seq__Drop__Empty___int();
+
+    gcStackOffset := 0x111000;
+
+    call proc_lemma__2toX();
+
+    assert Aligned(esp);
+    //- Prove that we can load arguments from the stack (b/c accesses are aligned)
+    assert TV(esp) && TO(0) && TO(1) && TO(2) && TO(3) && TO(4) && TO(5);
+
+    //- Prove that we can load arguments from the GC stack (b/c accesses are aligned)
+    assert TO(0x44401) && TO(0x44402) && TO(0x44403);  //- (gcStackOffset + {4,8,12}) / 4
+
+    //- Load pointer to array a into edx
+    call r, mems := heapLoadStack(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $absMem, $toAbs, $stacksFrames, objLayouts, EDX, OMem(MReg(ESP, 0x111004)), EvalPtr(r, OMem(MReg(ESP, 0x111004)))); //- 0x111004 = gcStackOffset + 4
+    var a_base:int;
+    a_base := edx;
+    $ghost_a__abs := frameGet($stacksFrames, EvalPtr(r, OMem(MReg(ESP, gcStackOffset + 4))));
+
+    //- Load its length into eax
+    call r, mems := loadArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, EAX, OMem(MReg(EDX, 4)), 0 - 1, $ghost_a__abs, r.regs[EDX]);
+
+    //- Adjust to the "beginning" of the values we care about
+    eax := eax - 1;
+    call edi := Load(stk, esp + 8);  //- grab ai
+    eax := eax - edi;
+    var aii:int := eax;
+    assert aii == Arr_Length($ghost_a) - 1 - $ghost_ai;
+
+    //- Convert aii into a memory pointer
+    call arrayElementProperties(core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, aii, $ghost_a__abs, edx);   //- Proves we're within bounds for the Lea calculation
+    call eax := Lea(edx + 4 * eax + 8);
+    var aii_ptr @ eax; 
+
+    //- Load pointer to array b into edx
+    call r, mems := heapLoadStack(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $absMem, $toAbs, $stacksFrames, objLayouts, EDX, OMem(MReg(ESP, 0x111008)), EvalPtr(r, OMem(MReg(ESP, 0x111008)))); //- 0x111008 = gcStackOffset + 8
+    var b_base:int;
+    b_base := edx;
+    $ghost_b__abs := frameGet($stacksFrames, EvalPtr(r, OMem(MReg(ESP, gcStackOffset + 8))));
+
+    //- Load its length into ebx
+    call r, mems := loadArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, EBX, OMem(MReg(EDX, 4)), 0 - 1, $ghost_b__abs, r.regs[EDX]);
+
+    //- Adjust to the "beginning" of the values we care about
+    ebx := ebx - 1;
+    call edi := Load(stk, esp + 12);  //- grab bi
+    ebx := ebx - edi;
+    var bii:int := ebx;
+    assert bii == Arr_Length($ghost_b) - 1 - $ghost_bi;
+
+    //- Convert aii into a memory pointer
+    call arrayElementProperties(core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, bii, $ghost_b__abs, edx);   //- Proves we're within bounds for the Lea calculation
+    call ebx := Lea(edx + 4 * ebx + 8);
+    var bii_ptr @ ebx; 
+
+    //- Load pointer to array s into edx
+    call r, mems := heapLoadStack(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $absMem, $toAbs, $stacksFrames, objLayouts, EDX, OMem(MReg(ESP, 0x11100c)), EvalPtr(r, OMem(MReg(ESP, 0x11100c))));  //- 0x11100c == gcStackOffset + 12
+    var s_base:int;
+    s_base := edx;
+    $ghost_s__abs := frameGet($stacksFrames, EvalPtr(r, OMem(MReg(ESP, gcStackOffset + 12))));
+
+    //- Load its length into ecx
+    call r, mems := loadArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, ECX, OMem(MReg(EDX, 4)), 0 - 1, $ghost_s__abs, r.regs[EDX]);
+
+    //- Adjust to the "beginning" of the values we care about
+    ecx := ecx - 1;
+    call edi := Load(stk, esp + 16);  //- grab si
+    ecx := ecx - edi;
+    var sii:int := ecx;
+    assert sii == Arr_Length($ghost_s) - 1 - $ghost_si;
+
+    //- Convert sii into a memory pointer
+    call arrayElementProperties(core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, sii, $ghost_s__abs, edx);   //- Proves we're within bounds for the Lea calculation
+    call ecx := Lea(edx + 4 * ecx + 8);
+    var sii_ptr @ ecx; 
+
+    //-///////////// Start computing //////////////////////////
+
+    //- First, "load" c_in into CF via a sneaky addition
+    call edi := Load(stk, esp + 20);  //- grab c_in
+    assert edi == $ghost_c_in;
+    call r := instr_Add(r, EDI, OConst(0xffffffff));   
+    assert Cf(r.efl) == ($ghost_c_in == 1);
+
+    //- Build the carries sequence
+    $ghost_carries := fun_Seq__Build___int(fun_Seq__Empty___int(), $ghost_c_in);
+
+    var carry:int;
+
+    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+        arrayAdd4(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+                 $ghost_a, $ghost_b, $ghost_s, 
+                 OMem(MReg(EAX, 0)), OMem(MReg(EAX, (-4))), OMem(MReg(EAX, (-8))), OMem(MReg(EAX, (-12))), 
+                 $ghost_a__abs, a_base, 
+                 aii-0, aii-1, aii-2, aii-3,
+                 OMem(MReg(EBX, 0)), OMem(MReg(EBX, (-4))), OMem(MReg(EBX, (-8))), OMem(MReg(EBX, (-12))), 
+                 $ghost_b__abs, b_base, 
+                 bii-0, bii-1, bii-2, bii-3,
+                 OMem(MReg(ECX, 0)), OMem(MReg(ECX, (-4))), OMem(MReg(ECX, (-8))), OMem(MReg(ECX, (-12))), 
+                 $ghost_s__abs, s_base, 
+                 sii-0, sii-1, sii-2, sii-3,
+                 $ghost_si, 0, (-1), (-2), (-3), $ghost_carries, $ghost_c_in);
+
+    assert (forall $ghost__1_i:int :: {fun_INTERNAL__array__elems__index($absMem[$ghost_a.arrAbs], (fun_FatNatAddIndex((Arr_Length($ghost_a)), $ghost_ai, $ghost__1_i)))} ((INTERNAL_le_boogie(0, $ghost__1_i)) && (INTERNAL_lt_boogie($ghost__1_i, 4))) ==> ((fun_Seq__Index___int($ghost_carries, INTERNAL_add_boogie($ghost__1_i, 1))) == ((if (INTERNAL_ge_boogie(INTERNAL_add_boogie(INTERNAL_add_boogie(fun_INTERNAL__array__elems__index($absMem[$ghost_a.arrAbs], (fun_FatNatAddIndex((Arr_Length($ghost_a)), $ghost_ai, $ghost__1_i))), fun_INTERNAL__array__elems__index($absMem[$ghost_b.arrAbs], (fun_FatNatAddIndex((Arr_Length($ghost_b)), $ghost_bi, $ghost__1_i)))), fun_Seq__Index___int($ghost_carries, $ghost__1_i)), 4294967296)) then (1) else (0)))));
+
+
+    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+        arrayAdd4(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+                 $ghost_a, $ghost_b, $ghost_s, 
+                 OMem(MReg(EAX, (-16))), OMem(MReg(EAX, (-20))), OMem(MReg(EAX, (-24))), OMem(MReg(EAX, (-28))), 
+                 $ghost_a__abs, a_base, 
+                 aii-4, aii-5, aii-6, aii-7,
+                 OMem(MReg(EBX, (-16))), OMem(MReg(EBX, (-20))), OMem(MReg(EBX, (-24))), OMem(MReg(EBX, (-28))), 
+                 $ghost_b__abs, b_base, 
+                 bii-4, bii-5, bii-6, bii-7,
+                 OMem(MReg(ECX, (-16))), OMem(MReg(ECX, (-20))), OMem(MReg(ECX, (-24))), OMem(MReg(ECX, (-28))), 
+                 $ghost_s__abs, s_base, 
+                 sii-4, sii-5, sii-6, sii-7,
+                 $ghost_si, (-4), (-5), (-6), (-7), $ghost_carries, carry);
+
+    assert (forall $ghost__1_i:int :: {fun_INTERNAL__array__elems__index($absMem[$ghost_a.arrAbs], (fun_FatNatAddIndex((Arr_Length($ghost_a)), $ghost_ai, $ghost__1_i)))} ((INTERNAL_le_boogie(0, $ghost__1_i)) && (INTERNAL_lt_boogie($ghost__1_i, 8))) ==> ((fun_Seq__Index___int($ghost_carries, INTERNAL_add_boogie($ghost__1_i, 1))) == ((if (INTERNAL_ge_boogie(INTERNAL_add_boogie(INTERNAL_add_boogie(fun_INTERNAL__array__elems__index($absMem[$ghost_a.arrAbs], (fun_FatNatAddIndex((Arr_Length($ghost_a)), $ghost_ai, $ghost__1_i))), fun_INTERNAL__array__elems__index($absMem[$ghost_b.arrAbs], (fun_FatNatAddIndex((Arr_Length($ghost_b)), $ghost_bi, $ghost__1_i)))), fun_Seq__Index___int($ghost_carries, $ghost__1_i)), 4294967296)) then (1) else (0)))));
+
+    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+        arrayAdd4(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+                 $ghost_a, $ghost_b, $ghost_s, 
+                 OMem(MReg(EAX, (-32))), OMem(MReg(EAX, (-36))), OMem(MReg(EAX, (-40))), OMem(MReg(EAX, (-44))), 
+                 $ghost_a__abs, a_base, 
+                 aii-8, aii-9, aii-10, aii-11,
+                 OMem(MReg(EBX, (-32))), OMem(MReg(EBX, (-36))), OMem(MReg(EBX, (-40))), OMem(MReg(EBX, (-44))), 
+                 $ghost_b__abs, b_base, 
+                 bii-8, bii-9, bii-10, bii-11,
+                 OMem(MReg(ECX, (-32))), OMem(MReg(ECX, (-36))), OMem(MReg(ECX, (-40))), OMem(MReg(ECX, (-44))), 
+                 $ghost_s__abs, s_base, 
+                 sii-8, sii-9, sii-10, sii-11,
+                 $ghost_si, (-8), (-9), (-10), (-11), $ghost_carries, carry);
+
+    assert (forall $ghost__1_i:int :: {fun_INTERNAL__array__elems__index($absMem[$ghost_a.arrAbs], (fun_FatNatAddIndex((Arr_Length($ghost_a)), $ghost_ai, $ghost__1_i)))} ((INTERNAL_le_boogie(0, $ghost__1_i)) && (INTERNAL_lt_boogie($ghost__1_i, 12))) ==> ((fun_Seq__Index___int($ghost_carries, INTERNAL_add_boogie($ghost__1_i, 1))) == ((if (INTERNAL_ge_boogie(INTERNAL_add_boogie(INTERNAL_add_boogie(fun_INTERNAL__array__elems__index($absMem[$ghost_a.arrAbs], (fun_FatNatAddIndex((Arr_Length($ghost_a)), $ghost_ai, $ghost__1_i))), fun_INTERNAL__array__elems__index($absMem[$ghost_b.arrAbs], (fun_FatNatAddIndex((Arr_Length($ghost_b)), $ghost_bi, $ghost__1_i)))), fun_Seq__Index___int($ghost_carries, $ghost__1_i)), 4294967296)) then (1) else (0)))));
+
+    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+        arrayAdd4(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+                 $ghost_a, $ghost_b, $ghost_s, 
+                 OMem(MReg(EAX, (-48))), OMem(MReg(EAX, (-52))), OMem(MReg(EAX, (-56))), OMem(MReg(EAX, (-60))), 
+                 $ghost_a__abs, a_base, 
+                 aii-12, aii-13, aii-14, aii-15,
+                 OMem(MReg(EBX, (-48))), OMem(MReg(EBX, (-52))), OMem(MReg(EBX, (-56))), OMem(MReg(EBX, (-60))), 
+                 $ghost_b__abs, b_base, 
+                 bii-12, bii-13, bii-14, bii-15,
+                 OMem(MReg(ECX, (-48))), OMem(MReg(ECX, (-52))), OMem(MReg(ECX, (-56))), OMem(MReg(ECX, (-60))), 
+                 $ghost_s__abs, s_base, 
+                 sii-12, sii-13, sii-14, sii-15,
+                 $ghost_si, (-12), (-13), (-14), (-15), $ghost_carries, carry);
+
+//    assert (forall $ghost__1_i:int :: {fun_INTERNAL__array__elems__index($absMem[$ghost_a.arrAbs], (fun_FatNatAddIndex((Arr_Length($ghost_a)), $ghost_ai, $ghost__1_i)))} ((INTERNAL_le_boogie(0, $ghost__1_i)) && (INTERNAL_lt_boogie($ghost__1_i, 16))) ==> ((fun_Seq__Index___int($ghost_carries, INTERNAL_add_boogie($ghost__1_i, 1))) == ((if (INTERNAL_ge_boogie(INTERNAL_add_boogie(INTERNAL_add_boogie(fun_INTERNAL__array__elems__index($absMem[$ghost_a.arrAbs], (fun_FatNatAddIndex((Arr_Length($ghost_a)), $ghost_ai, $ghost__1_i))), fun_INTERNAL__array__elems__index($absMem[$ghost_b.arrAbs], (fun_FatNatAddIndex((Arr_Length($ghost_b)), $ghost_bi, $ghost__1_i)))), fun_Seq__Index___int($ghost_carries, $ghost__1_i)), 4294967296)) then (1) else (0)))));
+
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+//        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+//                 $ghost_a, $ghost_b, $ghost_s, 
+//                 OMem(MReg(EAX, 0)), $ghost_a__abs, a_base, aii-0,
+//                 OMem(MReg(EBX, 0)), $ghost_b__abs, b_base, bii-0,
+//                 OMem(MReg(ECX, 0)), $ghost_s__abs, s_base, sii-0,
+//                 $ghost_si, 0, $ghost_carries, $ghost_c_in);
+//
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+//        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+//                 $ghost_a, $ghost_b, $ghost_s, 
+//                 OMem(MReg(EAX, (-4))), $ghost_a__abs, a_base, aii-1,
+//                 OMem(MReg(EBX, (-4))), $ghost_b__abs, b_base, bii-1,
+//                 OMem(MReg(ECX, (-4))), $ghost_s__abs, s_base, sii-1,
+//                 $ghost_si, (-1), $ghost_carries, carry);
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+//        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+//                 $ghost_a, $ghost_b, $ghost_s, 
+//                 OMem(MReg(EAX, (-8))), $ghost_a__abs, a_base, aii-2,
+//                 OMem(MReg(EBX, (-8))), $ghost_b__abs, b_base, bii-2,
+//                 OMem(MReg(ECX, (-8))), $ghost_s__abs, s_base, sii-2,
+//                 $ghost_si, (-2), $ghost_carries, carry);
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+//        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+//                 $ghost_a, $ghost_b, $ghost_s, 
+//                 OMem(MReg(EAX, (-12))), $ghost_a__abs, a_base, aii-3,
+//                 OMem(MReg(EBX, (-12))), $ghost_b__abs, b_base, bii-3,
+//                 OMem(MReg(ECX, (-12))), $ghost_s__abs, s_base, sii-3,
+//                 $ghost_si, (-3), $ghost_carries, carry);
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+//        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+//                 $ghost_a, $ghost_b, $ghost_s, 
+//                 OMem(MReg(EAX, (-16))), $ghost_a__abs, a_base, aii-4,
+//                 OMem(MReg(EBX, (-16))), $ghost_b__abs, b_base, bii-4,
+//                 OMem(MReg(ECX, (-16))), $ghost_s__abs, s_base, sii-4,
+//                 $ghost_si, (-4), $ghost_carries, carry);
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+//        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+//                 $ghost_a, $ghost_b, $ghost_s, 
+//                 OMem(MReg(EAX, (-20))), $ghost_a__abs, a_base, aii-5,
+//                 OMem(MReg(EBX, (-20))), $ghost_b__abs, b_base, bii-5,
+//                 OMem(MReg(ECX, (-20))), $ghost_s__abs, s_base, sii-5,
+//                 $ghost_si, (-5), $ghost_carries, carry);
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+//        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+//                 $ghost_a, $ghost_b, $ghost_s, 
+//                 OMem(MReg(EAX, (-24))), $ghost_a__abs, a_base, aii-6,
+//                 OMem(MReg(EBX, (-24))), $ghost_b__abs, b_base, bii-6,
+//                 OMem(MReg(ECX, (-24))), $ghost_s__abs, s_base, sii-6,
+//                 $ghost_si, (-6), $ghost_carries, carry);
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+//        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+//                 $ghost_a, $ghost_b, $ghost_s, 
+//                 OMem(MReg(EAX, (-28))), $ghost_a__abs, a_base, aii-7,
+//                 OMem(MReg(EBX, (-28))), $ghost_b__abs, b_base, bii-7,
+//                 OMem(MReg(ECX, (-28))), $ghost_s__abs, s_base, sii-7,
+//                 $ghost_si, (-7), $ghost_carries, carry);
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+//        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+//                 $ghost_a, $ghost_b, $ghost_s, 
+//                 OMem(MReg(EAX, (-32))), $ghost_a__abs, a_base, aii-8,
+//                 OMem(MReg(EBX, (-32))), $ghost_b__abs, b_base, bii-8,
+//                 OMem(MReg(ECX, (-32))), $ghost_s__abs, s_base, sii-8,
+//                 $ghost_si, (-8), $ghost_carries, carry);
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+//        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+//                 $ghost_a, $ghost_b, $ghost_s, 
+//                 OMem(MReg(EAX, (-36))), $ghost_a__abs, a_base, aii-9,
+//                 OMem(MReg(EBX, (-36))), $ghost_b__abs, b_base, bii-9,
+//                 OMem(MReg(ECX, (-36))), $ghost_s__abs, s_base, sii-9,
+//                 $ghost_si, (-9), $ghost_carries, carry);
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+//        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+//                 $ghost_a, $ghost_b, $ghost_s, 
+//                 OMem(MReg(EAX, (-40))), $ghost_a__abs, a_base, aii-10,
+//                 OMem(MReg(EBX, (-40))), $ghost_b__abs, b_base, bii-10,
+//                 OMem(MReg(ECX, (-40))), $ghost_s__abs, s_base, sii-10,
+//                 $ghost_si, (-10), $ghost_carries, carry);
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+//        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+//                 $ghost_a, $ghost_b, $ghost_s, 
+//                 OMem(MReg(EAX, (-44))), $ghost_a__abs, a_base, aii-11,
+//                 OMem(MReg(EBX, (-44))), $ghost_b__abs, b_base, bii-11,
+//                 OMem(MReg(ECX, (-44))), $ghost_s__abs, s_base, sii-11,
+//                 $ghost_si, (-11), $ghost_carries, carry);
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+//        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+//                 $ghost_a, $ghost_b, $ghost_s, 
+//                 OMem(MReg(EAX, (-48))), $ghost_a__abs, a_base, aii-12,
+//                 OMem(MReg(EBX, (-48))), $ghost_b__abs, b_base, bii-12,
+//                 OMem(MReg(ECX, (-48))), $ghost_s__abs, s_base, sii-12,
+//                 $ghost_si, (-12), $ghost_carries, carry);
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+//        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+//                 $ghost_a, $ghost_b, $ghost_s, 
+//                 OMem(MReg(EAX, (-52))), $ghost_a__abs, a_base, aii-13,
+//                 OMem(MReg(EBX, (-52))), $ghost_b__abs, b_base, bii-13,
+//                 OMem(MReg(ECX, (-52))), $ghost_s__abs, s_base, sii-13,
+//                 $ghost_si, (-13), $ghost_carries, carry);
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+//        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+//                 $ghost_a, $ghost_b, $ghost_s, 
+//                 OMem(MReg(EAX, (-56))), $ghost_a__abs, a_base, aii-14,
+//                 OMem(MReg(EBX, (-56))), $ghost_b__abs, b_base, bii-14,
+//                 OMem(MReg(ECX, (-56))), $ghost_s__abs, s_base, sii-14,
+//                 $ghost_si, (-14), $ghost_carries, carry);
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+//        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+//                 $ghost_a, $ghost_b, $ghost_s, 
+//                 OMem(MReg(EAX, (-60))), $ghost_a__abs, a_base, aii-15,
+//                 OMem(MReg(EBX, (-60))), $ghost_b__abs, b_base, bii-15,
+//                 OMem(MReg(ECX, (-60))), $ghost_s__abs, s_base, sii-15,
+//                 $ghost_si, (-15), $ghost_carries, carry);
+
+    //- Extract the final carry bit from EFL
+    eax := 0;
+    call r := instr_GetCf(r, EAX);
+    assert Aligned(esp);
+    assert Aligned(esp + 4);
+    call Store(inout stk, esp + 4, eax);
+    $ghost_c_out := carry;
+
+    assert $ghost_a.arrAbs != $ghost_s.arrAbs;
+
+    Return;
+}
+
+
+//implementation Proc_Add32__unrolled__32(my r_old:regs, const my core_state:core_state, linear stk_old:mem, linear statics_old:mem, linear io_old:IOState, linear mems_old:mems, $commonVars_old:commonVars, $gcVars_old:gcVars, $toAbs_old:[int]int, $absMem_old:[int][int]int, $stacksFrames_old:[int]Frames, objLayouts_old:[int]ObjLayout, heap_old:Heap, $ghost_a:ArrayOfInt, $ghost_ai:int, $ghost_b:ArrayOfInt, $ghost_bi:int, $ghost_s:ArrayOfInt, $ghost_si:int, $ghost_c_in:int) returns(my r:regs, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems, $commonVars:commonVars, $gcVars:gcVars, $toAbs:[int]int, $absMem:[int][int]int, $stacksFrames:[int]Frames, objLayouts:[int]ObjLayout, heap:Heap, $ghost_c_out:int, $ghost_carries:Seq___int)
+//{
+//    var $ghost_a__abs:int;
+//    var $ghost_b__abs:int;
+//    var $ghost_s__abs:int;
+//    var gcStackOffset:int;
+//
+//    // Boilerplate variable propagation
+//    r := r_old;
+//    stk := stk_old;
+//    statics := statics_old;
+//    io := io_old;
+//    mems := mems_old;
+//    $commonVars := $commonVars_old;
+//    $gcVars := $gcVars_old;
+//    $toAbs := $toAbs_old;
+//    $absMem := $absMem_old;
+//    $stacksFrames := $stacksFrames_old;
+//    objLayouts := objLayouts_old;
+//    heap := heap_old;
+//
+//    // Teach Beat about Dafny sequence operations
+//    call proc_Seq__Empty__ToZero___int();
+//    call proc_Seq__Empty__FromZero___int();
+//    call proc_Seq__Singleton__Length___int();
+//    call proc_Seq__Build__Length___int();
+//    call proc_Seq__Build__Index___int();
+//    call proc_Seq__Append__Length___int();
+//    call proc_Seq__Index__Singleton___int();
+//    call proc_Seq__Append__Index___int();
+//    call proc_Seq__Update__Length___int();
+//    call proc_Seq__Index__Update___int();
+//    call proc_Seq__Equal__Equiv___int();
+//    call proc_Seq__Take__Length___int();
+//    call proc_Seq__Take__Index___int();
+//    call proc_Seq__Drop__Length___int();
+//    call proc_Seq__Drop__Index___int();
+//    call proc_Seq__Append__TakeDrop___int();
+//    // call proc_Seq__Append__TakeDrop__Restricted___int();
+//    call proc_Seq__Update__CommuteTake1___int();
+//    call proc_Seq__Update__CommuteTake2___int();
+//    call proc_Seq__Update__CommuteDrop1___int();
+//    call proc_Seq__Update__CommuteDrop2___int();
+//    call proc_Seq__Build__CommuteDrop___int();
+//    call proc_Seq__Take__Empty___int();
+//    call proc_Seq__Drop__Empty___int();
+//
+//    assert false;
+//
+//    gcStackOffset := 0x111000;
+//
+//    call proc_lemma__2toX();
+//
+//    assert Aligned(esp);
+//    // Prove that we can load arguments from the stack (b/c accesses are aligned)
+//    assert TV(esp) && TO(0) && TO(1) && TO(2) && TO(3) && TO(4) && TO(5);
+//
+//    // Prove that we can load arguments from the GC stack (b/c accesses are aligned)
+//    assert TO(0x44401) && TO(0x44402) && TO(0x44403);  // (gcStackOffset + {4,8,12}) / 4
+//
+//    // Load pointer to array a into edx
+//    call r, mems := heapLoadStack(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $absMem, $toAbs, $stacksFrames, objLayouts, EDX, OMem(MReg(ESP, 0x111004)), EvalPtr(r, OMem(MReg(ESP, 0x111004)))); // 0x111004 = gcStackOffset + 4
+//    var a_base:int;
+//    a_base := edx;
+//    $ghost_a__abs := frameGet($stacksFrames, EvalPtr(r, OMem(MReg(ESP, gcStackOffset + 4))));
+//
+//    // Load its length into eax
+//    call r, mems := loadArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, EAX, OMem(MReg(EDX, 4)), 0 - 1, $ghost_a__abs, r.regs[EDX]);
+//
+//    // Adjust to the "beginning" of the values we care about
+//    eax := eax - 1;
+//    call edi := Load(stk, esp + 8);  // grab ai
+//    eax := eax - edi;
+//    var aii:int := eax;
+//    assert aii == Arr_Length($ghost_a) - 1 - $ghost_ai;
+//
+//    // Convert aii into a memory pointer
+//    call arrayElementProperties(core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, aii, $ghost_a__abs, edx);   // Proves we're within bounds for the Lea calculation
+//    call eax := Lea(edx + 4 * eax + 8);
+//    var aii_ptr @ eax; 
+//
+//    // Load pointer to array b into edx
+//    call r, mems := heapLoadStack(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $absMem, $toAbs, $stacksFrames, objLayouts, EDX, OMem(MReg(ESP, 0x111008)), EvalPtr(r, OMem(MReg(ESP, 0x111008)))); // 0x111008 = gcStackOffset + 8
+//    var b_base:int;
+//    b_base := edx;
+//    $ghost_b__abs := frameGet($stacksFrames, EvalPtr(r, OMem(MReg(ESP, gcStackOffset + 8))));
+//
+//    // Load its length into ebx
+//    call r, mems := loadArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, EBX, OMem(MReg(EDX, 4)), 0 - 1, $ghost_b__abs, r.regs[EDX]);
+//
+//    // Adjust to the "beginning" of the values we care about
+//    ebx := ebx - 1;
+//    call edi := Load(stk, esp + 12);  // grab bi
+//    ebx := ebx - edi;
+//    var bii:int := ebx;
+//    assert bii == Arr_Length($ghost_b) - 1 - $ghost_bi;
+//
+//    // Convert aii into a memory pointer
+//    call arrayElementProperties(core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, bii, $ghost_b__abs, edx);   // Proves we're within bounds for the Lea calculation
+//    call ebx := Lea(edx + 4 * ebx + 8);
+//    var bii_ptr @ ebx; 
+//
+//    // Load pointer to array s into edx
+//    call r, mems := heapLoadStack(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $absMem, $toAbs, $stacksFrames, objLayouts, EDX, OMem(MReg(ESP, 0x11100c)), EvalPtr(r, OMem(MReg(ESP, 0x11100c))));  // 0x11100c == gcStackOffset + 12
+//    var s_base:int;
+//    s_base := edx;
+//    $ghost_s__abs := frameGet($stacksFrames, EvalPtr(r, OMem(MReg(ESP, gcStackOffset + 12))));
+//
+//    // Load its length into ecx
+//    call r, mems := loadArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, ECX, OMem(MReg(EDX, 4)), 0 - 1, $ghost_s__abs, r.regs[EDX]);
+//
+//    // Adjust to the "beginning" of the values we care about
+//    ecx := ecx - 1;
+//    call edi := Load(stk, esp + 16);  // grab si
+//    ecx := ecx - edi;
+//    var sii:int := ecx;
+//    assert sii == Arr_Length($ghost_s) - 1 - $ghost_si;
+//
+//    // Convert sii into a memory pointer
+//    call arrayElementProperties(core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, sii, $ghost_s__abs, edx);   // Proves we're within bounds for the Lea calculation
+//    call ecx := Lea(edx + 4 * ecx + 8);
+//    var sii_ptr @ ecx; 
+//
+//    /////////////// Start computing //////////////////////////
+//
+//    // First, "load" c_in into CF via a sneaky addition
+//    call edi := Load(stk, esp + 20);  // grab c_in
+//    assert edi == $ghost_c_in;
+//    call r := instr_Add(r, EDI, OConst(0xffffffff));   
+//    assert Cf(r.efl) == ($ghost_c_in == 1);
+//
+//    // Build the carries sequence
+//    $ghost_carries := fun_Seq__Build___int(fun_Seq__Empty___int(), $ghost_c_in);
+//
+//    var carry:int;
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+//        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+//                 $ghost_a, $ghost_b, $ghost_s, 
+//                 OMem(MReg(EAX, 0)), $ghost_a__abs, a_base, aii-0,
+//                 OMem(MReg(EBX, 0)), $ghost_b__abs, b_base, bii-0,
+//                 OMem(MReg(ECX, 0)), $ghost_s__abs, s_base, sii-0,
+//                 $ghost_si, 0, $ghost_carries, $ghost_c_in);
+//
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+//        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+//                 $ghost_a, $ghost_b, $ghost_s, 
+//                 OMem(MReg(EAX, (-4))), $ghost_a__abs, a_base, aii-1,
+//                 OMem(MReg(EBX, (-4))), $ghost_b__abs, b_base, bii-1,
+//                 OMem(MReg(ECX, (-4))), $ghost_s__abs, s_base, sii-1,
+//                 $ghost_si, (-1), $ghost_carries, carry);
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+//        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+//                 $ghost_a, $ghost_b, $ghost_s, 
+//                 OMem(MReg(EAX, (-8))), $ghost_a__abs, a_base, aii-2,
+//                 OMem(MReg(EBX, (-8))), $ghost_b__abs, b_base, bii-2,
+//                 OMem(MReg(ECX, (-8))), $ghost_s__abs, s_base, sii-2,
+//                 $ghost_si, (-2), $ghost_carries, carry);
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+//        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+//                 $ghost_a, $ghost_b, $ghost_s, 
+//                 OMem(MReg(EAX, (-12))), $ghost_a__abs, a_base, aii-3,
+//                 OMem(MReg(EBX, (-12))), $ghost_b__abs, b_base, bii-3,
+//                 OMem(MReg(ECX, (-12))), $ghost_s__abs, s_base, sii-3,
+//                 $ghost_si, (-3), $ghost_carries, carry);
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+//        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+//                 $ghost_a, $ghost_b, $ghost_s, 
+//                 OMem(MReg(EAX, (-16))), $ghost_a__abs, a_base, aii-4,
+//                 OMem(MReg(EBX, (-16))), $ghost_b__abs, b_base, bii-4,
+//                 OMem(MReg(ECX, (-16))), $ghost_s__abs, s_base, sii-4,
+//                 $ghost_si, (-4), $ghost_carries, carry);
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+//        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+//                 $ghost_a, $ghost_b, $ghost_s, 
+//                 OMem(MReg(EAX, (-20))), $ghost_a__abs, a_base, aii-5,
+//                 OMem(MReg(EBX, (-20))), $ghost_b__abs, b_base, bii-5,
+//                 OMem(MReg(ECX, (-20))), $ghost_s__abs, s_base, sii-5,
+//                 $ghost_si, (-5), $ghost_carries, carry);
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+//        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+//                 $ghost_a, $ghost_b, $ghost_s, 
+//                 OMem(MReg(EAX, (-24))), $ghost_a__abs, a_base, aii-6,
+//                 OMem(MReg(EBX, (-24))), $ghost_b__abs, b_base, bii-6,
+//                 OMem(MReg(ECX, (-24))), $ghost_s__abs, s_base, sii-6,
+//                 $ghost_si, (-6), $ghost_carries, carry);
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+//        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+//                 $ghost_a, $ghost_b, $ghost_s, 
+//                 OMem(MReg(EAX, (-28))), $ghost_a__abs, a_base, aii-7,
+//                 OMem(MReg(EBX, (-28))), $ghost_b__abs, b_base, bii-7,
+//                 OMem(MReg(ECX, (-28))), $ghost_s__abs, s_base, sii-7,
+//                 $ghost_si, (-7), $ghost_carries, carry);
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+//        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+//                 $ghost_a, $ghost_b, $ghost_s, 
+//                 OMem(MReg(EAX, (-32))), $ghost_a__abs, a_base, aii-8,
+//                 OMem(MReg(EBX, (-32))), $ghost_b__abs, b_base, bii-8,
+//                 OMem(MReg(ECX, (-32))), $ghost_s__abs, s_base, sii-8,
+//                 $ghost_si, (-8), $ghost_carries, carry);
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+//        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+//                 $ghost_a, $ghost_b, $ghost_s, 
+//                 OMem(MReg(EAX, (-36))), $ghost_a__abs, a_base, aii-9,
+//                 OMem(MReg(EBX, (-36))), $ghost_b__abs, b_base, bii-9,
+//                 OMem(MReg(ECX, (-36))), $ghost_s__abs, s_base, sii-9,
+//                 $ghost_si, (-9), $ghost_carries, carry);
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+//        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+//                 $ghost_a, $ghost_b, $ghost_s, 
+//                 OMem(MReg(EAX, (-40))), $ghost_a__abs, a_base, aii-10,
+//                 OMem(MReg(EBX, (-40))), $ghost_b__abs, b_base, bii-10,
+//                 OMem(MReg(ECX, (-40))), $ghost_s__abs, s_base, sii-10,
+//                 $ghost_si, (-10), $ghost_carries, carry);
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+//        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+//                 $ghost_a, $ghost_b, $ghost_s, 
+//                 OMem(MReg(EAX, (-44))), $ghost_a__abs, a_base, aii-11,
+//                 OMem(MReg(EBX, (-44))), $ghost_b__abs, b_base, bii-11,
+//                 OMem(MReg(ECX, (-44))), $ghost_s__abs, s_base, sii-11,
+//                 $ghost_si, (-11), $ghost_carries, carry);
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+//        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+//                 $ghost_a, $ghost_b, $ghost_s, 
+//                 OMem(MReg(EAX, (-48))), $ghost_a__abs, a_base, aii-12,
+//                 OMem(MReg(EBX, (-48))), $ghost_b__abs, b_base, bii-12,
+//                 OMem(MReg(ECX, (-48))), $ghost_s__abs, s_base, sii-12,
+//                 $ghost_si, (-12), $ghost_carries, carry);
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+//        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+//                 $ghost_a, $ghost_b, $ghost_s, 
+//                 OMem(MReg(EAX, (-52))), $ghost_a__abs, a_base, aii-13,
+//                 OMem(MReg(EBX, (-52))), $ghost_b__abs, b_base, bii-13,
+//                 OMem(MReg(ECX, (-52))), $ghost_s__abs, s_base, sii-13,
+//                 $ghost_si, (-13), $ghost_carries, carry);
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+//        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+//                 $ghost_a, $ghost_b, $ghost_s, 
+//                 OMem(MReg(EAX, (-56))), $ghost_a__abs, a_base, aii-14,
+//                 OMem(MReg(EBX, (-56))), $ghost_b__abs, b_base, bii-14,
+//                 OMem(MReg(ECX, (-56))), $ghost_s__abs, s_base, sii-14,
+//                 $ghost_si, (-14), $ghost_carries, carry);
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+//        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+//                 $ghost_a, $ghost_b, $ghost_s, 
+//                 OMem(MReg(EAX, (-60))), $ghost_a__abs, a_base, aii-15,
+//                 OMem(MReg(EBX, (-60))), $ghost_b__abs, b_base, bii-15,
+//                 OMem(MReg(ECX, (-60))), $ghost_s__abs, s_base, sii-15,
+//                 $ghost_si, (-15), $ghost_carries, carry);
+//
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+//        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+//                 $ghost_a, $ghost_b, $ghost_s, 
+//                 OMem(MReg(EAX, (-64))), $ghost_a__abs, a_base, aii-16,
+//                 OMem(MReg(EBX, (-64))), $ghost_b__abs, b_base, bii-16,
+//                 OMem(MReg(ECX, (-64))), $ghost_s__abs, s_base, sii-16,
+//                 $ghost_si, (-16), $ghost_carries, carry);
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+//        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+//                 $ghost_a, $ghost_b, $ghost_s, 
+//                 OMem(MReg(EAX, (-68))), $ghost_a__abs, a_base, aii-17,
+//                 OMem(MReg(EBX, (-68))), $ghost_b__abs, b_base, bii-17,
+//                 OMem(MReg(ECX, (-68))), $ghost_s__abs, s_base, sii-17,
+//                 $ghost_si, (-17), $ghost_carries, carry);
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+//        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+//                 $ghost_a, $ghost_b, $ghost_s, 
+//                 OMem(MReg(EAX, (-72))), $ghost_a__abs, a_base, aii-18,
+//                 OMem(MReg(EBX, (-72))), $ghost_b__abs, b_base, bii-18,
+//                 OMem(MReg(ECX, (-72))), $ghost_s__abs, s_base, sii-18,
+//                 $ghost_si, (-18), $ghost_carries, carry);
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+//        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+//                 $ghost_a, $ghost_b, $ghost_s, 
+//                 OMem(MReg(EAX, (-76))), $ghost_a__abs, a_base, aii-19,
+//                 OMem(MReg(EBX, (-76))), $ghost_b__abs, b_base, bii-19,
+//                 OMem(MReg(ECX, (-76))), $ghost_s__abs, s_base, sii-19,
+//                 $ghost_si, (-19), $ghost_carries, carry);
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+//        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+//                 $ghost_a, $ghost_b, $ghost_s, 
+//                 OMem(MReg(EAX, (-80))), $ghost_a__abs, a_base, aii-20,
+//                 OMem(MReg(EBX, (-80))), $ghost_b__abs, b_base, bii-20,
+//                 OMem(MReg(ECX, (-80))), $ghost_s__abs, s_base, sii-20,
+//                 $ghost_si, (-20), $ghost_carries, carry);
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+//        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+//                 $ghost_a, $ghost_b, $ghost_s, 
+//                 OMem(MReg(EAX, (-84))), $ghost_a__abs, a_base, aii-21,
+//                 OMem(MReg(EBX, (-84))), $ghost_b__abs, b_base, bii-21,
+//                 OMem(MReg(ECX, (-84))), $ghost_s__abs, s_base, sii-21,
+//                 $ghost_si, (-21), $ghost_carries, carry);
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+//        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+//                 $ghost_a, $ghost_b, $ghost_s, 
+//                 OMem(MReg(EAX, (-88))), $ghost_a__abs, a_base, aii-22,
+//                 OMem(MReg(EBX, (-88))), $ghost_b__abs, b_base, bii-22,
+//                 OMem(MReg(ECX, (-88))), $ghost_s__abs, s_base, sii-22,
+//                 $ghost_si, (-22), $ghost_carries, carry);
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+//        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+//                 $ghost_a, $ghost_b, $ghost_s, 
+//                 OMem(MReg(EAX, (-92))), $ghost_a__abs, a_base, aii-23,
+//                 OMem(MReg(EBX, (-92))), $ghost_b__abs, b_base, bii-23,
+//                 OMem(MReg(ECX, (-92))), $ghost_s__abs, s_base, sii-23,
+//                 $ghost_si, (-23), $ghost_carries, carry);
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+//        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+//                 $ghost_a, $ghost_b, $ghost_s, 
+//                 OMem(MReg(EAX, (-96))), $ghost_a__abs, a_base, aii-24,
+//                 OMem(MReg(EBX, (-96))), $ghost_b__abs, b_base, bii-24,
+//                 OMem(MReg(ECX, (-96))), $ghost_s__abs, s_base, sii-24,
+//                 $ghost_si, (-24), $ghost_carries, carry);
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+//        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+//                 $ghost_a, $ghost_b, $ghost_s, 
+//                 OMem(MReg(EAX, (-100))), $ghost_a__abs, a_base, aii-25,
+//                 OMem(MReg(EBX, (-100))), $ghost_b__abs, b_base, bii-25,
+//                 OMem(MReg(ECX, (-100))), $ghost_s__abs, s_base, sii-25,
+//                 $ghost_si, (-25), $ghost_carries, carry);
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+//        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+//                 $ghost_a, $ghost_b, $ghost_s, 
+//                 OMem(MReg(EAX, (-104))), $ghost_a__abs, a_base, aii-26,
+//                 OMem(MReg(EBX, (-104))), $ghost_b__abs, b_base, bii-26,
+//                 OMem(MReg(ECX, (-104))), $ghost_s__abs, s_base, sii-26,
+//                 $ghost_si, (-26), $ghost_carries, carry);
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+//        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+//                 $ghost_a, $ghost_b, $ghost_s, 
+//                 OMem(MReg(EAX, (-108))), $ghost_a__abs, a_base, aii-27,
+//                 OMem(MReg(EBX, (-108))), $ghost_b__abs, b_base, bii-27,
+//                 OMem(MReg(ECX, (-108))), $ghost_s__abs, s_base, sii-27,
+//                 $ghost_si, (-27), $ghost_carries, carry);
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+//        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+//                 $ghost_a, $ghost_b, $ghost_s, 
+//                 OMem(MReg(EAX, (-112))), $ghost_a__abs, a_base, aii-28,
+//                 OMem(MReg(EBX, (-112))), $ghost_b__abs, b_base, bii-28,
+//                 OMem(MReg(ECX, (-112))), $ghost_s__abs, s_base, sii-28,
+//                 $ghost_si, (-28), $ghost_carries, carry);
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+//        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+//                 $ghost_a, $ghost_b, $ghost_s, 
+//                 OMem(MReg(EAX, (-116))), $ghost_a__abs, a_base, aii-29,
+//                 OMem(MReg(EBX, (-116))), $ghost_b__abs, b_base, bii-29,
+//                 OMem(MReg(ECX, (-116))), $ghost_s__abs, s_base, sii-29,
+//                 $ghost_si, (-29), $ghost_carries, carry);
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+//        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+//                 $ghost_a, $ghost_b, $ghost_s, 
+//                 OMem(MReg(EAX, (-120))), $ghost_a__abs, a_base, aii-30,
+//                 OMem(MReg(EBX, (-120))), $ghost_b__abs, b_base, bii-30,
+//                 OMem(MReg(ECX, (-120))), $ghost_s__abs, s_base, sii-30,
+//                 $ghost_si, (-30), $ghost_carries, carry);
+//    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, carry, $ghost_carries := 
+//        arrayAdd(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, 
+//                 $ghost_a, $ghost_b, $ghost_s, 
+//                 OMem(MReg(EAX, (-124))), $ghost_a__abs, a_base, aii-31,
+//                 OMem(MReg(EBX, (-124))), $ghost_b__abs, b_base, bii-31,
+//                 OMem(MReg(ECX, (-124))), $ghost_s__abs, s_base, sii-31,
+//                 $ghost_si, (-31), $ghost_carries, carry);
+//
+//
+//
+//    // Extract the final carry bit from EFL
+//    eax := 0;
+//    call r := instr_GetCf(r, EAX);
+//    assert Aligned(esp);
+//    assert Aligned(esp + 4);
+//    call Store(inout stk, esp + 4, eax);
+//    $ghost_c_out := carry;
+//
+//    assert $ghost_a.arrAbs != $ghost_s.arrAbs;
+//
+//    Return;
+//}
+
+}

@@ -1,0 +1,60 @@
+//- Untrusted spec for interacting with the network card
+//- Implementation of the verified network driver
+
+//-<NuBuild BasmEnableSymdiff true />
+//-private-import BaseSpec;
+//-private-import MemorySpec;
+//-private-import IoTypesSpec;
+//-private-import MachineStateSpec;
+//-private-import AssemblySpec;
+//-private-import InterruptsSpec;
+//-private-import IoSpec;
+//-<NuBuild AddBoogieAxiom Base_axioms />
+//-<NuBuild AddBoogieAxiom Word_axioms />
+//-<NuBuild AddBoogieAxiom Memory_axioms />
+//-<NuBuild AddBoogieAxiom Assembly_axioms />
+//-<NuBuild AddBoogieAxiom Io_axioms />
+//-private-import Core;
+//-private-import LogicalAddressing;
+//-private-import Overflow;
+//-private-import Util;
+//-private-import Stacks;
+//-private-import Partition;
+//-private-import Instructions;
+//-private-import Separation;
+//-private-import IntLemmasBase;
+//-private-import IntLemmasGc;
+//-private-import SimpleGcMemory;
+//-private-import SimpleCommon;
+//-private-import SimpleCollector;
+//-private-import IntLemmasDevices;
+//-private-import PCI;
+
+
+module interface IntelNIC
+{
+
+const ?intel_NIC_device_vendor_id:int := 0x107c8086;
+
+procedure map_network_card();
+  inout my r:regs, my core_state:core_state, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems, $commonVars:commonVars, $gcVars:gcVars;
+  inout $absMem:[int][int]int, $toAbs:[int]int, $stacksFrames:[int]Frames, objLayouts:[int]ObjLayout;
+  requires NucleusInv(objLayouts, $S, $toAbs, $absMem, GcVars, $Mem_Vars, $stacksFrames, $IoVars);
+  requires public(io._inCtr);
+  requires public(io._outCtr);
+  modifies io, efl, eax, ebx, ecx, edx, esi, edi, ebp, $pciMem;
+  ensures  NucleusInv(objLayouts, $S, $toAbs, $absMem, GcVars, $Mem_Vars, $stacksFrames, $IoVars);
+  ensures  PciConfigReadResult(ecx, 0, ?intel_NIC_device_vendor_id);
+  ensures  IsValidPciId(ecx);
+  ensures  eax == PciMemSize(ecx);
+  ensures  ebx == PciMemAddr(ecx);
+  ensures  word(PciMemAddr(ecx) + PciMemSize(ecx));
+  ensures  io._pci.PciConfigState[ecx] == 4;
+  ensures  public(eax);
+  ensures  public(ebx);
+  ensures  public(ecx);
+  ensures  public(io._inCtr);
+  ensures  public(io._outCtr);
+
+
+}

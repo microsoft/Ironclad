@@ -1,0 +1,30 @@
+# REVIEW: Everything in this file could be infered from the .csproj file.
+
+# Dependencies listed as References in .csproj file:
+dependency ..\Dafny\Basetypes.dll
+dependency ..\Dafny\Core.dll
+dependency ..\Dafny\DafnyPipeline.dll
+dependency ..\Dafny\ParserHelper.dll
+
+# Dependencies listed as Content in .csproj file:
+dependency ..\Dafny\CodeContractsExtender.dll
+dependency ..\Dafny\Provers.SMTLib.dll
+dependency ..\Dafny\VCGeneration.dll
+dependency ..\Dafny\z3.exe
+dependency ..\DafnySpec\DafnyPrelude.dfy
+
+# Outputs (References marked "Copy Local" in .csproj file):
+output Basetypes.dll
+output Core.dll
+output DafnyPipeline.dll
+output ParserHelper.dll
+
+# Outputs (Content marked "Copy to Output Directory" in .csproj file):
+output CodeContractsExtender.dll
+output Provers.SMTLib.dll
+output VCGeneration.dll
+output z3.exe
+output DafnyPrelude.dfy
+
+# Outputs actually built by this .csproj file:
+output dafnycc.exe

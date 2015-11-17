@@ -1,0 +1,359 @@
+//-private-import BaseSpec;
+//-private-import MemorySpec;
+//-private-import IoTypesSpec;
+//-private-import MachineStateSpec;
+//-private-import AssemblySpec;
+//-<NuBuild AddBoogieAxiom Assembly_axioms />
+//-private-import IntSpec;
+//-private-import BitVectorLemmasBase;
+//-<NuBuild AddBoogieAxiom Word_axioms />
+//-<NuBuild AddBoogieAxiom IntSpec_axioms />
+//-
+//- Copyright (c) Microsoft Corporation.  All rights reserved.
+//-
+
+module implementation IntLemmasBase
+{
+
+atomic ghost procedure helper()
+  ensures (forall b1:bv32, b2:bv32::{$add(b1, b2)} word(add(I(b1), I(b2))) ==> add(I(b1), I(b2)) == I($add(b1, b2)));
+  ensures (forall b1:bv32, b2:bv32::{$sub(b1, b2)} word(sub(I(b1), I(b2))) ==> sub(I(b1), I(b2)) == I($sub(b1, b2)));
+  ensures (forall b1:bv32, b2:bv32::{$mul(b1, b2)} word(mul(I(b1), I(b2))) ==> mul(I(b1), I(b2)) == I($mul(b1, b2)));
+  ensures (forall b1:bv32, b2:bv32::{$div(b1, b2)} word(_mod(I(b1), I(b2))) ==> _mod(I(b1), I(b2)) == I($mod(b1, b2)));
+  ensures (forall b1:bv32, b2:bv32::{$mod(b1, b2)} word(_div(I(b1), I(b2))) ==> _div(I(b1), I(b2)) == I($div(b1, b2)));
+  ensures (forall b1:bv32, b2:bv32::{$le(b1, b2)} le(I(b1), I(b2)) <==> $le(b1, b2));
+  ensures (forall b1:bv32, b2:bv32::{$lt(b1, b2)} lt(I(b1), I(b2)) <==> $lt(b1, b2));
+  ensures (forall b1:bv32, b2:bv32::{$ge(b1, b2)} ge(I(b1), I(b2)) <==> $ge(b1, b2));
+  ensures (forall b1:bv32, b2:bv32::{$gt(b1, b2)} gt(I(b1), I(b2)) <==> $gt(b1, b2));
+  ensures (forall b1:bv32, b2:bv32::{$eq(b1, b2)} eq(I(b1), I(b2)) <==> $eq(b1, b2));
+  ensures (forall b1:bv32, b2:bv32, b3:bv32::{$between(b1, b2, b3)} between(I(b1), I(b2), I(b3)) <==> $between(b1, b2, b3));
+  ensures (forall i1:int, i2:int, i3:int ::{between(i1, i2, i3)} word(i1) && word(i2) && word(i3) ==> (between(i1, i2, i3) <==> $between(B(i1), B(i2), B(i3))) );
+{
+}
+
+//- Add
+atomic ghost procedure _a($b1:bv32, $b2:bv32)
+  requires word(add(I($b1), I($b2)));
+  ensures  add(I($b1), I($b2)) == I($add($b1, $b2));
+{
+}
+
+//- Sub
+atomic ghost procedure _s($b1:bv32, $b2:bv32)
+  requires word(sub(I($b1), I($b2)));
+  ensures  sub(I($b1), I($b2)) == I($sub($b1, $b2));
+{
+}
+
+//- Multiply
+atomic ghost procedure _m($b1:bv32, $b2:bv32)
+  requires word(mul(I($b1), I($b2)));
+  ensures  mul(I($b1), I($b2)) == I($mul($b1, $b2));
+{
+}
+
+//- Useful relations between const ints and const bitvectors
+atomic ghost procedure __const()
+  ensures 0 == I(0bv32);
+  ensures 1 == I(1bv32);
+  ensures 2 == I(2bv32);
+  ensures 3 == I(3bv32);
+  ensures 4 == I(4bv32);
+  ensures 5 == I(5bv32);
+  ensures 6 == I(6bv32);
+  ensures 7 == I(7bv32);
+  ensures 8 == I(8bv32);
+  ensures 9 == I(9bv32);
+  ensures 10 == I(10bv32);
+  ensures 11 == I(11bv32);
+  ensures 12 == I(12bv32);
+  ensures 13 == I(13bv32);
+  ensures 15 == I(15bv32);
+  ensures 16 == I(16bv32);
+  ensures 22 == I(22bv32);
+  ensures 32 == I(32bv32);
+  ensures 31 == I(31bv32);
+  ensures 64 == I(64bv32);
+  ensures 63 == I(63bv32);
+  ensures 128 == I(128bv32);
+  ensures 127 == I(127bv32);
+  ensures 255 == I(255bv32);
+  ensures 256 == I(256bv32);
+  ensures 1023 == I(1023bv32);
+  ensures 1024 == I(1024bv32);
+  ensures 4096 == I(4096bv32);
+  ensures 4095 == I(4095bv32);
+  ensures 1048576 == I(1048576bv32);  // 2^20
+  ensures 16777215 == I(16777215bv32);
+  ensures 33554431 == I(33554431bv32);
+  ensures 67108863 == I(67108863bv32);
+  ensures 2147483648 == I(2147483648bv32);
+  ensures 0xFFFFF000 == I(4294963200bv32);
+  ensures 4194304 == I(4194304bv32); // 2^22 = 0x0040000
+{
+  call _const_base();
+  call _s(1bv32, 1bv32);
+  call _a(1bv32, 0bv32);
+  call _a(1bv32, 1bv32);
+  call _a(2bv32, 1bv32);
+  call _a(2bv32, 2bv32);
+  call _a(4bv32, 1bv32);
+  call _a(5bv32, 1bv32);
+  call _a(5bv32, 2bv32);
+  call _a(5bv32, 3bv32);
+  call _a(5bv32, 4bv32);
+  call _a(5bv32, 5bv32);
+  call _a(5bv32, 6bv32);
+  call _a(5bv32, 7bv32);
+  call _a(5bv32, 8bv32);
+  call _a(7bv32, 8bv32);
+  call _m(4bv32, 4bv32);
+  call _a(10bv32, 12bv32);
+  call _a(16bv32, 16bv32);
+  call _s(32bv32, 1bv32);
+  call _a(32bv32, 32bv32);
+  call _s(64bv32, 1bv32);
+  call _m(32bv32, 4bv32);
+  call _s(128bv32, 1bv32);
+  call _m(16bv32, 16bv32);
+  call _s(256bv32, 1bv32);
+  call _a(256bv32, 256bv32);
+  call _a(512bv32, 512bv32);
+  call _s(1024bv32, 1bv32);
+  call _m(64bv32, 64bv32);
+  call _s(4096bv32, 1bv32);
+  call _m(256bv32, 256bv32);
+  call _s(65536bv32, 1bv32);
+  call _m(65536bv32, 256bv32);
+  call _s(16777216bv32, 1bv32);
+  call _m(65536bv32, 65535bv32);
+  call _m(65536bv32, 512bv32);
+  call _s(33554432bv32, 1bv32);
+  call _a(33554432bv32, 33554432bv32);
+  call _s(67108864bv32, 1bv32);
+  call _m(33554432bv32, 64bv32);
+  call _m(1024bv32, 1024bv32); 
+  call _s(1048576bv32, 1bv32); //- 0x000F FFFF
+  call _m(1048575bv32, 4096bv32); //- 0xFFFF F000
+  call _m(1048576bv32, 4bv32);
+}
+
+atomic ghost procedure bit_helper()
+  //- BV to Int
+  ensures (forall i:bv32, val:bv32 :: {$get_bit(i, val)}     (bit_index(I(i)) && word(I(val))) ==> GetBit(I(i), I(val))     ==   $get_bit(i, val));
+  ensures (forall i:bv32, val:bv32 :: {$set_bit(i, val)}     (bit_index(I(i)) && word(I(val))) ==> SetBit(I(i), I(val))     == I($set_bit(i, val)));
+  ensures (forall i:bv32, val:bv32 :: {$clear_bit(i, val)}   (bit_index(I(i)) && word(I(val))) ==> ClearBit(I(i), I(val))   == I($clear_bit(i, val)));
+  ensures (forall i:bv32, val:bv32 :: {$clear_LSBs(i, val)}  (bit_index(I(i)) && word(I(val))) ==> ClearLSBs(I(i), I(val))  == I($clear_LSBs(i, val)));
+  ensures (forall i:bv32, val:bv32 :: {$select_LSBs(i, val)} (bit_index(I(i)) && word(I(val))) ==> SelectLSBs(I(i), I(val)) == I($select_LSBs(i, val)));
+  //- Int to BV
+  ensures (forall i:int, val:int :: {GetBit(i,val)}   (bit_index(i) && word(val)) ==> GetBit(i, val)   ==   $get_bit(B(i), B(val)));
+  ensures (forall i:int, val:int :: {SetBit(i,val)}   (bit_index(i) && word(val)) ==> SetBit(i, val)   == I($set_bit(B(i), B(val))));
+  ensures (forall i:int, val:int :: {ClearBit(i,val)} (bit_index(i) && word(val)) ==> ClearBit(i, val) == I($clear_bit(B(i), B(val))));
+  ensures (forall i:int, val:int :: {ClearLSBs(i,val)}     (bit_index(i) && word(val)) ==> ClearLSBs(i, val)     == I($clear_LSBs(B(i), B(val))));
+  ensures (forall i:int, val:int :: {SelectLSBs(i,val)} (bit_index(i) && word(val)) ==> SelectLSBs(i, val) == I($select_LSBs(B(i), B(val))));
+  ensures (forall i:bv32, val1:bv32, val2:bv32 :: { $get_bit(i, $or(val1, val2)) }
+           (bit_index(I(i)) && word(I(val1)) && word(I(val2))) ==> GetBit(I(i), or(I(val1), I(val2))) == $get_bit(i, $or(val1, val2)));
+  ensures (forall i:bv32, j:bv32, val:bv32 :: { $get_bit(j, $clear_LSBs(i, val)) }
+          (bit_index(I(i)) && bit_index(I(j)) && word(I(val))) ==> GetBit(I(j), ClearLSBs(I(i), I(val))) == $get_bit(j, $clear_LSBs(i, val)));
+  ensures (forall i:bv32, j:bv32, val:bv32 :: { $get_bit(j, $select_LSBs(i, val)) }
+          (bit_index(I(i)) && bit_index(I(j)) && word(I(val))) ==> GetBit(I(j), SelectLSBs(I(i), I(val))) == $get_bit(j, $select_LSBs(i, val)));
+{
+  call helper();
+  call __const();
+  call _shl_1_ge_1();
+}
+
+
+implementation alignment_is_mod4_lemma()
+{
+  call __const();
+  call _alignment_is_mod4_lemma();
+}
+
+implementation alignment_4k_is_mod4096_lemma()
+{
+  call __const();
+  call _shl_1_ge_1();
+  call bit_helper();
+  call _clear_LSBs_lemma();
+  call _alignment_4k_is_mod4096_lemma();
+}
+
+implementation alignment_dominance_lemma($ptr:int) 
+{ 
+  call helper();
+  call __const();
+  call _alignment_dominance_lemma(B($ptr));
+}
+
+// Note: Including a semicolon at the end of an implementation line (before the braces) causes BoogieAsm to freak out
+implementation lower_bits_dont_matter_lemma($ptr:int, $bitPos:int)
+{
+  call helper();
+  call __const();
+  call _shl_1_ge_1();
+  call bit_helper();
+  call _lower_bits_dont_matter_lemma(B($ptr), B($bitPos));
+}
+
+
+implementation get_set_lemma()
+{
+  call helper();
+  call __const();
+  call bit_helper();
+  call _get_set_lemma();
+}
+
+
+implementation clear_LSBs_lemma()
+{
+  call helper();
+  call __const();
+  call _shl_1_ge_1();
+  call bit_helper();
+  call _clear_LSBs_lemma();
+}
+
+implementation upper_bits_clear_ubound_lemma() 
+{
+  call __const();
+  call _shl_1_ge_1();
+  call bit_helper();
+  call _upper_bits_clear_ubound_lemma();
+}
+
+implementation upper_bits_clear_lbound_lemma() 
+{
+  call __const();
+  call _upper_bits_clear_lbound_lemma();
+}
+
+implementation clear_less_than_equal_lemma ()
+{  
+  call __const();
+  call _shl_1_ge_1();
+  call bit_helper();
+  call _clear_less_than_equal_lemma();
+}
+
+implementation clear_12_lemma ()
+{
+  call __const();
+  call _shl_1_ge_1();
+  call bit_helper();
+  call helper();
+  call _clear_12_lemma();
+
+//  assert  (forall ptr:int, lb:int, ub:int :: { between(lb, ub, ClearLSBs(12, ptr)) }
+//           word(ptr) && word(lb) && word(ub) && aligned4k(lb) && aligned4k(ub) && 
+//           le(lb, ptr) && lt(ptr, ub) ==>
+//           le(lb, ClearLSBs(12, ptr)) );
+}
+
+
+implementation clear_select_consistent_lemma()
+{
+  call __const();
+  call _shl_1_ge_1();
+  call bit_helper();
+  call _clear_select_consistent_lemma();
+}
+
+implementation select_non_negative_lemma() 
+{
+  call __const();
+  call _shl_1_ge_1();
+  call bit_helper();
+  call _select_non_negative_lemma();
+}
+
+
+implementation select_preserves_word_lemma()
+{
+  call __const();
+  call _select_preserves_word_lemma();
+}
+
+implementation shr_decreases()
+{
+  call helper();
+  call __const();
+  call bit_helper();
+  call _shr_decreases();
+}
+
+implementation and_bounds()
+{
+  call helper();
+  call __const();
+  call bit_helper();
+  call _and_bounds();
+}
+
+implementation shr_preserves_word_lemma()
+{
+  call __const();
+  call _shr_preserves_word_lemma();
+}
+
+implementation set_bit_preserves_word_lemma()
+{
+  call __const();
+  call __const();
+  call bit_helper();
+  //call _set_bit_preserves_word_lemma();
+}
+
+implementation or_with_3_lemma() 
+{
+  call helper();
+  call __const();
+  call bit_helper();
+  call _or_with_3_lemma();
+}
+
+implementation or_with_7_lemma() 
+{
+  call helper();
+  call __const();
+  call bit_helper();
+  call _or_with_7_lemma();
+}
+
+implementation or_with_pow2_31_lemma() 
+{
+  call helper();
+  call __const();
+  call bit_helper();
+  call _or_with_pow2_31_lemma();
+}
+
+implementation pointer_pieces_lemma()
+{
+  call helper();
+  call __const();
+  call _shl_1_ge_1();
+  call bit_helper();
+  call _upper_bits_clear_ubound_lemma();
+  call _upper_bits_clear_lbound_lemma();
+  call _pointer_pieces_lemma();
+}
+
+implementation ptr_offsets_lemma() 
+{
+  call helper();
+  call __const();
+  call bit_helper();
+  call _ptr_offsets_lemma();
+}
+
+implementation ptr_reconstruction_lemma()
+{
+  call helper();
+  call __const();
+  call bit_helper();
+  call _ptr_reconstruction_lemma();
+}
+
+}

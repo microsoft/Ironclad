@@ -1,0 +1,218 @@
+//-
+//- Copyright (c) Microsoft Corporation.  All rights reserved.
+//-
+//-private-import BaseSpec;
+//-private-import MemorySpec;
+//-private-import IoTypesSpec;
+//-private-import MachineStateSpec;
+//-private-import AssemblySpec;
+//-private-import InterruptsSpec;
+//-private-import IoSpec;
+//-<NuBuild AddBoogieAxiom Base_axioms />
+//-<NuBuild AddBoogieAxiom Word_axioms />
+//-<NuBuild AddBoogieAxiom Memory_axioms />
+//-<NuBuild AddBoogieAxiom Assembly_axioms />
+//-<NuBuild AddBoogieAxiom Io_axioms />
+//-private-import Core;
+//-private-import LogicalAddressing;
+//-private-import Overflow;
+//-private-import Util;
+//-private-import Stacks;
+//-private-import Partition;
+//-private-import Separation;
+//-private-import IntLemmasBase;
+//-private-import IntLemmasGc;
+//-private-import SimpleGcMemory;
+//-private-import SimpleCommon;
+//-private-import SimpleCollector;
+//-private-import IoMain;
+//-private-import IntLemmasMain;
+//-private-basmonly-import Trusted;
+//-private-basmonly-import Checked;
+//-private-import Heap;
+//-private-import Seq;
+//-private-import dafny_DafnyPrelude;
+//-private-import DafnyAssembly;
+//-private-import dafny_relational_s;
+//-private-import dafny_base_s;
+//-private-import dafny_power2_s;
+//-disallowd-xrivate-import dafny_mul_i;
+//-disallowd-xrivate-import dafny_assembly_i;
+//-disallowd-xrivate-import dafny_bit_vector_lemmas_i;
+//-disallowd-xrivate-import dafny_Main_i;
+//-private-import AppLoaderContract;
+//-private-import ExtendedAssembly;
+
+module interface Entry
+{
+
+var $commonVars:commonVars;
+var $gcVars:gcVars;
+
+//
+//// TODO: better dispatcher
+//procedure Throw($_stackState:[int]StackState, $ebp:int, $esp:int, $eip:int);
+//  inout my r:regs, my core_state:core_state, linear stk:mem, linear statics:mem, linear io:IOState;
+//  inout mems:mems;
+//  requires word(eax) && word(ebx) && word(ecx) && word(edx) && word(esi) && word(edi) && word(ebp) && word(esp);
+//  requires isStack($S) && $StackState[$S] == StackRunning;
+//  requires NucleusInv($S, $StackState, $toAbs, $AbsMem, GcVars, $Mem_Vars, $StacksFrames, $IoVars);
+//  requires SpRequire($S, esp, 4);
+//  requires $_stackState == $StackState[$S := StackEmpty][?InterruptStack := StackRunning];
+//  requires (StackStateTag($StackState[?InterruptStack]) == ?STACK_YIELDED ==>
+//               RET == ReturnToAddr($eip)
+//            && $StackState[?InterruptStack] == StackYielded($ebp, $esp, $eip));
+//  modifies state, efl, eax, ebx, ecx, edx, esi, edi, ebp, esp;
+//  modifies AllGcVars, $_MemVars;
+//  modifies StackCheck;
+//  ensures  StackCheckInv(?InterruptStack, StackCheck);
+//  ensures  (StackStateTag($StackState[?InterruptStack]) == ?STACK_YIELDED ==>
+//               NucleusInv(?InterruptStack, $_stackState, $toAbs, $AbsMem, GcVars, $Mem_Vars, $StacksFrames, $IoVars)
+//            && ebp == $ebp
+//            && esp == $esp);
+//
+//procedure GetStackState($s:int);
+//  inout my r:regs, my core_state:core_state, linear stk:mem, linear statics:mem, linear io:IOState;
+//  inout mems:mems;
+//  requires word(ecx);
+//  requires isStack($S) && $StackState[$S] == StackRunning;
+//  requires ecx == $s;
+//  requires NucleusInv($S, $StackState, $toAbs, $AbsMem, GcVars, $Mem_Vars, $StacksFrames, $IoVars);
+//  requires ReturnToAddr($Mem[esp]) == RET;
+//  requires SpRequire($S, esp, 4);
+//  modifies state, efl, eax, ecx, edx, esp;
+//  ensures  NucleusInv($S, $StackState, $toAbs, $AbsMem, GcVars, $Mem_Vars, $StacksFrames, $IoVars);
+//  ensures  eax == StackStateTag($StackState[$s]);
+//  ensures  ebp == old(ebp);
+//  ensures  esp == old(esp) + 4;
+//
+//procedure ResetStack($s:int);
+//  inout my r:regs, my core_state:core_state, linear stk:mem, linear statics:mem, linear io:IOState;
+//  inout mems:mems;
+//  requires word(ecx);
+//  requires isStack($S) && $StackState[$S] == StackRunning;
+//  requires ecx == $s;
+//  requires NucleusInv($S, $StackState, $toAbs, $AbsMem, GcVars, $Mem_Vars, $StacksFrames, $IoVars);
+//  requires ScanStackInv($S, $Mem, $StacksFrames, $Mem[esp], esp, ebp);
+//  requires $StackState[$s] != StackRunning ==> ReturnToAddr($Mem[esp]) == RET;
+//  requires SpRequire($S, esp, 4);
+//  modifies state, efl, eax, ebx, ecx, edx, esi, edi, ebp, esp;
+//  modifies AllGcVars, $_MemVars;
+//  ensures  NucleusInv($S, $StackState[$s := StackEmpty], $toAbs, $AbsMem, GcVars, $Mem_Vars, $StacksFrames, $IoVars);
+//  ensures  ebp == old(ebp);
+//  ensures  esp == old(esp) + 4;
+//
+//// extern static void YieldTo(uint stackId);
+//// Switch to a stack $s.
+////   - $s may be empty, yielded, interrupted, or the current running stack.
+//// Change the state of $S to yielded, then change the state of $s to running.
+//procedure YieldTo($s:int, $_stackState:[int]StackState,
+//            $eax:int, $ebx:int, $ecx:int, $edx:int, $esi:int, $edi:int, $ebp:int, $esp:int,
+//            $eip:int, $cs:int, $efl:int);
+//  inout my r:regs, my core_state:core_state, linear stk:mem, linear statics:mem, linear io:IOState;
+//  inout mems:mems;
+//  requires ecx == $s;
+//  requires word(eax) && word(ebx) && word(ecx) && word(edx) && word(esi) && word(edi) && word(ebp);
+//  requires isStack($S) && $StackState[$S] == StackRunning;
+//  requires NucleusInv($S, $StackState, $toAbs, $AbsMem, GcVars, $Mem_Vars, $StacksFrames, $IoVars);
+//  requires ScanStackInv($S, $Mem, $StacksFrames, $Mem[esp], esp, ebp);
+//  requires SpRequire($S, esp, 4);
+//  requires $_stackState == $StackState[$S := StackYielded(ebp, esp + 4, $Mem[esp])][$s := StackRunning];
+//  requires ($StackState[$s] == StackRunning && $s == $S && RET == ReturnToAddr($Mem[esp]))
+//        || ($StackState[$s] == StackYielded($ebp, $esp, $eip) && RET == ReturnToAddr($eip))
+//        || ($StackState[$s] == StackInterrupted($eax, $ebx, $ecx, $edx, $esi, $edi, $ebp, $esp, $eip, $cs, $efl)
+//            && RET == ReturnToInterrupted($eip, $cs, $efl))
+//        || ($StackState[$s] == StackEmpty && RET == ReturnToAddr(?KernelEntryPoint)
+//            && $StacksFrames[$s].Count == 0);
+//
+//  modifies state, efl, eax, ebx, ecx, edx, esi, edi, ebp, esp;
+//  modifies AllGcVars, $_MemVars;
+//  modifies StackCheck;
+//
+//  ensures  StackCheckInv($s, StackCheck);
+//  ensures  ($StackState[$s] == StackRunning ==>
+//               NucleusInv($s, $StackState, $toAbs, $AbsMem, GcVars, $Mem_Vars, $StacksFrames, $IoVars)
+//            && ebp == old(ebp)
+//            && esp == old(esp) + 4);
+//  ensures  ($StackState[$s] == StackYielded($ebp, $esp, $eip) ==>
+//               NucleusInv($s, $_stackState, $toAbs, $AbsMem, GcVars, $Mem_Vars, $StacksFrames, $IoVars)
+//            && ebp == $ebp
+//            && esp == $esp);
+//  ensures  ($StackState[$s] == StackInterrupted($eax, $ebx, $ecx, $edx, $esi, $edi, $ebp, $esp, $eip, $cs, $efl) ==>
+//               NucleusInv($s, $_stackState, $toAbs, $AbsMem, GcVars, $Mem_Vars, $StacksFrames, $IoVars)
+//            && ebp == $ebp
+//            && esp == $esp
+//            && eax == $eax && ebx == $ebx && ecx == $ecx && edx == $edx && esi == $esi && edi == $edi);
+//  ensures  ($StackState[$s] == StackEmpty ==>
+//               NucleusInv($s, $_stackState, $toAbs, $AbsMem, GcVars, $Mem_Vars, $StacksFrames, $IoVars)
+//            && esp == StackHi($s) - 4
+//            && ebp == 0 // end of frame pointer linked list
+//            );
+//*/
+///*
+//// extern static void VgaTextWrite(uint screenOffset, uint hexMessage);
+//procedure VgaTextWrite();
+//  requires word(eax) && word(ebx) && word(ecx) && word(edx) && word(esi) && word(edi) && word(ebp);
+//  requires RET == ReturnToAddr($Mem[esp]);
+//  requires SpRequire($S, esp, 4);
+//  modifies state, efl, esp;
+//  modifies $VgaNextEvent, $VgaEvents;
+//  ensures  ecx < 4000 ==>
+//               $VgaNextEvent == old($VgaNextEvent) + 1
+//            && $VgaEvents == old($VgaEvents)[old($VgaNextEvent) := VgaTextStore(?VgaTextLo + 2 * ecx, edx)];
+//  ensures  esp == old(esp) + 4;
+//
+//// extern static uint TryReadKeyboard();
+//procedure TryReadKeyboard();
+//  requires word(eax) && word(ebx) && word(ecx) && word(edx) && word(esi) && word(edi) && word(ebp);
+//  requires RET == ReturnToAddr($Mem[esp]);
+//  requires SpRequire($S, esp, 4);
+//  modifies state, efl, eax, esp;
+//  modifies $KeyboardAvailable, $KeyboardDone;
+//  ensures  $KeyboardAvailable == old($KeyboardDone) ==> eax == 256;
+//  ensures  $KeyboardAvailable >  old($KeyboardDone) ==> eax == $KeyboardEvents[old($KeyboardDone)];
+//  ensures  esp == old(esp) + 4;
+//
+//// extern static uint StartTimer(uint freq);
+//procedure StartTimer();
+//  inout my r:regs, my core_state:core_state, linear stk:mem, linear statics:mem, linear io:IOState, mems:mems;
+//  requires word(eax) && word(ebx) && word(ecx) && word(edx) && word(esi) && word(edi) && word(ebp);
+//  requires RET == ReturnToAddr($Mem[esp]);
+//  requires SpRequire($S, esp, 4);
+//  modifies state, efl, eax, esp;
+//  modifies $TimerSeq, $TimerFreq;
+//  ensures  TimerOk($TimerSeq) && $TimerFreq == old(ecx);
+//  ensures  esp == old(esp) + 4;
+//
+//// extern static void SendEoi();
+//procedure SendEoi();
+//  inout my r:regs, my core_state:core_state, linear stk:mem, linear statics:mem, linear io:IOState, mems:mems;
+//  requires word(eax) && word(ebx) && word(ecx) && word(edx) && word(esi) && word(edi) && word(ebp);
+//  requires RET == ReturnToAddr($Mem[esp]);
+//  requires SpRequire($S, esp, 4);
+//  requires PicOk($PicSeq);
+//  modifies state, efl, eax, edx, esp;
+//  modifies $PicSeq;
+//  ensures  $PicSeq[0] == old($PicSeq[0]) + 1;
+//  ensures  $PicSeq[1] == old($PicSeq[1]) + 1;
+//  ensures  esp == old(esp) + 4;
+//
+//// extern static long Rdtsc();
+//procedure CycleCounter();
+//  inout my r:regs, my core_state:core_state, linear stk:mem, linear statics:mem, linear io:IOState, mems:mems;
+//  requires RET == ReturnToAddr($Mem[esp]);
+//  requires SpRequire($S, esp, 4);
+//  modifies state, efl, eax, edx, esp;
+//  ensures  esp == old(esp) + 4;
+//
+//// extern static void DebugPrintHex(uint screenOffset, uint hexMessage);
+//procedure DebugPrintHex();
+//  inout my r:regs, my core_state:core_state, linear stk:mem, linear statics:mem, linear io:IOState, mems:mems;
+//  requires word(eax) && word(ebx) && word(ecx) && word(edx) && word(esi) && word(edi) && word(ebp);
+//  requires RET == ReturnToAddr($Mem[esp]);
+//  requires SpRequire($S, esp, 4);
+//  modifies state, efl, eax, ebx, ecx, edx, esi, edi, esp; // not ebp
+//  ensures  esp == old(esp) + 4;
+//
+
+}

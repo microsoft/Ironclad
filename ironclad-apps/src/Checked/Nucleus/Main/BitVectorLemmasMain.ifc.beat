@@ -1,0 +1,51 @@
+//-private-import BaseSpec;
+//-private-import MemorySpec;
+//-<NuBuild AddBoogieAxiom BitVector_axioms />
+//-<NuBuild AddBoogieFlag /proverOpt:OPTIMIZE_FOR_BV=true />
+//-
+//- Copyright (c) Microsoft Corporation.  All rights reserved.
+//-
+
+module interface BitVectorLemmasMain
+{
+
+atomic ghost procedure _const();
+  ensures $sub(1bv32, 1bv32) == 0bv32;
+  ensures $add(1bv32, 1bv32) == 2bv32;
+  ensures $mul(2bv32, 2bv32) == 4bv32;
+  ensures $mul(4bv32, 4bv32) == 16bv32;
+  ensures $add(16bv32, 16bv32) == 32bv32;
+  ensures $add(32bv32, 32bv32) == 64bv32;
+  ensures $mul(16bv32, 16bv32) == 256bv32;
+  ensures $sub(256bv32, 1bv32) == 255bv32;
+  ensures $mul(256bv32, 256bv32) == 65536bv32;
+  ensures $sub(65536bv32, 1bv32) == 65535bv32;
+
+atomic ghost procedure _proc_XorLemmas();
+  ensures (forall x:bv32::$xor(x, x) == 0bv32);
+  ensures (forall x:bv32::$xor(x, 0bv32) == x);
+  ensures (forall x:bv32, y:bv32::$xor(x, y) == $xor(y, x));
+  ensures (forall x:bv32, y:bv32, z:bv32:: $xor(x, $xor(y,z)) == $xor(y, $xor(x,z)));
+  ensures (forall x:bv32, y:bv32, z:bv32:: ($xor(x,z) == $xor(y,z)) ==> (x == y));
+
+atomic ghost procedure _lemma_and_with_ff(x:bv32);
+  ensures $le(0bv32, $and(x, 255bv32)) && $lt($and(x, 255bv32), 256bv32);
+
+atomic ghost procedure _lemma_and_with_ffff(x:bv32);
+  ensures $le(0bv32, $and(x, 65535bv32)) && $lt($and(x, 65535bv32), 65536bv32);
+
+atomic ghost procedure _lemma_and_with_32_64(x:bv32);
+  ensures $gt($and(x, 32bv32), 0bv32) ==> 
+          $mod($div($div($div($div($div(x, 2bv32), 2bv32), 2bv32), 2bv32), 2bv32), 2bv32) != 0bv32; //int_bit(x, 5) == 1;
+  ensures $gt($and(x, 64bv32), 0bv32) ==> 
+          $mod($div($div($div($div($div($div(x, 2bv32), 2bv32), 2bv32), 2bv32), 2bv32), 2bv32), 2bv32) != 0bv32; //int_bit(x, 6) == 1;
+
+atomic ghost procedure _lemma_xor_bytes(x:bv32, y:bv32);
+  requires $le(0bv32, x);
+  requires $lt(x, 256bv32);
+  requires $le(0bv32, y);
+  requires $lt(y, 256bv32);
+  ensures $le(0bv32, $xor(x, y));
+  ensures $lt($xor(x, y), 256bv32);
+}
+

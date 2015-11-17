@@ -1,0 +1,328 @@
+//-private-import BaseSpec;
+//-private-import MemorySpec;
+//-private-import IoTypesSpec;
+//-private-import MachineStateSpec;
+//-private-import AssemblySpec;
+//-private-import InterruptsSpec;
+//-private-import IoSpec;
+//-<NuBuild AddBoogieAxiom Base_axioms />
+//-<NuBuild AddBoogieAxiom Memory_axioms />
+//-<NuBuild AddBoogieAxiom Assembly_axioms />
+//-private-import Partition;
+//-private-import Core;
+//-private-import Util;
+//-private-import LogicalAddressing;
+//-private-import Stacks;
+//-
+//- Copyright (c) Microsoft Corporation.  All rights reserved.
+//-
+
+module interface Separation
+{
+
+//- Memory layout:
+//-   sMem: Nucleus private stack
+//-   dMem: Nucleus private data
+//-   argsMem: (Untrusted) Arguments from the bootloader
+//-   pciMem: Memory-mapped PCI device info
+//-   tMem[]: Thread control blocks
+//-   fMem[]: Managed code stacks
+//-   gcMem: GC memory (heap + auxiliary data)
+
+#define $DECL__MemVars me:int, init:bool,          statics:mem,                                   mems:mems
+#define $DECL_Mem_Vars me:int, init:bool, stk:mem, statics:mem, core_state:core_state, ptMem:mem, mems:mems
+#define $__MemVars init,     statics,                    mems
+#define $_MemVars init, stk, statics, core_state, ptMem, mems
+#define $Mem_Vars me, $_MemVars
+#define DECL_IoVars io:IOState
+#define $IoVars io
+
+#ifdef AppLoader
+const ?CodeSpace:int := 0x10000;    // 64 KB
+#else
+const ?CodeSpace:int := 0x100000;   //  1 MB
+#endif
+
+//-///////////////////////////////////////////////
+//-  If you change any of the consts below,
+//-  be sure to update stackGcOffset in:
+//-      GC\SimpleCollector_i.beat
+//-      DafnyCC/RegAlloc.cs
+//-  If your change affects argLo, you also need
+//-  to change the offset SKINIT_args in the bootloader
+//-  in Trusted\Bootloader\blsingularity.cpp.
+//-///////////////////////////////////////////////
+
+//- Reserve fixed amount of space for all but gcMem:
+const ?SSize:int := 4096;  //- Must be the same as ?FSize!
+const ?DSize:int := 1024;
+const ?ArgSize:int := 1024;
+const ?PciSize:int := 1024; //- 8 * 65536;
+const ?ExtraSize:int := 0xF400;     //- Extra buffer space we can distribute if needed
+const ?AppCodeOffset:int := 0x30000;
+const ?AppCodeSpace:int := 0x100000; //-1024*1024;
+const ?TSize:int := 0; //- 256;
+const ?FSize:int := 4096;  //- Must be the same as ?SSize! 
+//- Rest of memory devoted to gcMem
+
+//const ?sLo:int := 0x32F000; // ?memLo // ?ptHi;
+const ?sLo:int := ?CodeBase + ?CodeSpace + 0x1F000; //- Allow 124KB for DEV 
+const ?sHi:int := ?sLo + ?SSize;
+const ?dLo:int := ?sHi;
+const ?dHi:int := ?dLo + ?DSize;
+const ?argLo:int := ?dHi;
+const ?argHi:int := ?argLo + ?ArgSize;
+const ?pciLo:int := ?argHi;
+const ?pciHi:int := ?pciLo + ?PciSize;
+const ?extraLo:int := ?pciHi;
+const ?extraHi:int := ?extraLo + ?ExtraSize;
+const ?appCodeLo:int := ?extraHi;
+const ?appCodeHi:int := ?appCodeLo + ?AppCodeSpace;
+const ?tLo:int := ?appCodeHi;
+const ?tHi:int := ?tLo + ?NumStacks * ?TSize;
+const ?fLo:int := ?tHi;
+const ?fHi:int := ?fLo + ?NumStacks * ?FSize;
+
+//- valid gc-controlled addresses (must be disjoint from null values)
+//- warning: because of interior pointers, ?gcHi must be a 32-bit word
+//-   (it can equal 2^32 - 1, but not 2^32)
+const ?gcLo:int := ?fHi;
+const ?gcHi:int := ?memHi;
+function gcAddr(i:int):bool {?gcLo <= i && i < ?gcHi}
+function gcAddrEx(i:int):bool {?gcLo <= i && i <= ?gcHi}
+
+function isStack(s:int):bool {0 <= s && s < ?NumStacks}
+
+//function ptAddr(i:int):bool { ?ptLo <= i && i < ?ptHi }
+function ptAddrEx(i:int):bool { ?ptLo <= i && i <= ?ptHi }
+
+function sAddr(i:int):bool {?sLo <= i && i < ?sHi}
+function sAddrEx(i:int):bool {?sLo <= i && i <= ?sHi}
+
+function dAddr(i:int):bool {?dLo <= i && i < ?dHi}
+function dAddrEx(i:int):bool {?dLo <= i && i <= ?dHi}
+
+function argAddr(i:int):bool   {?argLo <= i && i < ?argHi}
+function argAddrEx(i:int):bool {?argLo <= i && i <= ?argHi}
+
+function appCodeAddr(i:int):bool   {?appCodeLo <= i && i < ?appCodeHi}
+function appCodeAddrEx(i:int):bool {?appCodeLo <= i && i <= ?appCodeHi}
+
+function pciAddr(i:int):bool {?pciLo <= i && i < ?pciHi}
+function pciAddrEx(i:int):bool {?pciLo <= i && i <= ?pciHi}
+
+function extraAddr(i:int):bool {?extraLo <= i && i < ?extraHi}
+function extraAddrEx(i:int):bool {?extraLo <= i && i <= ?extraHi}
+
+function fAddr(s:int, i:int):bool {isStack(s) && ?fLo + s * ?FSize <= i && i < ?fLo + s * ?FSize + ?FSize}
+function fAddrEx(s:int, i:int):bool {isStack(s) && ?fLo + s * ?FSize <= i && i <= ?fLo + s * ?FSize + ?FSize}
+
+function tAddr(s:int, i:int):bool {isStack(s) && ?tLo + s * ?TSize <= i && i < ?tLo + s * ?TSize + ?TSize}
+function tAddrEx(s:int, i:int):bool {isStack(s) && ?tLo + s * ?TSize <= i && i <= ?tLo + s * ?TSize + ?TSize}
+
+#ifdef AppLoader
+function DEVAddr(i:int):bool {?DEVLo <= i && i < ?CodeBase + 64*1024 + 124*1024}
+#else
+function DEVAddr(i:int):bool { ?memLo <= i && i < ?CodeBase + 0x101000 }
+//function DEVAddr(i:int):bool { false }
+#endif
+
+type mems = linear mems(
+  linear dat:mem, //- nucleus private data
+  linear arg:mem, //- bootloader-supplied arguments
+  //linear appCode:mem, // code for the real application
+  linear pci:mem, //- PCI-related data
+  linear gc:mem,  //- garbage-collected heap
+  linear frm:mem, //- garbage-collected stack frames
+  frms:[int][int]int,
+  linear tcb:mem, //- thread control blocks
+  tcbs:[int][int]int);
+function memsInv(this:mems):bool
+{
+    (forall i:int::{memAddr(i)} memAddrMain(i) ==> memAddr(i))
+ && (forall i:int::{dat.dom[i]} dat.dom[i] <==> dAddr(i))
+ && (forall i:int::{arg.dom[i]} arg.dom[i] <==> argAddr(i))
+ //&& (forall i:int::{appCode.dom[i]} appCode.dom[i] <==> appCodeAddr(i))
+ && (forall i:int::{pci.dom[i]} pci.dom[i] <==> pciAddr(i))
+ && (forall i:int::{gc.dom[i]}  gc.dom[i]  <==> gcAddr(i))
+ && (forall i:int::{frm.dom[i]} frm.dom[i] <==> ?fLo <= i && i < ?fHi)
+ && (forall i:int::{tcb.dom[i]} tcb.dom[i] <==> ?tLo <= i && i < ?tHi)
+ && (forall s:int, i:int::{frms[s][i]} fAddr(s, i) ==> frms[s][i] == frm[i])
+ && (forall s:int, i:int::{tcbs[s][i]} tAddr(s, i) ==> tcbs[s][i] == tcb[i])
+}
+#define $dMem mems.dat
+#define $argMem mems.arg
+//#define $appCodeMem mems.appCode
+#define $pciMem mems.pci
+#define $gcMem mems.gc
+#define $fMems mems.frms
+#define $tMems mems.tcbs
+
+var CodeBase @ statics;
+var CodeSpace @ statics;
+var StackCheck @ statics;
+var SLo @ statics;
+var DLo @ statics;
+var ArgLo @ statics;
+var AppCodeLo @ statics;
+var PciLo @ statics;
+var TLo @ statics;
+var FLo @ statics;
+var GcLo @ statics;
+var GcHi @ statics;
+var DmaAddr @ statics;
+
+function MemSepInv(dummy:bool):bool;
+
+function{:opaque} MemInvDetails(statics:mem, mems:mems):bool
+{
+    MemSepInv(true)
+ && (forall i:int::{memAddr(i)}{statics.dom[i]}
+        (memAddr(i) ==> statics.dom[i] || sAddr(i) || mems.dat.dom[i] || mems.arg.dom[i] || appCodeAddr(i) || mems.pci.dom[i] || mems.gc.dom[i] || mems.frm.dom[i] || mems.tcb.dom[i] || DEVAddr(i) || extraAddr(i)))
+//        (memAddr(i) ==> statics.dom[i] || sAddr(i) || mems.dat.dom[i] || mems.arg.dom[i] || mems.appCode.dom[i] || mems.pci.dom[i] || mems.gc.dom[i] || mems.frm.dom[i] || mems.tcb.dom[i] || DEVAddr(i)))
+ && memsInv(mems)
+ && statics.dom[&CodeBase]
+ && statics.dom[&CodeSpace]
+ && statics.dom[&StackCheck]
+ && statics.dom[&SLo]
+ && statics.dom[&DLo]
+ && statics.dom[&ArgLo]
+ && statics.dom[&AppCodeLo]
+ && statics.dom[&PciLo]
+ && statics.dom[&TLo]
+ && statics.dom[&FLo]
+ && statics.dom[&GcLo]
+ && statics.dom[&GcHi]
+ && statics.dom[&DmaAddr]
+ && ?gcLo <= ?gcHi
+ && Aligned(?sLo)
+ && Aligned(?dLo)
+ && Aligned(?argLo)
+ && Aligned(?appCodeLo)
+ && Aligned(?pciLo)
+ && Aligned(?tLo)
+ && Aligned(?fLo)
+ && Aligned(?gcLo)
+ && Aligned(?gcHi)
+ && CodeBase == ?CodeBase
+ && CodeSpace == ?CodeSpace
+ && SLo == ?sLo
+ && DLo == ?dLo
+ && ArgLo == ?argLo
+ && AppCodeLo == ?appCodeLo
+ && PciLo == ?pciLo
+ && TLo == ?tLo
+ && FLo == ?fLo
+ && GcLo == ?gcLo
+ && GcHi == ?gcHi
+}
+
+function MemInvLocal($DECL_Mem_Vars):bool
+{
+    MemInvDetails(statics, mems)
+ && (forall i:int::{memAddr(i)}{stk.dom[i]} stk.dom[i] == sAddr(i))
+// && (forall i:int::{memAddr(i)}{mems.appCode.dom[i]} mems.appCode.dom[i] == appCodeAddr(i))
+}
+
+function MemInv($DECL_Mem_Vars):bool
+{
+    MemInvLocal($Mem_Vars)
+ && logical_addressing_inv(init, ptMem, core_state)
+ && !paging_enabled(core_state) // until we have enough memory to enable paging
+ && !init // TODO: remove this restriction
+#ifdef AppLoader
+ && ?CodeBase == 0x300000
+#else
+ && ?CodeBase == 0x340000
+#endif
+}
+
+// TODO: get Beat to generate these when importing Boogie files:
+function IOState_update___pci(io:IOState, x:PciState):IOState { IOState(io._vga, io._keyboard, io._iom, x, io._inCtr, io._outCtr) }
+function PciState_update__PciConfigState(pci:PciState, x:[int]int):PciState { PciState(pci.PciConfigId, pci.PciConfigOffset, x) }
+
+//function FDom(s:int):[int]bool { (lambda i:int::fAddr(s, i)) }
+//function TDom(s:int):[int]bool { (lambda i:int::tAddr(s, i)) }
+
+procedure initSeparation(linear mem:mem) returns(linear stk:mem, linear statics:mem, linear mems:mems, linear appCode:mem);
+  inout my r:regs, my core_state:core_state;
+  requires !init;
+  requires Aligned(?sLo);
+  requires Aligned(?memHi);
+  requires ?memLo <= ?sLo;
+  requires ?sLo <= ?memHi;
+  requires ebp == ?CodeBase;
+  requires ebx == ?CodeSpace;
+  requires ecx == ?sLo;
+  requires edx == ?memHi;
+#ifdef AppLoader
+  requires ?CodeBase == 0x300000;
+#else
+  requires ?CodeBase == 0x340000;
+#endif
+  requires (forall ptr:int :: !memAddrMain(ptr) ==> !DEVAddr(ptr));
+  requires (forall i:int::{memAddr(i)} ?memLo <= i && i < ?memHi ==> memAddr(i));
+  requires logical_addressing_inv(init, ptMem, core_state);
+  requires (forall i:int::{memAddr(i)}{mem.dom[i]} TV(i) ==> (memAddr(i) && !DEVAddr(i) ==> mem.dom[i]));
+  requires !paging_enabled(core_state);
+  requires !init;
+  modifies efl, eax, ecx, edx, esp;
+  ensures  MemInv($Mem_Vars);
+  ensures  (forall i:int::{appCodeAddr(i)}{appCode.dom[i]} appCode.dom[i] == appCodeAddr(i));
+  ensures  esp == old(esp);
+
+//- Reserve n bytes of stack space
+//- make sure both words in RIP are aligned for x64
+function SMemRequire(n:int, sMem:mem, $esp:int) returns(bool)
+{
+    Aligned($esp)
+#ifdef x64
+  && Aligned($esp + 4)
+#endif
+ && ?sLo + n <= $esp && $esp <= ?sHi
+}
+
+//- Reserve n bytes of stack space, require m bytes for locals
+function SMemRequireInline(n:int, m:int, sMem:mem, $esp:int) returns(bool)
+{
+    Aligned($esp)
+#ifdef x64
+  && Aligned($esp + 4)
+#endif
+ && Aligned($esp + m)
+ && ?sLo + n <= $esp && $esp + m <= ?sHi
+}
+
+//- Reserve n bytes of stack space, and require return address on stack
+//- Make sure both words in RIP are mapped in memory for x64
+function SMemRequireRA(n:int, sMem:mem, $esp:int, $RET:ReturnTo) returns(bool)
+{
+    SMemRequire(n, sMem, $esp)
+#ifdef x64
+ && ?sLo + n <= $esp && $esp <= ?sHi - 8 && ReturnToAddr64(sMem[$esp], sMem[$esp + 4]) == $RET
+#else
+ && ?sLo + n <= $esp && $esp <= ?sHi - 4 && ReturnToAddr32(sMem[$esp]) == $RET
+#endif
+}
+
+//- Stack contents not altered
+function SMemInv(sMem:mem, oldSMem:mem, $esp:int, oldEsp:int) returns(bool)
+{
+    $esp == oldEsp
+ && (forall i:int::{sMem[i]} $esp <= i ==> sMem[i] == oldSMem[i])
+}
+
+//- Stack contents not altered
+function SMemEnsure(sMem:mem, oldSMem:mem, $esp:int, oldEsp:int) returns(bool)
+{
+    $esp == oldEsp + IPSize
+ && (forall i:int::{sMem[i]} $esp <= i ==> sMem[i] == oldSMem[i])
+}
+
+atomic ghost procedure alignCall(sp:int)
+  requires Aligned(sp);
+  ensures  Aligned(sp - 4);
+  #ifdef x64
+  ensures  Aligned(sp - 8);
+  #endif
+}

@@ -1,0 +1,26 @@
+//-
+//- Copyright (c) Microsoft Corporation.  All rights reserved.
+//-
+
+//-<NuBuild BasmEnableSymdiff true />
+//- seed 1
+module implementation IoSpec
+{
+
+//implementation rsdpExists($ptr:int, $entry:int) { }
+//
+//implementation dmarExists($ptr:int, $entry:int) { }
+//
+//implementation drhdExists($ptr:int, $entry:int) { }
+//
+//implementation drhdEnd($ptr:int, $entry:int) { }
+
+implementation non_existent_devices(id:int) { }
+
+implementation cap_list_termination(id:int, cap_index:int) { }
+
+implementation begin_DEV_enablement(linear DEV_states:DEV_StateMachines, linear dev_mem:mem) returns (linear _DEV_states:DEV_StateMachines) { }
+
+implementation complete_DEV_enablement(linear DEV_states:DEV_StateMachines) returns (linear new_mem:mem) { }
+
+}

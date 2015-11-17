@@ -1,0 +1,95 @@
+
+module interface Instructions
+{
+
+instruction Mov(y:opn) returns(x:reg) { call r := instr_Mov(r, x, y); }
+instruction Add(x:reg, y:opn) returns(x:reg) ensures InputOutput(r, x, r.regs[x] + Eval(r, y)); { call logical_Add(inout r, x, y); }
+instruction AddCarry(x:reg, y:opn) returns(x:reg) ensures InputOutput(r, x, let carry:int := if Cf(r.efl) then 1 else 0 in
+ wrap32(r.regs[x] + Eval(r, y) + carry)); { call r := instr_AddCarry(r, x, y); }
+instruction AddWrap(x:reg, y:opn) returns(x:reg) ensures InputOutput(r, x, wrap32(r.regs[x] + Eval(r, y))); { call r := instr_Add(r, x, y); }
+instruction Sub(x:reg, y:opn) returns(x:reg) ensures InputOutput(r, x, r.regs[x] - Eval(r, y)); { call logical_Sub(inout r, x, y); }
+instruction SubWrap(x:reg, y:opn) returns(x:reg) ensures InputOutput(r, x, wrap32(r.regs[x] - Eval(r, y))); { call r := instr_Sub(r, x, y); }
+instruction Mul(xLo:opn, y:opn) returns(xLo:opn, xHi:opn) { call r := instr_Mul(r, y); }
+instruction Mul64(xLo:opn, y:opn) returns(xLo:opn, xHi:opn) { call r := instr_Mul64(r, y); }
+instruction MulWrap(xLo:opn, y:opn) returns(xLo:opn, xHi:opn) { call r := instr_Mul(r, y); }
+instruction Div(xLo:opn, xHi:opn, y:opn) returns(xLo:opn, xHi:opn) { call r := instr_Div(r, y); }
+instruction Not(x:reg) returns(x:reg) { call r := instr_Not(r, x); }
+instruction And(x:reg, y:opn) returns(x:reg) { call r := instr_And(r, x, y); }
+instruction Or(x:reg, y:opn) returns(x:reg) { call r := instr_Or(r, x, y); }
+instruction Xor(x:reg, y:opn) returns(x:reg) { call r := instr_Xor(r, x, y); }
+instruction Shl(x:reg, y:opn) returns(x:reg) { call r := instr_Shl(r, x, y); }
+instruction Shr(x:reg, y:opn) returns(x:reg) { call r := instr_Shr(r, x, y); }
+instruction Rol(x:reg, y:opn) returns(x:reg) { call r := instr_Rol(r, x, y); }
+instruction Ror(x:reg, y:opn) returns(x:reg) { call r := instr_Ror(r, x, y); }
+instruction AddChecked(x:opn, y:opn) returns(x:reg) ensures InputOutput(r, x, r.regs[x] + Eval(r, y)); { call r := instr_AddChecked(r, x, y); }
+instruction SubChecked(x:opn, y:opn) returns(x:reg) ensures InputOutput(r, x, r.regs[x] - Eval(r, y)); { call r := instr_SubChecked(r, x, y); }
+instruction MulChecked(xLo:opn, y:opn) returns(xLo:opn, xHi:opn) { call r := instr_MulChecked(r, y); }
+instruction Cmp(x:reg, y:opn) { call r := instr_Cmp(r, x, y); }
+instruction Lea(y:opn_mem_of_int) returns(x:reg) { call r := instr_Lea(r, x, y); }
+instruction LeaUnchecked(y:opn_mem_of_int) returns(x:reg) { call r := instr_LeaUnchecked(r, x, y); }
+instruction LeaSignedIndex(base:reg, scale:int, index:reg, offset:opn) returns(x:reg) { call r := instr_LeaSignedIndex(r, x, base, scale, index, offset); }
+instruction Rdtsc() { call r := instr_Rdtsc(r); }
+
+instruction SubLoad(const linear m:mem, x:reg, y:opn_mem_of_int) returns(x:reg) ensures InputOutput(x, r.regs[x] - LogicalEval(m, r, y)); { call logical_SubLoad(inout r, core_state, m, x, y); }
+instruction CmpLoad(x:opn_mem_of_int, y:opn) { call logical_CmpLoad(inout r, core_state, statics, x, y); } // TODO: don't hardwire for statics
+instruction Load(const linear m:mem, ptr:opn_mem_of_int) returns (y:reg) { call logical_Load(inout r, core_state, m, y, ptr); }
+instruction Store(inout linear m:mem, ptr:opn_mem_of_int, val:opn) ensures Output(ptr, Eval(r, val)); { call logical_Store(r, core_state, inout m, ptr, val); }
+instruction SLoad  (ptr:opn_mem_of_int) returns (y:reg) { call logical_Load(inout r, core_state, stk, y, ptr); }
+instruction SStore (ptr:opn_mem_of_int, val:opn) { call logical_Store(r, core_state, inout stk, ptr, val); }
+instruction SCmpLoad(x:opn_mem_of_int, y:opn) { call logical_CmpLoad(inout r, core_state, stk, x, y); }
+
+instruction Call() { call alignCall(r.regs[ESP]); call logical_Call(inout r, core_state, inout stk); }
+instruction Ret() { call logical_Ret(inout r, core_state, stk); }
+//instruction IRet() { call r, mem := logical_IRet(r, mem); }
+
+//instruction RoLoadU8(y:opn_mem_of_int) returns(x:opn) { call r, mem := logical_RoLoadU8(r, mem, x, y); }
+//instruction RoLoadS8(y:opn_mem_of_int) returns(x:opn) { call r, mem := logical_RoLoadS8(r, mem, x, y); }
+//instruction RoLoadU16(y:opn_mem_of_int) returns(x:opn) { call r, mem := logical_RoLoadU16(r, mem, x, y); }
+//instruction RoLoadS16(y:opn_mem_of_int) returns(x:opn) { call r, mem := logical_RoLoadS16(r, mem, x, y); }
+//instruction RoLoad32(y:opn_mem_of_int) returns(x:opn) { call r, mem := logical_RoLoad32(r, mem, x, y); }
+
+instruction ReadCR0() returns (x:opn) { call r := instr_ReadCR0(r, core_state, x); }
+instruction WriteCR0(x:opn) { call r, core_state := instr_WriteCR0(r, core_state, x); }
+//instruction WriteCR3(x:opn) { call r, mem := instr_WriteCR3(r, mem, x); }
+
+instruction VgaDebugStore16(ptr:opn_mem_of_int, val:opn) { call instr_VgaDebugStore16(r, ptr, val); }
+
+instruction VgaTextStore16(ptr:opn_mem_of_int, val:opn) { call io := instr_VgaTextStore16(r, io, ptr, val); }
+instruction KeyboardStatusIn8() { call r, io := instr_KeyboardStatusIn8(r, io); }
+instruction KeyboardDataIn8() { call r, io := instr_KeyboardDataIn8(r, io); }
+instruction SerialDbgConfigOut() { call instr_SerialDbgConfigOut(r); }
+instruction SerialDbgDataOut8() { call instr_SerialDbgDataOut8(r); }
+instruction SerialDbgStatusOut8() { call r := instr_SerialDbgStatusOut8(r); }
+//instruction SerialDbgDataIn8() { call r, io := instr_SerialDbgDataIn8(r, io, $serialState); }
+//instruction SerialDbgStatusIn8() { call r, io := instr_SerialDbgStatusIn8(r, io, $serialState); }
+//instruction SampleIn32(M:[int]int) { call r, io := instr_SampleIn32(r, io, M); }
+//instruction IomStore(ptr:opn_mem_of_int, val:opn) { call r, io := instr_IomStore(r, io, ptr, val); }
+//instruction IomRegLoad(entry:int, ptr:opn_mem_of_int) returns(val:opn) { call r, io := instr_IomRegLoad(r, io, entry, val, ptr); }
+//instruction IomRegStore(entry:int, ptr:opn_mem_of_int, val:opn) { call r, io := instr_IomRegStore(r, io, entry, ptr, val); }
+//instruction IomEnable() { call r, io := /*core :=*/ core_IomEnable(r, io); }
+instruction PciConfigAddrOut32(id:int, offset:int) { call io := instr_PciConfigAddrOut32(r, io, id, offset); }
+instruction PciConfigDataIn32(id:int, offset:int) { call r, io := instr_PciConfigDataIn32(r, io, id, offset); }
+instruction PciConfigDataOut32(id:int, offset:int, config0:int, config4:int, config12:int, config16:int) { call io := instr_PciConfigDataOut32(r, io, id, offset, config0, config4, config12, config16); }
+instruction PciMemLoad32(id:int, ptr:opn_mem_of_int) returns(val:reg) { call r, io := instr_PciMemLoad32(r, io, id, val, ptr); }
+instruction PciMemStore32(id:int, ptr:opn_mem_of_int, val:opn) { call io := instr_PciMemStore32(r, io, id, ptr, val); }
+
+instruction DeviceLoad(ptr:opn_mem_of_int) returns(val:reg) { call r, io := instr_DeviceLoad(r, io, val, ptr); }
+instruction DeviceStore(ptr:opn_mem_of_int, val:opn) { call io := instr_DeviceStore(r, io, ptr, val); }
+
+instruction DEV_PciConfigDataIn32 (linear DEV_states:DEV_StateMachines, id:int, dev_offset:int, offset:int) returns (linear _DEV_states:DEV_StateMachines) { call r, io, _DEV_states := instr_DEV_PciConfigDataIn32 (r, io, DEV_states, id, dev_offset, offset); }
+instruction DEV_PciConfigDataOut32(linear DEV_states:DEV_StateMachines, id:int, dev_offset:int, offset:int) returns (linear _DEV_states:DEV_StateMachines) { call    io, _DEV_states := instr_DEV_PciConfigDataOut32(r, io, DEV_states, id, dev_offset, offset); }
+
+instruction IoMemAddrRead(ptr:opn_mem_of_int) returns(val:reg) { call r := instr_IoMemAddrRead(r, val, ptr); }
+instruction IoMemAddrWrite(ptr:opn_mem_of_int, val:opn) { call instr_IoMemAddrWrite(r, ptr, val); }
+//instruction IdtStore(entry:int, offset:int, handler:int, ptr:opn_mem_of_int, val:opn) { call r, state := logical_IdtStore(r, state, entry, offset, handler, ptr, val); }
+//instruction Lidt(ptr:opn_mem_of_int) { call r, state := logical_Lidt(r, state, ptr); }
+//instruction PicOut8(pic:int, offset:int, seq:int) { call r, state := logical_PicOut8(r, state, pic, offset, seq); }
+//instruction PitModeOut8(freq:int) { call r, state := logical_PitModeOut8(r, state, freq); }
+//instruction PitFreqOut8() { call r, state := logical_PitFreqOut8(r, state); }
+//
+//instruction SectionLoad(y:opn_mem_of_int) returns(x:opn) { call r := logical_SectionLoad(r, state, x, y); }
+//instruction SectionStore(x:opn_mem_of_int, y:opn) { call r := logical_SectionStore(r, state, x, y); }
+//
+//instruction StoreShared(linear owner:int, ptr:opn_mem_of_int, val:opn) returns(linear _owner:int) ensures Output(ptr, _Eval(regs, val)); { call r := core, _owner := logical_StoreShared(r, state, owner, ptr, val); }
+
+}

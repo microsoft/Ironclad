@@ -1,0 +1,332 @@
+//-private-import BaseSpec;
+//-private-import MemorySpec;
+//-private-import IoTypesSpec;
+//-private-import MachineStateSpec;
+//-private-import AssemblySpec;
+//-private-import InterruptsSpec;
+//-private-import IoSpec;
+//-<NuBuild AddBoogieAxiom Base_axioms />
+//-<NuBuild AddBoogieAxiom Word_axioms />
+//-<NuBuild AddBoogieAxiom Memory_axioms />
+//-<NuBuild AddBoogieAxiom Assembly_axioms />
+//-<NuBuild AddBoogieAxiom Io_axioms />
+//-private-import Core;
+//-private-import LogicalAddressing;
+//-private-import Overflow;
+//-private-import Util;
+//-private-import Stacks;
+//-private-import Partition;
+//-private-import Instructions;
+//-private-import Separation;
+//-private-import IntLemmasBase;
+//-private-import IntLemmasGc;
+//-private-import SimpleGcMemory;
+//-private-import SimpleCommon;
+//-private-import SimpleCollector;
+//-private-import IoMain;
+//-private-import IntLemmasMain;
+//-private-basmonly-import Trusted;
+//-private-basmonly-import Checked;
+//-private-import Heap;
+//-private-import Seq;
+//-private-import dafny_DafnyPrelude;
+module interface DafnyAssembly
+{
+
+//- Connect Dafny's word32() to Boogie's word()
+function fun_word32($ghost_x:int):bool 
+{
+    word($ghost_x)
+}
+
+function fun_mod0x100000000($ghost_x:int):int
+{
+    $ghost_x mod 0x100000000
+}
+
+function fun_asm__Add($ghost_x:int, $ghost_y:int):int
+{
+    fun_mod0x100000000(INTERNAL_add_boogie($ghost_x, $ghost_y))
+}
+
+function fun_asm__Sub($ghost_x:int, $ghost_y:int):int
+{
+    fun_mod0x100000000(INTERNAL_sub_boogie($ghost_x, $ghost_y))
+}
+
+function fun_asm__Mul($ghost_x:int, $ghost_y:int):int
+{
+    fun_mod0x100000000(fun_INTERNAL__mul($ghost_x, $ghost_y))
+}
+
+function fun_asm__Div($ghost_x:int, $ghost_y:int):int
+{
+    fun_mod0x100000000(fun_INTERNAL__div($ghost_x, $ghost_y))
+}
+
+function fun_asm__Mod($ghost_x:int, $ghost_y:int):int
+{
+    fun_INTERNAL__mod($ghost_x, $ghost_y)
+}
+
+function fun_asm__LeftShift($ghost_x:int, $ghost_y:int):int
+{
+    shl($ghost_x, $ghost_y)
+}
+
+function fun_asm__RightShift($ghost_x:int, $ghost_y:int):int
+{
+    shr($ghost_x, $ghost_y)
+}
+
+function fun_asm__RotateLeft($ghost_x:int, $ghost_y:int):int
+{
+    rol($ghost_x, $ghost_y)
+}
+
+function fun_asm__RotateRight($ghost_x:int, $ghost_y:int):int
+{
+    ror($ghost_x, $ghost_y)
+}
+
+function fun_asm__BitwiseNot($ghost_x:int):int
+{
+    neg($ghost_x)
+}
+
+function fun_asm__BitwiseAnd($ghost_x:int, $ghost_y:int):int
+{
+    and($ghost_x, $ghost_y)
+}
+
+function fun_asm__BitwiseOr($ghost_x:int, $ghost_y:int):int
+{
+    or($ghost_x, $ghost_y)
+}
+
+function fun_asm__BitwiseXor($ghost_x:int, $ghost_y:int):int
+{
+    xor($ghost_x, $ghost_y)
+}
+
+function fun_IntBit($ghost_index:int, $ghost_val:int):bool
+{
+    int_bit($ghost_val, 31 - $ghost_index)        //- IntBit is big endian, int_bit is little endian
+}
+
+function trigger_fun_asm__Add($ghost_x:int, $ghost_y:int):bool { true }
+atomic ghost procedure lemma_fun_ensures_fun_asm__Add();
+    ensures (forall $ghost_x:int, $ghost_y:int::{fun_asm__Add($ghost_x, $ghost_y)}{trigger_fun_asm__Add($ghost_x, $ghost_y)}trigger_fun_asm__Add($ghost_x, $ghost_y) ==> (true && (fun_word32($ghost_x)) && (fun_word32($ghost_y))) ==> (true && (fun_word32(fun_asm__Add($ghost_x, $ghost_y))) && ((fun_asm__Add($ghost_x, $ghost_y)) == (fun_mod0x100000000(INTERNAL_add_boogie($ghost_x, $ghost_y))))));
+atomic procedure proc_asm__Add(my r_old:regs, $ghost_x:int, $ghost_y:int, $opn_x:int, $opn_y:opn) returns(my r:regs, $ghost___result:int);
+    requires $ghost_x == r_old.regs[$opn_x];
+    requires $ghost_y == Eval(r_old, $opn_y);
+    requires fun_word32($ghost_x);
+    requires fun_word32($ghost_y);
+    ensures  $ghost___result == (fun_asm__Add($ghost_x, $ghost_y));
+    ensures  fun_word32(fun_asm__Add($ghost_x, $ghost_y));
+    ensures  (fun_asm__Add($ghost_x, $ghost_y)) == (fun_mod0x100000000(INTERNAL_add_boogie($ghost_x, $ghost_y)));
+    ensures  r.regs == r_old.regs[$opn_x := $ghost___result];
+function trigger_fun_asm__Sub($ghost_x:int, $ghost_y:int):bool { true }
+atomic ghost procedure lemma_fun_ensures_fun_asm__Sub();
+    ensures (forall $ghost_x:int, $ghost_y:int::{fun_asm__Sub($ghost_x, $ghost_y)}{trigger_fun_asm__Sub($ghost_x, $ghost_y)}trigger_fun_asm__Sub($ghost_x, $ghost_y) ==> (true && (fun_word32($ghost_x)) && (fun_word32($ghost_y))) ==> (true && (fun_word32(fun_asm__Sub($ghost_x, $ghost_y))) && ((fun_asm__Sub($ghost_x, $ghost_y)) == (fun_mod0x100000000(INTERNAL_sub_boogie($ghost_x, $ghost_y))))));
+atomic procedure proc_asm__Sub(my r_old:regs, $ghost_x:int, $ghost_y:int, $opn_x:int, $opn_y:opn) returns(my r:regs, $ghost___result:int);
+    requires $ghost_x == r_old.regs[$opn_x];
+    requires $ghost_y == Eval(r_old, $opn_y);
+    requires fun_word32($ghost_x);
+    requires fun_word32($ghost_y);
+    ensures  $ghost___result == (fun_asm__Sub($ghost_x, $ghost_y));
+    ensures  fun_word32(fun_asm__Sub($ghost_x, $ghost_y));
+    ensures  (fun_asm__Sub($ghost_x, $ghost_y)) == (fun_mod0x100000000(INTERNAL_sub_boogie($ghost_x, $ghost_y)));
+    ensures  r.regs == r_old.regs[$opn_x := $ghost___result];
+function trigger_fun_asm__Mul($ghost_x:int, $ghost_y:int):bool { true }
+atomic ghost procedure lemma_fun_ensures_fun_asm__Mul();
+    ensures (forall $ghost_x:int, $ghost_y:int::{fun_asm__Mul($ghost_x, $ghost_y)}{trigger_fun_asm__Mul($ghost_x, $ghost_y)}trigger_fun_asm__Mul($ghost_x, $ghost_y) ==> (true && (fun_word32($ghost_x)) && (fun_word32($ghost_y))) ==> (true && (fun_word32(fun_asm__Mul($ghost_x, $ghost_y))) && ((fun_asm__Mul($ghost_x, $ghost_y)) == (fun_mod0x100000000(fun_INTERNAL__mul($ghost_x, $ghost_y))))));
+const stack_size__DafnyCC__Proc_asm__Mul:int := 0 + 0;
+procedure Proc_asm__Mul(my r_old:regs, const my core_state:core_state, linear stk_old:mem, linear statics_old:mem, linear io_old:IOState, linear mems_old:mems, $commonVars_old:commonVars, $gcVars_old:gcVars, $toAbs_old:[int]int, $absMem_old:[int][int]int, $stacksFrames_old:[int]Frames, objLayouts_old:[int]ObjLayout, heap_old:Heap, $ghost_x:int, $ghost_y:int) returns(my r:regs, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems, $commonVars:commonVars, $gcVars:gcVars, $toAbs:[int]int, $absMem:[int][int]int, $stacksFrames:[int]Frames, objLayouts:[int]ObjLayout, heap:Heap, $ghost___result:int);
+    requires MemInv(me,init,stk_old,statics_old,core_state,ptMem,mems_old);
+    requires NucleusInv(objLayouts_old,$S,$toAbs_old,$absMem_old,$commonVars_old,$gcVars_old,me,init,stk_old,statics_old,core_state,ptMem,mems_old,$stacksFrames_old,io_old);
+    requires SMemRequireGcRA(stack_size__DafnyCC__Proc_asm__Mul, 16, stk_old, r_old.regs[ESP], RET);
+    requires HeapInv($absMem_old, objLayouts_old, heap_old);
+    requires (($ghost_x) == (stk_old.map[r_old.regs[ESP] + (4 + IPSize)]));
+    requires (($ghost_y) == (stk_old.map[r_old.regs[ESP] + (8 + IPSize)]));
+    requires fun_word32($ghost_x);
+    requires fun_word32($ghost_y);
+    modifies $Time;
+    ensures  r.regs[ESP] == old(r_old.regs[ESP]) + IPSize;
+    ensures  MemInv(me,init,stk,statics,core_state,ptMem,mems);
+    ensures  NucleusInv(objLayouts,$S,$toAbs,$absMem,$commonVars,$gcVars,me,init,stk,statics,core_state,ptMem,mems,$stacksFrames,io);
+    ensures  SMemEnsureGcF(16, stk, old(stk_old), r.regs[ESP], old(r_old.regs[ESP]), $stacksFrames, $stacksFrames_old);
+    ensures  HeapInv($absMem, objLayouts, heap);
+    ensures  AbsExtend($toAbs, $toAbs_old, objLayouts, objLayouts_old);
+    ensures  io._inCtr == io_old._inCtr && io._outCtr == io_old._outCtr;
+    ensures  (forall i:int::{$absMem[i]}{heap.absData[i]} heap_old.absData[i] is AbsNone || (heap.absData[i] == heap_old.absData[i] && ($absMem[i] == $absMem_old[i])));
+    ensures  $ghost___result == (fun_asm__Mul($ghost_x, $ghost_y));
+    ensures  fun_word32(fun_asm__Mul($ghost_x, $ghost_y));
+    ensures  (fun_asm__Mul($ghost_x, $ghost_y)) == (fun_mod0x100000000(fun_INTERNAL__mul($ghost_x, $ghost_y)));
+    ensures  (($ghost___result) == (stk.map[r_old.regs[ESP] + IPSize]));
+atomic procedure proc_asm__Mul64(my r_old:regs, $ghost_x:int, $ghost_y:int, $opn_hi:int, $opn_x:int, $opn_y:opn) returns(my r:regs, $ghost_hi:int, $ghost_lo:int);
+    requires $opn_hi == EDX;
+    requires $opn_x == EAX;
+    requires $opn_y != OReg(EDX) && $opn_y != OReg(EAX);
+    requires $ghost_x == r_old.regs[$opn_x];
+    requires $ghost_y == Eval(r_old, $opn_y);
+    requires fun_word32($ghost_x);
+    requires fun_word32($ghost_y);
+    ensures  fun_word32($ghost_hi);
+    ensures  fun_word32($ghost_lo);
+    ensures  $ghost_lo == (fun_mod0x100000000(fun_INTERNAL__mul($ghost_x, $ghost_y)));
+    ensures  $ghost_hi == (fun_INTERNAL__div(fun_INTERNAL__mul($ghost_x, $ghost_y), 4294967296));
+    ensures  r.regs == r_old.regs[$opn_hi := $ghost_hi][$opn_x := $ghost_lo];
+function trigger_fun_asm__Div($ghost_x:int, $ghost_y:int):bool { true }
+atomic ghost procedure lemma_fun_ensures_fun_asm__Div();
+    ensures (forall $ghost_x:int, $ghost_y:int::{fun_asm__Div($ghost_x, $ghost_y)}{trigger_fun_asm__Div($ghost_x, $ghost_y)}trigger_fun_asm__Div($ghost_x, $ghost_y) ==> (true && (fun_word32($ghost_x)) && (fun_word32($ghost_y)) && (INTERNAL_gt_boogie($ghost_y, 0))) ==> (true && (fun_word32(fun_asm__Div($ghost_x, $ghost_y))) && ((fun_asm__Div($ghost_x, $ghost_y)) == (fun_mod0x100000000(fun_INTERNAL__div($ghost_x, $ghost_y))))));
+const stack_size__DafnyCC__Proc_asm__Div:int := 0 + 0;
+procedure Proc_asm__Div(my r_old:regs, const my core_state:core_state, linear stk_old:mem, linear statics_old:mem, linear io_old:IOState, linear mems_old:mems, $commonVars_old:commonVars, $gcVars_old:gcVars, $toAbs_old:[int]int, $absMem_old:[int][int]int, $stacksFrames_old:[int]Frames, objLayouts_old:[int]ObjLayout, heap_old:Heap, $ghost_x:int, $ghost_y:int) returns(my r:regs, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems, $commonVars:commonVars, $gcVars:gcVars, $toAbs:[int]int, $absMem:[int][int]int, $stacksFrames:[int]Frames, objLayouts:[int]ObjLayout, heap:Heap, $ghost___result:int);
+    requires MemInv(me,init,stk_old,statics_old,core_state,ptMem,mems_old);
+    requires NucleusInv(objLayouts_old,$S,$toAbs_old,$absMem_old,$commonVars_old,$gcVars_old,me,init,stk_old,statics_old,core_state,ptMem,mems_old,$stacksFrames_old,io_old);
+    requires SMemRequireGcRA(stack_size__DafnyCC__Proc_asm__Div, 16, stk_old, r_old.regs[ESP], RET);
+    requires HeapInv($absMem_old, objLayouts_old, heap_old);
+    requires (($ghost_x) == (stk_old.map[r_old.regs[ESP] + (4 + IPSize)]));
+    requires (($ghost_y) == (stk_old.map[r_old.regs[ESP] + (8 + IPSize)]));
+    requires fun_word32($ghost_x);
+    requires fun_word32($ghost_y);
+    requires INTERNAL_gt_boogie($ghost_y, 0);
+    modifies $Time;
+    ensures  r.regs[ESP] == old(r_old.regs[ESP]) + IPSize;
+    ensures  MemInv(me,init,stk,statics,core_state,ptMem,mems);
+    ensures  NucleusInv(objLayouts,$S,$toAbs,$absMem,$commonVars,$gcVars,me,init,stk,statics,core_state,ptMem,mems,$stacksFrames,io);
+    ensures  SMemEnsureGcF(12, stk, old(stk_old), r.regs[ESP], old(r_old.regs[ESP]), $stacksFrames, $stacksFrames_old);
+    ensures  HeapInv($absMem, objLayouts, heap);
+    ensures  AbsExtend($toAbs, $toAbs_old, objLayouts, objLayouts_old);
+    ensures  (forall i:int::{$absMem[i]}{heap.absData[i]} heap_old.absData[i] is AbsNone || (heap.absData[i] == heap_old.absData[i] && ($absMem[i] == $absMem_old[i])));
+    ensures  io._inCtr == io_old._inCtr && io._outCtr == io_old._outCtr;
+    ensures  $ghost___result == (fun_asm__Div($ghost_x, $ghost_y));
+    ensures  fun_word32(fun_asm__Div($ghost_x, $ghost_y));
+    ensures  (fun_asm__Div($ghost_x, $ghost_y)) == (fun_mod0x100000000(fun_INTERNAL__div($ghost_x, $ghost_y)));
+    ensures  (($ghost___result) == (stk.map[r_old.regs[ESP] + IPSize]));
+function trigger_fun_asm__Mod($ghost_x:int, $ghost_y:int):bool { true }
+atomic ghost procedure lemma_fun_ensures_fun_asm__Mod();
+    ensures (forall $ghost_x:int, $ghost_y:int::{fun_asm__Mod($ghost_x, $ghost_y)}{trigger_fun_asm__Mod($ghost_x, $ghost_y)}trigger_fun_asm__Mod($ghost_x, $ghost_y) ==> (true && (fun_word32($ghost_x)) && (fun_word32($ghost_y)) && (INTERNAL_gt_boogie($ghost_y, 0))) ==> (true && (fun_word32(fun_asm__Mod($ghost_x, $ghost_y))) && ((fun_asm__Mod($ghost_x, $ghost_y)) == (fun_INTERNAL__mod($ghost_x, $ghost_y)))));
+const stack_size__DafnyCC__Proc_asm__Mod:int := 0 + 0;
+procedure Proc_asm__Mod(my r_old:regs, const my core_state:core_state, linear stk_old:mem, linear statics_old:mem, linear io_old:IOState, linear mems_old:mems, $commonVars_old:commonVars, $gcVars_old:gcVars, $toAbs_old:[int]int, $absMem_old:[int][int]int, $stacksFrames_old:[int]Frames, objLayouts_old:[int]ObjLayout, heap_old:Heap, $ghost_x:int, $ghost_y:int) returns(my r:regs, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems, $commonVars:commonVars, $gcVars:gcVars, $toAbs:[int]int, $absMem:[int][int]int, $stacksFrames:[int]Frames, objLayouts:[int]ObjLayout, heap:Heap, $ghost___result:int);
+    requires MemInv(me,init,stk_old,statics_old,core_state,ptMem,mems_old);
+    requires NucleusInv(objLayouts_old,$S,$toAbs_old,$absMem_old,$commonVars_old,$gcVars_old,me,init,stk_old,statics_old,core_state,ptMem,mems_old,$stacksFrames_old,io_old);
+    requires SMemRequireGcRA(stack_size__DafnyCC__Proc_asm__Mod, 16, stk_old, r_old.regs[ESP], RET);
+    requires HeapInv($absMem_old, objLayouts_old, heap_old);
+    requires (($ghost_x) == (stk_old.map[r_old.regs[ESP] + (4 + IPSize)]));
+    requires (($ghost_y) == (stk_old.map[r_old.regs[ESP] + (8 + IPSize)]));
+    requires fun_word32($ghost_x);
+    requires fun_word32($ghost_y);
+    requires INTERNAL_gt_boogie($ghost_y, 0);
+    modifies $Time;
+    ensures  r.regs[ESP] == old(r_old.regs[ESP]) + IPSize;
+    ensures  MemInv(me,init,stk,statics,core_state,ptMem,mems);
+    ensures  NucleusInv(objLayouts,$S,$toAbs,$absMem,$commonVars,$gcVars,me,init,stk,statics,core_state,ptMem,mems,$stacksFrames,io);
+    ensures  SMemEnsureGcF(16, stk, old(stk_old), r.regs[ESP], old(r_old.regs[ESP]), $stacksFrames, $stacksFrames_old);
+    ensures  HeapInv($absMem, objLayouts, heap);
+    ensures  AbsExtend($toAbs, $toAbs_old, objLayouts, objLayouts_old);
+    ensures  (forall i:int::{$absMem[i]}{heap.absData[i]} heap_old.absData[i] is AbsNone || (heap.absData[i] == heap_old.absData[i] && ($absMem[i] == $absMem_old[i])));
+    ensures  io._inCtr == io_old._inCtr && io._outCtr == io_old._outCtr;
+    ensures  $ghost___result == (fun_asm__Mod($ghost_x, $ghost_y));
+    ensures  fun_word32(fun_asm__Mod($ghost_x, $ghost_y));
+    ensures  (fun_asm__Mod($ghost_x, $ghost_y)) == (fun_INTERNAL__mod($ghost_x, $ghost_y));
+    ensures  (($ghost___result) == (stk.map[r_old.regs[ESP] + IPSize]));
+function trigger_fun_asm__LeftShift($ghost_x:int, $ghost_amount:int):bool { true }
+atomic ghost procedure lemma_fun_ensures_fun_asm__LeftShift();
+    ensures (forall $ghost_x:int, $ghost_amount:int::{fun_asm__LeftShift($ghost_x, $ghost_amount)}{trigger_fun_asm__LeftShift($ghost_x, $ghost_amount)}trigger_fun_asm__LeftShift($ghost_x, $ghost_amount) ==> (true && (fun_word32($ghost_x)) && ((INTERNAL_le_boogie(0, $ghost_amount)) && (INTERNAL_lt_boogie($ghost_amount, 32)))) ==> (true && (fun_word32(fun_asm__LeftShift($ghost_x, $ghost_amount))) && ((forall $ghost__0_i:int :: {fun_IntBit($ghost__0_i, fun_asm__LeftShift($ghost_x, $ghost_amount))} ((INTERNAL_le_boogie(INTERNAL_sub_boogie(32, $ghost_amount), $ghost__0_i)) && (INTERNAL_lt_boogie($ghost__0_i, 32))) ==> ((fun_IntBit($ghost__0_i, fun_asm__LeftShift($ghost_x, $ghost_amount))) == (false)))) && ((forall $ghost__1_i:int :: {fun_IntBit($ghost__1_i, fun_asm__LeftShift($ghost_x, $ghost_amount))} ((INTERNAL_le_boogie(0, $ghost__1_i)) && (INTERNAL_lt_boogie($ghost__1_i, INTERNAL_sub_boogie(32, $ghost_amount)))) ==> ((fun_IntBit($ghost__1_i, fun_asm__LeftShift($ghost_x, $ghost_amount))) == (fun_IntBit(INTERNAL_add_boogie($ghost__1_i, $ghost_amount), $ghost_x)))))));
+atomic procedure proc_asm__LeftShift(my r_old:regs, $ghost_x:int, $ghost_amount:int, $opn_x:int, $opn_amount:opn) returns(my r:regs, $ghost___result:int);
+    requires $ghost_x == r_old.regs[$opn_x];
+    requires $ghost_amount == Eval(r_old, $opn_amount);
+    requires fun_word32($ghost_x);
+    requires (INTERNAL_le_boogie(0, $ghost_amount)) && (INTERNAL_lt_boogie($ghost_amount, 32));
+    ensures  $ghost___result == (fun_asm__LeftShift($ghost_x, $ghost_amount));
+    ensures  fun_word32(fun_asm__LeftShift($ghost_x, $ghost_amount));
+    ensures  (forall $ghost__0_i:int :: {fun_IntBit($ghost__0_i, fun_asm__LeftShift($ghost_x, $ghost_amount))} ((INTERNAL_le_boogie(INTERNAL_sub_boogie(32, $ghost_amount), $ghost__0_i)) && (INTERNAL_lt_boogie($ghost__0_i, 32))) ==> ((fun_IntBit($ghost__0_i, fun_asm__LeftShift($ghost_x, $ghost_amount))) == (false)));
+    ensures  (forall $ghost__1_i:int :: {fun_IntBit($ghost__1_i, fun_asm__LeftShift($ghost_x, $ghost_amount))} ((INTERNAL_le_boogie(0, $ghost__1_i)) && (INTERNAL_lt_boogie($ghost__1_i, INTERNAL_sub_boogie(32, $ghost_amount)))) ==> ((fun_IntBit($ghost__1_i, fun_asm__LeftShift($ghost_x, $ghost_amount))) == (fun_IntBit(INTERNAL_add_boogie($ghost__1_i, $ghost_amount), $ghost_x))));
+    ensures  r.regs == r_old.regs[$opn_x := $ghost___result];
+function trigger_fun_asm__RightShift($ghost_x:int, $ghost_amount:int):bool { true }
+atomic ghost procedure lemma_fun_ensures_fun_asm__RightShift();
+    ensures (forall $ghost_x:int, $ghost_amount:int::{fun_asm__RightShift($ghost_x, $ghost_amount)}{trigger_fun_asm__RightShift($ghost_x, $ghost_amount)}trigger_fun_asm__RightShift($ghost_x, $ghost_amount) ==> (true && (fun_word32($ghost_x)) && ((INTERNAL_le_boogie(0, $ghost_amount)) && (INTERNAL_lt_boogie($ghost_amount, 32)))) ==> (true && (fun_word32(fun_asm__RightShift($ghost_x, $ghost_amount))) && ((forall $ghost__0_i:int :: {fun_IntBit($ghost__0_i, fun_asm__RightShift($ghost_x, $ghost_amount))} ((INTERNAL_le_boogie(0, $ghost__0_i)) && (INTERNAL_lt_boogie($ghost__0_i, $ghost_amount))) ==> ((fun_IntBit($ghost__0_i, fun_asm__RightShift($ghost_x, $ghost_amount))) == (false)))) && ((forall $ghost__1_i:int :: {fun_IntBit($ghost__1_i, fun_asm__RightShift($ghost_x, $ghost_amount))} ((INTERNAL_le_boogie($ghost_amount, $ghost__1_i)) && (INTERNAL_lt_boogie($ghost__1_i, 32))) ==> ((fun_IntBit($ghost__1_i, fun_asm__RightShift($ghost_x, $ghost_amount))) == (fun_IntBit(INTERNAL_sub_boogie($ghost__1_i, $ghost_amount), $ghost_x)))))));
+atomic procedure proc_asm__RightShift(my r_old:regs, $ghost_x:int, $ghost_amount:int, $opn_x:int, $opn_amount:opn) returns(my r:regs, $ghost___result:int);
+    requires $ghost_x == r_old.regs[$opn_x];
+    requires $ghost_amount == Eval(r_old, $opn_amount);
+    requires fun_word32($ghost_x);
+    requires (INTERNAL_le_boogie(0, $ghost_amount)) && (INTERNAL_lt_boogie($ghost_amount, 32));
+    ensures  $ghost___result == (fun_asm__RightShift($ghost_x, $ghost_amount));
+    ensures  fun_word32(fun_asm__RightShift($ghost_x, $ghost_amount));
+    ensures  (forall $ghost__0_i:int :: {fun_IntBit($ghost__0_i, fun_asm__RightShift($ghost_x, $ghost_amount))} ((INTERNAL_le_boogie(0, $ghost__0_i)) && (INTERNAL_lt_boogie($ghost__0_i, $ghost_amount))) ==> ((fun_IntBit($ghost__0_i, fun_asm__RightShift($ghost_x, $ghost_amount))) == (false)));
+    ensures  (forall $ghost__1_i:int :: {fun_IntBit($ghost__1_i, fun_asm__RightShift($ghost_x, $ghost_amount))} ((INTERNAL_le_boogie($ghost_amount, $ghost__1_i)) && (INTERNAL_lt_boogie($ghost__1_i, 32))) ==> ((fun_IntBit($ghost__1_i, fun_asm__RightShift($ghost_x, $ghost_amount))) == (fun_IntBit(INTERNAL_sub_boogie($ghost__1_i, $ghost_amount), $ghost_x))));
+    ensures  r.regs == r_old.regs[$opn_x := $ghost___result];
+function trigger_fun_asm__RotateLeft($ghost_x:int, $ghost_amount:int):bool { true }
+atomic ghost procedure lemma_fun_ensures_fun_asm__RotateLeft();
+    ensures (forall $ghost_x:int, $ghost_amount:int::{fun_asm__RotateLeft($ghost_x, $ghost_amount)}{trigger_fun_asm__RotateLeft($ghost_x, $ghost_amount)}trigger_fun_asm__RotateLeft($ghost_x, $ghost_amount) ==> (true && (fun_word32($ghost_x)) && ((INTERNAL_le_boogie(0, $ghost_amount)) && (INTERNAL_lt_boogie($ghost_amount, 32)))) ==> (true && (fun_word32(fun_asm__RotateLeft($ghost_x, $ghost_amount))) && ((forall $ghost__0_i:int :: {fun_IntBit($ghost__0_i, fun_asm__RotateLeft($ghost_x, $ghost_amount))} ((INTERNAL_le_boogie(0, $ghost__0_i)) && (INTERNAL_lt_boogie($ghost__0_i, INTERNAL_sub_boogie(32, $ghost_amount)))) ==> ((fun_IntBit($ghost__0_i, fun_asm__RotateLeft($ghost_x, $ghost_amount))) == (fun_IntBit(INTERNAL_add_boogie($ghost__0_i, $ghost_amount), $ghost_x))))) && ((forall $ghost__1_i:int :: {fun_IntBit($ghost__1_i, fun_asm__RotateLeft($ghost_x, $ghost_amount))} ((INTERNAL_le_boogie(INTERNAL_sub_boogie(32, $ghost_amount), $ghost__1_i)) && (INTERNAL_lt_boogie($ghost__1_i, 32))) ==> ((fun_IntBit($ghost__1_i, fun_asm__RotateLeft($ghost_x, $ghost_amount))) == (fun_IntBit(INTERNAL_sub_boogie($ghost__1_i, INTERNAL_sub_boogie(32, $ghost_amount)), $ghost_x)))))));
+atomic procedure proc_asm__RotateLeft(my r_old:regs, $ghost_x:int, $ghost_amount:int, $opn_x:int, $opn_amount:opn) returns(my r:regs, $ghost___result:int);
+    requires $ghost_x == r_old.regs[$opn_x];
+    requires $ghost_amount == Eval(r_old, $opn_amount);
+    requires fun_word32($ghost_x);
+    requires (INTERNAL_le_boogie(0, $ghost_amount)) && (INTERNAL_lt_boogie($ghost_amount, 32));
+    ensures  $ghost___result == (fun_asm__RotateLeft($ghost_x, $ghost_amount));
+    ensures  fun_word32(fun_asm__RotateLeft($ghost_x, $ghost_amount));
+    ensures  (forall $ghost__0_i:int :: {fun_IntBit($ghost__0_i, fun_asm__RotateLeft($ghost_x, $ghost_amount))} ((INTERNAL_le_boogie(0, $ghost__0_i)) && (INTERNAL_lt_boogie($ghost__0_i, INTERNAL_sub_boogie(32, $ghost_amount)))) ==> ((fun_IntBit($ghost__0_i, fun_asm__RotateLeft($ghost_x, $ghost_amount))) == (fun_IntBit(INTERNAL_add_boogie($ghost__0_i, $ghost_amount), $ghost_x))));
+    ensures  (forall $ghost__1_i:int :: {fun_IntBit($ghost__1_i, fun_asm__RotateLeft($ghost_x, $ghost_amount))} ((INTERNAL_le_boogie(INTERNAL_sub_boogie(32, $ghost_amount), $ghost__1_i)) && (INTERNAL_lt_boogie($ghost__1_i, 32))) ==> ((fun_IntBit($ghost__1_i, fun_asm__RotateLeft($ghost_x, $ghost_amount))) == (fun_IntBit(INTERNAL_sub_boogie($ghost__1_i, INTERNAL_sub_boogie(32, $ghost_amount)), $ghost_x))));
+    ensures  r.regs == r_old.regs[$opn_x := $ghost___result];
+function trigger_fun_asm__RotateRight($ghost_x:int, $ghost_amount:int):bool { true }
+atomic ghost procedure lemma_fun_ensures_fun_asm__RotateRight();
+    ensures (forall $ghost_x:int, $ghost_amount:int::{fun_asm__RotateRight($ghost_x, $ghost_amount)}{trigger_fun_asm__RotateRight($ghost_x, $ghost_amount)}trigger_fun_asm__RotateRight($ghost_x, $ghost_amount) ==> (true && (fun_word32($ghost_x)) && ((INTERNAL_le_boogie(0, $ghost_amount)) && (INTERNAL_lt_boogie($ghost_amount, 32)))) ==> (true && (fun_word32(fun_asm__RotateRight($ghost_x, $ghost_amount))) && ((forall $ghost__0_i:int :: {fun_IntBit($ghost__0_i, fun_asm__RotateRight($ghost_x, $ghost_amount))} ((INTERNAL_le_boogie(0, $ghost__0_i)) && (INTERNAL_lt_boogie($ghost__0_i, $ghost_amount))) ==> ((fun_IntBit($ghost__0_i, fun_asm__RotateRight($ghost_x, $ghost_amount))) == (fun_IntBit(INTERNAL_add_boogie(INTERNAL_sub_boogie(32, $ghost_amount), $ghost__0_i), $ghost_x))))) && ((forall $ghost__1_i:int :: {fun_IntBit($ghost__1_i, fun_asm__RotateRight($ghost_x, $ghost_amount))} ((INTERNAL_le_boogie($ghost_amount, $ghost__1_i)) && (INTERNAL_lt_boogie($ghost__1_i, 32))) ==> ((fun_IntBit($ghost__1_i, fun_asm__RotateRight($ghost_x, $ghost_amount))) == (fun_IntBit(INTERNAL_sub_boogie($ghost__1_i, $ghost_amount), $ghost_x)))))));
+atomic procedure proc_asm__RotateRight(my r_old:regs, $ghost_x:int, $ghost_amount:int, $opn_x:int, $opn_amount:opn) returns(my r:regs, $ghost___result:int);
+    requires $ghost_x == r_old.regs[$opn_x];
+    requires $ghost_amount == Eval(r_old, $opn_amount);
+    requires fun_word32($ghost_x);
+    requires (INTERNAL_le_boogie(0, $ghost_amount)) && (INTERNAL_lt_boogie($ghost_amount, 32));
+    ensures  $ghost___result == (fun_asm__RotateRight($ghost_x, $ghost_amount));
+    ensures  fun_word32(fun_asm__RotateRight($ghost_x, $ghost_amount));
+    ensures  (forall $ghost__0_i:int :: {fun_IntBit($ghost__0_i, fun_asm__RotateRight($ghost_x, $ghost_amount))} ((INTERNAL_le_boogie(0, $ghost__0_i)) && (INTERNAL_lt_boogie($ghost__0_i, $ghost_amount))) ==> ((fun_IntBit($ghost__0_i, fun_asm__RotateRight($ghost_x, $ghost_amount))) == (fun_IntBit(INTERNAL_add_boogie(INTERNAL_sub_boogie(32, $ghost_amount), $ghost__0_i), $ghost_x))));
+    ensures  (forall $ghost__1_i:int :: {fun_IntBit($ghost__1_i, fun_asm__RotateRight($ghost_x, $ghost_amount))} ((INTERNAL_le_boogie($ghost_amount, $ghost__1_i)) && (INTERNAL_lt_boogie($ghost__1_i, 32))) ==> ((fun_IntBit($ghost__1_i, fun_asm__RotateRight($ghost_x, $ghost_amount))) == (fun_IntBit(INTERNAL_sub_boogie($ghost__1_i, $ghost_amount), $ghost_x))));
+    ensures  r.regs == r_old.regs[$opn_x := $ghost___result];
+function trigger_fun_asm__BitwiseNot($ghost_x:int):bool { true }
+atomic ghost procedure lemma_fun_ensures_fun_asm__BitwiseNot();
+    ensures (forall $ghost_x:int::{fun_asm__BitwiseNot($ghost_x)}{trigger_fun_asm__BitwiseNot($ghost_x)}trigger_fun_asm__BitwiseNot($ghost_x) ==> (true && (fun_word32($ghost_x))) ==> (true && (fun_word32(fun_asm__BitwiseNot($ghost_x))) && ((forall $ghost__0_i:int :: {fun_IntBit($ghost__0_i, fun_asm__BitwiseNot($ghost_x))} ((INTERNAL_le_boogie(0, $ghost__0_i)) && (INTERNAL_lt_boogie($ghost__0_i, 32))) ==> ((fun_IntBit($ghost__0_i, fun_asm__BitwiseNot($ghost_x))) == ((!(fun_IntBit($ghost__0_i, $ghost_x)))))))));
+atomic procedure proc_asm__BitwiseNot(my r_old:regs, $ghost_x:int, $opn_x:int) returns(my r:regs, $ghost___result:int);
+    requires $ghost_x == r_old.regs[$opn_x];
+    requires fun_word32($ghost_x);
+    ensures  $ghost___result == (fun_asm__BitwiseNot($ghost_x));
+    ensures  fun_word32(fun_asm__BitwiseNot($ghost_x));
+    ensures  (forall $ghost__0_i:int :: {fun_IntBit($ghost__0_i, fun_asm__BitwiseNot($ghost_x))} ((INTERNAL_le_boogie(0, $ghost__0_i)) && (INTERNAL_lt_boogie($ghost__0_i, 32))) ==> ((fun_IntBit($ghost__0_i, fun_asm__BitwiseNot($ghost_x))) == ((!(fun_IntBit($ghost__0_i, $ghost_x))))));
+    ensures  r.regs == r_old.regs[$opn_x := $ghost___result];
+function trigger_fun_asm__BitwiseAnd($ghost_x:int, $ghost_y:int):bool { true }
+atomic ghost procedure lemma_fun_ensures_fun_asm__BitwiseAnd();
+    ensures (forall $ghost_x:int, $ghost_y:int::{fun_asm__BitwiseAnd($ghost_x, $ghost_y)}{trigger_fun_asm__BitwiseAnd($ghost_x, $ghost_y)}trigger_fun_asm__BitwiseAnd($ghost_x, $ghost_y) ==> (true && (fun_word32($ghost_x)) && (fun_word32($ghost_y))) ==> (true && (fun_word32(fun_asm__BitwiseAnd($ghost_x, $ghost_y))) && ((forall $ghost__0_i:int :: {fun_IntBit($ghost__0_i, fun_asm__BitwiseAnd($ghost_x, $ghost_y))} ((INTERNAL_le_boogie(0, $ghost__0_i)) && (INTERNAL_lt_boogie($ghost__0_i, 32))) ==> ((fun_IntBit($ghost__0_i, fun_asm__BitwiseAnd($ghost_x, $ghost_y))) == ((fun_IntBit($ghost__0_i, $ghost_x)) && (fun_IntBit($ghost__0_i, $ghost_y))))))));
+atomic procedure proc_asm__BitwiseAnd(my r_old:regs, $ghost_x:int, $ghost_y:int, $opn_x:int, $opn_y:opn) returns(my r:regs, $ghost___result:int);
+    requires $ghost_x == r_old.regs[$opn_x];
+    requires $ghost_y == Eval(r_old, $opn_y);
+    requires fun_word32($ghost_x);
+    requires fun_word32($ghost_y);
+    ensures  $ghost___result == (fun_asm__BitwiseAnd($ghost_x, $ghost_y));
+    ensures  fun_word32(fun_asm__BitwiseAnd($ghost_x, $ghost_y));
+    ensures  (forall $ghost__0_i:int :: {fun_IntBit($ghost__0_i, fun_asm__BitwiseAnd($ghost_x, $ghost_y))} ((INTERNAL_le_boogie(0, $ghost__0_i)) && (INTERNAL_lt_boogie($ghost__0_i, 32))) ==> ((fun_IntBit($ghost__0_i, fun_asm__BitwiseAnd($ghost_x, $ghost_y))) == ((fun_IntBit($ghost__0_i, $ghost_x)) && (fun_IntBit($ghost__0_i, $ghost_y)))));
+    ensures  r.regs == r_old.regs[$opn_x := $ghost___result];
+function trigger_fun_asm__BitwiseOr($ghost_x:int, $ghost_y:int):bool { true }
+atomic ghost procedure lemma_fun_ensures_fun_asm__BitwiseOr();
+    ensures (forall $ghost_x:int, $ghost_y:int::{fun_asm__BitwiseOr($ghost_x, $ghost_y)}{trigger_fun_asm__BitwiseOr($ghost_x, $ghost_y)}trigger_fun_asm__BitwiseOr($ghost_x, $ghost_y) ==> (true && (fun_word32($ghost_x)) && (fun_word32($ghost_y))) ==> (true && (fun_word32(fun_asm__BitwiseOr($ghost_x, $ghost_y))) && ((forall $ghost__0_i:int :: {fun_IntBit($ghost__0_i, fun_asm__BitwiseOr($ghost_x, $ghost_y))} ((INTERNAL_le_boogie(0, $ghost__0_i)) && (INTERNAL_lt_boogie($ghost__0_i, 32))) ==> ((fun_IntBit($ghost__0_i, fun_asm__BitwiseOr($ghost_x, $ghost_y))) == ((fun_IntBit($ghost__0_i, $ghost_x)) || (fun_IntBit($ghost__0_i, $ghost_y))))))));
+atomic procedure proc_asm__BitwiseOr(my r_old:regs, $ghost_x:int, $ghost_y:int, $opn_x:int, $opn_y:opn) returns(my r:regs, $ghost___result:int);
+    requires $ghost_x == r_old.regs[$opn_x];
+    requires $ghost_y == Eval(r_old, $opn_y);
+    requires fun_word32($ghost_x);
+    requires fun_word32($ghost_y);
+    ensures  $ghost___result == (fun_asm__BitwiseOr($ghost_x, $ghost_y));
+    ensures  fun_word32(fun_asm__BitwiseOr($ghost_x, $ghost_y));
+    ensures  (forall $ghost__0_i:int :: {fun_IntBit($ghost__0_i, fun_asm__BitwiseOr($ghost_x, $ghost_y))} ((INTERNAL_le_boogie(0, $ghost__0_i)) && (INTERNAL_lt_boogie($ghost__0_i, 32))) ==> ((fun_IntBit($ghost__0_i, fun_asm__BitwiseOr($ghost_x, $ghost_y))) == ((fun_IntBit($ghost__0_i, $ghost_x)) || (fun_IntBit($ghost__0_i, $ghost_y)))));
+    ensures  r.regs == r_old.regs[$opn_x := $ghost___result];
+function trigger_fun_asm__BitwiseXor($ghost_x:int, $ghost_y:int):bool { true }
+atomic ghost procedure lemma_fun_ensures_fun_asm__BitwiseXor();
+    ensures (forall $ghost_x:int, $ghost_y:int::{fun_asm__BitwiseXor($ghost_x, $ghost_y)}{trigger_fun_asm__BitwiseXor($ghost_x, $ghost_y)}trigger_fun_asm__BitwiseXor($ghost_x, $ghost_y) ==> (true && (fun_word32($ghost_x)) && (fun_word32($ghost_y))) ==> (true && (fun_word32(fun_asm__BitwiseXor($ghost_x, $ghost_y))) && ((forall $ghost__0_i:int :: {fun_IntBit($ghost__0_i, fun_asm__BitwiseXor($ghost_x, $ghost_y))} ((INTERNAL_le_boogie(0, $ghost__0_i)) && (INTERNAL_lt_boogie($ghost__0_i, 32))) ==> ((fun_IntBit($ghost__0_i, fun_asm__BitwiseXor($ghost_x, $ghost_y))) == ((fun_IntBit($ghost__0_i, $ghost_x)) != (fun_IntBit($ghost__0_i, $ghost_y))))))));
+atomic procedure proc_asm__BitwiseXor(my r_old:regs, $ghost_x:int, $ghost_y:int, $opn_x:int, $opn_y:opn) returns(my r:regs, $ghost___result:int);
+    requires $ghost_x == r_old.regs[$opn_x];
+    requires $ghost_y == Eval(r_old, $opn_y);
+    requires fun_word32($ghost_x);
+    requires fun_word32($ghost_y);
+    ensures  $ghost___result == (fun_asm__BitwiseXor($ghost_x, $ghost_y));
+    ensures  fun_word32(fun_asm__BitwiseXor($ghost_x, $ghost_y));
+    ensures  (forall $ghost__0_i:int :: {fun_IntBit($ghost__0_i, fun_asm__BitwiseXor($ghost_x, $ghost_y))} ((INTERNAL_le_boogie(0, $ghost__0_i)) && (INTERNAL_lt_boogie($ghost__0_i, 32))) ==> ((fun_IntBit($ghost__0_i, fun_asm__BitwiseXor($ghost_x, $ghost_y))) == ((fun_IntBit($ghost__0_i, $ghost_x)) != (fun_IntBit($ghost__0_i, $ghost_y)))));
+    ensures  r.regs == r_old.regs[$opn_x := $ghost___result];
+}

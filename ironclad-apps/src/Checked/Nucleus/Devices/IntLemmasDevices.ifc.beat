@@ -1,0 +1,21 @@
+//-private-import BaseSpec;
+//-private-import MemorySpec;
+//-private-import IntSpec;
+//-private-import IoTypesSpec;
+//-private-import MachineStateSpec;
+//-private-import AssemblySpec;
+//-private-import BitVectorLemmasDevices;
+//-
+//- Copyright (c) Microsoft Corporation.  All rights reserved.
+//-
+
+module interface IntLemmasDevices
+{
+
+atomic ghost procedure lemma_and7_implies_mod_4();
+  ensures (forall x:int :: word(x) ==> and(x, 7) == 0 ==> _mod(x, 4) == 0);
+
+atomic ghost procedure lemma_shl_1();
+  ensures (forall amt:int :: le(0, amt) && lt(amt, 32) ==> gt(shl(1, amt), 0));
+
+}

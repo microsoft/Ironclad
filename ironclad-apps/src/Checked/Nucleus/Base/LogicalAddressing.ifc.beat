@@ -1,0 +1,654 @@
+//-private-import BaseSpec;
+//-private-import MemorySpec;
+//-private-import IoTypesSpec;
+//-private-import MachineStateSpec;
+//-private-import AssemblySpec;
+//-private-import InterruptsSpec;
+//-private-import IoSpec;
+//-<NuBuild AddBoogieAxiom Base_axioms />
+//-<NuBuild AddBoogieAxiom Memory_axioms />
+//-<NuBuild AddBoogieAxiom Assembly_axioms />
+//-private-import IntLemmasBase;
+//-private-import Partition;
+//-private-import Core;
+//-
+//- Copyright (c) Microsoft Corporation.  All rights reserved.
+//-
+#ifdef x64
+    #define IPSize 8
+#else
+    #define IPSize 4
+#endif
+
+module interface LogicalAddressing
+{
+
+linear var ptMem:mem;
+
+const ?ptLo:int := ?memLo;
+const ?ptHi:int := ?ptLo + 0x402000;  //- 0x402000 = ?pageDirSize + ?numPDEs * ?pageTableSize + 4096 (padding to ensure 4k aligned)
+
+const ?numPDEs:int := 1024;
+const ?numPTEsPerTable:int := 1024;
+ 
+const ?pageDirSize:int   := 4096; //-?numPDEs * ?sizeofPDE;  
+const ?pageTableSize:int := 4096; //-?numPTEsPerTable * ?sizeofPTE;  
+const ?pageFrameSize:int := 4096;      //- 4K 
+
+function Aligned4k(ptr:int):bool { ClearLSBs(12, ptr) == ptr }
+
+function FlatSegmentationInv(seg_reg:SegmentRegister):bool
+{
+     seg_reg.descriptor.segBase == 0
+  && seg_reg.descriptor.segType == ?SegmentDescriptorTypeData
+}
+
+function in_guard_region(ptr:int):bool
+{
+  le(0, ptr) && lt(ptr, 4096)
+}
+
+//function PciUninitialized(io:IOState):bool
+//{
+//  (forall i:int :: {io._pci.PciConfigState[i]} io._pci.PciConfigState[i] == 0)
+//}
+
+function flat_page_mapping(mem:mem, base:int):bool;
+function only_user_accessible_pages(mem:mem, base:int, low:int, high:int):bool;
+
+procedure fixupDS()
+  inout my r:regs, my core_state:core_state, linear mem:mem;
+  requires !init;
+  requires !paging_enabled(core_state);
+  requires (forall i:int::{memAddr(i)} ?memLo <= i && i < ?memHi ==> memAddr(i));
+  requires ?memLo <= esp - 6*?SegmentDescriptorSize && esp <= ?memHi;
+  requires Aligned(esp);
+  requires (forall i:int :: { mem.dom[i] }  
+            esp - 24 <= i && i <= esp - 4 && Aligned(i) ==> mem.dom[i]);
+  requires FlatSegmentationInv(core_state.seg_regs[SS]);
+//  requires PciUninitialized(io);
+  modifies mem, efl, ecx, edx, esp, core_state._gdt_regs, core_state._seg_regs;
+  ensures  FlatSegmentationInv(core_state.seg_regs[DS]);
+  ensures  FlatSegmentationInv(core_state.seg_regs[SS]);
+  ensures  !paging_enabled(core_state);
+  ensures  !init;
+  ensures  mem.dom == old(mem).dom;
+//  ensures  PciUninitialized(io);
+
+atomic ghost procedure enableLogicalAddressing();
+  inout my core_state:core_state, linear mem:mem;
+  requires me == 0;
+  requires !init;
+  requires FlatSegmentationInv(core_state.seg_regs[DS]);
+  requires FlatSegmentationInv(core_state.seg_regs[SS]);
+  requires !paging_enabled(core_state);
+  ensures  logical_addressing_inv(init, ptMem, core_state);
+
+atomic ghost procedure logical_inv_is_flat();
+  inout my core_state:core_state;
+  requires logical_addressing_inv(init, ptMem, core_state);
+  ensures FlatSegmentationInv(core_state.seg_regs[DS]);
+  ensures FlatSegmentationInv(core_state.seg_regs[SS]);
+  ensures logical_addressing_inv(init, ptMem, core_state);
+
+function ptAddr(ptr:int):bool  { between(?ptLo, ?ptHi, ptr) }
+
+function ptAddrOwned(ptMem:mem):bool 
+{
+  (forall addr:int :: { ptMem.dom[addr] } ptAddr(addr) ==> ptMem.dom[addr])
+}
+
+const ptRoot:int := and(?memLo, 0xfffff000) + 0x1000;
+
+procedure initPageTablePartition();
+  inout my r:regs, my core_state:core_state, linear mem:mem;
+  requires me == 0;
+  requires !init;
+  requires !paging_enabled(core_state);
+  requires logical_addressing_inv(init, ptMem, core_state);
+  // ensures  (forall addr:int :: { $part.vars[ptOwner__id].dom[addr] } $part.vars[if ptAddr(addr) then ptOwner__id else me].dom[addr]);
+//  ensures  ptAddrOwned(ptMem);
+//  ensures  (forall i:int::{$part.vars[me].dom[i]} !ptAddr(i) ==> $part.vars[me].dom[i]);
+  ensures  logical_addressing_inv(init, ptMem, core_state);
+
+//procedure enablePaging($base:int);
+//  inout my r:regs, my core_state:core_state, linear mem:mem;
+//  requires me == 0;
+//  requires !init;
+//  requires logical_addressing_inv(init, ptMem, core_state);
+//  requires ptAddrOwned(ptMem);
+//  requires $base == eax;
+//  requires $base == ptRoot;
+//  requires word($base) && ptAddr($base) && Aligned4k($base);
+//  // Must be enough room for all the structures
+//  requires ptAddr($base + ?pageDirSize + ?numPDEs * ?pageTableSize-1) && 
+//             word($base + ?pageDirSize + ?numPDEs * ?pageTableSize);   
+//  requires ValidPrePagingState(core_state.cregs[CR0]);
+//  requires FlatSegmentationInv(core_state.seg_regs[DS]);
+//  requires FlatSegmentationInv(core_state.seg_regs[SS]);
+//  requires (forall i:int::{memAddr(i)} ?memLo <= i && i < ?memHi ==> memAddr(i));
+//  requires lt(?ptHi, ?memHi);
+//  modifies eax, ebx, ecx, edx, edi, esi, ptMem, mem;
+//  ensures PageDirectoryBase(core_state.cregs[CR3]) == $base;
+//  ensures flat_page_mapping(mem, core_state.cregs[CR3]);
+//  ensures paging_enabled(core_state);
+//  ensures logical_addressing_inv(true, ptMem, core_state);
+
+function logical_addressing_inv_priv(init:bool, core_state:core_state, ptMem:mem):bool;
+
+function logical_addressing_inv_base(init:bool, core_state:core_state, ptMem:mem):bool
+{
+  logical_addressing_inv_priv(init, core_state, ptMem)
+}
+
+function logical_addressing_inv(init:bool, ptMem:mem, core_state:core_state):bool
+{
+  logical_addressing_inv_base(init, core_state, ptMem)
+}
+
+function LogicalSrcOk(r:regs, core:core_state, m:mem, o:opn_mem):bool
+{
+    EvalPtrOk(o)
+ && PhysPtrOk(m, EvalPtr(r, o))
+ && word(EvalPtr(r, o))
+ && (paging_enabled(core) ==> !in_guard_region(EvalPtr(r, o)))
+}
+
+function LogicalDstOk(init:bool, r:regs, core:core_state, m:mem, o:opn_mem):bool
+{ 
+    EvalPtrOk(o)
+ && PhysPtrOk(m, EvalPtr(r, o))
+ && word(EvalPtr(r, o))
+ && (init ==>
+        !in_guard_region(EvalPtr(r, o))
+     && !between(?ptLo, ?ptHi, EvalPtr(r, o)))  //- Once paging is enabled, no more writing to the page tables
+}
+
+function LogicalEval(m:mem, r:regs, o:opn_mem):int
+{
+  m.map[EvalPtr(r, o)]
+}
+
+function LogicalInOutUpdate(io:IOState):IOState
+{
+    IOState(
+      io._vga,
+      io._keyboard,
+      io._iom,
+      io._pci,
+      io._inCtr + 1,
+      io._outCtr + 1
+      )
+}
+
+//- Entirely ghost update
+function LogicalOutUpdate(io:IOState):IOState
+{
+    IOState(
+      io._vga,
+      io._keyboard,
+      io._iom,
+      io._pci,
+      io._inCtr,
+      io._outCtr+1
+      )
+}
+
+//-////////////////   Wrappers to hide paging complexity    ///////////////////
+
+atomic procedure logical_Add(inout my r:regs, x:int, y:opn);
+  requires word(r.regs[x] + Eval(r, y));
+  ensures  r.regs == old(r.regs[x := r.regs[x] + Eval(r, y)]);
+  ensures  word(r.regs[x]);
+
+atomic procedure logical_Sub(inout my r:regs, x:int, y:opn);
+  requires word(r.regs[x] - Eval(r, y));
+  ensures  r.regs == old(r.regs[x := r.regs[x] - Eval(r, y)]);
+  ensures  word(r.regs[x]);
+
+atomic procedure logical_Load(inout my r:regs, const my c:core_state, const linear m:mem, x:int, y:opn_mem);
+  requires logical_addressing_inv(init, ptMem, c);
+  requires LogicalSrcOk(r, c, m, y);
+  ensures  r.regs == old(r.regs[x := LogicalEval(m, r, y)]);
+  ensures  r.efl == old(r).efl;
+  ensures  word(r.regs[x]);
+  ensures  logical_addressing_inv(init, ptMem, c);
+
+atomic procedure logical_Store(const my r:regs, const my c:core_state, inout linear m:mem, x:opn_mem, y:opn);
+  requires logical_addressing_inv(init, ptMem, c);
+  requires LogicalDstOk(init, r, c, m, x);
+  requires SrcOk(y);
+  ensures  word(LogicalEval(m, r, x));
+  ensures  m == old(mem_update(m, EvalPtr(r, x), Eval(r, y)));
+
+atomic procedure logical_SubLoad(inout my r:regs, const my c:core_state, const linear m:mem, x:int, y:opn_mem);
+  requires logical_addressing_inv(init, ptMem, c);
+  requires RegOk(x);
+  requires LogicalSrcOk(r, c, m, y);
+  requires word(r.regs[x] - LogicalEval(m, r, y));
+  ensures  r.regs == old(r.regs[x := r.regs[x] - LogicalEval(m, r, y)]);
+
+atomic procedure logical_CmpLoad(inout my r:regs, const my c:core_state, const linear m:mem, x:opn_mem, y:opn);
+  requires logical_addressing_inv(init, ptMem, c);
+  requires LogicalSrcOk(r, c, m, x);
+  requires SrcOk(y);
+  ensures  r.regs == old(r.regs);
+  ensures  r.efl == old(Efl_Cmp(r.efl, LogicalEval(m, r, x), Eval(r, y)));
+
+//atomic procedure logical_Cmpxchg(m:mem, core:core_state, ptr:opn_mem, val:opn) returns(_core:core_state);
+//  requires logical_addressing_inv(init, ptMem, core_state);
+//  requires m == $State; modifies state;
+//  requires LogicalDstOk(init, $part, me, core, ptr);
+//  requires SrcOk(val);
+//  ensures  word(regs[EAX]);
+//  ensures  $State == let _efl:int := Efl_Cmp(core._efl, old(regs)[EAX], LogicalEval(m, core, ptr)) in
+//                  if old(regs)[EAX] == LogicalEval(m, core, ptr)
+//                    then LogicalInsUpdate1(m, ptr, Eval(r, val), _efl)
+//                    else LogicalInsUpdate1(m, OReg(EAX), LogicalEval(m, core, ptr), _efl);
+//  ensures  logical_addressing_inv(init, ptMem, core_state);
+
+//atomic procedure logical_RoLoadU8(m:mem, core:core_state, x:opn, y:opn_mem) returns(_core:core_state);
+//  requires logical_addressing_inv(init, ptMem, core_state);
+//  requires m == $State; modifies state;
+//  requires DstOk(x);
+//  requires inRo(EvalPtr(core, y), 1);
+//  ensures  word(_Eval(regs, x));
+//  ensures  _core == LogicalCoreUpdate1(core, x, roU8(EvalPtr(core, y)), core._efl);
+//  ensures  logical_addressing_inv(init, ptMem, core_state);
+//
+//atomic procedure logical_RoLoadS8(m:mem, core:core_state, x:opn, y:opn_mem) returns(_core:core_state);
+//  requires logical_addressing_inv(init, ptMem, core_state);
+//  requires m == $State; modifies state;
+//  requires DstOk(x);
+//  requires inRo(EvalPtr(core, y), 1);
+//  ensures  word(_Eval(regs, x));
+//  ensures  (exists v:int:: asSigned(v) == roS8(EvalPtr(core, y))
+//            && _core == LogicalCoreUpdate1(core, x, v, core._efl));
+//  ensures  logical_addressing_inv(init, ptMem, core_state);
+//
+//atomic procedure logical_RoLoadU16(m:mem, core:core_state, x:opn, y:opn_mem) returns(_core:core_state);
+//  requires logical_addressing_inv(init, ptMem, core_state);
+//  requires m == $State; modifies state;
+//  requires DstOk(x);
+//  requires inRo(EvalPtr(core, y), 2);
+//  ensures  word(_Eval(regs, x));
+//  ensures  _core == LogicalCoreUpdate1(core, x, roU16(EvalPtr(core, y)), core._efl);
+//  ensures  logical_addressing_inv(init, ptMem, core_state);
+//
+//atomic procedure logical_RoLoadS16(m:mem, core:core_state, x:opn, y:opn_mem) returns(_core:core_state);
+//  requires logical_addressing_inv(init, ptMem, core_state);
+//  requires m == $State; modifies state;
+//  requires DstOk(x);
+//  requires inRo(EvalPtr(core, y), 2);
+//  ensures  word(_Eval(regs, x));
+//  ensures  (exists v:int:: asSigned(v) == roS16(EvalPtr(core, y))
+//            && _core == LogicalCoreUpdate1(core, x, v, core._efl));
+//  ensures  logical_addressing_inv(init, ptMem, core_state);
+//
+//atomic procedure logical_RoLoad32(m:mem, core:core_state, x:opn, y:opn_mem) returns(_core:core_state);
+//  requires logical_addressing_inv(init, ptMem, core_state);
+//  requires m == $State; modifies state;
+//  requires DstOk(x);
+//  requires inRo(EvalPtr(core, y), 4);
+//  ensures  word(_Eval(regs, x));
+//  ensures  _core == LogicalCoreUpdate1(core, x, ro32(EvalPtr(core, y)), core._efl);
+//  ensures  logical_addressing_inv(init, ptMem, core_state);
+
+atomic procedure logical_Call(inout my r:regs, const my c:core_state, inout linear m:mem);
+  requires logical_addressing_inv(init, ptMem, c);
+  requires LogicalDstOk(init, r, c, m, OMem(MConst(esp - 4)));
+#ifdef x64
+  requires LogicalDstOk(init, r, c, m, OMem(MConst(esp - 8)));
+#endif
+#ifdef x64
+  ensures  r.regs == old(r.regs[ESP := sub(r.regs[ESP], 8)])[TMP1 := m.map[esp]][TMP2 := m.map[esp + 4]];
+#else
+  ensures  r.regs == old(r.regs[ESP := sub(r.regs[ESP], 4)])[TMP1 := m.map[esp]];
+#endif
+#ifdef x64
+  ensures m == mem_update(mem_update(old(m), esp, m.map[esp]), 
+            esp + 4, m.map[esp + 4]);
+#else
+  ensures  m == mem_update(old(m), r.regs[ESP], m.map[esp]);
+#endif
+
+atomic procedure logical_Ret(inout my r:regs, const my c:core_state, const linear m:mem);
+  requires logical_addressing_inv(init, ptMem, c);
+#ifdef x64
+  requires RET == ReturnToAddr64(LogicalEval(m, r, OMem(MReg(ESP, 0))), LogicalEval(m, r, OMem(MReg(ESP, 4))));
+#else
+  requires RET == ReturnToAddr32(LogicalEval(m, r, OMem(MReg(ESP, 0))));
+#endif
+  requires LogicalSrcOk(r, c, m, OMem(MReg(ESP, 0)));
+#ifdef x64
+  requires LogicalSrcOk(r, c, m, OMem(MReg(ESP, 4)));
+#endif
+  ensures  r.regs == old(r.regs[ESP := r.regs[ESP] + IPSize]);
+
+//atomic procedure logical_IRet(m:mem, core:core_state) returns(_core:core_state);
+//  requires logical_addressing_inv(init, ptMem, core_state);
+//  requires m == $State; modifies state;
+//  requires LogicalSrcOk(core, OMem(MReg(ESP, 0)));
+//  requires LogicalSrcOk(core, OMem(MReg(ESP, 4)));
+//  requires LogicalSrcOk(core, OMem(MReg(ESP, 8)));
+//  requires RET == ReturnToInterrupted(
+//            LogicalEval(m, core, OMem(MReg(ESP, 0))),
+//            LogicalEval(m, core, OMem(MReg(ESP, 4))),
+//            LogicalEval(m, core, OMem(MReg(ESP, 8))));
+//  ensures  _core == LogicalCoreUpdate1(
+//    core,
+//    OReg(ESP),
+//    old(regs)[ESP]+12,
+//    core._efl);
+//  ensures  logical_addressing_inv(init, ptMem, core_state);
+
+//atomic procedure logical_ActivateDataSelector(s:state, core:core_state, index:int, descriptor:SegmentDescriptor, srcRegister:opn, dstRegister:int) returns (_core:core_state);
+//  requires logical_addressing_inv(init, s, ptMem, core_state);
+//  requires s == $State; modifies state;
+//  requires ValidSegmentSelector(Eval(r, srcRegister), index);
+//  requires ValidGdtDescriptor(core._ext._gdt_regs, index, descriptor, s._mem);
+//  requires descriptor.segType == ?SegmentDescriptorTypeData;
+//  requires SegRegOk(dstRegister) && dstRegister != CS;
+//  //ensures  _core == LogicalCoreUpdate0(core, core._efl);
+//  ensures  core_state == (let c:core_state := old(core_state) in
+//              core_state(c._cregs, c._gdt_regs, c._seg_regs[dstRegister := SegmentRegister(index, descriptor)], c._caches));
+//  ensures  logical_addressing_inv(init, ptMem, core_state);
+//
+//atomic procedure logical_LoadGDT(s:state, core:core_state, base:int, len:int, addr:opn_mem) returns(_core:core_state);
+//  requires logical_addressing_inv(init, s, ptMem, core_state);
+//  requires s == $State; modifies state;
+//  requires 0 <= len && len < 8192;
+//  requires word(base);
+//  requires base >= ?memLo && base + len * ?SegmentDescriptorSize <= ?memHi;
+//  requires PhysPtrOk(EvalPtr(r, addr)) && PhysPtrOk(EvalPtr(r, addr) + 4);
+//  requires GdtParamsWord0(base, len) == s._mem[EvalPtr(r, addr)];
+//  requires GdtParamsWord1(base, len) == s._mem[EvalPtr(r, addr) + 4];
+//  ensures  core_state == (let c:core_state := old(core_state) in
+//              core_state(c._cregs, GDT_regs(base, len), c._seg_regs, c._caches));
+//  //ensures  logical_addressing_inv(init, ptMem, core_state);
+//
+//atomic procedure logical_ReadCR0(s:state, core:core_state, $dstReg:opn) returns(_core:core_state);
+//  requires logical_addressing_inv(init, s, ptMem, core_state);
+//  requires s == $State; modifies state;
+//  requires DstOk($dstReg);
+//  requires $dstReg is OReg;
+//  ensures  fresh_CR0_val(_Eval(regs, $dstReg));
+//  ensures  _core == LogicalCoreUpdate1(core, $dstReg, core._ext._cregs[CR0], core._efl);
+//  ensures  word(_Eval(regs, $dstReg));
+//  ensures  logical_addressing_inv(init, ptMem, core_state);
+//
+//atomic procedure logical_WriteCR0(s:state, core:core_state, newCR0:opn) returns(_core:core_state);
+//  requires logical_addressing_inv(init, s, ptMem, core_state);
+//  requires s == $State; modifies state;
+//  requires word(Eval(r, newCR0));  
+//  requires SrcOk(newCR0);
+//  requires ValidPrePagingState(core._ext._cregs[CR0]);
+//  requires (exists $x:int :: { fresh_CR0_val($x) } 
+//            (Eval(r, newCR0) == SetBit(?CR0_paging_enabled, $x)) && fresh_CR0_val($x));
+//  ensures  core_state == (let c:core_state := old(core_state) in
+//              core_state(c._cregs[CR0 := SetBit(?CR0_paging_enabled, c._cregs[CR0])],
+//                c._gdt_regs, c._seg_regs, c._caches));
+//  ensures  _core == $State._cores[me];
+//  //ensures  logical_addressing_inv(init, ptMem, core_state);
+//
+//atomic procedure logical_HavocPagingCaches(s:state, core:core_state, c:core_state) returns(_s:state, _core:core_state);
+//  requires logical_addressing_inv(init, s, ptMem, core_state);
+//  requires c == core_state;
+//  requires s == $State; modifies state;
+//  requires paging_enabled(core) ==>
+//           (forall $ptr:int, $dlabel:DTLB_label :: 
+//            word($ptr) ==> DTLBIsFreshWrtMemOneEntry(c._cregs[CR3], c._caches.DTLB, $dlabel, s._mem, $ptr) != <<bool>>());
+//  requires paging_enabled(core) ==>
+//            (forall $ptr:int, $dlabel:DTLB_label, $label:TLB_label :: 
+//            word($ptr) ==> TLBIsFreshWrtDTLBOneEntry(c._cregs[CR3], c._caches.DTLB, $dlabel, c._caches.TLB, $label, s._mem, $ptr) != <<bool>>());
+//  ensures  paging_enabled(core) ==>
+//              core_state == core_state(c._cregs, c._gdt_regs, c._seg_regs,
+//                paging_caches(_s._cores[me]._ext._caches.TLB, _s._cores[me]._ext._caches.DTLB,
+//                  c._caches.TLB_activeLabel, c._caches.DTLB_activeLabel));
+//  ensures  paging_enabled(core) ==>
+//          (forall $ptr:int, $dlabel:DTLB_label ::
+//            $State._cores[me]._ext._caches.DTLB[PteNumber($ptr)][$dlabel] == c._caches.DTLB[PteNumber($ptr)][$dlabel] ||
+//           (word($ptr) ==> DTLBIsFreshWrtMemOneEntry(c._cregs[CR3], $State._cores[me]._ext._caches.DTLB, $dlabel, s._mem, $ptr).<<bool>>));
+//  ensures  paging_enabled(core) ==>
+//          (forall $ptr:int, $label:TLB_label, $dlabel:DTLB_label :: 
+//           $State._cores[me]._ext._caches.TLB[PageNumber($ptr)][$label] == c._caches.TLB[PageNumber($ptr)][$label] ||
+//           (word($ptr) ==> TLBIsFreshWrtDTLBOneEntry(c._cregs[CR3], c._caches.DTLB, $dlabel,
+//                                                     $State._cores[me]._ext._caches.TLB, $label, s._mem, $ptr).<<bool>>));
+//  ensures  logical_addressing_inv(init, ptMem, core_state);
+//
+//atomic procedure logical_WriteCR3(s:state, core:core_state, newCR3:opn) returns(_core:core_state);
+//  requires logical_addressing_inv(init, s, ptMem, core_state);
+//  requires s == $State; modifies state;
+//  requires SrcOk(newCR3);
+//  requires ValidCR3(Eval(r, newCR3));
+//  requires DTLBsAreFreshWrtMem(Eval(r, newCR3), core._ext._caches.DTLB, s._mem) != <<bool>>();
+//  requires TLBsAreFreshWrtMem(Eval(r, newCR3), core._ext._caches.TLB, s._mem) != <<bool>>();
+//  ensures  core_state == (let c:core_state := old(core_state) in // Everything is the same, except CR3 and the TLB and DTLB
+//              core_state(c._cregs[CR3 := Eval(r, newCR3)], c._gdt_regs, c._seg_regs,
+//                paging_caches(_s._cores[me]._ext._caches.TLB, _s._cores[me]._ext._caches.DTLB,
+//                  c._caches.TLB_activeLabel, c._caches.DTLB_activeLabel)));
+//  ensures  _core == $State._cores[me];
+//  ensures  DTLBsAreFreshWrtMem(Eval(r, newCR3), $State._cores[me]._ext._caches.DTLB, s._mem) == <<bool>>(true);
+//  ensures  TLBsAreFreshWrtMem(Eval(r, newCR3), $State._cores[me]._ext._caches.TLB, s._mem) == <<bool>>(true);
+//  //ensures  logical_addressing_inv(init, ptMem, core_state);
+//
+//// Specifies the INVLPG instruction
+//atomic procedure logical_InvalidatePagingCaches(s:state, core:core_state, ptr:opn_mem) returns(_core:core_state);
+//  requires logical_addressing_inv(init, s, ptMem, core_state);
+//  requires s == $State; modifies state;
+//  requires word(EvalPtr(r, ptr));
+//  requires DTLBsAreFreshWrtMem(core._ext._cregs[CR3], core._ext._caches.DTLB, s._mem) != <<bool>>();
+//  requires TLBsAreFreshWrtMemOneEntry(core._ext._cregs[CR3], core._ext._caches.TLB, s._mem, EvalPtr(r, ptr)) != <<bool>>();
+//  ensures  core_state == (let c:core_state := old(core_state) in // Everything is the same, except the TLB and DTLB
+//              core_state(c._cregs, c._gdt_regs, c._seg_regs,
+//                paging_caches(_s._cores[me]._ext._caches.TLB, _s._cores[me]._ext._caches.DTLB,
+//                  c._caches.TLB_activeLabel, c._caches.DTLB_activeLabel)));
+//  ensures  DTLBsAreFreshWrtMem(core._ext._cregs[CR3], $State._cores[me]._ext._caches.DTLB, s._mem) == <<bool>>(true);
+//  ensures  TLBsAreFreshWrtMemOneEntry(core._ext._cregs[CR3], $State._cores[me]._ext._caches.TLB, s._mem, EvalPtr(r, ptr)) == <<bool>>(true);
+//  ensures  logical_addressing_inv(init, ptMem, core_state);
+//
+//atomic procedure logical_IdtStore(s:state, core:core_state, entry:int, offset:int, handler:int, ptr:opn_mem, val:opn) returns(_core:core_state);
+//  requires logical_addressing_inv(init, s, ptMem, core_state);
+//  requires s == $State; modifies state;
+//  requires 0 <= entry && entry < ?NIdt;
+//  requires SrcOk(val);
+//  requires LogicalDstOk(init, $part, me, core, ptr);
+//  requires (offset == 0 && Eval(r, val) == IdtWord0(handler)) || (offset == 4 && Eval(r, val) == IdtWord4(handler));
+//  requires IsHandlerForEntry(entry, handler);
+//  requires EvalPtr(r, ptr) == ?idtLo + 8 * entry + offset;
+//  modifies $IdtMem, $IdtMemOk;
+//  ensures  $IdtMem == old($IdtMem)[EvalPtr(r, ptr) := Eval(r, val)];
+//  ensures  $IdtMemOk == old($IdtMemOk)[EvalPtr(r, ptr) := true];
+//  ensures  _core == LogicalCoreUpdate0(core, core._efl);
+//  ensures  logical_addressing_inv(init, ptMem, core_state);
+//
+//atomic procedure logical_Lidt(s:state, core:core_state, ptr:opn_mem) returns(_core:core_state);
+//  requires logical_addressing_inv(init, s, ptMem, core_state);
+//  requires s == $State; modifies state;
+//  requires memAddr(EvalPtr(r, ptr)) && memAddr(EvalPtr(r, ptr) + 4);
+//  requires Aligned(EvalPtr(r, ptr));
+//  requires s._mem[EvalPtr(r, ptr)] == or(shl(?idtLo, 16), ?idtHi - ?idtLo - 1);
+//  requires s._mem[EvalPtr(r, ptr) + 4] == shr(?idtLo, 16);
+//  requires IdtMemOk($IdtMemOk);
+//  modifies $IdtOk;
+//  ensures  $IdtOk;
+//  ensures  _core == LogicalCoreUpdate0(core, core._efl);
+//  ensures  logical_addressing_inv(init, ptMem, core_state);
+//
+//atomic procedure logical_VgaTextStore16(s:state, core:core_state, ptr:opn_mem, val:opn) returns(_core:core_state);
+//  requires logical_addressing_inv(init, s, ptMem, core_state);
+//  requires s == $State; modifies state;
+//  requires SrcOk(val);
+//  requires vgaAddr2(EvalPtr(r, ptr));
+//  requires left_opn_mem(ptr) == right_opn_mem(ptr);
+//  requires left_opn(val) == right_opn(val);
+//  requires left(s._io._inCtr) == right(s._io._inCtr);
+//  requires left(s._io._outCtr) == right(s._io._outCtr);
+//  ensures  $State == OutUpdate(VgaUpdate(s,
+//    VgaState(
+//      s._io._vga.VgaEvents[s._io._vga.VgaNextEvent := VgaTextStore(EvalPtr(r, ptr), Eval(r, val))],
+//      s._io._vga.VgaNextEvent + 1
+//    )));
+//  ensures  logical_addressing_inv(init, ptMem, core_state);
+//
+//atomic procedure logical_VgaDebugStore16(s:state, core:core_state, ptr:opn_mem, val:opn) returns(_core:core_state);
+//  requires logical_addressing_inv(init, s, ptMem, core_state);
+//  requires s == $State; modifies state;
+//  requires SrcOk(val);
+//  requires vgaAddr2(EvalPtr(r, ptr));
+//  requires ?VgaTextLo <= EvalPtr(r, ptr) && EvalPtr(r, ptr) <= ?VgaTextLo + 158;
+//  ensures  _core == LogicalCoreUpdate0(core, core._efl);
+//  ensures  logical_addressing_inv(init, ptMem, core_state);
+//
+//atomic procedure logical_IomStore(s:state, core:core_state, ptr:opn_mem, val:opn) returns(_core:core_state);
+//  requires logical_addressing_inv(init, s, ptMem, core_state);
+//  requires s == $State; modifies state;
+//  requires iomAddr(EvalPtr(r, ptr));
+//  requires Aligned(EvalPtr(r, ptr));
+//  requires word(Eval(r, val));
+//  requires SrcOk(val);
+//  //requires LogicalDstOk(init, $part, me, core, ptr);
+//  requires !s._io._iom.IomFrozen;
+//  ensures  $State == IomUpdate(s,
+//    IomState(
+//      s._io._iom.IomMem[EvalPtr(r, ptr) := Eval(r, val)],
+//      s._io._iom.IomFrozen,
+//      s._io._iom.IoMmuState,
+//      s._io._iom.IoMmuEnabled,
+//      s._io._iom.DevEnabled
+//      ));
+//  ensures  logical_addressing_inv(init, ptMem, core_state);
+//
+//atomic procedure logical_IomRegLoad(s:state, core:core_state, entry:int, val:opn, ptr:opn_mem) returns(_core:core_state);
+//  requires logical_addressing_inv(init, s, ptMem, core_state);
+//  requires s == $State; modifies state;
+//  requires EvalPtr(r, ptr) == ?DrhdRegs[entry] + 28
+//        || EvalPtr(r, ptr) == ?DrhdRegs[entry] + 0
+//        || EvalPtr(r, ptr) == ?DrhdRegs[entry] + 8
+//        || EvalPtr(r, ptr) == ?DrhdRegs[entry] + 12;
+//  requires DstOk(val);
+//  ensures  word(_Eval(regs, val));
+//  ensures  (exists v:int::{InsUpdate1(me, s, val, v, core._efl)} _core == LogicalCoreUpdate1(core, val, v, core._efl));
+//  ensures  logical_addressing_inv(init, ptMem, core_state);
+//
+//atomic procedure logical_IomRegStore(s:state, core:core_state, entry:int, ptr:opn_mem, val:opn) returns(_core:core_state);
+//  requires logical_addressing_inv(init, s, ptMem, core_state);
+//  requires s == $State; modifies state;
+//  requires SrcOk(val);
+//  requires (s._io._iom.IoMmuState[entry] == 0 && EvalPtr(r, ptr) == ?DrhdRegs[entry] + 32 && IoRootTable(s._io._iom.IomMem, Eval(r, val)))
+//        || (s._io._iom.IoMmuState[entry] == 1 && EvalPtr(r, ptr) == ?DrhdRegs[entry] + 36 && Eval(r, val) == 0)
+//        || (s._io._iom.IoMmuState[entry] == 2 && EvalPtr(r, ptr) == ?DrhdRegs[entry] + 24 && Eval(r, val) == shl(1, 30))
+//        || (s._io._iom.IoMmuState[entry] == 3 && EvalPtr(r, ptr) == ?DrhdRegs[entry] + 24 && Eval(r, val) == shl(1, 31));
+//  ensures  $State == IomUpdate(s,
+//    IomState(
+//      s._io._iom.IomMem,
+//      true,
+//      s._io._iom.IoMmuState[entry := 1 + s._io._iom.IoMmuState[entry]],
+//      s._io._iom.IoMmuEnabled,
+//      s._io._iom.DevEnabled
+//      ));
+//  ensures  logical_addressing_inv(init, ptMem, core_state);
+//
+//atomic procedure logical_PciMemLoad32(s:state, core:core_state, id:int, val:opn, ptr:opn_mem) returns(_core:core_state);
+//  requires logical_addressing_inv(init, s, ptMem, core_state);
+//  requires s == $State; modifies state;
+//  requires s._io._pci.PciConfigState[id] == 4;
+//  requires PciMemAddr(id) <= EvalPtr(r, ptr) && EvalPtr(r, ptr) + 4 <= PciMemAddr(id) + PciMemSize(id);
+//  requires DstOk(val);
+//  requires left(s._io._inCtr) == right(s._io._inCtr);
+//  requires left(s._io._outCtr) == right(s._io._outCtr);
+//  requires EvalPtr(left_array(old(regs)), left_opn_mem(ptr)) == EvalPtr(right_array(old(regs)), right_opn_mem(ptr));  // Secret vals shouldn't affect addr we read on bus
+//  ensures  PciMemLoaded(id, EvalPtr(r, ptr), _Eval(regs, val));
+//  ensures  word(_Eval(regs, val));
+//  ensures  (exists v:int:: {InsUpdate1(me, s, val, v, core._efl)} 
+//                _core == LogicalCoreUpdate1(core, val, v, core._efl)
+//             && word(v)
+//             && left(v) == right(v));
+//  ensures  state._io == LogicalInOutUpdate(s._io);
+//  ensures  logical_addressing_inv(init, ptMem, core_state);
+//
+//atomic procedure logical_PciMemStore32(s:state, core:core_state, id:int, ptr:opn_mem, src:opn) returns(_core:core_state);
+//  requires logical_addressing_inv(init, s, ptMem, core_state);
+//  requires s == $State; modifies state;
+//  requires s._io._pci.PciConfigState[id] == 4;
+//  requires PciMemAddr(id) <= EvalPtr(r, ptr) && EvalPtr(r, ptr) + 4 <= PciMemAddr(id) + PciMemSize(id);
+//  requires word(Eval(r, src));
+//  requires left(s._io._inCtr) == right(s._io._inCtr);
+//  requires left(s._io._outCtr) == right(s._io._outCtr);
+//  requires EvalPtr(left_array(old(regs)), left_opn_mem(ptr)) == EvalPtr(right_array(old(regs)), right_opn_mem(ptr));  // Secret vals shouldn't affect addr we write on bus
+//  requires _Eval(left_array(old(regs)), left_opn(src)) == _Eval(right_array(old(regs)), right_opn(src));        // nor the value itself
+//  requires SrcOk(src);
+//  ensures  PciMemStored(id, EvalPtr(r, ptr), Eval(r, src));
+//  ensures  _core == LogicalCoreUpdate0(core, core._efl);
+//  ensures  state._io == LogicalOutUpdate(s._io);
+//  ensures  logical_addressing_inv(init, ptMem, core_state);
+//
+//atomic procedure logical_DeviceLoad(s:state, core:core_state, dst:opn, ptr:opn_mem) returns(_core:core_state);
+//  requires logical_addressing_inv(init, s, ptMem, core_state);
+//  requires s == $State; modifies state;
+//  //requires s._io._iom.DevEnabled;
+//  requires ?devMemLo <= EvalPtr(r, ptr) && EvalPtr(r, ptr) + 4 <= ?devMemHi;
+//  requires DstOk(dst);
+//  requires left(s._io._inCtr) == right(s._io._inCtr);
+//  requires left(s._io._outCtr) == right(s._io._outCtr);
+//  requires EvalPtr(left_array(old(regs)), left_opn_mem(ptr)) == EvalPtr(right_array(old(regs)), right_opn_mem(ptr));  // Secret vals shouldn't affect addr we read on bus
+//  requires dst is OReg;
+//  ensures  (exists v:int:: // Since addr we read is publicly visible, this is both an In and Out event
+//                _core == LogicalCoreUpdate1(core, dst, v, s._cores[me]._efl)
+//             && word(v)
+//             && left(v) == right(v));
+//  ensures  state._io == LogicalInOutUpdate(s._io);
+//  ensures  logical_addressing_inv(init, ptMem, core_state);
+//
+//atomic procedure logical_DeviceStore(s:state, core:core_state, ptr:opn_mem, src:opn, send_auth_word:bool, auth_word_index:int, 
+//                                   packet:[int]int) returns(_core:core_state);
+//  requires logical_addressing_inv(init, s, ptMem, core_state);
+//  requires s == $State; modifies state;
+//  //requires s._io._iom.DevEnabled;
+//  requires src is OReg || src is OConst;
+//  requires ?devMemLo <= EvalPtr(r, ptr) && EvalPtr(r, ptr) + 4 <= ?devMemHi;
+//  requires SrcOk(src);
+//  requires left(s._io._inCtr) == right(s._io._inCtr);
+//  requires left(s._io._outCtr) == right(s._io._outCtr);
+//  requires left_b(send_auth_word) == right_b(send_auth_word);
+//  requires left(auth_word_index) == right(auth_word_index);
+//  requires EvalPtr(left_array(old(regs)), left_opn_mem(ptr)) == EvalPtr(right_array(old(regs)), right_opn_mem(ptr));  // Secret vals shouldn't affect addr we write on bus
+//  requires !send_auth_word ==> _Eval(left_array(old(regs)), left_opn(src)) == _Eval(right_array(old(regs)), right_opn(src)); // nor the value itself
+//  requires send_auth_word ==>  
+//                0 <= auth_word_index && auth_word_index < ?wordsPerPacket 
+//             && app_approves_disclosure(left_array(packet), right_array(packet), ?wordsPerPacket)
+//             && left_array (packet)[left (auth_word_index)] == _Eval( left_array(old(regs)), left_opn (src))
+//             && right_array(packet)[right(auth_word_index)] == _Eval(right_array(old(regs)), right_opn(src));
+//  ensures  _core == LogicalCoreUpdate0(core, core._efl);
+//  ensures  state._io == LogicalOutUpdate(s._io);
+//  ensures  logical_addressing_inv(init, ptMem, core_state);
+//
+//atomic procedure logical_StoreShared(s:state, core:core_state, linear owner:int, x:opn_mem, y:opn) returns(_core:core_state, linear _owner:int);
+//  requires logical_addressing_inv(init, s, ptMem, core_state);
+//  requires s == $State;
+//  requires LogicalDstOk(init, $part, owner, core, x);
+//  requires SrcOk(y);
+//  modifies state, efl, $part;
+//  ensures  logical_addressing_inv(init, ptMem, core_state);
+//  ensures  _owner == owner;
+//  ensures  _core == core;
+//  ensures  $part == LogicalPartUpdate1(old($part), owner, core, x, Eval(r, y));
+//  ensures  word(LogicalEval($State, _core, x));
+//
+//atomic procedure logical_CmpxchgShared(s:state, core:core_state, linear owner:int, ptr:opn_mem, val:opn) returns(_core:core_state, linear _owner:int);
+//  requires logical_addressing_inv(init, s, ptMem, core_state);
+//  requires s == $State;
+//  requires LogicalDstOk(init, $part, owner, core, ptr);
+//  requires SrcOk(val);
+//  modifies state, efl, $part;
+//  ensures  logical_addressing_inv(init, ptMem, core_state);
+//  ensures  word(regs[EAX]);
+//  ensures  let _efl:int := Efl_Cmp(core._efl, old(regs)[EAX], LogicalEval(s, core, ptr)) in
+//             if old(regs)[EAX] == LogicalEval(s, core, ptr)
+//               then _core == LogicalCoreUpdate1(core, ptr, Eval(r, val), _efl)
+//                 && $part == LogicalPartUpdate1(old($part), owner, core, ptr, Eval(r, val))
+//               else _core == LogicalCoreUpdate1(core, OReg(EAX), LogicalEval(s, core, ptr), _efl)
+//                 && $part == LogicalPartUpdate1(old($part), owner, core, OReg(EAX), LogicalEval(s, core, ptr));
+
+
+}

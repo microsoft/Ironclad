@@ -1,0 +1,209 @@
+//--private-import BaseSpec;
+//--private-import MemorySpec;
+//--<NuBuild AddBoogieAxiom BitVector_axioms />
+//--<NuBuild AddBoogieFlag /proverOpt:OPTIMIZE_FOR_BV=true />
+//--<NuBuild AddBoogieAxiom Word_axioms />
+//--<NuBuild AddBoogieAxiom IntSpec_axioms />
+//--
+//-- Copyright (c) Microsoft Corporation.  All rights reserved.
+//--
+
+module interface BitVectorLemmasBase
+{
+
+function $_Aligned(b:bv32) returns(bool) { $and(b, 3bv32) == 0bv32 }
+function $_Aligned4k(b:bv32) returns (bool) { $clear_LSBs(12bv32, b) == b }
+function _bit_index($i:bv32) returns (bool) { $le(0bv32, $i) && $le($i, 31bv32) }
+function $between(lb:bv32, ub:bv32, val:bv32):bool { $le(lb, val) && $lt(val, ub) }
+
+function $get_bit  ($i:bv32, $val:bv32) returns (bool) { $and($val, $shl(1bv32, $i)) != 0bv32 }
+function $set_bit  ($i:bv32, $val:bv32) returns (bv32) { $or($val, $shl(1bv32, $i)) }
+function $clear_bit($i:bv32, $val:bv32) returns (bv32) { $and($val, $neg($shl(1bv32, $i))) }
+function $clear_LSBs  ($i:bv32, $val:bv32) returns (bv32) { $and($val, $neg($sub($shl(1bv32, $i), 1bv32))) }
+function $select_LSBs ($i:bv32, $val:bv32) returns (bv32) { $and($val, $sub($shl(1bv32, $i), 1bv32)) }
+
+function $eq ($x:bv32, $y:bv32) returns (bool) { $le($x, $y) && $le($y, $x) }
+
+atomic ghost procedure _const_base();
+  ensures $sub(1bv32, 1bv32) == 0bv32;
+  ensures $add(1bv32, 1bv32) == 2bv32;
+  ensures $add(2bv32, 1bv32) == 3bv32;
+  ensures $add(2bv32, 2bv32) == 4bv32;
+  ensures $add(4bv32, 1bv32) == 5bv32;
+  ensures $add(5bv32, 1bv32) == 6bv32;
+  ensures $add(5bv32, 2bv32) == 7bv32;
+  ensures $add(5bv32, 3bv32) == 8bv32;
+  ensures $add(5bv32, 4bv32) == 9bv32;
+  ensures $add(5bv32, 5bv32) == 10bv32;
+  ensures $add(5bv32, 6bv32) == 11bv32;
+  ensures $add(5bv32, 7bv32) == 12bv32;
+  ensures $add(5bv32, 8bv32) == 13bv32;
+  ensures $add(7bv32, 8bv32) == 15bv32;
+  ensures $mul(4bv32, 4bv32) == 16bv32;
+  ensures $add(10bv32, 12bv32) == 22bv32;
+  ensures $add(16bv32, 16bv32) == 32bv32;
+  ensures $sub(32bv32, 1bv32) == 31bv32;
+  ensures $add(32bv32, 32bv32) == 64bv32;
+  ensures $sub(64bv32, 1bv32) == 63bv32;
+  ensures $mul(32bv32, 4bv32) == 128bv32;
+  ensures $sub(128bv32, 1bv32) == 127bv32;
+  ensures $mul(16bv32, 16bv32) == 256bv32;
+  ensures $sub(256bv32, 1bv32) == 255bv32;
+  ensures $add(256bv32, 256bv32) == 512bv32;
+  ensures $sub(1024bv32, 1bv32) == 1023bv32;
+  ensures $add(512bv32, 512bv32) == 1024bv32;
+  ensures $mul(64bv32, 64bv32) == 4096bv32;
+  ensures $sub(4096bv32, 1bv32) == 4095bv32;
+  ensures $mul(1024bv32, 1024bv32) == 1048576bv32;
+  ensures $sub(1048576bv32, 1bv32) == 1048575bv32;
+  ensures $mul(1048575bv32, 4096bv32) == 4294963200bv32;
+  ensures $mul(1048576bv32, 4bv32) == 4194304bv32;
+  ensures $mul(256bv32, 256bv32) == 65536bv32;
+  ensures $sub(65536bv32, 1bv32) == 65535bv32;
+  ensures $mul(65536bv32, 32bv32) == 2097152bv32;
+  ensures $sub(2097152bv32, 1bv32) == 2097151bv32;
+  ensures $mul(65536bv32, 256bv32) == 16777216bv32;
+  ensures $sub(16777216bv32, 1bv32) == 16777215bv32;
+  ensures $mul(65536bv32, 512bv32) == 33554432bv32;
+  ensures $sub(33554432bv32, 1bv32) == 33554431bv32;
+  ensures $add(33554432bv32, 33554432bv32) == 67108864bv32;
+  ensures $sub(67108864bv32, 1bv32) == 67108863bv32;
+  ensures $mul(65536bv32, 65535bv32) == 4294901760bv32;
+  ensures $add(4294901760bv32, 65535bv32) == 4294967295bv32;
+  ensures $sub(4294967295bv32, 3bv32) == 4294967292bv32;
+  ensures $mul(33554432bv32, 64bv32) == 2147483648bv32;
+
+atomic ghost procedure _shl_1_ge_1();
+  ensures (forall $x:bv32 :: $le($x, 31bv32) ==> $ge($shl(1bv32, $x), 1bv32) );
+
+atomic ghost procedure _alignment_is_mod4_lemma();
+  ensures (forall $x:bv32 :: $_Aligned($x) == ($mod($x, 4bv32) == 0bv32));
+
+atomic ghost procedure _alignment_4k_is_mod4096_lemma();
+  ensures (forall $x:bv32 :: $_Aligned4k($x) == ($mod($x, 4096bv32) == 0bv32));
+
+atomic ghost procedure _alignment_dominance_lemma($ptr:bv32);
+  ensures  $ge($shl(1bv32, 12bv32), 1bv32);
+  ensures  $_Aligned4k($ptr) ==> $_Aligned($ptr);
+
+atomic ghost procedure _lower_bits_dont_matter_lemma($ptr:bv32, $orVal:bv32);
+  requires $le(0bv32, $orVal) && $lt($orVal, 4096bv32);
+  ensures  $_Aligned4k($ptr) ==> $clear_LSBs(12bv32, $or($ptr, $orVal)) == $ptr;
+
+atomic ghost procedure _get_set_lemma();
+  ensures  (forall $ptr:bv32, $index:bv32 :: { $get_bit($index, $set_bit($index, $ptr)) } 
+            _bit_index($index) ==> $get_bit($index, $set_bit($index, $ptr)) == true);
+
+atomic ghost procedure _clear_LSBs_lemma();
+  ensures (forall $ptr:bv32, $amount:bv32, $i:bv32 :: { $get_bit($i, $clear_LSBs($amount, $ptr)) }
+           (_bit_index($amount) && _bit_index($i)) ==> 
+           if $lt($i, $amount) then
+             $get_bit($i, $clear_LSBs($amount, $ptr)) == false
+           else
+             $get_bit($i, $clear_LSBs($amount, $ptr)) == $get_bit($i, $ptr) );
+
+atomic ghost procedure _upper_bits_clear_ubound_lemma();
+  ensures (forall $ptr:bv32, $y:bv32 :: { $select_LSBs($y, $ptr) }
+  ($ge(10bv32, $y) && $ge($y, 0bv32)) ==> $le($select_LSBs($y, $ptr), 1023bv32) );
+
+atomic ghost procedure _upper_bits_clear_lbound_lemma();
+  ensures (forall $ptr:bv32, $y:bv32 :: { $le(0bv32, $select_LSBs($y, $ptr)) }
+  ($ge(10bv32, $y) && $ge($y, 0bv32)) ==> $le(0bv32, $select_LSBs($y, $ptr)));
+
+atomic ghost procedure _clear_less_than_equal_lemma();
+  ensures (forall $ptr:bv32, $amt:bv32 :: { $le($clear_LSBs($amt, $ptr), $ptr) }
+           _bit_index($amt) ==> $le($clear_LSBs($amt, $ptr), $ptr) );
+
+atomic ghost procedure _clear_12_lemma();
+  ensures (forall $ptr:bv32 :: { $and($ptr, 4294963200bv32) }
+           $clear_LSBs(12bv32, $ptr) == $and($ptr, 4294963200bv32) );
+  ensures (forall $ptr:bv32 :: { $add($clear_LSBs(12bv32, $ptr), 4096bv32) }
+           $lt($ptr, 4294963200bv32) ==> $ge($add($clear_LSBs(12bv32, $ptr), 4096bv32), $ptr) );
+  ensures (forall ptr:bv32, lb:bv32, ub:bv32 :: 
+          { $between(lb, ub, $clear_LSBs(12bv32, ptr)) }
+           $_Aligned4k(lb) && $_Aligned4k(ub) && $between(lb, ub, ptr) ==>
+           $between(lb, ub, $clear_LSBs(12bv32, ptr)) );
+  ensures (forall ptr:bv32, lb:bv32, ub:bv32 :: 
+          { $between(lb, ub, $clear_LSBs(12bv32, ptr)) }
+           $_Aligned4k(lb) && $_Aligned4k(ub) && !$between(lb, ub, ptr) ==>
+           !$between(lb, ub, $clear_LSBs(12bv32, ptr)) );
+
+atomic ghost procedure _clear_select_consistent_lemma();
+  ensures (forall $ptr:bv32, $val:bv32 :: 
+           { $clear_LSBs($val,  $clear_LSBs($val, $ptr)) } { $select_LSBs($val, $select_LSBs($val, $ptr))}
+           _bit_index($val) ==> ( $clear_LSBs($val,  $clear_LSBs($val, $ptr)) ==  $clear_LSBs($val, $ptr)) &&
+                                ($select_LSBs($val, $select_LSBs($val, $ptr)) == $select_LSBs($val, $ptr)));
+
+atomic ghost procedure _select_non_negative_lemma();
+  ensures (forall $ptr:bv32, $amt:bv32 :: { $le(0bv32, $select_LSBs($amt, $ptr)) }
+           (_bit_index($amt)) ==>
+           $le(0bv32, $select_LSBs($amt, $ptr)) );
+
+atomic ghost procedure _select_preserves_word_lemma();
+  ensures (forall $ptr:bv32, $x:bv32 :: { $select_LSBs($x, $ptr) }
+  (_bit_index($x)) ==> $le($select_LSBs($x, $ptr),$ptr));
+
+atomic ghost procedure _and_bounds();
+  ensures (forall $val:bv32 :: { $and($val, 255bv32) } 
+          $le(0bv32, $and($val, 255bv32)) && $lt($and($val, 255bv32), 256bv32));
+  ensures (forall $val:bv32 :: { $and($val, 15bv32) } 
+          $le(0bv32, $and($val, 15bv32)) && $lt($and($val, 15bv32), 16bv32));
+
+atomic ghost procedure _shr_decreases();
+  ensures (forall $ptr:bv32, $x:bv32 :: { $shr($ptr, $x) }
+          $le($shr($ptr, $x), $ptr));
+
+atomic ghost procedure _shr_preserves_word_lemma();
+  ensures (forall $ptr:bv32, $x:bv32 :: { $shr($ptr, $x) }
+  ($ge($x, 0bv32)) ==> $le($shr($ptr, $x), $ptr));
+
+atomic ghost procedure _or_with_3_lemma();
+  ensures (forall $ptr:bv32, $i:bv32:: { $get_bit($i, $or($ptr, 3bv32)) }
+           _bit_index($i) ==>
+           if ($eq($i, 0bv32) || $eq($i, 1bv32)) then
+             $get_bit($i, $or($ptr, 3bv32)) == true
+           else
+             $get_bit($i, $or($ptr, 3bv32)) == $get_bit($i, $ptr));
+
+atomic ghost procedure _or_with_7_lemma();
+  ensures (forall $ptr:bv32, $i:bv32:: { $get_bit($i, $or($ptr, 7bv32)) }
+           _bit_index($i) ==>
+           if ($eq($i, 0bv32) || $eq($i, 1bv32) || $eq($i, 2bv32)) then
+             $get_bit($i, $or($ptr, 7bv32)) == true
+           else
+             $get_bit($i, $or($ptr, 7bv32)) == $get_bit($i, $ptr));
+
+atomic ghost procedure _or_with_pow2_31_lemma();
+  ensures (forall $ptr:bv32, $i:bv32:: { $get_bit($i, $or($ptr, 2147483648bv32)) }
+           _bit_index($i) ==>
+           if ($eq($i, 31bv32)) then
+             $get_bit($i, $or($ptr, 2147483648bv32)) == true
+           else
+             $get_bit($i, $or($ptr, 2147483648bv32)) == $get_bit($i, $ptr));
+  ensures (forall $ptr:bv32 :: { $or($ptr, 2147483648bv32) }
+           $set_bit(31bv32, $ptr) == $or($ptr, 2147483648bv32));
+
+atomic ghost procedure _pointer_pieces_lemma();
+  ensures (forall $ptr:bv32 :: 
+           { $mul(4096bv32, $add($mul($select_LSBs(10bv32, $shr($ptr, 22bv32)), 1024bv32), $select_LSBs(10bv32, $shr($ptr, 12bv32)))) }
+           { $clear_LSBs(12bv32, $ptr) } 
+           $mul(4096bv32, $add($mul($select_LSBs(10bv32, $shr($ptr, 22bv32)), 1024bv32), $select_LSBs(10bv32, $shr($ptr, 12bv32)))) 
+           == $clear_LSBs(12bv32, $ptr) );
+             
+atomic ghost procedure _ptr_offsets_lemma();
+  ensures (forall $ptr:bv32 :: { $select_LSBs(10bv32, $shr($ptr,12bv32)) } 
+           $lt($ptr, 4096bv32) ==> $select_LSBs(10bv32, $shr($ptr, 12bv32)) == 0bv32 );
+  ensures (forall $ptr:bv32 :: { $select_LSBs(10bv32, $shr($ptr,22bv32)) }
+           $lt($ptr, 4194304bv32) <==> $select_LSBs(10bv32, $shr($ptr,22bv32)) == 0bv32 );
+  ensures (forall $ptr:bv32 :: { $select_LSBs(10bv32, $shr($ptr,12bv32)) }
+           $select_LSBs(10bv32, $shr($ptr, 12bv32)) != 0bv32 ==> $gt($ptr, 0bv32));
+  ensures (forall $ptr:bv32 :: { $select_LSBs(10bv32, $shr($ptr,12bv32)) }
+           $ge($ptr, 4096bv32) ==> $select_LSBs(10bv32, $shr($ptr, 12bv32)) != 0bv32 || $select_LSBs(10bv32, $shr($ptr,22bv32)) != 0bv32 ); 
+
+atomic ghost procedure _ptr_reconstruction_lemma();
+  ensures (forall ptr:bv32 :: { $or($clear_LSBs(12bv32, ptr), $select_LSBs(12bv32, ptr)) }
+           ptr == $or($clear_LSBs(12bv32, ptr), $select_LSBs(12bv32, ptr)) );
+  ensures (forall ptr:bv32 :: { $or($select_LSBs(12bv32, ptr), $clear_LSBs(12bv32, ptr)) }
+           ptr == $or($select_LSBs(12bv32, ptr), $clear_LSBs(12bv32, ptr)) );
+
+}

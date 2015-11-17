@@ -1,0 +1,145 @@
+//-private-import BaseSpec;
+//-private-import MemorySpec;
+//-private-import IntSpec;
+//-
+//- Copyright (c) Microsoft Corporation.  All rights reserved.
+//-
+
+module interface IntLemmasGc
+{
+
+function BitIndex(i0:int, i:int) returns(int);
+function BitZero(x:int, i0:int, i:int) returns(bool);
+function ColorIndex(i0:int, i:int) returns(int);
+function ColorGet(x:int, i0:int, i:int) returns(int);
+
+function bbvec4(a:[int]int, off:int, aBase:int, bb:[int]int, i0:int, i1:int, i2:int, g1:int, g2:int) returns(bool)
+{
+  (forall i:int::{TV(i)} TV(i) && i1 <= i && i < i2 && Aligned(i - i0) ==>
+       between(g1, g2, g1 + BitIndex(i0, i))
+    && (a[aBase + (i - i0)] == off <==> BitZero(bb[g1 + BitIndex(i0, i)], i0, i))
+  )
+}
+
+function bb2vec4(a:[int]int, aBase:int, bb:[int]int, i0:int, i1:int, i2:int, g1:int, g2:int) returns(bool)
+{
+  (forall i:int::{TV(i)} TV(i) && word(i - i0) && i1 <= i && i < i2 && Aligned(i - i0) ==>
+       between(g1, g2, g1 + ColorIndex(i0, i))
+    && (a[aBase + (i - i0)] == ColorGet(bb[g1 + ColorIndex(i0, i)], i0, i))
+  )
+}
+
+atomic ghost procedure __zeroAligned();
+  ensures  Aligned(0);
+
+atomic ghost procedure __andAligned($x:int);
+  ensures  word($x) ==> (and($x, 3) == 0 <==> Aligned($x));
+
+atomic ghost procedure __addAligned($x:int, $y:int);
+  ensures  word($x) && word($y) && word(add($x, $y)) && Aligned($x) ==>
+             (Aligned($y) <==> Aligned(add($x, $y)));
+
+atomic ghost procedure __subAligned($x:int, $y:int);
+  ensures  word($x) && word($y) && word(sub($x, $y)) && Aligned($x) ==>
+             (Aligned($y) <==> Aligned(sub($x, $y)));
+
+atomic ghost procedure __notAligned($i:int);
+  requires Aligned($i);
+  requires word($i);
+  ensures  !Aligned(add($i, 1));
+  ensures  !Aligned(add($i, 2));
+  ensures  !Aligned(add($i, 3));
+  ensures  word(add($i, 1));
+  ensures  word(add($i, 2));
+  ensures  word(add($i, 3));
+
+atomic ghost procedure __is4kAligned($x:int);
+  requires word($x) && word(sub($x, 4096));
+  ensures  and(sub($x, and($x, 4095)), 4095) == 0;
+  ensures  le(0, and($x, 4095)) && le(and($x, 4095), 4095);
+
+atomic ghost procedure __add4kAligned($x:int);
+  requires and($x, 4095) == 0;
+  requires word($x) && word(add($x, 4096));
+  ensures  and(add($x, 4096), 4095) == 0;
+  ensures  Aligned($x);
+
+atomic ghost procedure __is2m4kAligned($x:int);
+  requires word($x) && word($x - 2097152) && word($x + 2097152);
+  ensures  and(sub(add($x, 2097152), and($x, 2097151)), 4095) == 0;
+  ensures  le(0, and($x, 2097151)) && le(and($x, 2097151), 2097151);
+
+atomic ghost procedure __initialize($unitSize:int, $heapLo:int);
+  requires word(mul($unitSize, 256));
+  ensures BitIndex($heapLo, $heapLo) == 0;
+  ensures BitIndex($heapLo, add($heapLo, mul(128, $unitSize))) == mul(4, $unitSize);
+  ensures BitIndex($heapLo, add($heapLo, mul(256, $unitSize))) == mul(8, $unitSize);
+
+atomic ghost procedure __bb4Zero($a:[int]int, $off:int, $aBase:int, $bb:[int]int, $i0:int, $i1:int, $i2:int, $g1:int, $g2:int, $idx:int);
+  requires (forall $i:int::{TV($i)} TV($i) && $i1 <= $i && $i < $i2 + 128 ==> $a[$aBase + ($i - $i0)] == $off);
+  requires bbvec4($a, $off, $aBase, $bb, $i0, $i1, $i2, $g1, $g2);
+  requires word($i1 - $i0) && word($i2 - $i0) && word($i2 - $i1) && word($i2 + 128 - $i0);
+  requires word($idx) && word($g1);
+  requires Aligned($idx) && Aligned($g1);
+  requires $i2 - $i1 == mul(32, sub($idx, $g1));
+  requires $i1 == $i0;
+  requires between($g1, $g2, $idx);
+  ensures  bbvec4($a, $off, $aBase, $bb[$idx := 0], $i0, $i1, $i2 + 128, $g1, $g2);
+
+atomic ghost procedure __bb4GetBit($a:[int]int, $off:int, $aBase:int, $bb:[int]int, $i0:int, $i1:int, $i2:int, $k:int, $idx:int, $bbb:int, $g1:int, $g2:int);
+  requires bbvec4($a, $off, $aBase, $bb, $i0, $i1, $i2, $g1, $g2);
+  requires TV($k) && word($k - $i0) && $i1 <= $k && $k < $i2 && Aligned($k - $i0);
+  requires $idx == $g1 + 4 * shr($k - $i0, 7);
+  requires $bbb == and($bb[$idx], shl(1, and(shr($k - $i0, 2), 31)));
+  requires word($i1 - $i0) && word($i2 - $i0);
+  ensures  between($g1, $g2, $idx);
+  ensures  le(and(shr($k - $i0, 2), 31), 31);
+  ensures  $bbb == 0 <==> $a[$aBase + ($k - $i0)] == $off;
+
+atomic ghost procedure __bb4SetBit($a:[int]int, $on:int, $off:int, $aBase:int, $bb:[int]int, $i0:int, $i1:int, $i2:int, $k:int, $idx:int, $bbb:int, $ret:[int]int, $g1:int, $g2:int);
+  requires bbvec4($a, $off, $aBase, $bb, $i0, $i1, $i2, $g1, $g2);
+  requires TV($k) && word($k - $i0) && $i1 <= $k && $k < $i2 && Aligned($k - $i0);
+  requires $on != $off;
+  requires $idx == $g1 + 4 * shr($k - $i0, 7);
+  requires $bbb == or($bb[$idx], shl(1, and(shr($k - $i0, 2), 31)));
+  requires $ret == $bb[$idx := $bbb];
+  requires word($i1 - $i0) && word($i2 - $i0);
+  ensures  bbvec4($a[$aBase + ($k - $i0) := $on], $off, $aBase, $ret, $i0, $i1, $i2, $g1, $g2);
+  ensures  between($g1, $g2, $idx);
+  ensures  le(and(shr($k - $i0, 2), 31), 31);
+  ensures  4 * shr($k - $i0, 7) == BitIndex($i0, $k);
+
+atomic ghost procedure __bb4Zero2($a:[int]int, $aBase:int, $bb:[int]int, $i0:int, $i1:int, $i2:int, $g1:int, $g2:int, $idx:int);
+  requires (forall $i:int::{TV($i)} TV($i) && $i1 <= $i && $i < $i2 + 64 ==> $a[$aBase + ($i - $i0)] == 0);
+  requires bb2vec4($a, $aBase, $bb, $i0, $i1, $i2, $g1, $g2);
+  requires word($i1 - $i0) && word($i2 - $i0) && word($i2 - $i1) && word($i2 + 64 - $i0);
+  requires word($idx) && word($g1);
+  requires Aligned($idx) && Aligned($g1);
+  requires $i2 - $i1 == mul(16, sub($idx, $g1));
+  requires $i1 == $i0;
+  requires between($g1, $g2, $idx);
+  ensures  bb2vec4($a, $aBase, $bb[$idx := 0], $i0, $i1, $i2 + 64, $g1, $g2);
+
+atomic ghost procedure __bb4Get2Bit($a:[int]int, $aBase:int, $bb:[int]int, $i0:int, $i1:int, $i2:int, $k:int, $idx:int, $bbb:int, $g1:int, $g2:int);
+  requires bb2vec4($a, $aBase, $bb, $i0, $i1, $i2, $g1, $g2);
+  requires TV($k) && word($k - $i0) && $i1 <= $k && $k < $i2 && Aligned($k - $i0);
+  requires $idx == $g1 + 4 * shr($k - $i0, 6);
+  requires $bbb == and(shr($bb[$idx], and(shr($k - $i0, 1), 31)), 3);
+  ensures  $a[$aBase + ($k - $i0)] == $bbb;
+  ensures  between($g1, $g2, $idx);
+  ensures  le(and(shr($k - $i0, 1), 31), 31);
+
+atomic ghost procedure __bb4Set2Bit($a:[int]int, $val:int, $aBase:int, $bb:[int]int, $i0:int, $i1:int, $i2:int, $k:int, $idx:int, $bbb:int, $_bbb:int, $ret:[int]int, $g1:int, $g2:int);
+  requires bb2vec4($a, $aBase, $bb, $i0, $i1, $i2, $g1, $g2);
+  requires TV($k) && word($k - $i0) && $i1 <= $k && $k < $i2 && Aligned($k - $i0);
+  requires $idx == $g1 + 4 * shr($k - $i0, 6);
+  requires le(0, $val) && le($val, 3);
+  requires $bbb == and($bb[$idx], neg(shl(3, and(shr($k - $i0, 1), 31))));
+  requires $_bbb == or($bbb, shl($val, and(shr($k - $i0, 1), 31)));
+  requires $ret == $bb[$idx := $_bbb];
+  ensures  bb2vec4($a[$aBase + ($k - $i0) := $val], $aBase, $ret, $i0, $i1, $i2, $g1, $g2);
+  ensures  between($g1, $g2, $idx);
+  ensures  le(and(shr($k - $i0, 1), 31), 31);
+  ensures  4 * shr($k - $i0, 6) == ColorIndex($i0, $k);
+
+}

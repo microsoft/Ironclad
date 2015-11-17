@@ -1,0 +1,822 @@
+//-private-import BaseSpec;
+//-private-import MemorySpec;
+//-private-import IoTypesSpec;
+//-private-import MachineStateSpec;
+//-private-import AssemblySpec;
+//-private-import InterruptsSpec;
+//-private-import IoSpec;
+//-<NuBuild AddBoogieAxiom Base_axioms />
+//-<NuBuild AddBoogieAxiom Memory_axioms />
+//-<NuBuild AddBoogieAxiom Assembly_axioms />
+//-<NuBuild AddBoogieAxiom Word_axioms />
+//-private-import IntLemmasBase;
+//-private-import Partition;
+//-private-import Core;
+//-
+//- Copyright (c) Microsoft Corporation.  All rights reserved.
+//-
+
+module implementation LogicalAddressing
+{
+
+//-////////////////   Basic function definitions  ///////////////////
+
+function implementation flat_page_mapping(mem:mem, base:int):bool
+{
+    (forall ptr:int :: {PDEaddr(base, ptr)} {LoadPhysical(mem, PDEaddr(base, ptr))}
+      word(ptr) ==>
+          LoadPhysical(mem, PDEaddr(base, ptr)) != <<int>>()
+       && WordToPageEntry(LoadPhysical(mem, PDEaddr(base, ptr)).<<int>>) != <<PageEntry>>())
+ && (forall ptr:int :: {WordToPageEntry(LoadPhysical(mem, PDEaddr(base, ptr)).<<int>>).<<PageEntry>>}
+      (word(ptr) && !in_guard_region(ptr)) ==>
+        let pde:PageEntry := WordToPageEntry(LoadPhysical(mem, PDEaddr(base, ptr)).<<int>>).<<PageEntry>> in
+        pde.present == ?Present && pde.write == ?Write)
+ && (forall ptr:int :: {WordToPageEntry(LoadPhysical(mem, PDEaddr(base, ptr)).<<int>>).<<PageEntry>>}
+      word(ptr) ==>
+        let pde:PageEntry := WordToPageEntry(LoadPhysical(mem,PDEaddr(base, ptr)).<<int>>).<<PageEntry>> in
+            LoadPhysical(mem, PTEaddr(pde, ptr)) != <<int>>()
+         && WordToPageEntry(LoadPhysical(mem, PTEaddr(pde, ptr)).<<int>>) != <<PageEntry>>())
+ && (forall ptr:int :: {WordToPageEntry(LoadPhysical(mem, PDEaddr(base, ptr)).<<int>>).<<PageEntry>>}
+      (word(ptr) && !in_guard_region(ptr) ==>
+        let pde:PageEntry := WordToPageEntry(LoadPhysical(mem, PDEaddr(base, ptr)).<<int>>).<<PageEntry>> in
+        let pte:PageEntry := WordToPageEntry(LoadPhysical(mem, PTEaddr(pde, ptr)).<<int>>).<<PageEntry>> in
+        pte.base == ClearLSBs(12, ptr) && pte.present == ?Present && pte.write == ?Write ))
+ && (forall ptr:int :: {WordToPageEntry(LoadPhysical(mem, PDEaddr(base, ptr)).<<int>>).<<PageEntry>>}
+      (word(ptr) && in_guard_region(ptr)) ==>
+        let pde:PageEntry := WordToPageEntry(LoadPhysical(mem, PDEaddr(base, ptr)).<<int>>).<<PageEntry>> in
+        let pte:PageEntry := WordToPageEntry(LoadPhysical(mem,PTEaddr(pde, ptr)).<<int>>).<<PageEntry>> in
+        pte.present == ?Absent)
+ && (forall ptr:int, TLB:[int][TLB_label]PageEntry, cacheLabel:TLB_label ::
+      {PageMap(ptr, ?System, ?Write, TLB, cacheLabel).<<int>>}
+         (TLBsAreFreshWrtMem(base, TLB, mem) == <<bool>>(true)
+       && PageMap(ptr, ?System, ?Write, TLB, cacheLabel) != <<int>>()
+       && word(ptr))
+      ==> PageMap(ptr, ?System, ?Write, TLB, cacheLabel).<<int>> == ptr)
+ && (forall ptr:int, TLB:[int][TLB_label]PageEntry, cacheLabel:TLB_label ::
+      {PageMap(ptr, ?System, ?Read, TLB, cacheLabel).<<int>>}
+         (TLBsAreFreshWrtMem(base, TLB, mem) == <<bool>>(true)
+       && PageMap(ptr, ?System, ?Read, TLB, cacheLabel) != <<int>>()
+       && word(ptr))
+      ==> PageMap(ptr, ?System, ?Read, TLB, cacheLabel).<<int>> == ptr)
+}
+
+function in_user_region(ptr:int, low:int, high:int):bool
+{
+  between(low, high, ptr)
+}
+
+function implementation only_user_accessible_pages(mem:mem, base:int, low:int, high:int):bool
+{
+    (forall ptr:int :: {WordToPageEntry(mem[PDEaddr(base, ptr)]).<<PageEntry>>}
+      let pde:PageEntry := WordToPageEntry(mem[PDEaddr(base, ptr)]).<<PageEntry>> in
+      let pte:PageEntry := WordToPageEntry(mem[PTEaddr(pde, ptr)]).<<PageEntry>> in
+      word(ptr) && in_user_region(ptr, low, high) ==> pte.user == ?User)
+ && (forall ptr:int :: {WordToPageEntry(mem[PDEaddr(base, ptr)]).<<PageEntry>>}
+      let pde:PageEntry := WordToPageEntry(mem[PDEaddr(base, ptr)]).<<PageEntry>> in
+      let pte:PageEntry := WordToPageEntry(mem[PTEaddr(pde, ptr)]).<<PageEntry>> in
+      word(ptr) && !in_user_region(ptr, low, high) && !in_guard_region(ptr) ==> pte.user == ?System)
+}
+
+//- Ensures all page table structures lie in the [?ptLo, ?ptHi) region, where they'll be safe
+function page_tables_correctly_situated(mem:mem, cr3:int):bool
+{
+    (forall ptr:int :: { PDEaddr(cr3, ptr) }
+      word(ptr) ==> between(?ptLo, ?ptHi, PDEaddr(cr3, ptr)))
+ && (forall ptr:int :: { WordToPageEntry(LoadPhysical(mem,PDEaddr(cr3, ptr)).<<int>>).<<PageEntry>> }
+      word(ptr) ==>
+        let pde:PageEntry := WordToPageEntry(LoadPhysical(mem,PDEaddr(cr3, ptr)).<<int>>).<<PageEntry>> in
+        between(?ptLo, ?ptHi, PTEaddr(pde, ptr)))
+}
+
+function LA(init:bool, core_state:core_state, ptMem:mem):bool { LA_priv(init, core_state, ptMem) }
+function LA_priv(init:bool, core_state:core_state, ptMem:mem):bool { true }
+
+//- Per-core invariant
+function logical_addressing_inv_core(init:bool, core_state:core_state, ptMem:mem):bool
+{
+    FlatSegmentationInv(core_state.seg_regs[SS])
+ && FlatSegmentationInv(core_state.seg_regs[DS])
+ && (paging_enabled(core_state) ==>
+        init
+     && core_state.cregs[CR3] == ptRoot
+     && DTLBsAreFreshWrtMem(core_state.cregs[CR3], core_state.caches.DTLB, ptMem) == <<bool>>(true)
+     && TLBsAreFreshWrtMem(core_state.cregs[CR3], core_state.caches.TLB, ptMem) == <<bool>>(true) 
+  )
+}
+
+//- Invariant across all cores
+function logical_addressing_inv_shared(init:bool, cr3:int, ptMem:mem):bool
+{
+  init ==>
+      ptAddrOwned(ptMem)
+   && flat_page_mapping(ptMem, cr3)
+   && page_tables_correctly_situated(ptMem, cr3)
+   && (forall dtlb:[int][DTLB_label]PageEntry:: DTLBsAreFreshWrtMem(cr3, dtlb, ptMem) != <<bool>>())
+   && (forall  tlb:[int][ TLB_label]PageEntry::  TLBsAreFreshWrtMem(cr3,  tlb, ptMem) != <<bool>>())
+}
+
+function implementation { LA_priv(init, core_state, ptMem) } logical_addressing_inv_priv(init:bool, core_state:core_state, ptMem:mem): bool
+{
+    logical_addressing_inv_core(init, core_state, ptMem)
+ && logical_addressing_inv_shared(init, ptRoot, ptMem)
+}
+
+implementation enableLogicalAddressing() { assert(LA(init, core_state, ptMem)); }
+
+implementation logical_inv_is_flat() { assert(LA(init, core_state, ptMem)); } 
+
+
+function flat_PTE_index($ptr:int) returns (int)
+{
+  add(mul(PageDirectoryOffset($ptr), 1024), PageTableOffset($ptr))
+}
+
+// REVIEW: Merge PDE_index_to_addr with PTE_index_to_addr?
+function PDE_index_to_addr($base:int, $page_dir_index:int) returns (int)
+{
+  add($base, mul(?sizeofPDE, $page_dir_index))
+}
+
+function PTE_index_to_addr($base:int, $pte_index:int) returns (int)
+{
+  add($base, mul(?sizeofPTE, $pte_index))
+}
+
+function page_table_index_to_addr($page_tables_base:int, $page_table_index:int) returns (int)
+{
+  add($page_tables_base, mul(?pageTableSize, $page_table_index))
+}
+
+const ?totalPTEs:int := 0x100000; //-?numPTEsPerTable * ?numPDEs;
+
+function constants_correct() returns (bool)
+{
+  ?totalPTEs == ?numPTEsPerTable * ?numPDEs &&
+  ?pageDirSize == ?numPDEs * ?sizeofPDE &&
+  ?pageTableSize == ?numPTEsPerTable * ?sizeofPTE
+}
+
+
+//-////////////////   Wrappers to hide paging complexity    ///////////////////
+
+atomic ghost procedure logical_abstraction_lemma()
+//  ensures (forall p:partition, owner:int, dst:opn_mem, s:state, core:core_state :: { logical_addressing_inv_base(init, s, ptMem), LogicalDstOk(p, owner, regs, core, dst) } 
+//           LA(me, init, s, ptMem) && core == s._cores[me] && logical_addressing_inv_base(init, s, ptMem) && LogicalDstOk(p, owner, regs, core, dst) ==> PartDstOk(regs, core, p, owner, s, dst));
+//  ensures (forall src:opn_mem, s:state :: { _MemSrcOk(regs, core_state, s, src) }
+//           LA(me, init, s, ptMem) && logical_addressing_inv_base(init, s, ptMem) && LogicalSrcOk(regs, core_state, src) ==> _MemSrcOk(regs, core_state, s, src));
+//  ensures (forall o:opn_mem, s:state, core:core_state :: { LogicalEval(s, regs, o), LogicalSrcOk(regs, core, o) } 
+//           LA(me, init, s, ptMem) && core == s._cores[me] && logical_addressing_inv_base(init, s, ptMem) && LogicalSrcOk(regs, core, o) ==> LogicalEval(s, regs, o) == _EvalMem(regs, core_state, s, o));
+//  ensures (forall p:partition, owner:int, o:opn_mem, s:state, core:core_state :: { LogicalEval(s, regs, o), LogicalDstOk(p, owner, regs, core, o) } 
+//           LA(me, init, s, ptMem) && core == s._cores[me] && logical_addressing_inv_base(init, s, ptMem) && LogicalDstOk(p, owner, regs, core, o) ==> LogicalEval(s, regs, o) == _EvalMem(regs, core_state, s, o));
+//  ensures (forall s:state, _efl:int :: { logical_addressing_inv_base(init, s, ptMem) }
+//           LA(me, init, s, ptMem) && LA(me, init, s, ptMem) && logical_addressing_inv_base(init, s, ptMem) ==> 
+//           logical_addressing_inv_base(init, s, ptMem) );
+//  ensures  (forall dst:opn_mem, val:int, s:state, _efl:int :: 
+//            { MemUpdate1(regs, core_state, s, dst, val) }
+//                LA(me, init, s, ptMem)
+//             && logical_addressing_inv_base(init, s, ptMem)
+//             && LogicalDstOk(init, $part, me, regs, core_state, dst)
+//            // && LA(me, init, LogicalInsUpdate1(s, dst, val, _efl))
+//             && LA(me, init, MemUpdate1(regs, core_state, s, dst, val), ptMem) ==>
+//                    logical_addressing_inv_base(init, MemUpdate1(regs, core_state, s, dst, val), ptMem)
+//                 //&& s._cores[me] == MemUpdate1(regs, core_state, s, dst, val)._cores[me]
+//                 && LogicalPartUpdate1($part, me, regs, dst, val) == PartUpdate1($part, me, regs, core_state, dst, val)
+//                 && (word(_EvalMem(regs, core_state, MemUpdate1(regs, core_state, s, dst, val), dst)) ==>
+//                      word(LogicalEval(MemUpdate1(regs, core_state, s, dst, val), MemUpdate1(regs, core_state, s, dst, val)._cores[me], dst))));
+{
+}
+
+implementation logical_Add(inout my r:regs, x:int, y:opn)
+{
+  call r := instr_Add(r, x, y);
+  call reveal_WORD_HI();
+  call reveal_wrap32(old(r.regs[x] + Eval(r, y)));
+var dummy:regs := old(r);
+}
+
+implementation logical_Sub(inout my r:regs, x:int, y:opn)
+{
+  call r := instr_Sub(r, x, y);
+  call reveal_WORD_HI();
+  call reveal_wrap32(old(r.regs[x] - Eval(r, y)));
+}
+
+////implementation logical_Cmpxchg(m:mem, core:core_state, ptr:opn_mem, val:opn) returns(_core:core_state) { call logical_abstraction_lemma(); call core_Cmpxchg(m, ptr, val); _core := $State._cores[me]; }
+//implementation logical_RoLoadU8(m:mem, core:core_state, x:opn, y:opn_mem) returns(_core:core_state) { call logical_abstraction_lemma(); call core_RoLoadU8(m, x, y); _core := $State._cores[me]; }
+//implementation logical_RoLoadS8(m:mem, core:core_state, x:opn, y:opn_mem) returns(_core:core_state) { call logical_abstraction_lemma(); call core_RoLoadS8(m, x, y); _core := $State._cores[me]; }
+//implementation logical_RoLoadU16(m:mem, core:core_state, x:opn, y:opn_mem) returns(_core:core_state) { call logical_abstraction_lemma(); call core_RoLoadU16(m, x, y); _core := $State._cores[me]; }
+//implementation logical_RoLoadS16(m:mem, core:core_state, x:opn, y:opn_mem) returns(_core:core_state) { call logical_abstraction_lemma(); call core_RoLoadS16(m, x, y); _core := $State._cores[me]; }
+//implementation logical_RoLoad32(m:mem, core:core_state, x:opn, y:opn_mem) returns(_core:core_state) { call logical_abstraction_lemma(); call core_RoLoad32(m, x, y); _core := $State._cores[me]; }
+
+implementation logical_Load(inout my r:regs, const my c:core_state, const linear m:mem, x:int, y:opn_mem)
+{
+  assert LA(init, c, ptMem);
+  call r := instr_Load(r, c, m, x, y);
+}
+
+implementation logical_Store(const my r:regs, const my c:core_state, inout linear m:mem, x:opn_mem, y:opn)
+{
+  assert LA(init, c, ptMem);
+  call m := instr_Store(r, c, m, x, y);
+  assert LA(init, c, ptMem);
+}
+
+implementation logical_SubLoad(inout my r:regs, const my c:core_state, const linear m:mem, x:int, y:opn_mem)
+{
+  assert LA(init, c, ptMem);
+  {:
+    call r := instr_Load(r, c, m, TMP1, y);
+    call r := instr_Sub(r, x, OReg(TMP1));
+  :}
+  call reveal_WORD_HI();
+  call reveal_wrap32(old(r.regs[x] - LogicalEval(m, r, y)));
+  call r := instr_DropTempRegs(r, old(r).regs[x := r.regs[x]]);
+}
+
+implementation logical_CmpLoad(inout my r:regs, const my c:core_state, const linear m:mem, x:opn_mem, y:opn)
+{
+  assert LA(init, c, ptMem);
+  {:
+    call r := instr_Load(r, c, m, TMP1, x);
+    call r := instr_Cmp(r, TMP1, y);
+  :}
+  call r := instr_DropTempRegs(r, old(r.regs));
+}
+
+implementation logical_Call(inout my r:regs, const my c:core_state, inout linear m:mem)
+{
+  assert LA(init, c, ptMem);
+  call reveal_wrap32(esp - 4);
+  call reveal_WORD_HI();
+  call memAddrBounds(esp - 4);
+
+#ifdef x64
+  call reveal_wrap32(esp - 8);
+  call memAddrBounds(esp - 8);
+#endif
+
+  assert LA(init, c, ptMem);
+  {:
+    call r := instr_SubNoFlags(r, ESP, OConst(IPSize));
+#ifdef x64
+    call r := instr_MovNextEip64(r, TMP1, TMP2);
+#else
+    call r := instr_MovNextEip32(r, TMP1);
+#endif
+    call m := instr_StoreStack(r, c, m, OMem(MReg(ESP, 0)), OReg(TMP1));
+#ifdef x64
+    call m := instr_StoreStack(r, c, m, OMem(MReg(ESP, 4)), OReg(TMP2));
+#endif
+  :}
+  assert LA(init, c, ptMem);
+//  call _r := instr_DropTempRegs(_r, r.regs[ESP := _r.regs[ESP]]);
+}
+
+
+implementation logical_Ret(inout my r:regs, const my c:core_state, const linear m:mem)
+{
+  assert LA(init, c, ptMem);
+  call reveal_wrap32(esp + 4);
+#ifdef x64
+  call reveal_wrap32(esp + 8);
+#endif
+  call reveal_WORD_HI();
+  call memDomIsMemAddr(m, esp);
+#ifdef x64
+  call memDomIsMemAddr(m, esp + 4);
+#endif
+  call memAddrBounds(esp);
+#ifdef x64
+  call memAddrBounds(esp + 4);
+#endif
+  assert LA(init, c, ptMem);
+  {:
+    call r := instr_LoadStack(r, c, m, TMP1, OMem(MReg(ESP, 0)));
+#ifdef x64
+    call r := instr_LoadStack(r, c, m, TMP2, OMem(MReg(ESP, 4)));
+#endif
+    call r := instr_AddNoFlags(r, ESP, OConst(IPSize));
+    call instr_Ret(r);
+    call r := instr_DropTempRegs(r, old(r).regs[ESP := r.regs[ESP]]);
+  :}
+  assert LA(init, c, ptMem);
+}
+
+//implementation logical_IRet(m:mem, core:core_state) returns(_core:core_state) { call logical_abstraction_lemma(); call core_IRet(m); _core := $State._cores[me]; }
+//implementation logical_LoadGDT(s:state, core:core_state, base:int, len:int, addr:opn_mem) returns(_core:core_state) { call logical_abstraction_lemma(); call core_LoadGDT(s, base, len, addr); _core := $State._cores[me]; }
+//implementation logical_ReadCR0(s:state, core:core_state, $dstReg:opn) returns(_core:core_state) { call logical_abstraction_lemma(); call core_ReadCR0(s, $dstReg); _core := $State._cores[me]; }
+//implementation logical_WriteCR0(s:state, core:core_state, newCR0:opn) returns(_core:core_state) { call logical_abstraction_lemma(); call core_WriteCR0(s, newCR0); _core := $State._cores[me]; }
+//implementation logical_WriteCR3(s:state, core:core_state, newCR3:opn) returns(_core:core_state) { call logical_abstraction_lemma(); call core_WriteCR3(s, newCR3); _core := $State._cores[me]; }
+//implementation logical_InvalidatePagingCaches(s:state, core:core_state, ptr:opn_mem) returns(_core:core_state) { 
+//  assert(LA(me, init, s));
+////  assert(forall $ptr:int :: { WordToPageEntry(LoadPhysical(s._mem,PDEaddr(core_state._cregs[CR3], $ptr)).<<int>>) }
+////         paging_enabled(s._cores[me]) && word($ptr) ==> 
+////         WordToPageEntry(LoadPhysical(s._mem,PDEaddr(core_state._cregs[CR3], $ptr)).<<int>>) != <<PageEntry>>() );
+////
+//
+//  call logical_abstraction_lemma(); call core_InvalidatePagingCaches(s, ptr); 
+//
+//  assert (forall ptr:int :: word(ptr) ==> mem.map[ptr] == s._mem[ptr]);
+//
+//  assert(LA(me, init, s));
+//  assert(LA(me, init, $State));
+//
+//  assert(forall $ptr:int :: { LoadPhysical(mem.map,PDEaddr($State._cores[me]._ext._cregs[CR3], $ptr)) }
+//         word($ptr) ==> LoadPhysical(s._mem,PDEaddr(core_state._cregs[CR3], $ptr)) == 
+//                        LoadPhysical(mem.map,PDEaddr($State._cores[me]._ext._cregs[CR3], $ptr)) );
+//
+//  assert(forall $ptr:int :: { WordToPageEntry(LoadPhysical(mem.map,PDEaddr($State._cores[me]._ext._cregs[CR3], $ptr)).<<int>>) }
+//         word($ptr) ==> WordToPageEntry(LoadPhysical(s._mem,PDEaddr(core_state._cregs[CR3], $ptr)).<<int>>) == 
+//                        WordToPageEntry(LoadPhysical(mem.map,PDEaddr($State._cores[me]._ext._cregs[CR3], $ptr)).<<int>>) );
+//
+//  assert(forall $ptr:int :: { LoadPhysical(mem.map,PDEaddr($State._cores[me]._ext._cregs[CR3], $ptr)) }
+//         paging_enabled(core_state) && word($ptr) ==> 
+//         LoadPhysical(mem.map,PDEaddr($State._cores[me]._ext._cregs[CR3], $ptr)) != <<int>>() );
+//
+//  assert(forall $ptr:int :: { WordToPageEntry(LoadPhysical(s._mem,PDEaddr(core_state._cregs[CR3], $ptr)).<<int>>) }
+//         paging_enabled(s._cores[me]) && word($ptr) ==> 
+//         WordToPageEntry(LoadPhysical(s._mem,PDEaddr(core_state._cregs[CR3], $ptr)).<<int>>) != <<PageEntry>>() );
+//
+//  assert(forall $ptr:int :: { WordToPageEntry(LoadPhysical(mem.map,PDEaddr($State._cores[me]._ext._cregs[CR3], $ptr)).<<int>>) }
+//         paging_enabled(core_state) && word($ptr) ==> 
+//         WordToPageEntry(LoadPhysical(mem.map,PDEaddr($State._cores[me]._ext._cregs[CR3], $ptr)).<<int>>) != <<PageEntry>>() );
+//
+//  assert(forall $ptr:int :: 
+//   { WordToPageEntry(LoadPhysical(s._mem, PDEaddr(core_state._cregs[CR3], $ptr)).<<int>>).<<PageEntry>> }
+//    (word($ptr) && paging_enabled(s._cores[me]) && !in_guard_region($ptr)) ==>
+//     let $pde:PageEntry := WordToPageEntry(LoadPhysical(s._mem,PDEaddr(core_state._cregs[CR3], $ptr)).<<int>>).<<PageEntry>> in
+//     $pde.present == ?Present && $pde.write == ?Write);
+//
+//  assert(forall $ptr:int :: 
+//   { WordToPageEntry(LoadPhysical(mem.map, PDEaddr($State._cores[me]._ext._cregs[CR3], $ptr)).<<int>>).<<PageEntry>> }
+//    (word($ptr) && paging_enabled(core_state) && !in_guard_region($ptr)) ==>
+//     let $pde:PageEntry := WordToPageEntry(LoadPhysical(mem.map,PDEaddr($State._cores[me]._ext._cregs[CR3], $ptr)).<<int>>).<<PageEntry>> in
+//     $pde.present == ?Present && $pde.write == ?Write);
+//
+//  assert(forall $ptr:int :: 
+//   { WordToPageEntry(LoadPhysical(mem.map,PDEaddr($State._cores[me]._ext._cregs[CR3], $ptr)).<<int>>).<<PageEntry>> }
+//     word($ptr)&& paging_enabled(core_state) ==>
+//     let $pde:PageEntry := WordToPageEntry(LoadPhysical(mem.map,PDEaddr($State._cores[me]._ext._cregs[CR3], $ptr)).<<int>>).<<PageEntry>> in
+//     LoadPhysical(mem.map, PTEaddr($pde, $ptr)) != <<int>>());
+// 
+//  assert (paging_enabled(core_state) ==> flat_page_mapping(mem.map,  $State._cores[me]._ext._cregs[CR3]));
+//  assert (paging_enabled(core_state) ==>  page_tables_correctly_situated(mem.map, $State._cores[me]._ext._cregs[CR3])); 
+//  assert (paging_enabled(core_state) ==> DTLBsAreFreshWrtMem($State._cores[me]._ext._cregs[CR3], $State._cores[me]._ext._caches.DTLB, mem.map) == <<bool>>(true));
+//  assert (paging_enabled(core_state) ==> TLBsAreFreshWrtMem($State._cores[me]._ext._cregs[CR3], $State._cores[me]._ext._caches.TLB, mem.map) == <<bool>>(true)); 
+////  assert (logical_addressing_inv(init) );
+//}
+//
+//implementation logical_IdtStore(s:state, core:core_state, entry:int, offset:int, handler:int, ptr:opn_mem, val:opn) returns(_core:core_state) { call logical_abstraction_lemma(); call core_IdtStore(s, entry, offset, handler, ptr, val); _core := $State._cores[me]; }
+//implementation logical_Lidt(s:state, core:core_state, ptr:opn_mem) returns(_core:core_state) { call logical_abstraction_lemma(); call core_Lidt(s, ptr); _core := $State._cores[me]; }
+//implementation logical_VgaTextStore16(s:state, core:core_state, ptr:opn_mem, val:opn) returns(_core:core_state) { call logical_abstraction_lemma(); call core_VgaTextStore16(s, ptr, val); _core := $State._cores[me]; }
+//implementation logical_VgaDebugStore16(s:state, core:core_state, ptr:opn_mem, val:opn) returns(_core:core_state) { call logical_abstraction_lemma(); call core_VgaDebugStore16(s, ptr, val); _core := $State._cores[me]; }
+//implementation logical_IomStore(s:state, core:core_state, ptr:opn_mem, val:opn) returns(_core:core_state) { call logical_abstraction_lemma(); call core_IomStore(s, ptr, val); _core := $State._cores[me]; }
+//implementation logical_IomRegLoad(s:state, core:core_state, entry:int, val:opn, ptr:opn_mem) returns(_core:core_state) { call logical_abstraction_lemma(); call core_IomRegLoad(s, entry, val, ptr); _core := $State._cores[me]; }
+//implementation logical_IomRegStore(s:state, core:core_state, entry:int, ptr:opn_mem, val:opn) returns(_core:core_state) { call logical_abstraction_lemma(); call core_IomRegStore(s, entry, ptr, val); _core := $State._cores[me]; }
+//implementation logical_PciMemLoad32(s:state, core:core_state, id:int, val:opn, ptr:opn_mem) returns(_core:core_state) { call logical_abstraction_lemma(); call core_PciMemLoad32(s, id, val, ptr); _core := $State._cores[me]; }
+//implementation logical_PciMemStore32(s:state, core:core_state, id:int, ptr:opn_mem, val:opn) returns(_core:core_state) { call logical_abstraction_lemma(); call core_PciMemStore32(s, id, ptr, val); _core := $State._cores[me]; }
+//implementation logical_DeviceLoad(s:state, core:core_state, dst:opn, ptr:opn_mem) returns(_core:core_state) { call logical_abstraction_lemma(); call core_DeviceLoad(s, dst, ptr); _core := $State._cores[me]; }
+//implementation logical_DeviceStore(s:state, core:core_state, ptr:opn_mem, src:opn, send_auth_word:bool, auth_word_index:int, packet:[int]int) returns(_core:core_state) { call logical_abstraction_lemma(); call core_DeviceStore(s, ptr, src, send_auth_word, auth_word_index, packet); _core := $State._cores[me]; }
+//
+//implementation logical_StoreShared(s:state, core:core_state, linear owner:int, x:opn_mem, y:opn) returns(_core:core_state, linear _owner:int)
+//{
+//  call logical_abstraction_lemma();
+//  call _owner := core_StoreShared($State, owner, x, y);
+//  _core := $State._cores[me];
+//}
+//
+//implementation logical_CmpxchgShared(s:state, core:core_state, linear owner:int, ptr:opn_mem, val:opn) returns(_core:core_state, linear _owner:int)
+//{
+//  call logical_abstraction_lemma();
+//  assert LA(init, core_state, ptMem);
+//  call _owner := core_CmpxchgShared($State, owner, ptr, val);
+//  _core := $State._cores[me];
+//  assert LA(init, core_state, ptMem);
+//}
+
+//-////////////////   Actual paging-related work    ///////////////////
+
+implementation initPageTablePartition()
+{
+}
+
+atomic ghost procedure espAligned(sp:int)
+  requires Aligned(sp);
+  ensures  Aligned(sp -  4) && Aligned(sp -  8) && Aligned(sp - 12) && Aligned(sp - 16);
+  ensures  Aligned(sp - 20) && Aligned(sp - 24);
+{
+  assert TV(sp) && TO(0-1) && TO(0-2) && TO(0-3) && TO(0-4) && TO(0-5) && TO(0-6) && TO(0-7);
+}
+
+implementation fixupDS()
+{
+  call espAligned(esp);
+
+  //- Save a copy of the base address for later
+  call r := instr_Mov(r, EDX, OReg(EAX));
+
+  //-///////////////////////////////////////////////////
+  //- Build up a small GDT in reverse order via PUSH
+  //-//////////////////////////////////////////////////
+  
+  //- "topmost" entry is a flat descriptor starting at 0.
+  var goalSeg:SegmentDescriptor := SegmentDescriptor(0, ?SegmentDescriptorTypeData);
+
+  //- The following implements SegmentDescriptorWord1()
+  call r := instr_Mov(r, EAX, OConst(0));
+  assert r.regs[EAX] == 0;
+  call r := instr_And(r, EAX, OConst(0x00ff0000));
+  call r := instr_Shr(r, EAX, OConst(16));
+
+  call r := instr_Mov(r, ECX, OConst(0xCF90));
+  call r := instr_Or (r, ECX, OConst(2));
+  call r := instr_Shl(r, ECX, OConst(8));
+
+  call r := instr_Or (r, EAX, OReg(ECX));
+  call r := instr_Mov(r, ECX, OReg(EAX));
+
+  call r := instr_Mov(r, EAX, OConst(0));
+  call r := instr_And(r, EAX, OConst(0xff000000));
+
+  call r := instr_Or (r, EAX, OReg(ECX));
+
+  assert r.regs[EAX] == SegmentDescriptorWord1(goalSeg);
+  call r, mem := core_Push(r, core_state, mem, OReg(EAX));
+
+  //- Now do SegmentDescriptorWord0()
+  call r := instr_Mov(r, EAX, OConst(0));
+  call r := instr_Shl(r, EAX, OConst(16));
+  call r := instr_Or (r, EAX, OConst(0xffff));
+  assert r.regs[EAX] == SegmentDescriptorWord0(goalSeg);
+  call r, mem := core_Push(r, core_state, mem, OReg(EAX));
+
+  //- We don't care about the next two entries in the GDT, so set them to all 0
+  call r := instr_Mov(r, EAX, OConst(0));
+  call r, mem := core_Push(r, core_state, mem, OReg(EAX));
+  call r, mem := core_Push(r, core_state, mem, OReg(EAX));
+
+  //- Save the value in ESP, so we can build the GDT descriptor pointing to it
+  var $base:int := r.regs[ESP];
+  call r := instr_Mov(r, EAX, OReg(ESP));
+  call r := instr_Mov(r, ECX, OReg(ESP));
+
+  //- GdtParamsWord1
+  call r := instr_Shr(r, EAX, OConst(16));
+  assert r.regs[EAX] == GdtParamsWord1($base, 2);
+  call r, mem := core_Push(r, core_state, mem, OReg(EAX));
+  
+  //- GdtParamsWord0
+  call r := instr_Shl(r, ECX, OConst(16));
+  call r := instr_Mov(r, EAX, OConst(16));
+  call r := instr_Or (r, ECX, OReg(EAX));
+  call r := instr_Mov(r, EAX, OReg(ECX));
+  assert r.regs[EAX] == GdtParamsWord0($base, 2);
+  call r, mem := core_Push(r, core_state, mem, OReg(EAX));
+
+  //- Load it up!
+  call core_state := instr_LoadGDT(r, core_state, mem, $base, 2, OMem(MReg(ESP, 0)));
+
+  //- Fix up DS
+  call r := instr_Mov(r, EAX, OConst(1));
+  call r := instr_Shl(r, EAX, OConst(3));
+  call core_state := instr_ActivateDataSelector(r, core_state, mem, 1, goalSeg, EAX, DS);
+
+  //- Restore the original value of the base address
+  call r := instr_Mov(r, EAX, OReg(EDX));
+}
+
+procedure logicalAddressingInvNotEnabledLemma(p1:mem, p2:mem)
+  inout my core_state:core_state;
+  requires !paging_enabled(core_state);
+  requires !init;
+  requires logical_addressing_inv_base(init, core_state, p1);
+  ensures  logical_addressing_inv_base(init, core_state, p2);
+{
+  assert LA(init, core_state, p1);
+  assert LA(init, core_state, p2);
+}
+
+/*
+// Build a set of PDEs and PTEs describing a linear address space.  
+// Uses memory starting at $base (in eax) for the paging structures.
+// Sets memory addresses in [ebx, esi) as user accessible.  All others are system only
+// Returns (via eax) the appropriate value for CR3
+procedure buildLinearPageTables($requested_base@eax, $user_low@ebx, $user_high@esi)
+  inout my r:regs, my core_state:core_state, linear stk:mem, linear statics:mem;
+  requires !paging_enabled(core_state);
+  requires !init;
+  requires ptAddrOwned(ptMem);
+  requires word($requested_base) && ptAddr($requested_base) && aligned4k($requested_base);
+  requires word($user_low) && aligned4k($user_low) && !in_guard_region($user_low);
+  requires word($user_high) && aligned4k($user_high) && !in_guard_region($user_high); 
+  requires le($user_low, $user_high);
+  // Must be enough room for all the structures
+  requires ptAddr($requested_base + ?pageDirSize + ?numPDEs * ?pageTableSize - 1) && 
+             word($requested_base + ?pageDirSize + ?numPDEs * ?pageTableSize);   
+  requires lt(?ptHi, ?memHi);            
+  requires logical_addressing_inv(init, ptMem, core_state);
+  requires (forall i:int::{memAddr(i)} ?memLo <= i && i < ?memHi ==> memAddr(i));
+  modifies mem, efl, eax, ecx, edx, edi, ptOwner__id, $part;
+  ensures ValidCR3(eax) && PageDirectoryBase(eax) == old(eax);
+  ensures only_user_accessible_pages($part.vars[ptOwner__id].map, eax, old(ebx), old(esi));
+  ensures logical_addressing_inv(init, ptMem, core);
+  ensures logical_addressing_inv_shared(true, $requested_base, $part.vars[ptOwner__id]);
+  ensures $part.vars[me].dom == old($part).vars[me].dom;
+  ensures eax == old(eax);
+{ 
+  var $base:int := $requested_base; // Save the base value as a ghost, to free up eax
+  var PartMem:[int]int := $part.vars[ptOwner__id].map;
+  var $cur_addr   @ eax;
+  var $cur_base   @ ecx;  
+  var $page_entry @ edi;
+
+  assert(constants_correct());
+
+  call $cur_base := Lea(eax + ?pageDirSize); // First page table starts after all of the PDEs we build
+  assert ($cur_base == $base + ?pageDirSize);
+  call alignment_4k_is_mod4096_lemma();
+  assert (aligned4k($cur_base));
+  call clear_LSBs_lemma();
+  assert(WordToPageEntry($cur_base) != <<PageEntry>>());
+
+  assert($cur_base != 0);
+  
+  call alignment_dominance_lemma($cur_addr);
+  assert(Aligned($cur_addr));
+  call or_with_7_lemma();
+
+  // Create the PDEs
+  var $iter @ edx := 0;   
+  var $pte_start:int := $base + ?pageDirSize;
+  while ($iter < ?numPDEs) 
+    invariant LogicalDstOk(init, ptMem, regs, core_state, mem, OMem(MConst($cur_addr)));
+    //invariant memAddrMain($cur_addr) && Aligned($cur_addr); 
+    invariant $cur_addr == $base + ?sizeofPDE*$iter;
+    invariant $cur_base == $base + ?pageDirSize + ?pageTableSize*$iter;
+    invariant aligned4k($cur_base);
+    invariant !init;
+    invariant !paging_enabled(core_state);
+    invariant (forall $i:int :: {WordToPageEntry(PartMem[PDE_index_to_addr($base, $i)])}  
+              (le(0, $i) && lt($i, $iter)) ==> WordToPageEntry(PartMem[PDE_index_to_addr($base, $i)]) != <<PageEntry>>());
+    invariant (forall $i:int :: { PartMem[PDE_index_to_addr($base, $i)] }  
+              (le(0, $i) && lt($i, $iter)) ==> word(PartMem[PDE_index_to_addr($base, $i)]) );
+    invariant (forall $ptr:int :: { WordToPageEntry(PartMem[PDEaddr($base, $ptr)]) }
+               (le(0, PageDirectoryOffset($ptr)) && lt(PageDirectoryOffset($ptr), $iter)) ==> WordToPageEntry(PartMem[PDEaddr($base, $ptr)]) != <<PageEntry>>() );
+    invariant (forall $ptr:int :: { WordToPageEntry(PartMem[PDEaddr($base, $ptr)]) }
+               (le(0, PageDirectoryOffset($ptr)) && lt(PageDirectoryOffset($ptr), $iter)) ==> 
+               WordToPageEntry(PartMem[PDEaddr($base, $ptr)]).<<PageEntry>>.base == page_table_index_to_addr($pte_start, PageDirectoryOffset($ptr)) );
+//    invariant (forall $ptr:int :: { WordToPageEntry(PartMem[PDEaddr($base, $ptr)]) }
+//               (le(0, PageDirectoryOffset($ptr)) && lt(PageDirectoryOffset($ptr), $iter)) ==> 
+//               WordToPageEntry(PartMem[PDEaddr($base, $ptr)]).<<PageEntry>>.base == page_table_index_to_addr($pte_start, PageDirectoryOffset($ptr)) );
+    invariant (forall $ptr:int :: { WordToPageEntry(PartMem[PDEaddr($base, $ptr)]).<<PageEntry>> }
+               le(0, PageDirectoryOffset($ptr)) && lt(PageDirectoryOffset($ptr), $iter) ==> 
+               let $pde:PageEntry := WordToPageEntry(PartMem[PDEaddr($base, $ptr)]).<<PageEntry>> in
+               $pde.present == ?Present && $pde.write == ?Write &&
+               $pde.base == page_table_index_to_addr($pte_start, PageDirectoryOffset($ptr)) );
+    invariant word($iter);
+    invariant ($iter <= ?numPDEs);
+    invariant logical_addressing_inv(init, ptMem, core_state);
+    invariant (forall addr:int :: { $part.vars[ptOwner__id].dom[addr] } ptAddr(addr) ==> $part.vars[ptOwner__id].dom[addr]);
+    invariant $part.vars[me].dom == old($part).vars[me].dom;
+    invariant ebx == $user_low;
+    invariant esi == $user_high;
+    invariant PartMem == $part.vars[ptOwner__id].map;
+    invariant ptAddrOwned(ptMem);
+  {
+    //var oldPartMem:[int]int := PartMem;
+    $page_entry := $cur_base; 
+    //assert(DsInvFlatSegmentation($State._cores[me]._seg_regs[DS]));
+    call $page_entry := Or($page_entry, 7); // Set User, Write, and Present flags
+    //assert(logical_addressing_inv_priv($State, $part.vars[ptOwner__id]));
+    linear var tmp:int;
+    call tmp := new_linear_int();
+    linear var tmpPtOwner__id:int := ptOwner__id;
+    ptOwner__id := tmp;
+    call logicalAddressingInvNotEnabledLemma($part, tmpPtOwner__id, ptMem);
+    call tmpPtOwner__id := StoreShared(tmpPtOwner__id, $cur_addr, $page_entry);
+    call logicalAddressingInvNotEnabledLemma($part, ptOwner__id, $part, tmpPtOwner__id);
+    ptOwner__id := tmpPtOwner__id;
+    PartMem := $part.vars[ptOwner__id].map;
+    //assert(PartMem == oldPartMem[$cur_addr := $page_entry]);
+    call lower_bits_dont_matter_lemma($cur_base, 7);  // Helps prove invariant about <<PageEntry>>.base
+
+    $cur_addr := $cur_addr + ?sizeofPDE;
+    $cur_base := $cur_base + ?pageTableSize;
+    assert(aligned4k($cur_base));
+    $iter := $iter + 1;
+
+    call alignment_is_mod4_lemma();
+    assert(Aligned($cur_addr));
+    assert($iter <= ?numPDEs);
+  }
+
+  var $pde_mem:[int]int := PartMem;
+
+  call select_non_negative_lemma();
+  call shr_preserves_word_lemma();
+  call select_preserves_word_lemma();
+
+  call upper_bits_clear_ubound_lemma();
+  call upper_bits_clear_lbound_lemma();
+
+  call pointer_pieces_lemma();
+
+  call ptr_offsets_lemma();
+  call or_with_3_lemma();
+
+  call clear_12_lemma();
+
+  // Create the PTEs
+  assert($cur_addr == $base + ?pageDirSize);
+  $cur_base := 0;   // First page frame is the bottom of memory
+  $iter := 0;
+  call alignment_is_mod4_lemma();
+  while ($iter < ?totalPTEs) 
+    invariant !init;
+    invariant logical_addressing_inv(init, ptMem, core_state);
+    invariant (forall addr:int :: { $part.vars[ptOwner__id].dom[addr] } ptAddr(addr) ==> $part.vars[ptOwner__id].dom[addr]);
+    invariant memAddrMain($cur_addr) && Aligned($cur_addr); 
+    invariant $cur_addr == $base + ?pageDirSize + ?sizeofPTE*$iter;
+    invariant $iter == ?totalPTEs || $cur_base == ?pageFrameSize*$iter;
+    invariant aligned4k($cur_base);
+    // Insist that this while loop doesn't destroy memory-related properties of the PDEs' while loop
+    invariant (forall $ptr:int :: { lt($ptr, add($base, ?pageDirSize)) }
+               (word($ptr) && lt($ptr, add($base, ?pageDirSize))) ==>
+               PartMem[$ptr] == $pde_mem[$ptr] );
+    // Now, establish some properties of the PTEs
+    invariant (forall $i:int :: { WordToPageEntry(PartMem[PTE_index_to_addr($pte_start, $i)]) }
+              (le(0, $i) && lt($i, $iter)) ==> WordToPageEntry(PartMem[PTE_index_to_addr($pte_start, $i)]) != <<PageEntry>>());
+    invariant (forall $ptr:int :: { le(0, flat_PTE_index($ptr)) } { lt(flat_PTE_index($ptr), $iter) }
+               (word($ptr) && le(0, flat_PTE_index($ptr)) && lt(flat_PTE_index($ptr), $iter)) ==> 
+               le(0, PageDirectoryOffset($ptr)) && lt(PageDirectoryOffset($ptr), $iter) );
+    invariant (forall $ptr:int, $pde:PageEntry :: { WordToPageEntry(PartMem[PTEaddr($pde, $ptr)]) }
+               (word($ptr) && le(0, flat_PTE_index($ptr)) && lt(flat_PTE_index($ptr), $iter) && 
+                $pde == WordToPageEntry(PartMem[PDEaddr($base, $ptr)]).<<PageEntry>> &&
+                $pde.base == page_table_index_to_addr($pte_start, PageDirectoryOffset($ptr)) ) ==>
+                WordToPageEntry(PartMem[PTEaddr($pde, $ptr)]) != <<PageEntry>>() );
+    // Next two invariants help us prove some properties of the page tables we create
+    invariant (forall $i:int :: { WordToPageEntry(PartMem[add($pte_start, mul(?sizeofPTE,$i))]).<<PageEntry>>.base}  
+              (le(0, $i) && lt($i, $iter)) ==> WordToPageEntry(PartMem[add($pte_start, mul(?sizeofPTE,$i))]).<<PageEntry>>.base == mul(?pageFrameSize,$i));
+    invariant (forall $ptr:int :: 
+               { WordToPageEntry(PartMem[PDEaddr($base, $ptr)]).<<PageEntry>>.base } 
+               { page_table_index_to_addr($pte_start, PageDirectoryOffset($ptr))}
+               word($ptr) ==>
+               WordToPageEntry(PartMem[PDEaddr($base, $ptr)]).<<PageEntry>>.base == page_table_index_to_addr($pte_start, PageDirectoryOffset($ptr)) );
+    invariant (forall $ptr:int, $pde:PageEntry :: { WordToPageEntry(PartMem[PTEaddr($pde, $ptr)]).<<PageEntry>>.base }
+               (word($ptr) && le(0, flat_PTE_index($ptr)) && lt(flat_PTE_index($ptr), $iter) && 
+                $pde == WordToPageEntry(PartMem[PDEaddr($base, $ptr)]).<<PageEntry>> ) ==>
+                $pde.base == page_table_index_to_addr($pte_start, PageDirectoryOffset($ptr)) );
+    invariant (forall $ptr:int, $pde:PageEntry :: { WordToPageEntry(PartMem[PTEaddr($pde, $ptr)]) }
+               (word($ptr) && le(0, flat_PTE_index($ptr)) && lt(flat_PTE_index($ptr), $iter) && 
+                $pde == WordToPageEntry(PartMem[PDEaddr($base, $ptr)]).<<PageEntry>> ) ==>
+                WordToPageEntry(PartMem[PTEaddr($pde, $ptr)]).<<PageEntry>>.base == mul(?pageFrameSize, flat_PTE_index($ptr)) );
+    invariant (forall $ptr:int, $pde:PageEntry :: { WordToPageEntry(PartMem[PTEaddr($pde, $ptr)]).<<PageEntry>>.base }
+               (word($ptr) && le(0, flat_PTE_index($ptr)) && lt(flat_PTE_index($ptr), $iter) && 
+                $pde == WordToPageEntry(PartMem[PDEaddr($base, $ptr)]).<<PageEntry>> ) ==>
+                WordToPageEntry(PartMem[PTEaddr($pde, $ptr)]).<<PageEntry>>.base == ClearLSBs(12, $ptr) );
+    invariant (forall $ptr:int, $pde:PageEntry :: { WordToPageEntry(PartMem[PTEaddr($pde, $ptr)]).<<PageEntry>> }
+               (word($ptr) && !in_guard_region($ptr) && le(0, flat_PTE_index($ptr)) && lt(flat_PTE_index($ptr), $iter) && 
+                $pde == WordToPageEntry(PartMem[PDEaddr($base, $ptr)]).<<PageEntry>> ) ==>
+                WordToPageEntry(PartMem[PTEaddr($pde, $ptr)]).<<PageEntry>>.present == ?Present &&
+                ((in_user_region($ptr, $user_low, $user_high) ==> 
+                    WordToPageEntry(PartMem[PTEaddr($pde, $ptr)]).<<PageEntry>>.user == ?User) &&
+                 (!in_user_region($ptr, $user_low, $user_high) ==> 
+                    WordToPageEntry(PartMem[PTEaddr($pde, $ptr)]).<<PageEntry>>.user == ?System)) &&
+                WordToPageEntry(PartMem[PTEaddr($pde, $ptr)]).<<PageEntry>>.write == ?Write );
+    invariant (forall $ptr:int, $pde:PageEntry :: { WordToPageEntry(PartMem[PTEaddr($pde, $ptr)]).<<PageEntry>> }
+               (word($ptr) && in_guard_region($ptr) && le(0, flat_PTE_index($ptr)) && lt(flat_PTE_index($ptr), $iter) && 
+                $pde == WordToPageEntry(PartMem[PDEaddr($base, $ptr)]).<<PageEntry>> ) ==>
+                WordToPageEntry(PartMem[PTEaddr($pde, $ptr)]).<<PageEntry>>.present == ?Absent );
+    invariant word($iter);
+    invariant $iter <= ?totalPTEs;
+    invariant ebx == $user_low;
+    invariant esi == $user_high;
+    invariant PartMem == $part.vars[ptOwner__id].map;
+    invariant ptAddrOwned(ptMem);
+    invariant $part.vars[me].dom == old($part).vars[me].dom;
+  {
+    //var oldPartMem:[int]int := PartMem;
+    //assert(PartMem == $part.vars[ptOwner__id].map);
+    $page_entry := $cur_base;
+    if ($iter != 0) {
+      if ($user_low <= $cur_base) {
+        if ($cur_base < $user_high) {
+          assert(in_user_region($cur_base, $user_low, $user_high));
+          call $page_entry := Or($page_entry, 7);   // Set User, Write, Present flags
+          assert(WordToPageEntry($page_entry).<<PageEntry>>.user == ?User);
+        } else {
+          assert(!in_user_region($cur_base, $user_low, $user_high));
+          call $page_entry := Or($page_entry, 3);   // Set Write, Present flags
+          assert(WordToPageEntry($page_entry).<<PageEntry>>.user == ?System);
+        }
+      } else {
+        assert(!in_user_region($cur_base, $user_low, $user_high));
+        call $page_entry := Or($page_entry, 3);   // Set User, Write, Present flags
+        assert(WordToPageEntry($page_entry).<<PageEntry>>.user == ?System);
+      }
+    }
+    linear var tmp:int;
+    call tmp := new_linear_int();
+    linear var tmpPtOwner__id:int := ptOwner__id;
+    ptOwner__id := tmp;
+    call logicalAddressingInvNotEnabledLemma($part, tmpPtOwner__id, ptMem);
+    call tmpPtOwner__id := StoreShared(tmpPtOwner__id, $cur_addr, $page_entry);
+    call logicalAddressingInvNotEnabledLemma($part, ptOwner__id, $part, tmpPtOwner__id);
+    ptOwner__id := tmpPtOwner__id;
+    PartMem := $part.vars[ptOwner__id].map;
+    //assert(PartMem == oldPartMem[$cur_addr := $page_entry]);
+    call lower_bits_dont_matter_lemma($cur_base, 3);  // Helps prove invariant about <<PageEntry>>.base
+    call lower_bits_dont_matter_lemma($cur_base, 7);  // Helps prove invariant about <<PageEntry>>.base
+    $cur_addr := $cur_addr + ?sizeofPTE;
+    assert(word($cur_base));
+
+    $iter := $iter + 1;
+    if ($cur_base != 0xFFFFF000) { 
+      $cur_base := $cur_base + ?pageFrameSize; 
+    }
+  }
+
+  assert($cur_addr == $base + ?pageDirSize + ?sizeofPTE*?totalPTEs);
+  call $cur_addr := Sub($cur_addr, 0x401000);
+  assert($cur_addr == $base);
+
+  // Prove that CR3 is correct
+
+  // Prove that DTLBsAreFreshWrtMem(eax, $DTLB, PartMem) != <<bool>>()
+  call shr_preserves_word_lemma();
+  call upper_bits_clear_ubound_lemma();
+  call upper_bits_clear_lbound_lemma();
+  call alignment_is_mod4_lemma();
+
+  // Prove that TLBsAreFreshWrtMem(eax, $TLB, PartMem) != <<bool>>();
+  // Step 1: Prove the PDE addrs are sane
+  assert( (forall $ptr:int :: { LoadPhysical(PartMem, PDEaddr(eax, $ptr)) } 
+          word($ptr) ==> LoadPhysical(PartMem, PDEaddr(eax, $ptr)) != <<int>>() ) );
+
+  // Step 2: Prove that PDEs in memory are sane (this gets us past the prereqs for TLBIsFreshWrtMemOneEntry)
+  assert( (forall $ptr:int :: { PDE_index_to_addr(PageDirectoryBase(eax), PageDirectoryOffset($ptr)) }
+          word($ptr) ==> lt(PDE_index_to_addr(PageDirectoryBase(eax), PageDirectoryOffset($ptr)), add($base, ?pageDirSize)) ) );
+
+  assert( (forall $ptr:int, $p2:int :: { lt($p2, add($base, ?pageDirSize)), add(PageDirectoryBase(eax), mul(?sizeofPDE, PageDirectoryOffset($ptr))) }
+           (word($ptr) && word($p2) && $p2 == PDE_index_to_addr(PageDirectoryBase(eax), PageDirectoryOffset($ptr))) ==>
+           lt($p2, add($base, ?pageDirSize)) ) );
+
+  assert( (forall $ptr:int,$p2:int :: { PDE_index_to_addr(PageDirectoryBase(eax), PageDirectoryOffset($ptr)), WordToPageEntry(PartMem[$p2]) }
+           (word($ptr) && word($p2) && $p2 == PDE_index_to_addr(PageDirectoryBase(eax), PageDirectoryOffset($ptr))) ==> 
+           lt($p2, add($base, ?pageDirSize)) &&  
+           WordToPageEntry(PartMem[$p2]) != <<PageEntry>>() ) ); 
+
+  assert( (forall $ptr:int :: { PDE_index_to_addr(PageDirectoryBase(eax), PageDirectoryOffset($ptr)) } { PDEaddr(eax, $ptr) }
+          word($ptr) ==> (PDEaddr(eax, $ptr) == PDE_index_to_addr(PageDirectoryBase(eax), PageDirectoryOffset($ptr))) ) );
+
+  assert( (forall $ptr:int :: { WordToPageEntry(LoadPhysical(PartMem, PDEaddr(eax, $ptr)).<<int>>) } 
+          word($ptr) ==> WordToPageEntry(LoadPhysical(PartMem, PDEaddr(eax, $ptr)).<<int>>) != <<PageEntry>>() ) );
+
+  // Step 3: Prove that the PTEaddrs formed via the PDEs are sane
+  call clear_select_consistent_lemma();
+
+  assert( (forall $ptr:int, $pde:PageEntry :: { LoadPhysical(PartMem, PTEaddr($pde, $ptr)) }
+           (word($ptr) &&
+            $pde == WordToPageEntry(LoadPhysical(PartMem, PDEaddr(eax, $ptr)).<<int>>).<<PageEntry>>) ==>
+           LoadPhysical(PartMem, PTEaddr($pde, $ptr)) != <<int>>() ));
+
+  // Step 4: Prove that the PTEs are all sane
+  assert( (forall $ptr:int, $pde:PageEntry :: 
+          { WordToPageEntry(PartMem[PDE_index_to_addr($base, PageDirectoryOffset($ptr))]).<<PageEntry>>, le($pte_start, $pde.base) }
+          (word($ptr) &&
+           $pde == WordToPageEntry(PartMem[PDE_index_to_addr($base, PageDirectoryOffset($ptr))]).<<PageEntry>> ) ==>
+          le($pte_start, $pde.base) && lt($pde.base, PTE_index_to_addr($pte_start, ?totalPTEs)) ) ); 
+
+  // Prove that we build a flat page table
+  assert( forall $ptr:int :: { lt(flat_PTE_index($ptr), ?totalPTEs) } 
+          word($ptr) ==> le(0, flat_PTE_index($ptr)) && lt(flat_PTE_index($ptr), ?totalPTEs) );
+  call ptr_reconstruction_lemma();
+}
+
+implementation enablePaging($base:int) 
+{
+  ebx := eax;
+  esi := eax;
+  call esi := Add(esi, 4096);   // Create a 1-page user region here.  REVIEW: We don't actually want the user to write data here!
+
+  call alignment_4k_is_mod4096_lemma();
+
+  call buildLinearPageTables();    // Expects base in eax. Returns the new value for CR3 in eax
+  var $newCR3 @ eax;
+
+  assert(page_tables_correctly_situated($part.vars[ptOwner__id].map, eax));
+
+  call WriteCR3($newCR3);
+  assert(LA(init, core_state, ptMem));
+  call ecx := ReadCR0();
+  assert(word(ecx));
+  call ecx := Or(ecx, 0x80000000);
+  call or_with_pow2_31_lemma();
+  call WriteCR0(ecx);
+  call get_set_lemma();
+  call set_bit_preserves_word_lemma();
+  assert(LA(me, true, $State, ptMem));
+}
+*/
+
+}

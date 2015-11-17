@@ -1,0 +1,15 @@
+# Project's PostBuildEvent uses FSharp tools:
+dependency ..\..\fsharp\fslex.exe
+dependency ..\..\fsharp\fsyacc.exe
+dependency ..\..\fsharp\fsc.exe
+dependency ..\..\fsharp\FSharp.Core.dll
+dependency ..\..\fsharp\FSharp.Compiler.dll
+
+# Project's PostBuildEvent takes the following inputs to create the output:
+dependency lex.fsl
+dependency parse.fsy
+dependency parse_util.fs
+dependency parser.fs
+dependency ..\..\fsharp\FSharp.PowerPack.dll
+
+# We don't list parser.dll as an output here because the project file already believes it is creating it.

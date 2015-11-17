@@ -1,0 +1,116 @@
+//-private-import BaseSpec;
+//-private-import MemorySpec;
+//-private-import IoTypesSpec;
+//-private-import MachineStateSpec;
+//-private-import AssemblySpec;
+//-private-import InterruptsSpec;
+//-private-import IoSpec;
+//-<NuBuild AddBoogieAxiom Base_axioms />
+//-<NuBuild AddBoogieAxiom Memory_axioms />
+//-<NuBuild AddBoogieAxiom Assembly_axioms />
+//-private-import Partition;
+//-private-import Core;
+//-private-import Util;
+//-private-import LogicalAddressing;
+//-
+//- Copyright (c) Microsoft Corporation.  All rights reserved.
+//-
+
+module interface Stacks
+//import Util;
+{
+
+//-////////////////////////////////////////////////////////////////////////////
+//- STACKS
+//-////////////////////////////////////////////////////////////////////////////
+
+//- Stack identifiers are numbered 0, 1, 2, ..., ?NumStacks - 1
+const ?NumStacks:int := 1; //- 64;
+const ?InitialStack:int := 0;
+const ?InterruptStack:int := 0;
+
+//var $S:int; // current stack id
+const $S:int := 0;
+
+// Each managed stack $s grows from StackHi($s) down to StackLo($s)
+//   (see Gc_i.beat)
+
+// Managed code can only write to the stack from an address StackLo($s) <= i < StackHi($s).
+// --> This includes writes caused by calls and interrupts!
+// A call consumes 4 bytes of stack space.
+// An interrupt can consume as much as ?InterruptReserve bytes of stack space.
+// Thus, the managed code should never allow esp < StackLo($s) + ?InterruptReserve
+// when interrupts are enabled or when traps (e.g. null pointer or divide-by-zero traps)
+// are possible.
+
+// The managed code can enforce this with run-time checks against StackCheck:
+//   If StackCheck <= esp, then there at least ?StackReserve + ?InterruptReserve
+// bytes are available below esp.
+// When managed code calls the Nucleus, it must guarantee that
+//   StackLo($s) <= esp
+// holds after the call instruction.
+// (So before the call, StackLo($s) + 4 <= esp.)
+// When the Nucleus returns to native code, it restores the esp before the call.
+
+const ?InterruptReserve:int := 16;
+const ?StackReserve:int := 4096;
+// var StackCheck:int; // in Separation module
+
+//- Each stack can be in one of four states:
+//-   - empty
+//-   - running
+//-   - yielded(ebp, esp, eip)
+//-   - interrupted(eax, ebx, ecx, edx, esi, edi, ebp, esp, eip, cs, eflags)
+//- The arguments to yielded and interrupted are the registers that must
+//- be restored to resume the thread.  (For example, to restore yielded(b, s, i),
+//- one might set ebp == b, esp == s - 4, $Mem[esp] == i, and then invoke "ret").
+type StackState;
+readonly var $StackState:[int]StackState;
+const StackEmpty:StackState;
+const StackRunning:StackState;
+function StackYielded($ebp:int, $esp:int, $eip:int) returns(StackState);
+function StackInterrupted($eax:int, $ebx:int, $ecx:int, $edx:int, $esi:int, $edi:int, $ebp:int, $esp:int, $eip:int, $cs:int, $efl:int) returns(StackState);
+
+//- The four stack states are distinct:
+const ?STACK_EMPTY:int := 0;
+const ?STACK_RUNNING:int := 1;
+const ?STACK_YIELDED:int := 2;
+const ?STACK_INTERRUPTED:int := 3;
+function StackStateTag(state:StackState) returns(int);
+function IsStackStateTag(tag:int) returns(bool) { 0 <= tag && tag <= 3 }
+function IsStackStateTagFor(tag:int, state:StackState) returns(bool) { IsStackStateTag(tag) && tag == StackStateTag(state) }
+
+//- To switch to an StackEmpty stack $s, the stack memory must contain one word:
+//-   StackHi($s) - 8: managedEntryPoint
+//- Execution begins by returning to the managedEntryPoint.  This entry point
+//- should never return.  (This is enforced by the TAL checker.)
+const ?KernelEntryPoint:int := 0xdeadbeef;
+
+/*TODO: atomic ghost*/ procedure stacksProofs();
+inout my r:regs, my core_state:core_state, linear stk:mem, linear statics:mem, linear io:IOState;
+  requires logical_addressing_inv(init, ptMem, core_state);
+  ensures  logical_addressing_inv(init, ptMem, core_state);
+  ensures (StackStateTag(StackEmpty) == ?STACK_EMPTY);
+  ensures (StackStateTag(StackRunning) == ?STACK_RUNNING);
+  ensures (forall $ebp:int, $esp:int, $eip:int::{StackYielded($ebp, $esp, $eip)} StackStateTag(StackYielded($ebp, $esp, $eip)) == ?STACK_YIELDED);
+  ensures (forall $eax:int, $ebx:int, $ecx:int, $edx:int, $esi:int, $edi:int, $ebp:int, $esp:int, $eip:int, $cs:int, $efl:int::
+          {StackInterrupted($eax, $ebx, $ecx, $edx, $esi, $edi, $ebp, $esp, $eip, $cs, $efl)}
+           StackStateTag(StackInterrupted($eax, $ebx, $ecx, $edx, $esi, $edi, $ebp, $esp, $eip, $cs, $efl)) == ?STACK_INTERRUPTED);
+  ensures (forall $ebp1:int, $esp1:int, $eip1:int,
+                $ebp2:int, $esp2:int, $eip2:int
+              ::{StackYielded($ebp1, $esp1, $eip1),
+                 StackYielded($ebp2, $esp2, $eip2)}
+                 StackYielded($ebp1, $esp1, $eip1)
+              == StackYielded($ebp2, $esp2, $eip2) ==>
+              $ebp1 == $ebp2 && $esp1 == $esp2 && $eip1 == $eip2);
+  ensures (forall $eax1:int, $ebx1:int, $ecx1:int, $edx1:int, $esi1:int, $edi1:int, $ebp1:int, $esp1:int, $eip1:int, $cs1:int, $efl1:int,
+                $eax2:int, $ebx2:int, $ecx2:int, $edx2:int, $esi2:int, $edi2:int, $ebp2:int, $esp2:int, $eip2:int, $cs2:int, $efl2:int
+              ::{StackInterrupted($eax1, $ebx1, $ecx1, $edx1, $esi1, $edi1, $ebp1, $esp1, $eip1, $cs1, $efl1),
+                 StackInterrupted($eax2, $ebx2, $ecx2, $edx2, $esi2, $edi2, $ebp2, $esp2, $eip2, $cs2, $efl2)}
+                 StackInterrupted($eax1, $ebx1, $ecx1, $edx1, $esi1, $edi1, $ebp1, $esp1, $eip1, $cs1, $efl1)
+              == StackInterrupted($eax2, $ebx2, $ecx2, $edx2, $esi2, $edi2, $ebp2, $esp2, $eip2, $cs2, $efl2) ==>
+              $eax1 == $eax2 && $ebx1 == $ebx2 && $ecx1 == $ecx2 && $edx1 == $edx2 && $esi1 == $esi2 && $edi1 == $edi2 &&
+              $ebp1 == $ebp2 && $esp1 == $esp2 && $eip1 == $eip2 && $cs1 == $cs2 && $efl1 == $efl2);
+  ensures word(?KernelEntryPoint);
+
+}

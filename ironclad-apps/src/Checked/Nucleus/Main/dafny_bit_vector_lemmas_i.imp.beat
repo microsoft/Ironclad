@@ -1,0 +1,63 @@
+//-private-import BaseSpec;
+//-private-import MemorySpec;
+//-private-import IoTypesSpec;
+//-private-import MachineStateSpec;
+//-private-import AssemblySpec;
+//-private-import InterruptsSpec;
+//-private-import IoSpec;
+//-<NuBuild AddBoogieAxiom Base_axioms />
+//-<NuBuild AddBoogieAxiom Word_axioms />
+//-<NuBuild AddBoogieAxiom Memory_axioms />
+//-<NuBuild AddBoogieAxiom Assembly_axioms />
+//-<NuBuild AddBoogieAxiom Io_axioms />
+//-private-import Core;
+//-private-import LogicalAddressing;
+//-private-import Overflow;
+//-private-import Util;
+//-private-import Stacks;
+//-private-import Partition;
+//-private-import Separation;
+//-private-import IntLemmasBase;
+//-private-import IntLemmasGc;
+//-private-import SimpleGcMemory;
+//-private-import SimpleCommon;
+//-private-import SimpleCollector;
+//-private-import IoMain;
+//-private-import IntLemmasMain;
+//-private-basmonly-import Trusted;
+//-private-basmonly-import Checked;
+//-private-import Heap;
+//-private-import Seq;
+//-private-import dafny_DafnyPrelude;
+//-private-import DafnyAssembly;
+//-private-import dafny_base_s;
+//-private-import dafny_relational_s;
+//-private-import dafny_assembly_i;
+//-<NuBuild AddBoogieFlag /timeLimit:300 />
+//-<NuBuild AddBoogieFlag /trace />
+//-<NuBuild AddBoogieFlag /z3opt:NL_ARITH=false />
+
+module implementation dafny_bit_vector_lemmas_i
+{
+
+implementation proc_lemma__and__with__ff($ghost_x:int) returns()
+{
+    call lemma_and_with_ff($ghost_x);
+}
+    
+implementation proc_lemma__and__with__ffff($ghost_x:int) returns()
+{
+    call lemma_and_with_ffff($ghost_x);
+}
+
+implementation proc_lemma__xor__bytes(x:int, y:int)
+{
+    call lemma_xor_bytes(x, y);
+}
+
+implementation proc_lemma__and__with__32__64(x:int)
+{
+    call lemma_and_with_32_64(x);
+}
+
+}

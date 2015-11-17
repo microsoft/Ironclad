@@ -1,0 +1,320 @@
+%{
+
+open Ast;;
+open Parse_util;;
+open Microsoft.FSharp.Math;;
+
+let rec type_id (t:typ):id =
+  match t with
+  | TInt -> "int"
+  | TBool -> "bool"
+  | TReal -> "real"
+  | TMap (t1, t2) -> "__ARR1_" + (type_id t1) + "__ARR2_" + (type_id t2) + "__ARR3_"
+  | TName x -> "__NAME_" + x
+let option_type_id (t:typ):id = "__OPTION_" + (type_id t)
+
+let maybe_relation (e:exp):(is_relation * exp) =
+  match e with EOp ((Uop "relation"), [e1]) -> (IsRel, e1) | _ -> (NotRel, e)
+
+%}
+
+%start start
+%type <_module> start
+
+%token <string> UID
+%token <string> LID
+%token <string> DUID
+%token <string> DLID
+%token <string> QUID
+%token <string> QLID
+%token <string> SEGNAME
+%token <string> REGNAME
+%token <bigint> LITINT
+%token <string> LITREAL
+%token <bigint> LITBV32
+%token <bool> LITBOOL
+%token SEMI LPAREN RPAREN LBRACKET RBRACKET BAR DOT HASH
+%token LT GT EQ BANG COMMA LE GE EQEQ NE PLUS MINUS STAR SLASH DIV MOD AMPAMP BARBAR INT REAL BOOL
+%token HAVOC OLD COLONCOLON EQEQGT LTEQEQGT LTLT GTGT
+%token LEFT RIGHT RELATION PUBLIC
+%token EAX EBX ECX EDX ESI EDI EBP ESP
+%token OPNREG OPNMEM IS THEN ELSE LET IN LINEAR SPLIT MY ATOMIC STABLE GHOST
+%token <loc> TYPE VAR CONST READONLY FUNCTION AXIOM PROCEDURE IMPLEMENTATION STATIC MODULE INTERFACE IMPORT
+%token <loc> CALL RETURN IRETURN IF GOTO ASSERT INVARIANT COLON COLONEQ YIELD LBRACE RBRACE
+%token <loc> RETURNS REQUIRES ENSURES MODIFIES
+%token <loc> FORALL EXISTS LAMBDA
+
+%token EOF
+
+/* Precedence declarations. */
+
+%right LET IN IF THEN ELSE
+%left LTEQEQGT
+%right EQEQGT
+%left AMPAMP BARBAR
+%left LT GT LE GE EQEQ NE IS
+%left PLUS MINUS
+%left STAR SLASH DIV MOD
+%right BANG
+%left LPAREN RPAREN LBRACKET RBRACKET DOT
+
+%%
+
+start:
+| MODULE INTERFACE AnyId Imports Modifies Yields LBRACE Decls RBRACE EOF { {mName = $3; mIsImpl = false; mModifies = $5; mYields = $6; mDecls = $8} }
+| MODULE IMPLEMENTATION AnyId LBRACE Decls RBRACE EOF { {mName = $3; mIsImpl = true; mModifies = []; mYields = []; mDecls = $5} }
+| MODULE INTERFACE AnyId Imports Modifies Yields Decls EOF { {mName = $3; mIsImpl = false; mModifies = $5; mYields = $6; mDecls = $7} }
+| MODULE IMPLEMENTATION AnyId Decls EOF { {mName = $3; mIsImpl = true; mModifies = []; mYields = []; mDecls = $4} }
+
+ID
+  : LID { $1 }
+  | UID { $1 }
+
+Type
+  : INT { TInt }
+  | BOOL { TBool }
+  | REAL { TReal }
+  | LBRACKET Type RBRACKET Type { TMap ($2, $4) }
+  | AnyId { TName $1 }
+  | LTLT Type GTGT { TName (option_type_id $2) }
+
+Triggers
+  : { [] }
+  | LBRACE Exps RBRACE Triggers { $2::$4 }
+
+Exp
+  : LPAREN Exp RPAREN { $2 }
+  | IF Exp THEN Exp ELSE Exp { EOp (Cond, [$2; $4; $6]) }
+  | LET Formal COLONEQ Exp IN Exp { EOp (Subscript, [EQuant (Lambda, [$2], [], $6); $4]) }
+  | Exp LTEQEQGT Exp { EOp (Bop "<==>", [$1; $3]) }
+  | Exp EQEQGT Exp { EOp (Bop "==>", [$1; $3]) }
+  | Exp AMPAMP Exp { EOp (Bop "&&", [$1; $3]) }
+  | Exp BARBAR Exp { EOp (Bop "||", [$1; $3]) }
+  | Exp EQEQ Exp { EOp (Bop "==", [$1; $3]) }
+  | Exp NE Exp { EOp (Bop "!=", [$1; $3]) }
+  | Exp LT Exp { EOp (Bop "<", [$1; $3]) }
+  | Exp GT Exp { EOp (Bop ">", [$1; $3]) }
+  | Exp LE Exp { EOp (Bop "<=", [$1; $3]) }
+  | Exp GE Exp { EOp (Bop ">=", [$1; $3]) }
+  | Exp PLUS Exp { EOp (Bop "+", [$1; $3]) }
+  | Exp MINUS Exp { EOp (Bop "-", [$1; $3]) }
+  | Exp STAR Exp { EOp (Bop "*", [$1; $3]) }
+  | Exp SLASH Exp { EOp (Bop "/", [$1; $3]) }
+  | Exp DIV Exp { EOp (Bop " div ", [$1; $3]) }
+  | Exp MOD Exp { EOp (Bop " mod ", [$1; $3]) }
+  | Exp IS AnyId { EApply ("is#" + $3, [$1]) }
+  | LPAREN MINUS Exp RPAREN { EOp (Uop "-", [$3]) }
+  | BANG Exp { EOp (Uop "!", [$2]) }
+  | LPAREN FORALL Formals COLONCOLON Triggers Exp RPAREN { EQuant (Forall, $3, $5, $6) }
+  | LPAREN EXISTS Formals COLONCOLON Triggers Exp RPAREN { EQuant (Exists, $3, $5, $6) }
+  | LPAREN LAMBDA Formals COLONCOLON          Exp RPAREN { EQuant (Lambda, $3, [], $5) }
+  | Exp LBRACKET Exp RBRACKET { EOp (Subscript, [$1; $3]) }
+  | Exp LBRACKET Exp COLONEQ Exp RBRACKET { EOp (Update, [$1; $3; $5]) }
+  | Exp DOT AnyId { EApply ("." + $3, [$1]) }
+  | LET LTLT Type GTGT Formal COLONEQ Exp IN Exp
+    {
+      let (x, tx) = $5 in
+      let o = option_type_id $3 in
+      let ox = option_type_id tx in
+      EOp (Cond, [EApply ("is#" + ox + "_None", [$7]); EApply (o + "_None", []);
+        EOp (Subscript, [EQuant (Lambda, [$5], [], $9); EApply ("." + ox + "_Value", [$7])])])
+    }
+  | LTLT Type GTGT LPAREN Exp RPAREN { let o = option_type_id $2 in EApply (o + "_Some", [$5]) }
+  | LTLT Type GTGT LPAREN RPAREN { let o = option_type_id $2 in EApply (o + "_None", []) }
+  | Exp DOT LTLT Type GTGT { let o = option_type_id $4 in EApply ("." + o + "_Value", [$1]) }
+  | LITINT { EInt $1 }
+  | LITREAL { EReal $1 }
+  | LITBV32 { EBv32 $1 }
+  | LITBOOL { EBool $1 }
+  | OLD LPAREN Exp RPAREN { EOp (Uop "old", [$3]) }
+  | LEFT LPAREN Exp RPAREN { EOp (Uop "left", [$3]) }
+  | RIGHT LPAREN Exp RPAREN { EOp (Uop "right", [$3]) }
+  | RELATION LPAREN Exp RPAREN { EOp (Uop "relation", [$3]) }
+  | PUBLIC LPAREN Exp RPAREN { EOp (Uop "relation", [EOp (Bop "==", [EOp (Uop "left", [$3]); EOp (Uop "right", [$3])])]) }  
+  | AnyId LPAREN Exps RPAREN { EApply ($1, $3) }
+  | AnyId HASH AnyId LPAREN Exps RPAREN { EApply ($1 + "#" + $3, $5) }
+  | AnyId HASH HASH AnyId LPAREN Exps RPAREN { EApply ($1 + "##" + $4, $6) }
+  | REAL LPAREN Exp RPAREN { EOp (Uop "real", [$3]) }
+  | INT LPAREN Exp RPAREN { EOp (Uop "int", [$3]) }
+  | AnyId { EVar $1 }
+  | SEGNAME { EVar $1 }
+  | REGNAME { EVar $1 }
+Exps
+  : { [] }
+  | Exp { [$1] }
+  | Exp COMMA Exps { $1::$3 }
+AnyId
+  : ID { $1 }
+  | DUID { $1 }
+  | DLID { $1 }
+  | QUID { $1 }
+  | QLID { $1 }
+AnyIds
+  : { [] }
+  | AnyId { [$1] }
+  | AnyId COMMA AnyIds { $1::$3 }
+FunDeclId
+  : AnyId { $1 }
+  | DOT AnyId { "." ^ $2 }
+
+ParCalls
+  : { [] }
+  | BAR LID LPAREN Exps RPAREN ParCalls { ($2, $4)::$6 }
+Stmt
+  : ID COLON { ($2, SLabel $1) }
+  | GOTO ID SEMI { ($1, SGoto $2) }
+  | RETURN SEMI { ($1, SReturn) }
+  | IRETURN SEMI { ($1, SIReturn) }
+  | LBRACE COLON Block COLON RBRACE { ($2, SGroup $3) }
+  | IF LPAREN Exp RPAREN LBRACE Block RBRACE
+    {
+      match ($3, $6) with
+      | (EApply (f, [EApply (".efl", [EVar x])]), [(_, SGoto l)]) -> ($1, SIfJcc (x, f, l))
+      | _ -> ($1, SIfGhost ($3, $6))
+    }
+  | FORALL LocalFormals COLONCOLON Triggers Exp LBRACE ProcDecls Block RBRACE
+    {
+      let decls = List.map (fun (x, t, lin) ->
+        match lin with Non -> (x, t) | Lin _ -> err "cannot declare linear variable in forall statement") $7 in
+      ($1, SForallGhost ($2, $4, $5, decls, $8))
+    }
+  | EXISTS LocalFormals COLONCOLON Triggers Exp SEMI { ($1, SExistsGhost ($2, $4, $5)) }
+  | INVARIANT Exp SEMI { ($1, let (r, e) = maybe_relation $2 in SAssert (IsInv r, e)) }
+  | ASSERT Exp SEMI { ($1, SAssert (NotInv, $2)) }
+  | ASSERT LBRACE SPLIT RBRACE LITBOOL SEMI { ($1, if $5 then SSplit else parse_err "Must use: assert {:split_here} true;" ) }
+  | YIELD Exp SEMI { ($1, SYield $2) }
+  | AnyId COLONEQ Exp SEMI { ($2, SAssign ($1, $3)) }
+  | LET AnyId COLONEQ AnyId LPAREN Exps RPAREN SEMI { ($3, SInline ([$2], "construct##" ^ $4, $6, [])) }
+  | LET AnyId LPAREN AnyIds RPAREN COLONEQ Exp SEMI { ($6, SInline ($4, "destruct##" ^ $2, [$7], [])) }
+  | CALL                LID LPAREN Exps RPAREN ParCalls SEMI { ($1, SInline ([], $2, $4, $6)) }
+  | CALL AnyIds COLONEQ LID LPAREN Exps RPAREN ParCalls SEMI { ($1, SInline ($2, $4, $6, $8)) }
+  | CALL                UID LPAREN Exps RPAREN SEMI { ($1, SCall ([], $2, $4)) }
+  | CALL AnyIds COLONEQ UID LPAREN Exps RPAREN SEMI { ($1, SCall ($2, $4, $6)) }
+
+Block
+  : { [] }
+  | Stmt Block { $1::$2 }
+
+ProcDecls
+  : { [] }
+  | VAR AnyId COLON Type SEMI ProcDecls { ($2, $4, Non)::$6 }
+  | LINEAR VAR AnyId COLON Type SEMI ProcDecls { ($3, $5, Lin (LinVar, LinOur))::$7 }
+  | MY VAR AnyId COLON Type SEMI ProcDecls { ($3, $5, Lin (LinVar, LinMy))::$7 }
+
+Formal
+  : AnyId COLON Type { ($1, $3) }
+Formals
+  : { [] }
+  | Formal { [$1] }
+  | Formal COMMA Formals { $1::$3 }
+
+LocalFormal
+  : AnyId COLON Type { ($1, $3) }
+LocalFormals
+  : { [] }
+  | LocalFormal { [$1] }
+  | LocalFormal COMMA LocalFormals { $1::$3 }
+
+ProcFormal
+  : AnyId COLON Type { ($1, $3, Non) }
+  | LINEAR AnyId COLON Type { ($2, $4, Lin (LinVar, LinOur)) }
+  | MY AnyId COLON Type { ($2, $4, Lin (LinVar, LinMy)) }
+  | CONST LINEAR AnyId COLON Type { ($3, $5, Lin (LinConst, LinOur)) }
+  | CONST MY AnyId COLON Type { ($3, $5, Lin (LinConst, LinMy)) }
+ProcFormals
+  : { [] }
+  | ProcFormal { [$1] }
+  | ProcFormal COMMA ProcFormals { $1::$3 }
+
+Spec
+  : REQUIRES Exp SEMI { ($1, let (r, e) = maybe_relation $2 in Requires (r, e)) }
+  | ENSURES Exp SEMI { ($1, let (r, e) = maybe_relation $2 in Ensures (r, e)) }
+  | MODIFIES AnyIds SEMI { ($1, Modifies $2) }
+Specs
+  : { [] }
+  | Spec Specs { $1::$2 }
+
+TypeCase
+  : AnyId LPAREN ProcFormals RPAREN { (Non, $1, $3) }
+  | MY AnyId LPAREN ProcFormals RPAREN { (Lin (LinVar, LinMy), $2, $4) }
+  | LINEAR AnyId LPAREN ProcFormals RPAREN { (Lin (LinVar, LinOur), $2, $4) }
+TypeCases
+  : { [] }
+  | TypeCase { [$1] }
+  | TypeCase BAR TypeCases { $1::$3 }
+
+AnyIdExp: AnyId { $1 } | LPAREN AnyIdExp RPAREN { $2 }
+AnyIdExps
+  : { [] }
+  | AnyIdExp { [$1] }
+  | AnyIdExp COMMA AnyIdExps { $1::$3 }
+AnyIdLists
+  : { ([], "") }
+  | LPAREN AnyIdExps RPAREN AnyIdLists { ($2 @ (fst $4), "(" + (String.concat "," $2) + ")" + (snd $4)) }
+FunAttr
+  : { None }
+  | LBRACE COLON ID LITBOOL RBRACE { assrt ($3 = "expand" || $3 = "never_pattern"); Some ($3 + " " + (if $4 then "true" else "false")) }
+GhostOpt: { PReal } | GHOST { PGhost }
+ProcOrImpl
+  : GhostOpt PROCEDURE { ($2, Procedure ($1, Yields)) }
+  | ATOMIC GhostOpt PROCEDURE { ($3, Procedure ($2, Atomic)) }
+  | STABLE GhostOpt PROCEDURE { ($3, Procedure ($2, Stable)) }
+  | IMPLEMENTATION { ($1, Implementation) }
+ProcRet
+  : { [] }
+  | RETURNS LPAREN ProcFormals RPAREN { $3 }
+FunRet
+  : RETURNS LPAREN Type RPAREN { $3 }
+  | RETURNS LPAREN AnyId COLON Type RPAREN { $5 }
+  | COLON Type { $2 }
+Decl
+  : TYPE AnyId SEMI { ($1, DType ($2, false, false, None)) }
+  | TYPE AnyId EQ TypeCases SEMI { ($1, DType ($2, false, false, Some $4)) }
+  | TYPE LBRACE COLON ID RBRACE AnyId EQ TypeCases SEMI { assrt ($4 = "overload"); ($1, DType ($6, true, false, Some $8)) }
+  | TYPE LTLT Type GTGT SEMI { let o = option_type_id $3 in ($1, DType (o, false, false, Some [(Non, o + "_None", []); (Non, o + "_Some", [(o + "_Value", $3, Non)])])) }
+  | TYPE IMPLEMENTATION AnyId EQ TypeCases SEMI { ($1, DType ($3, false, true, Some $5)) }
+  | TYPE IMPLEMENTATION LBRACE COLON ID RBRACE AnyId EQ TypeCases SEMI { assrt ($5 = "overload"); ($1, DType ($7, true, true, Some $9)) }
+  | VAR AnyId COLON Type SEMI { ($1, DStaticGhost ($2, $4, Non, ReadWrite)) }
+  | READONLY VAR AnyId COLON Type SEMI { ($1, DStaticGhost ($3, $5, Non, Readonly)) }
+  | LINEAR VAR AnyId COLON Type SEMI { ($2, DStaticGhost ($3, $5, Lin (LinVar, LinOur), ReadWrite)) }
+  | STATIC AnyId SEMI { ($1, DStatic $2) }
+  | ProcOrImpl LID LPAREN ProcFormals RPAREN ProcRet SEMI Specs
+    { assrt (match $1 with (_, Procedure _) -> true | _ -> false); (fst $1, DProc ($2, snd $1, Inline, $4, $6, $8, None)) }
+  | ProcOrImpl UID LPAREN ProcFormals RPAREN ProcRet SEMI Specs
+    { assrt (match $1 with (_, Procedure _) -> true | _ -> false); (fst $1, DProc ($2, snd $1, Outline, $4, $6, $8, None)) }
+  | ProcOrImpl LID LPAREN ProcFormals RPAREN ProcRet Specs LBRACE ProcDecls Block RBRACE
+    { (fst $1, DProc ($2, snd $1, Inline, $4, $6, $7, Some ($9, $10))) }
+  | ProcOrImpl UID LPAREN ProcFormals RPAREN ProcRet Specs LBRACE ProcDecls Block RBRACE
+    { (fst $1, DProc ($2, snd $1, Outline, $4, $6, $7, Some ($9, $10))) }
+  | CONST AnyId COLON Type SEMI
+    { ($1, DFunDecl ($2, None, Some $4, None, None, None)) }
+  | CONST AnyId COLON Type COLONEQ Exp SEMI
+    { ($1, DFunDecl ($2, None, Some $4, Some $6, None, None)) }
+  | CONST SEGNAME COLON Type COLONEQ Exp SEMI
+    { ($1, DFunDecl ($2, None, Some $4, Some $6, None, None)) }
+  | CONST REGNAME COLON Type COLONEQ Exp SEMI
+    { ($1, DFunDecl ($2, None, Some $4, Some $6, None, None)) }
+  | FUNCTION FunAttr FunDeclId LPAREN Formals RPAREN FunRet LBRACE Exp RBRACE
+    { ($1, DFunDecl ($3, Some $5, Some $7, Some $9, $2, None)) }
+  | FUNCTION FunAttr FunDeclId LPAREN Formals RPAREN FunRet SEMI
+    { ($1, DFunDecl ($3, Some $5, Some $7, None, $2, None)) }
+  | FUNCTION IMPLEMENTATION Triggers FunDeclId LPAREN Formals RPAREN FunRet LBRACE Exp RBRACE
+    { ($1, DFunDecl ($4, Some $6, Some $8, Some $10, None, Some $3)) }
+
+Decls
+  : { [] }
+  | Decl Decls { $1::$2 }
+
+Modifies
+  : { [] }
+  | MODIFIES AnyIdExps SEMI Modifies { $2 @ $4 }
+
+Yields
+  : { [] }
+  | YIELD AnyIdExps SEMI Yields { $2 @ $4 }
+
+Imports
+  : { [] }
+  | IMPORT AnyIdExps SEMI Imports { $2 @ $4 }
+
+

@@ -1,0 +1,186 @@
+//-<NuBuild BasmEnableSymdiff true />
+//-private-import BaseSpec;
+//-private-import MemorySpec;
+//-private-import IoTypesSpec;
+//-private-import MachineStateSpec;
+//-private-import AssemblySpec;
+//-private-import InterruptsSpec;
+//-private-import IoSpec;
+//-<NuBuild AddBoogieAxiom Base_axioms />
+//-<NuBuild AddBoogieAxiom Word_axioms />
+//-<NuBuild AddBoogieAxiom Memory_axioms />
+//-<NuBuild AddBoogieAxiom Assembly_axioms />
+//-<NuBuild AddBoogieAxiom Io_axioms />
+//-private-import Core;
+//-private-import LogicalAddressing;
+//-private-import Overflow;
+//-private-import Util;
+//-private-import Stacks;
+//-private-import Partition;
+//-private-import Instructions;
+//-private-import Separation;
+//-private-import IntLemmasBase;
+//-private-import IntLemmasGc;
+//-private-import SimpleGcMemory;
+//-private-import SimpleCommon;
+//-private-import SimpleCollector;
+//-private-import IoMain;
+//-private-import IntLemmasMain;
+//-private-basmonly-import Trusted;
+//-private-basmonly-import Checked;
+//-private-import Heap;
+//-private-import Seq;
+//-private-import dafny_DafnyPrelude;
+//-private-import DafnyAssembly;
+//-private-import dafny_base_s;
+//-private-import dafny_relational_s;
+//-<NuBuild AddBoogieFlag /timeLimit:300 />
+//-<NuBuild AddBoogieFlag /trace />
+//-<NuBuild AddBoogieFlag /z3opt:NL_ARITH=false />
+
+module implementation dafny_assembly_i
+{
+
+implementation proc_lemma__word32($ghost_x:int) returns()
+{
+    call reveal_WORD_HI();
+}
+
+
+//function implementation fun_IntBit($ghost_index:int, $ghost_n:int):bool
+//{
+//    int_bit($ghost_n, 31 - $ghost_index)        // IntBit is big endian, int_bit is little endian
+//}
+
+implementation proc_lemma__IntBit($ghost_index:int, $ghost_val:int) returns()
+{
+    call reveal_int_bit($ghost_val, 31 - $ghost_index);
+}
+
+implementation proc_lemma__mod0x100000000($ghost_x:int) returns()
+{
+}
+
+implementation proc_method__Mul(my r_old:regs, $ghost_x:int, $ghost_y:int, $opn_hi:int, $opn_x:int, $opn_y:opn) returns(my r:regs, $ghost_hi:int, $ghost_r:int)
+{
+    r := r_old;
+    call r := instr_MulChecked(r, $opn_y);
+    assert TVM($ghost_x, $ghost_y);
+    $ghost_r := r.regs[EAX];
+    $ghost_hi := r.regs[EDX];
+}
+
+implementation proc_method__DivMod(my r_old:regs, $ghost_zero:int, $ghost_x:int, $ghost_y:int, $opn_zero:int, $opn_x:int, $opn_y:opn) returns(my r:regs, $ghost_m:int, $ghost_d:int)
+{
+    r := r_old;
+    call r := instr_Div(r, $opn_y);
+    $ghost_d := r.regs[EAX];
+    $ghost_m := r.regs[EDX];
+}
+
+implementation Proc_asm__Rdtsc(my r_old:regs, const my core_state:core_state, linear stk_old:mem, linear statics_old:mem, linear io_old:IOState, linear mems_old:mems, $commonVars_old:commonVars, $gcVars_old:gcVars, $toAbs_old:[int]int, $absMem_old:[int][int]int, $stacksFrames_old:[int]Frames, objLayouts_old:[int]ObjLayout, heap_old:Heap) returns(my r:regs, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems, $commonVars:commonVars, $gcVars:gcVars, $toAbs:[int]int, $absMem:[int][int]int, $stacksFrames:[int]Frames, objLayouts:[int]ObjLayout, heap:Heap, $ghost_high:int, $ghost_low:int)
+{
+    r := r_old;
+    stk := stk_old;
+    statics := statics_old;
+    io := io_old;
+    mems := mems_old;
+    $commonVars := $commonVars_old;
+    $gcVars := $gcVars_old;
+    $toAbs := $toAbs_old;
+    $absMem := $absMem_old;
+    $stacksFrames := $stacksFrames_old;
+    objLayouts := objLayouts_old;
+    heap := heap_old;
+
+    assert TV(esp) && TO(0) && TO(1) && TO(2) && TO(3);
+
+    call Rdtsc();
+
+    call Store(inout stk, esp + IPSize, edx);
+    call Store(inout stk, esp + (4 + IPSize), eax);
+
+    $ghost_high := edx;
+    $ghost_low := eax;
+
+    Return;
+}
+
+implementation Proc_asm__declassify__result(my r_old:regs, const my core_state:core_state, linear stk_old:mem, linear statics_old:mem, linear io_old:IOState, linear mems_old:mems, $commonVars_old:commonVars, $gcVars_old:gcVars, $toAbs_old:[int]int, $absMem_old:[int][int]int, $stacksFrames_old:[int]Frames, objLayouts_old:[int]ObjLayout, heap_old:Heap, $ghost_concrete:int, $ghost_result:int) returns(my r:regs, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems, $commonVars:commonVars, $gcVars:gcVars, $toAbs:[int]int, $absMem:[int][int]int, $stacksFrames:[int]Frames, objLayouts:[int]ObjLayout, heap:Heap, $ghost_pub_result:int)
+{
+    r := r_old;
+    stk := stk_old;
+    statics := statics_old;
+    io := io_old;
+    mems := mems_old;
+    $commonVars := $commonVars_old;
+    $gcVars := $gcVars_old;
+    $toAbs := $toAbs_old;
+    $absMem := $absMem_old;
+    $stacksFrames := $stacksFrames_old;
+    objLayouts := objLayouts_old;
+    heap := heap_old;
+
+    assert TV(esp) && TO(0) && TO(1) && TO(2) && TO(3) && TO(4);
+
+    call eax := Load(stk, esp + (4 + IPSize));     // Grab the concrete value off the stack
+
+    assert eax == $ghost_concrete;
+
+    call r := declassify(r, EAX, $ghost_result);
+
+    assert eax == $ghost_result;
+
+    call Store(inout stk, esp + IPSize, eax);
+
+    $ghost_pub_result := eax;
+    Return;
+}
+
+
+implementation Proc_GetBootloaderArgWord(my r_old:regs, const my core_state:core_state, linear stk_old:mem, linear statics_old:mem, linear io_old:IOState, linear mems_old:mems, $commonVars_old:commonVars, $gcVars_old:gcVars, $toAbs_old:[int]int, $absMem_old:[int][int]int, $stacksFrames_old:[int]Frames, objLayouts_old:[int]ObjLayout, heap_old:Heap, $ghost_index:int) returns(my r:regs, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems, $commonVars:commonVars, $gcVars:gcVars, $toAbs:[int]int, $absMem:[int][int]int, $stacksFrames:[int]Frames, objLayouts:[int]ObjLayout, heap:Heap, $ghost_word:int)
+{
+    r := r_old;
+    stk := stk_old;
+    statics := statics_old;
+    io := io_old;
+    mems := mems_old;
+    $commonVars := $commonVars_old;
+    $gcVars := $gcVars_old;
+    $toAbs := $toAbs_old;
+    $absMem := $absMem_old;
+    $stacksFrames := $stacksFrames_old;
+    objLayouts := objLayouts_old;
+    heap := heap_old;
+
+    assert TV(esp) && TO(0) && TO(1) && TO(2) && TO(3);
+
+    call eax := Load(stk, esp + (4 + IPSize));
+
+    assert eax == $ghost_index;
+    ebx := 4;
+    call eax,edx := Mul(eax, ebx);        //- Convert to bytes
+    assert eax == wrap32(Mult($ghost_index, 4));
+
+    //- Prove that we can convert this into eax == $ghost_index * 4
+    assert TVM($ghost_index, 4);    //- Reveals Mult
+    call reveal_wrap32($ghost_index * 4);
+    call reveal_WORD_HI();
+    assert eax == $ghost_index * 4;
+    
+    call reveal_MemInvDetails();    //- Shows that ArgLo is sane
+    ebx := ArgLo;
+    call ebx := AddChecked(ebx, eax);
+    assert Aligned(ArgLo);
+    assert TV(ArgLo) && TO($ghost_index);   //- Show that ebx is Aligned
+
+    call edx := Load(mems.arg, ebx);
+    //call edx := Load(arg, ebx);
+
+    call Store(inout stk, esp + IPSize, edx);
+
+    $ghost_word := edx;
+    Return;
+}
+
+}

@@ -1,0 +1,124 @@
+//-<Disabled-uBuild BasmEnableSymdiff true />
+//-private-import BaseSpec;
+//-private-import MemorySpec;
+//-private-import IoTypesSpec;
+//-private-import MachineStateSpec;
+//-private-import AssemblySpec;
+//-private-import InterruptsSpec;
+//-private-import IoSpec;
+//-<NuBuild AddBoogieAxiom Base_axioms />
+//-<NuBuild AddBoogieAxiom Word_axioms />
+//-<NuBuild AddBoogieAxiom Memory_axioms />
+//-<NuBuild AddBoogieAxiom Assembly_axioms />
+//-<NuBuild AddBoogieAxiom Io_axioms />
+//-private-import Core;
+//-private-import LogicalAddressing;
+//-private-import Overflow;
+//-private-import Util;
+//-private-import Stacks;
+//-private-import Partition;
+//-private-import Instructions;
+//-private-import Separation;
+//-private-import IntLemmasBase;
+//-private-import IntLemmasGc;
+//-private-import SimpleGcMemory;
+//-private-import SimpleCommon;
+//-private-import SimpleCollector;
+//-private-import IoMain;
+//-private-import IntLemmasMain;
+//-private-basmonly-import Trusted;
+//-private-basmonly-import Checked;
+//-private-import Heap;
+//-private-import Seq;
+//-private-import dafny_DafnyPrelude;
+//-private-import DafnyAssembly;
+//-private-import dafny_io_mem_s;
+//-<NuBuild AddBoogieFlag /timeLimit:300 />
+//-<NuBuild AddBoogieFlag /trace />
+//-<NuBuild AddBoogieFlag /z3opt:NL_ARITH=false />
+
+module implementation dafny_io_mem_i
+{
+implementation Proc_IoMemAddrRead(my r_old:regs, const my core_state:core_state, linear stk_old:mem, linear statics_old:mem, linear io_old:IOState, linear mems_old:mems, $commonVars_old:commonVars, $gcVars_old:gcVars, $toAbs_old:[int]int, $absMem_old:[int][int]int, $stacksFrames_old:[int]Frames, objLayouts_old:[int]ObjLayout, heap_old:Heap, $ghost_r_addr:int) returns(my r:regs, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems, $commonVars:commonVars, $gcVars:gcVars, $toAbs:[int]int, $absMem:[int][int]int, $stacksFrames:[int]Frames, objLayouts:[int]ObjLayout, heap:Heap, $ghost_r_val:int)
+{
+    var $absMem_tmp:[int][int]int;
+    var objLayouts_tmp:[int]ObjLayout;
+    var heap_tmp:Heap;
+    var obj_tmp:int;
+    var val_tmp:int;
+    var mem_tmp:[int]int;
+    assert fun_unroll(0);
+    assert fun_unroll(1);
+    r := r_old;
+    stk := stk_old;
+    statics := statics_old;
+    io := io_old;
+    mems := mems_old;
+    $commonVars := $commonVars_old;
+    $gcVars := $gcVars_old;
+    $toAbs := $toAbs_old;
+    $absMem := $absMem_old;
+    $stacksFrames := $stacksFrames_old;
+    objLayouts := objLayouts_old;
+    heap := heap_old;
+    assert TV(esp);
+    assert TO(0);
+    assert TO(768);
+    assert TO(1);
+    assert TO(769);
+    assert TO(2);
+    assert TO(770);
+
+    //- Read arguments off the stack
+    call edx := Load(stk, esp + 8); //- r_addr
+
+    call ecx := IoMemAddrRead(edx);
+
+    call Store(inout stk, esp + 4, ecx);
+    $ghost_r_val := ecx;
+
+    //- dummy method body for axiom
+    Return;
+}
+
+implementation Proc_IoMemAddrWrite(my r_old:regs, const my core_state:core_state, linear stk_old:mem, linear statics_old:mem, linear io_old:IOState, linear mems_old:mems, $commonVars_old:commonVars, $gcVars_old:gcVars, $toAbs_old:[int]int, $absMem_old:[int][int]int, $stacksFrames_old:[int]Frames, objLayouts_old:[int]ObjLayout, heap_old:Heap, $ghost_w_addr:int, $ghost_w_val:int) returns(my r:regs, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems, $commonVars:commonVars, $gcVars:gcVars, $toAbs:[int]int, $absMem:[int][int]int, $stacksFrames:[int]Frames, objLayouts:[int]ObjLayout, heap:Heap)
+{
+    var $absMem_tmp:[int][int]int;
+    var objLayouts_tmp:[int]ObjLayout;
+    var heap_tmp:Heap;
+    var obj_tmp:int;
+    var val_tmp:int;
+    var mem_tmp:[int]int;
+    assert fun_unroll(0);
+    assert fun_unroll(1);
+    r := r_old;
+    stk := stk_old;
+    statics := statics_old;
+    io := io_old;
+    mems := mems_old;
+    $commonVars := $commonVars_old;
+    $gcVars := $gcVars_old;
+    $toAbs := $toAbs_old;
+    $absMem := $absMem_old;
+    $stacksFrames := $stacksFrames_old;
+    objLayouts := objLayouts_old;
+    heap := heap_old;
+    assert TV(esp);
+    assert TO(0);
+    assert TO(768);
+    assert TO(1);
+    assert TO(769);
+    assert TO(2);
+    assert TO(770);
+
+    //- Read arguments off the stack
+    call ebx := Load(stk, esp + 4); //- w_addr
+    call edx := Load(stk, esp + 8); //- w_val
+
+    call IoMemAddrWrite(ebx, edx);
+
+    //- dummy method body for axiom
+    Return;
+}
+
+}

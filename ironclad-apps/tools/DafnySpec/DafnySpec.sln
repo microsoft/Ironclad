@@ -1,0 +1,34 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2013
+VisualStudioVersion = 12.0.30501.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DafnySpec", "DafnySpec.csproj", "{D2031609-BC52-4F67-8560-6D8F07C38497}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DafnySpecAst", "DafnySpecAst\DafnySpecAst.csproj", "{BE5E53DC-B929-4031-B85B-71138AD363CF}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Parser", "Parser\Parser.csproj", "{0C1E9D4F-6AAE-455C-B5C7-5DE6063CA99E}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{D2031609-BC52-4F67-8560-6D8F07C38497}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D2031609-BC52-4F67-8560-6D8F07C38497}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D2031609-BC52-4F67-8560-6D8F07C38497}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D2031609-BC52-4F67-8560-6D8F07C38497}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BE5E53DC-B929-4031-B85B-71138AD363CF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BE5E53DC-B929-4031-B85B-71138AD363CF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BE5E53DC-B929-4031-B85B-71138AD363CF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BE5E53DC-B929-4031-B85B-71138AD363CF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0C1E9D4F-6AAE-455C-B5C7-5DE6063CA99E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0C1E9D4F-6AAE-455C-B5C7-5DE6063CA99E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0C1E9D4F-6AAE-455C-B5C7-5DE6063CA99E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0C1E9D4F-6AAE-455C-B5C7-5DE6063CA99E}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

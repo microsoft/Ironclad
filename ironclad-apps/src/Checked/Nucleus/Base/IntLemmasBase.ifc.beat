@@ -1,0 +1,159 @@
+//-private-import BaseSpec;
+//-private-import MemorySpec;
+//-private-import IoTypesSpec;
+//-private-import MachineStateSpec;
+//-private-import AssemblySpec;
+//-<NuBuild AddBoogieAxiom Assembly_axioms />
+//-private-import IntSpec;
+//-private-import BitVectorLemmasBase;
+//-
+//-
+//- Copyright (c) Microsoft Corporation.  All rights reserved.
+//-
+
+module interface IntLemmasBase
+{
+
+function bit_index($i:int) returns (bool) { le(0, $i) && le($i, 31) }
+function eq($x:int, $y:int) returns (bool) { le($x, $y) && le($y, $x) }
+function aligned4k($ptr:int) returns (bool) { ClearLSBs(12, $ptr) == $ptr }
+
+atomic ghost procedure alignment_is_mod4_lemma();
+  ensures (forall $x:int :: {Aligned($x)} word($x) ==> Aligned($x) == (_mod($x, 4) == 0));
+
+atomic ghost procedure alignment_4k_is_mod4096_lemma();
+  ensures (forall $x:int :: {aligned4k($x)} word($x) ==> aligned4k($x) == (_mod($x, 4096) == 0));
+
+atomic ghost procedure alignment_dominance_lemma($ptr:int);
+  requires word($ptr);
+  ensures aligned4k($ptr) ==> Aligned($ptr);
+
+atomic ghost procedure lower_bits_dont_matter_lemma($ptr:int, $orVal:int);
+  requires word($ptr);
+  requires le(0, $orVal) && lt($orVal, 4096);
+  ensures  aligned4k($ptr) ==> ClearLSBs(12, or($ptr, $orVal)) == $ptr;
+
+atomic ghost procedure get_set_lemma();
+  ensures  (forall $ptr:int, $index:int :: { GetBit($index, SetBit($index, $ptr)) } 
+            (word($ptr) && bit_index($index)) ==> GetBit($index, SetBit($index, $ptr)) == true);
+
+//- Explain the effect clearing the LSBs has on the bits that constitute $ptr
+atomic ghost procedure clear_LSBs_lemma();
+  ensures (forall $ptr:int, $amount:int, $i:int :: { GetBit($i, ClearLSBs($amount, $ptr)) }
+           (bit_index($amount) && word($ptr) && bit_index($i)) ==> 
+           if lt($i, $amount) then
+             GetBit($i, ClearLSBs($amount, $ptr)) == false
+           else
+             GetBit($i, ClearLSBs($amount, $ptr)) == GetBit($i, $ptr) );
+
+atomic ghost procedure upper_bits_clear_ubound_lemma();
+  ensures (forall $ptr:int, $y:int :: { SelectLSBs($y, $ptr) }
+  (word($ptr) && ge(10, $y) && ge($y, 0)) ==> le(SelectLSBs($y, $ptr), 1023) );
+
+atomic ghost procedure upper_bits_clear_lbound_lemma();
+  ensures (forall $ptr:int, $y:int :: { SelectLSBs($y, $ptr) }
+  (word($ptr) && ge(10, $y) && ge($y, 0)) ==> le(0, SelectLSBs($y, $ptr)));
+
+atomic ghost procedure clear_less_than_equal_lemma();
+  ensures (forall $ptr:int, $amt:int :: { le(ClearLSBs($amt, $ptr), $ptr) }
+           (word($ptr) && bit_index($amt)) ==> le(ClearLSBs($amt, $ptr), $ptr) );
+
+atomic ghost procedure clear_12_lemma();
+  ensures (forall $ptr:int :: { and($ptr, 0xFFFFF000) }
+           word($ptr) ==> ClearLSBs(12, $ptr) == and($ptr, 0xFFFFF000));
+  ensures (forall $ptr:int :: { add(ClearLSBs(12, $ptr), 0x1000) }
+           word($ptr) && lt($ptr, 0xFFFFF000) ==> ge(add(ClearLSBs(12, $ptr), 0x1000), $ptr) ); 
+  ensures (forall ptr:int, lb:int, ub:int :: { between(lb, ub, ClearLSBs(12, ptr)) }
+           word(ptr) && word(lb) && word(ub) && 
+           aligned4k(lb) && aligned4k(ub) && 
+           between(lb, ub, ptr) ==> between(lb, ub, ClearLSBs(12, ptr)) );
+  ensures (forall ptr:int, lb:int, ub:int :: { between(lb, ub, ClearLSBs(12, ptr)) }
+           word(ptr) && word(lb) && word(ub) && 
+           aligned4k(lb) && aligned4k(ub) && 
+           !between(lb, ub, ptr) ==> !between(lb, ub, ClearLSBs(12, ptr)) );
+
+atomic ghost procedure clear_select_consistent_lemma();
+  ensures (forall $ptr:int, $val:int :: 
+          { ClearLSBs($val,  ClearLSBs($val, $ptr)) } { SelectLSBs($val, SelectLSBs($val, $ptr))}
+          (word($ptr) && bit_index($val)) ==>  ClearLSBs($val,  ClearLSBs($val, $ptr)) ==  ClearLSBs($val, $ptr) &&
+                                              SelectLSBs($val, SelectLSBs($val, $ptr)) == SelectLSBs($val, $ptr));
+
+atomic ghost procedure select_non_negative_lemma();
+  ensures (forall $ptr:int, $amt:int :: { le(0, SelectLSBs($amt, $ptr)) }
+           (word($ptr) && bit_index($amt)) ==>
+           le(0, SelectLSBs($amt, $ptr)) );
+            
+atomic ghost procedure select_preserves_word_lemma();
+  ensures (forall $ptr:int, $x:int :: { word(SelectLSBs($x, $ptr)) }
+           (word($ptr) && bit_index($x)) ==> word(SelectLSBs($x, $ptr)));
+
+atomic ghost procedure and_bounds();
+  ensures (forall $val:int :: { and($val, 0xff) } 
+          word($val) ==> le(0, and($val, 0xff)) && lt(and($val, 0xff), 256));
+  ensures (forall $val:int :: { and($val, 0xf) } 
+          word($val) ==> le(0, and($val, 0xf)) && lt(and($val, 0xf), 16));
+
+atomic ghost procedure shr_decreases();
+  ensures (forall $ptr:int, $x:int :: { shr($ptr, $x) }
+           (word($ptr) && ge($x, 0)) ==> le(shr($ptr, $x), $ptr));
+
+atomic ghost procedure shr_preserves_word_lemma();
+  ensures (forall $ptr:int, $x:int :: { word(shr($ptr, $x)) }
+           (word($ptr) && ge($x, 0)) ==> word(shr($ptr, $x)));
+
+atomic ghost procedure set_bit_preserves_word_lemma();
+  ensures (forall $ptr:int, $x:int :: { word(SetBit($x, $ptr)) }
+           (word($ptr) && bit_index($x)) ==> word(SetBit($x, $ptr)));
+
+atomic ghost procedure or_with_3_lemma();  
+  ensures (forall $ptr:int, $i:int :: { GetBit($i, or($ptr, 3)) }
+           (word($ptr) && bit_index($i)) ==>
+           if (eq($i, 0) || eq($i, 1)) then
+             GetBit($i, or($ptr, 3)) == true
+           else
+             GetBit($i, or($ptr, 3)) == GetBit($i, $ptr));
+
+atomic ghost procedure or_with_7_lemma();  
+  ensures (forall $ptr:int, $i:int :: { GetBit($i, or($ptr, 7)) }
+           (word($ptr) && bit_index($i)) ==>
+           if (eq($i, 0) || eq($i, 1) || eq($i, 2)) then
+             GetBit($i, or($ptr, 7)) == true
+           else
+             GetBit($i, or($ptr, 7)) == GetBit($i, $ptr));
+
+atomic ghost procedure or_with_pow2_31_lemma();  
+  ensures (forall $ptr:int, $i:int :: { GetBit($i, or($ptr, 0x80000000)) }
+           (word($ptr) && bit_index($i)) ==>
+           if (eq($i, 31)) then
+             GetBit($i, or($ptr, 0x80000000)) == true
+           else
+             GetBit($i, or($ptr, 0x80000000)) == GetBit($i, $ptr));
+  ensures (forall $ptr:int :: { or($ptr, 0x80000000) }
+           word($ptr) ==> SetBit(31, $ptr) == or($ptr, 0x80000000) );
+
+atomic ghost procedure pointer_pieces_lemma();
+  ensures (forall $ptr:int :: 
+           { mul(4096, add(mul(SelectLSBs(10, shr($ptr, 22)), 1024), SelectLSBs(10, shr($ptr, 12)))) } 
+           word($ptr) ==>
+           mul(4096, add(mul(SelectLSBs(10, shr($ptr, 22)), 1024), SelectLSBs(10, shr($ptr, 12)))) 
+           == ClearLSBs(12, $ptr) );
+
+atomic ghost procedure ptr_offsets_lemma();
+  ensures (forall $ptr:int :: { PageTableOffset($ptr) }
+           (word($ptr) && lt($ptr, 4096)) ==> PageTableOffset($ptr) == 0 );
+  ensures (forall $ptr:int :: { PageDirectoryOffset($ptr) }
+           word($ptr) ==> (lt($ptr, 4194304) <==> PageDirectoryOffset($ptr) == 0) );
+  ensures (forall $ptr:int :: { PageTableOffset($ptr) }
+           (word($ptr) && PageTableOffset($ptr) != 0) ==> gt($ptr, 0) );
+  ensures (forall $ptr:int :: { PageTableOffset($ptr) }
+           (word($ptr) && ge($ptr, 4096)) ==> 
+           gt(PageTableOffset($ptr), 0) || gt(PageDirectoryOffset($ptr), 0) );
+
+atomic ghost procedure ptr_reconstruction_lemma();
+  ensures (forall ptr:int :: { or(ClearLSBs(12, ptr), SelectLSBs(12, ptr)) }
+           word(ptr) ==> ptr == or(ClearLSBs(12, ptr), SelectLSBs(12, ptr)) );
+  ensures (forall ptr:int :: { or(SelectLSBs(12, ptr), ClearLSBs(12, ptr)) }
+           word(ptr) ==> ptr == or(SelectLSBs(12, ptr), ClearLSBs(12, ptr)) );
+
+
+}

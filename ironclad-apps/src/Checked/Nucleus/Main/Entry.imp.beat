@@ -1,0 +1,1222 @@
+// Uh-oh: it looks like whether we need Symdiff in Main depends
+// on what app we're compiling! DafnyCCTest (nee Cube) didn't need it.
+// I guess as long as it's always *allowed*, we'll just pay for it
+// too often.
+// jonh: deleting all these import rules; we'll pick the correct
+// set up from dafny_Main_i via HorribleEntryStitcher.
+// Except we definitely need to add this one in:
+//private-import dafny_Main_i;
+// And we need annotations, which Horrible isn't transferring:
+//-<NuBuild BasmEnableSymdiff true />
+//-<NuBuild AddBoogieAxiom Base_axioms />
+//-<NuBuild AddBoogieAxiom Word_axioms />
+//-<NuBuild AddBoogieAxiom Memory_axioms />
+//-<NuBuild AddBoogieAxiom Assembly_axioms />
+//-<NuBuild AddBoogieAxiom Io_axioms />
+
+//-private-disabled BaseSpec;
+//-private-disabled MemorySpec;
+//-private-disabled IoTypesSpec;
+//-private-disabled MachineStateSpec;
+//-private-disabled AssemblySpec;
+//-private-disabled InterruptsSpec;
+//-private-disabled IoSpec;
+//-private-disabled Core;
+//-private-disabled LogicalAddressing;
+//-private-disabled Overflow;
+//-private-disabled Stacks;
+//-private-disabled Partition;
+//-private-disabled Instructions;
+//-private-disabled Util;
+//-private-disabled Separation;
+//-private-disabled IntLemmasBase;
+//-private-disabled IntLemmasGc;
+//-private-disabled SimpleGcMemory;
+//-private-disabled SimpleCommon;
+//-private-disabled SimpleCollector;
+//-private-disabled IoMain;
+//-private-disabled IntLemmasMain;
+//-private-basmonly-disabled Trusted;
+//-private-basmonly-disabled Checked;
+//-private-disabled Heap;
+//-private-disabled Seq;
+//-private-disabled dafny_DafnyPrelude;
+//-private-disabled DafnyAssembly;
+//-private-disabled dafny_relational_s;
+//-private-disabled dafny_base_s;
+//-private-disabled dafny_power2_s;
+//-private-disabled dafny_mul_i;
+//-private-disabled dafny_assembly_i;
+//-private-disabled dafny_bit_vector_lemmas_i;
+//-private-import AppLoaderContract;
+//-private-import ExtendedAssembly;
+
+//-
+//- Copyright (c) Microsoft Corporation.  All rights reserved.
+//-
+
+//- Entry points from the outside world (e.g. from boot loader, interrupts, TAL code, etc.)
+
+module implementation Entry
+{
+
+#ifdef AppLoader
+implementation LoaderEntryPoint(
+    my r_in:regs,
+    my core_state_in:core_state,
+    linear initState_in:InitStateMachine,
+    linear mem_in:mem,
+    linear io_in:IOState,
+    linear dev_states_in:DEV_StateMachines,
+    $sl_len:int, $cpu_info:int)
+#else
+implementation AppEntryPoint(
+    my r_in:regs,
+    my core_state_in:core_state,
+    linear initState_in:InitStateMachine,
+    linear mem_in:mem,
+    linear code_mem:mem,
+    linear io_in:IOState,
+    app_entry:int,
+    app_code_base:int,
+    code_word_seq:Seq___int
+    )
+#endif
+{
+  call reveal_MemInvDetails();
+  assert ?fLo - ?sLo == stackGcOffset;
+  
+  my var r:regs := r_in;
+  my var core_state:core_state := core_state_in;
+  linear var initState:InitStateMachine := initState_in;
+  linear var mem:mem := mem_in;
+  linear var stk:mem;
+  linear var statics:mem;
+  linear var static_mem:mem;
+  linear var io:IOState := io_in;
+
+#ifdef AppLoader
+  ecx := 0x300000;
+#else
+  ecx := 0x340000;
+#endif
+
+  if (eax != ecx) {    //- We were loaded at the wrong address!
+    eax := 0x55550001;
+    call debugBreak();
+  }
+  call initState, static_mem := enableStatics(initState);
+
+  assert ?memLo <= esp - 6*?SegmentDescriptorSize;
+  assert esp <= ?memHi;
+//  assert esp == 0x310000;
+//  call reveal_Aligned(0x310000);
+  assert TV(?CodeBase) && TO(123*1024*256) && TO(0x4000);
+  assert Aligned(esp);
+#ifdef AppLoader      //- Other apps require the loader to take care of this
+  call fixupDS();
+#endif
+  call enableLogicalAddressing();
+
+//  edx := 300;
+//  eax := 0x112233;
+//  call writeHex();
+//
+//dummyLoop:
+//    goto dummyLoop;
+  
+
+#ifdef AppLoader
+  linear var new_mem:mem;
+  linear var dev_mem:mem;
+
+  //- Initialize additional DEV protection, so we have more protected memory to work with
+  call dev_mem := memEmpty();
+  call mem, dev_mem := memTransfer(mem, dev_mem, (lambda i:int :: ?DEVLo <= i && i < ?DEVHi));
+  assert (forall i:int :: {dev_mem.dom[i]} TV(i) ==> (dev_mem.dom[i] <==> (?DEVLo <= i && i < ?DEVHi)));
+  linear var dev_states:DEV_StateMachines := dev_states_in;
+  call new_mem := initDEV(dev_states, dev_mem);
+
+  //- Merge the statics, the large swath of DEV-protected mem, and our original mem
+  call static_mem, mem := memTransfer(static_mem, mem, (lambda i:int :: static_mem.dom[i]));
+  call new_mem, mem := memTransfer(new_mem, mem, (lambda i:int :: new_mem.dom[i]));
+#else 
+  //- Merge the statics and our original mem
+  call static_mem, mem := memTransfer(static_mem, mem, (lambda i:int :: static_mem.dom[i]));
+#endif
+
+  //- Initialize separation module
+  linear var mems:mems;
+  linear var appCodeMem:mem;
+
+#ifdef AppLoader
+  ebx := 0x10000;
+  ecx := 0x300000;
+#else
+  ebx := 0x100000;
+  ecx := 0x340000;
+#endif
+  assert ebx == ?CodeSpace;
+  assert ecx == ?CodeBase;
+  ebp := ecx;
+
+  ecx := ecx + ebx;
+  ecx := ecx + 0x1F000;
+
+  edx := 0x08000000;
+  assert ecx == ?sLo;
+  call reveal_Aligned(?sLo);
+  call stk, statics, mems, appCodeMem := initSeparation(mem);
+
+  //- Switch to nucleus stack
+  esp := DLo;
+  call espAligned();
+  call esp := Sub(esp, 16);
+
+  //- Initialize GC
+  var $absMem:[int][int]int := (lambda i:int::(lambda j:int::0));
+  var $toAbs:[int]int := (lambda i:int::NO_ABS);
+  var $stacksFrames:[int]Frames := (lambda i:int::Frames((lambda j:int::0)));
+  var objLayouts:[int]ObjLayout := (lambda i:int::NoObjLayout());
+  var heap:Heap;
+  var _mem:[int]int;
+  var _val:int;
+  call heap := initHeap($absMem, objLayouts);
+
+  ebp := 0;
+  call initCommon();
+
+  //- Initialize IO-related invariants
+  call initializeSerialPort();
+#ifdef AppLoader
+  esi := 0xdd00001;
+  call serialDbgWordOut();
+  call serialDbgNewlineOut();
+#else
+  esi := 0xaa00001;
+  call serialDbgWordOut();
+  call serialDbgNewlineOut();
+#endif
+
+#ifdef AppLoader
+  ebx := 0x32F000;
+#else
+  ebx := 0x45F000;
+#endif
+  assert ebx == ?sLo;
+  ebx := ebx + 4096;    //- Skip the stack
+  assert ebx == ?sHi;
+  ebx := ebx + 1024;    //- Skip the data
+  assert ebx == ?dHi;
+  ebx := ebx + 1024;    //- Args
+  assert ebx == ?argHi;
+  ecx := ebx;
+  edx := ecx;
+  edx := edx + 1024;
+
+  assert ecx == ?pciLo;
+  assert edx == ?pciHi;
+  call initIoInv();
+
+  call InitializeGc();
+
+#ifdef AppLoader
+  //- Call the Loader's Main Dafny procedure which needs more arguments than usual
+
+  //- Build an array containing the words of the app code
+  call alignCall(r.regs[ESP]);
+  var code_words:ArrayOfInt;
+  {: call := logical_Call(inout r, core_state, inout stk);
+  call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, code_words := Proc_ArrayAlloc(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, appCodeMem); :}
+  //assert SMemInvGcF(16, stk, old(stk_old), r.regs[ESP] + 12, old(r_old.regs[ESP]), $stacksFrames, $stacksFrames_old);
+#ifdef AppLoader
+  esi := 0xdd00010;
+  call serialDbgWordOut();
+  call serialDbgNewlineOut();
+#endif
+
+  assert (forall j:int :: 0 <= j && j < Arr_Length(code_words) ==> fun_INTERNAL__array__elems__index($absMem[code_words.arrAbs], j) == appCodeMem.map[0x340000 + j*4]);
+
+  assert (Arr_Length(code_words) == 256*1024);
+  call proc_Seq__FromArray__Length();
+  assert (fun_Seq__Length___int(fun_Seq__FromArray($absMem, code_words)) == 256*1024);
+  call proc_Seq__FromArray__Index();
+  assert (forall j:int :: 0 <= j && j < 256*1024 ==> 
+            fun_Seq__Index___int(fun_Seq__FromArray($absMem, code_words), j) == fun_INTERNAL__array__elems__index($absMem[code_words.arrAbs], j));
+  assert (forall j:int :: 0 <= j && j < 256*1024 ==> 
+            fun_Seq__Index___int(fun_Seq__FromArray($absMem, code_words), j) == appCodeMem.map[0x340000 + j*4]);
+
+  //- We expect the code to be here
+  ecx := 0x340000;
+  assert ecx == ?appCodeLo;
+  call reveal_MemInvDetails();    //- Shows that ?appCodeLo is sane
+  var code_start:int := ecx;
+  call Store(inout stk, esp + 4, ecx);
+
+  //- First arg from the boot loader is the entry of the app code
+  ecx := 0x330400; //-0x32F800; //0x316800;
+  assert ecx == ?argLo;
+  call reveal_MemInvDetails();    //- Shows that ArgLo is sane
+  call ecx := Load($argMem, ecx);  
+  var entry_point:int := ecx;
+  call Store(inout stk, esp + 8, ecx);
+
+  // pop return value #0 at index 0 into destination code_words isPtr = True
+  // regalloc_stack_load:: EAX := OMem(MReg(ESP, 1052672))  // var = code_words 1437
+//  call r, mems := heapLoadStack(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $absMem, $toAbs, $stacksFrames, objLayouts, ECX, OMem(MReg(ESP, 0x101000)), EvalPtr(r, OMem(MReg(ESP, 0x101000))));
+//  var code_words:int := frameGet($stacksFrames, EvalPtr(r, OMem(MReg(ESP, 0x101000))));
+
+//  call Store(inout stk, esp + 12, ecx);
+  call reveal_WORD_HI();
+
+  var $result:int;
+
+  call        r,             stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, $result :=
+    Proc_Main(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, code_start, entry_point, code_words);
+  call eax := Load(stk, esp);
+  
+  assert eax == entry_point;
+
+edi := eax; //- Save eax == entry_point
+#ifdef AppLoader
+  esi := 0xdd00100;
+  call serialDbgWordOut();
+  call serialDbgNewlineOut();
+#endif
+eax := edi; //- Restore eax == entry_point
+  assert eax == entry_point;
+
+  ebx := 0x32F000;
+  ebx := ebx + 4096;
+  ebx := ebx + 1024;
+  ebx := ebx + 1024;
+  ecx := ebx;
+  edx := ecx;
+  edx := edx + 1024;
+
+  assert ecx == ?pciLo;
+  assert edx == ?pciHi;
+  ebx := eax;
+  call checkIoFresh();
+  eax := ebx;
+  assert eax == entry_point;
+
+  ecx := eax;
+  eax := 0x340000;
+  ebx := ecx;
+  call reveal_Aligned(eax);
+  if (ebx < eax) {
+    eax := 0x555500a1;
+    call debugBreak();  //- App entry is below start of app code
+  }
+  ebx := eax;
+  ebx := ebx + 0x100000;
+  assert ebx == code_start + 0x100000;
+  if (ecx >= ebx) {
+    eax := 0x555500a2;
+    call debugBreak(); //- App entry is beyond end of app code
+  }
+
+  ebx := ecx;
+
+  assert eax == code_start;
+  assert ebx == entry_point;
+//  assert code_start <= entry_point;
+//  assert entry_point < code_start + 0x100000;
+  assert code_start <= entry_point && entry_point < code_start + 0x100000;
+//  assert ?CodeBase == 0x300000;
+//  assert ?memLo == ?CodeBase + 58*1024;
+//  assert code_start == 0x32FC00;
+//  assert ?memLo < code_start;
+//  assert ?memLo < code_start + 0x100000;
+//  assert ?memHi >= code_start + 120*1024*1024;
+
+  ecx := eax;
+  ecx := ecx + 0x7B00000;
+  esp := ecx;
+
+  assert code_start == ?appCodeLo;
+  assert ?gcLo == code_start + 0x101000;
+  //assert ?gcHi == code_start + 123*1024*1024;
+
+  linear var dat:mem;
+  linear var arg:mem;
+  linear var pci:mem;
+  linear var gc:mem;
+  linear var frm:mem;
+  var frms:[int][int]int;
+  linear var tcb:mem;
+  var tcbs:[int][int]int;
+  let mems(dat, arg, pci, gc, frm, frms, tcb, tcbs) := mems;
+
+  linear var app_mem:mem;
+  call app_mem := memEmpty();
+  call gc, app_mem := memTransfer(gc, app_mem, (lambda i:int :: code_start + 0x101000 <= i && i < 0x08000000));
+
+  call logical_inv_is_flat();
+  assert core_state.seg_regs[SS].descriptor.segBase == 0 && 
+           core_state.seg_regs[SS].descriptor.segType == ?SegmentDescriptorTypeData;
+  assert core_state.seg_regs[DS].descriptor.segBase == 0 && 
+           core_state.seg_regs[DS].descriptor.segType == ?SegmentDescriptorTypeData;
+
+  call proc_Seq__FromArray__Index();
+
+  assert (forall j:int :: 0 <= j && j < 256*1024 ==> 
+            fun_Seq__Index___int(fun_Seq__FromArray($absMem, code_words), j) == appCodeMem.map[code_start + j*4]);
+
+ //assert (forall i:int:: code_start + 0x100800 <= i && i < code_start + 123*1024*1024 <==> gc.dom[i]);
+
+  edi := eax; //- Save EAX
+  ebp := ebx; //- Save EBX
+#ifdef AppLoader
+  esi := 0xdd0f000;
+  call serialDbgWordOut();
+  call serialDbgNewlineOut();
+#endif
+    eax := edi; //- restore
+    ebx := ebp; //- restore
+
+  //- Transfer all of the bootloader args from our arg region to the app's
+  ecx := 0x330400; 
+  assert ecx == ?argLo;
+  call reveal_MemInvDetails();    //- Shows that ArgLo is sane
+//  call ecx := Load($argMem, ecx);  
+  edx := ecx;
+  edx := edx + 1024;
+  assert edx == ?argHi;
+  edi := 0x340000;
+  edi := edi + 0x100000;
+  edi := edi + 0x1F000; //- App's ?sLo
+  edi := edi + 4096;    //- App's dLo
+  edi := edi + 1024;    //- App's dHi/argLo
+
+  var ctr:int := 0;
+
+  
+  call reveal_Aligned(0x330400);
+  call reveal_Aligned(0x340000 + 0x100000 + 0x1F000 + 4096 + 1024);
+assert EvalPtrOk(OMem(MReg(EDI, 0)));
+assert Aligned(EvalPtr(r, OMem(MReg(EDI, 0))));
+assert PhysPtrOk(app_mem, EvalPtr(r, OMem(MReg(EDI, 0))));
+assert word(EvalPtr(r, OMem(MReg(EDI, 0))));
+
+  while (ecx < edx) 
+    invariant edx == ?argHi;
+    invariant 0 <= ctr && ctr <= 256;
+    invariant ecx == ?argLo + ctr * 4;
+    invariant edi == 0x340000 + 0x100000 + 0x1F000 + 4096 + 1024 + ctr * 4;
+    invariant ?argLo <= ecx && ecx <= ?argHi;
+    invariant ?gcLo  <= edi && edi < ?gcHi;
+    invariant ecx < edx ==> LogicalSrcOk(r, core_state, arg, OMem(MReg(ECX, 0)));
+    invariant !init;
+    invariant (forall j:int :: app_mem.dom[j] == (code_start + 0x101000 <= j && j < 0x08000000));
+    invariant ecx < edx ==> LogicalDstOk(init, r, core_state, app_mem, OMem(MReg(EDI, 0)));
+    invariant eax == code_start;
+    invariant ebx == entry_point;
+    invariant public(ctr);
+    invariant public(io._inCtr);
+    invariant public(io._outCtr);
+  {
+    assert TV(?argLo) && TO(ctr);
+    assert TV(0x340000 + 0x100000 + 0x1F000 + 4096 + 1024) && TO(ctr);
+
+    call ebp := Load(arg, ecx);  
+    call Store(inout app_mem, edi, ebp);
+  
+    ecx := ecx + 4;
+    edi := edi + 4;
+    ctr := ctr + 1;
+    assert TV(?argLo) && TO(ctr);
+    assert TV(0x340000 + 0x100000 + 0x1F000 + 4096 + 1024) && TO(ctr);
+  
+assert EvalPtrOk(OMem(MReg(EDI, 0)));
+assert Aligned(EvalPtr(r, OMem(MReg(EDI, 0))));
+assert PhysPtrOk(app_mem, EvalPtr(r, OMem(MReg(EDI, 0))));
+assert word(EvalPtr(r, OMem(MReg(EDI, 0))));
+  }
+  assert eax == code_start;
+  assert ebx == entry_point;
+
+  //- Readjust esp
+  ecx := eax;
+  ecx := ecx + 0x7B00000;
+  esp := ecx;
+
+  call instr_Launch(r, core_state, initState, app_mem, appCodeMem, io, entry_point, code_start, fun_Seq__FromArray($absMem, code_words)) ;
+
+
+
+
+#else
+#ifndef AppLoader
+  esi := 0xaa00100;
+  call serialDbgWordOut();
+  call serialDbgNewlineOut();
+#endif
+
+  //- Call the Main Dafny procedure with contains all of the app logic
+  var $result:int;
+  ecx := 5;
+  call Store(inout stk, esp + 4, ecx);
+  call        r,             stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, $result :=
+    Proc_Main(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap);
+  call eax := Load(stk, esp);
+  edx := 140;
+  call writeHex();
+
+#ifndef AppLoader
+  esi := 0xaa01000;
+  call serialDbgWordOut();
+  call serialDbgNewlineOut();
+#endif
+
+  ebp := 0;
+  call GarbageCollect();
+
+#endif
+
+myInfLoop:
+  invariant logical_addressing_inv(init, ptMem, core_state);
+//  eax := 0x12345678;
+//  edx := 140;
+//  call writeHex();
+  goto myInfLoop;
+  
+////Can no longer turn on paging, since we don't have enough space!
+//
+//  // Test out paging **************
+//  
+//  // Check that there's enough rooom for page tables
+//  // 0x402000 = ?pageDirSize + ?numPDEs * ?pageTableSize + 4096 (padding to ensure 4k aligned)
+//  eax := ecx;
+//  call eax := AddChecked(eax, 0x402000);  
+//  if (eax >= edx) {
+//    call debugBreak();
+//  }
+//
+//  // Adjust to ensure we're 4k aligned
+//  eax := ecx;
+//  call eax := And(eax, 0xFFFFF000);
+//  call clear_12_lemma();
+//  assert(eax == ClearLSBs(12, ecx));
+//  call clear_select_consistent_lemma();
+//  assert(Aligned4k(eax));
+//  assert(aligned4k(eax));
+//  call clear_less_than_equal_lemma();
+//  assert(le(eax, ecx));
+//  call eax := Add(eax, 0x1000);
+//  assert(eax == add(ClearLSBs(12, ecx), 0x1000));
+//  call alignment_4k_is_mod4096_lemma();
+//
+//  // eax points to the address at which we want to build all of our page tables
+//  assert aligned4k(eax);
+//  call enablePaging(eax);
+//
+//  call setInit();
+////      // Try writing to the guard region
+////      eax := 4095;
+////      call ecx := RoLoad32(eax);
+
+//  call initializeSerialPort();
+//serialInfLoop:
+//  ecx := 0x4a;
+//  call serialDbgDataOut8();
+//  goto serialInfLoop;
+
+  eax := 0;
+  edx := 0;
+  ebx := 0;
+  edi := 0;
+  ebp := 0;
+
+  edx := 0;
+  call writeHex();
+
+  //ecx := 10;
+  //call core, mems, $r := Proc_pad_one_block(core, mems, 10);
+  //call core, mems := Proc_one_time_pad(core, mems);
+
+  pagingTestLoop:
+    invariant logical_addressing_inv(init, ptMem, core_state);
+    invariant init;
+    eax := 0x98765432;
+    edx := 20;
+    call writeHex();
+  goto pagingTestLoop;
+
+  // End paging test ***************
+
+//  var idtLo @ stk[esp + 0] := ebx;
+//
+//  // Set up interrupt table
+//  var entry@edi := 0;
+//  var ptr@esi := idtLo;
+//  while (entry < 256)
+//    invariant entry >= 0 && TV(entry);
+//    invariant ptr == idtLo + 8 * entry;
+//    invariant (forall i:int::{TV(i)} TV(i) ==> 0 <= i && i < entry ==>
+//                $IdtMemOk[?idtLo + 8 * i] && $IdtMemOk[?idtLo + 8 * i + 4]);
+//    invariant MemInv($Mem_Vars);
+//    invariant esp == DLo - 12;
+//  {
+//    var handler @ stk[esp + 4];
+////
+////    if      (entry == 0)  { handler := ?FaultHandler; }
+////    else {if(entry == 3)  { handler := ?FaultHandler; }
+////    else {if(entry == 4)  { handler := ?FaultHandler; }
+////    else {if(entry == 13) { handler := ?ErrorHandler; }
+////    else {if(entry == 14) { handler := ?ErrorHandler; }
+////    else {if(entry < 32)  { handler := ?FatalHandler; }
+////    else                  { handler := ?InterruptHandler; }}}}}}
+////
+//    handler := ?FatalHandler;
+//
+//    edx := handler;
+//    call edx := And(edx, 0x0000ffff);
+//    ecx := 0x20;
+//    call ecx := Shl(ecx, 16);
+//    call ecx := Or(ecx, edx);
+//    assert ecx == or(shl(?CodeSegmentSelector, 16), and(handler, ?Mask16Lo));
+//    call IdtStore(entry, 0, handler, ptr, ecx);
+//
+//    ecx := handler;
+//    edx := 0xffff0000;
+//    call ecx := And(ecx, edx);
+//    call ecx := Or(ecx, 0x8e00);
+//    call IdtStore(entry, 4, handler, ptr + 4, ecx);
+//
+//    ptr := ptr + 8;
+//    entry := entry + 1;
+//  }
+//
+//  // Set IDT register
+//  ecx := idtLo;
+//  edi := DLo;
+//  call ecx := Shl(ecx, 16);
+//  call ecx := Or(ecx, 2047);
+//  call Store(mems.dat[edi], ecx);
+//  ecx := idtLo;
+//  call ecx := Shr(ecx, 16);
+//  assert TV(DLo) && TO(1);
+//  call Store(mems.dat[edi + 4], ecx);
+//  call Lidt(edi);
+//
+//  // Set up PIC
+//  eax := 0x11; edx := 0x20; call PicOut8(0, 0, 0);
+//  eax := 0x11; edx := 0xa0; call PicOut8(1, 0, 0);
+//  eax := 0x70; edx := 0x21; call PicOut8(0, 1, 1);
+//  eax := 0x78; edx := 0xa1; call PicOut8(1, 1, 1);
+//  eax := 0x04; edx := 0x21; call PicOut8(0, 1, 2);
+//  eax := 0x02; edx := 0xa1; call PicOut8(1, 1, 2);
+//  eax := 0x01; edx := 0x21; call PicOut8(0, 1, 3);
+//  eax := 0x01; edx := 0xa1; call PicOut8(1, 1, 3);
+//  eax := 0xfe; edx := 0x21; call PicOut8(0, 1, 4);
+//  eax := 0xff; edx := 0xa1; call PicOut8(1, 1, 4);
+//  eax := 0x20; edx := 0x20; call PicOut8(0, 0, 5);
+//  eax := 0x20; edx := 0xa0; call PicOut8(1, 0, 5);
+//
+//  // Set up PCI table
+//  entry := 0;
+//  ptr := PciLo;
+//  while (entry < 65536)
+//    invariant 0 <= entry && entry <= 65536;
+//    invariant ptr == PciLo + 8 * entry;
+//    invariant (forall i:int::{TV(i)} TV(i) ==> 0 <= i && i < entry ==>
+//                $pciMem[PciLo + 8 * i] == 0 && $PciConfigState[i] == 0);
+//    invariant MemInv($Mem_Vars);
+//    invariant esp == DLo - 12;
+//  {
+//    assert TV(PciLo) && TO(entry * 2);
+//    call Store(mems.pci[ptr], 0);
+//    entry := entry + 1;
+//    ptr := ptr + 8;
+//  }
+//  call reveal_IoInv();
+//
+//  // Set up IO-MMU tables
+//  assert TV(?memLo) && TO(0 - 18 * 256 * 1024);
+//  ecx := idtLo; ecx := ecx + 2048;
+//  call SetupIoTables();
+//  ebx := eax;
+//
+//  // Set up IO-MMU
+//  ebp := idtLo; ebp := ebp + 0x10800;
+//  call StartIoMmu();
+//
+//  // Set initial timer
+//  ecx : = 0;
+//  call startTimer();
+//
+//  // Set state of all managed stacks to empty
+//  var s @ stk[esp + 8] := 0;
+//  ecx := TLo;
+//  while (s < ?NumStacks)
+//    invariant s >= 0;
+//    invariant ecx == ?tLo + s * ?TSize;
+//    invariant Aligned(ecx);
+//    invariant (forall $s:int::{TStk($s)} TStk($s) ==> $s < s ==> isStack($s) ==> StackTag($s, $tMems) == ?STACK_EMPTY);
+//    invariant MemInv($Mem_Vars);
+//    invariant esp == DLo - 12;
+//    invariant IoInv($IoVars, $pciMem);
+//  {
+//    assert TV(ecx) && TO(2) && TO(64);
+//    call Store(mems.tcb[s][ecx], ?STACK_EMPTY);
+//    ecx := ecx + ?TSize;
+//    call s := Add(s, 1);
+//  }
+//
+//  esi := 0;
+//  infloop:
+//    edx := 140;
+//    call esi := LeaUnchecked(esi + 1);
+//    eax := esi;
+//    call writeHex();
+//    goto infloop;
+//
+//  // Initialize GC
+//  call initCommon();
+//  CurrentStack := ?InitialStack;
+//  ebp := 0;
+//
+//  // assert $S == ?InitialStack;
+//  // assert (forall $s:int::{$StackState[$s]} 0 <= $s && $s < ?NumStacks ==> StackStateTag($StackState[$s]) == ?STACK_EMPTY);
+//  // assert (forall i:int::{TV(i)} $toAbs[i] == NO_ABS);
+//  call InitializeGc();
+//
+//  // Switch to initial managed stack
+//  eax := FLo; eax := eax + ?StackReserve; eax := eax + ?InterruptReserve;
+//  StackCheck := eax;
+//  assert FLo == ?fLo;
+//  esp := FLo; esp := esp + ?FSize; esp := esp - 8;
+//  assert TV(FLo) && TO(4094) && TO(4095);
+//  edi := TLo;
+//  assert TV(TLo) && TO(2);
+//
+//  ecx := ?KernelEntryPoint;
+//  call setStackRunning1(0);
+//  ebp := 0;
+//
+//  return;
+//*/
+  edx := 140;
+  call writeHex();
+
+  eax := 0x55550001;
+  call debugBreak();
+
+  // not reached
+  return;
+}
+
+
+//procedure BuildCodeWordArray();
+//  inout my r:regs, my core_state:core_state, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems, $commonVars:commonVars, $gcVars:gcVars;
+//  inout $absMem:[int][int]int, $toAbs:[int]int, $stacksFrames:[int]Frames, objLayouts:[int]ObjLayout;
+//  requires NucleusInv(objLayouts, $S, $toAbs, $absMem, GcVars, $Mem_Vars, $stacksFrames, $IoVars);
+//  requires SMemRequireRA(212, stk, esp, RET);
+//  modifies efl, eax, ebx, ecx, esp, stk;
+//  // postcondition same as precondition, plus reached:
+//  ensures  NucleusInv(objLayouts, $S, $toAbs, $absMem, GcVars, $Mem_Vars, $stacksFrames, $IoVars);
+//  ensures  SMemEnsure(stk, old(stk), esp, old(esp));
+//{
+//
+//
+//}
+
+#ifdef AppLoader
+const stack_size__DafnyCC__Proc_ArrayAlloc:int := 4 + max(stack_size__DafnyCC__Proc_AllocArrayOfInt + 4, 0);
+procedure Proc_ArrayAlloc(my r_old:regs, const my core_state:core_state, linear stk_old:mem, linear statics_old:mem, linear io_old:IOState, linear mems_old:mems, $commonVars_old:commonVars, $gcVars_old:gcVars, $toAbs_old:[int]int, $absMem_old:[int][int]int, $stacksFrames_old:[int]Frames, objLayouts_old:[int]ObjLayout, heap_old:Heap, const linear appCodeMem:mem) returns(my r:regs, linear stk:mem, linear statics:mem, linear io:IOState, linear mems:mems, $commonVars:commonVars, $gcVars:gcVars, $toAbs:[int]int, $absMem:[int][int]int, $stacksFrames:[int]Frames, objLayouts:[int]ObjLayout, heap:Heap, $ghost_arr:ArrayOfInt);
+    requires MemInv(me,init,stk_old,statics_old,core_state,ptMem,mems_old);
+    requires (forall i:int::{appCodeAddr(i)}{appCodeMem.dom[i]} appCodeMem.dom[i] == appCodeAddr(i));
+    requires NucleusInv(objLayouts_old,$S,$toAbs_old,$absMem_old,$commonVars_old,$gcVars_old,me,init,stk_old,statics_old,core_state,ptMem,mems_old,$stacksFrames_old,io_old);
+    requires SMemRequireGcRA(stack_size__DafnyCC__Proc_ArrayAlloc, 4, stk_old, r_old.regs[ESP], RET);
+    requires HeapInv($absMem_old, objLayouts_old, heap_old);
+    modifies $Time;
+    ensures  r.regs[ESP] == old(r_old.regs[ESP]) + 4;
+    ensures  MemInv(me,init,stk,statics,core_state,ptMem,mems);
+    ensures  NucleusInv(objLayouts,$S,$toAbs,$absMem,$commonVars,$gcVars,me,init,stk,statics,core_state,ptMem,mems,$stacksFrames,io);
+    ensures  SMemEnsureGcF(4, stk, old(stk_old), r.regs[ESP], old(r_old.regs[ESP]), $stacksFrames, $stacksFrames_old);
+    ensures  HeapInv($absMem, objLayouts, heap);
+    ensures  AbsExtend($toAbs, $toAbs_old, objLayouts, objLayouts_old);
+    ensures  (forall i:int::{$absMem[i]}{heap.absData[i]} heap_old.absData[i] is AbsNone || (heap.absData[i] == heap_old.absData[i] && ($absMem[i] == $absMem_old[i])));
+    ensures  io._inCtr == io_old._inCtr && io._outCtr == io_old._outCtr;
+    ensures  (heap_old.absData[$ghost_arr.arrAbs] is AbsNone);
+    ensures  $ghost_arr != (ArrayOfInt(0 - 1, NO_ABS));
+    ensures  ((Arr_Length($ghost_arr))) == 262144;
+    ensures  (forall j:int :: 0 <= j && j < Arr_Length($ghost_arr) ==> fun_INTERNAL__array__elems__index($absMem[$ghost_arr.arrAbs], j) == appCodeMem.map[0x340000 + j*4]);
+    ensures  fun_IsWordSeq(fun_Seq__FromArray($absMem, $ghost_arr));
+    ensures  StackAbsSlot(heap, $stacksFrames, r_old.regs[ESP] + 4 + stackGcOffset) == Abs_ArrayOfInt($ghost_arr);
+    ensures  frameGet($stacksFrames, r_old.regs[ESP] + 4 + stackGcOffset) == $ghost_arr.arrAbs;
+{
+    var $absMem_tmp:[int][int]int;
+    var objLayouts_tmp:[int]ObjLayout;
+    var heap_tmp:Heap;
+    var obj_tmp:int;
+    var val_tmp:int;
+    var $ghost__temp__0:int;
+    var $ghost_i:int;
+    var $ghost_arr__abs:int;
+    assert fun_unroll(0);
+    assert fun_unroll(1);
+    call proc_Seq__FromArray__Length();
+    r := r_old;
+    stk := stk_old;
+    statics := statics_old;
+    io := io_old;
+    mems := mems_old;
+    $commonVars := $commonVars_old;
+    $gcVars := $gcVars_old;
+    $toAbs := $toAbs_old;
+    $absMem := $absMem_old;
+    $stacksFrames := $stacksFrames_old;
+    objLayouts := objLayouts_old;
+    heap := heap_old;
+    assert TV(r.regs[ESP]);
+    assert TO(0 - 1);
+    assert TO(263168 - 1);
+    assert TO(0);
+    assert TO(263168);
+    assert TO(1);
+    assert TO(263169);
+    assert TO(0x443FF);
+    assert TO(0x44400);
+    assert TO(0x44401);
+    assert TO(0x44402);
+    call logical_Sub(inout r, ESP, OConst(4));
+
+    // ###LINE: D:\home\git\IroncladApps\iron\src\Dafny\Apps\Loader\Loader.i.dfy: 40
+    // ###LINE: D:\home\git\IroncladApps\iron\src\Dafny\Apps\Loader\Loader.i.dfy: 40
+    // move:: $ghost__temp__0 := 262144  // isPtr = False
+    call r := instr_Mov(r, EAX, OConst(262144));
+    $ghost__temp__0 := r.regs[EAX];
+
+    // push argument #0 at index 0 isPtr = False argument = $ghost__temp__0
+    // regalloc_stack_store:: OMem(MReg(ESP, 0)) := EAX  // var = $ghost__temp__0
+    call logical_Store(r, core_state, inout stk, OMem(MReg(ESP, 0)), OReg(EAX));
+
+    // call:: $ghost_arr := Proc_AllocArrayOfInt($ghost__temp__0)  // isGhost = False
+    call alignCall(r.regs[ESP]);
+    {: call logical_Call(inout r, core_state, inout stk);
+    call r, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, $ghost_arr := Proc_AllocArrayOfInt(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, $ghost__temp__0); :}
+    assert SMemInvGcF(8, stk, old(stk_old), r.regs[ESP] + 4, old(r_old.regs[ESP]), $stacksFrames, $stacksFrames_old);
+
+    // pop return value #0 at index 0 into destination $ghost_arr isPtr = True
+    // regalloc_stack_load:: EAX := OMem(MReg(ESP, 0x101000))  // var = $ghost_arr 1437
+    call r, mems := heapLoadStack(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $absMem, $toAbs, $stacksFrames, objLayouts, EAX, OMem(MReg(ESP, 0x111000)), EvalPtr(r, OMem(MReg(ESP, 0x111000))));
+        $ghost_arr__abs := frameGet($stacksFrames, EvalPtr(r, OMem(MReg(ESP, 0x111000))));
+
+    // ###LINE: D:\home\git\IroncladApps\iron\src\Dafny\Apps\Loader\Loader.i.dfy: 41
+    // ###LINE: D:\home\git\IroncladApps\iron\src\Dafny\Apps\Loader\Loader.i.dfy: 41
+    // ###LINE: D:\home\git\IroncladApps\iron\src\Dafny\Apps\Loader\Loader.i.dfy: 41
+    // ###LINE: D:\home\git\IroncladApps\iron\src\Dafny\Apps\Loader\Loader.i.dfy: 41
+    // move:: $ghost_i := 0  // isPtr = False
+    call r := instr_Mov(r, ECX, OConst(0));
+    $ghost_i := r.regs[ECX];
+
+    // ###LINE: D:\home\git\IroncladApps\iron\src\Dafny\Apps\Loader\Loader.i.dfy: 42
+    // jump_to_label:: L2 condition = 
+    goto L2;
+
+    // label:: L1  // isLoop = False
+    L1:
+
+    // ###LINE: D:\home\git\IroncladApps\iron\src\Dafny\Apps\Loader\Loader.i.dfy: 45
+    // ###LINE: D:\home\git\IroncladApps\iron\src\Dafny\Apps\Loader\Loader.i.dfy: 46
+    // ###LINE: D:\home\git\IroncladApps\iron\src\Dafny\Apps\Loader\Loader.i.dfy: 46
+    // storeArrayElement
+
+    // New code:
+    var foo:int := eax;
+    var bar:int := ecx;
+    ebp := eax; // Save the contents of eax
+    esi := ecx; // Save the contents of ecx
+    ebx := ecx;  
+    ecx := 0x340000;
+    eax := ebx;
+    assert eax == $ghost_i;
+    edi := 4;
+    call eax,edx := Mul(eax, edi);
+    assert TVM($ghost_i, 4);
+    call reveal_wrap32($ghost_i*4);
+    assert eax == $ghost_i*4;
+    call reveal_WORD_HI();
+    ecx := ecx + eax;
+    call reveal_MemInvDetails();    // Shows that ecx is sane
+    call reveal_Aligned(0x340000);
+    assert TV(0x340000) && TO(ebx);
+    call ecx := Load(appCodeMem, ecx);
+    edi := ecx; // Save the value we loaded
+
+    eax := ebp;     // Restore eax
+    ecx := esi;     // Restore ecx
+    assert foo == eax;
+    assert bar == ecx;
+    // End new code
+       
+    call mems, $absMem := storeArrayElement(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $toAbs, $absMem, $stacksFrames, objLayouts, heap, OMem(MIndex(EAX, 4, ECX, 8)), OReg(EDI), $ghost_i, appCodeMem.map[0x340000+$ghost_i*4], $ghost_arr__abs, r.regs[EAX]);
+
+    // ###LINE: D:\home\git\IroncladApps\iron\src\Dafny\Apps\Loader\Loader.i.dfy: 47
+    // ###LINE: D:\home\git\IroncladApps\iron\src\Dafny\Apps\Loader\Loader.i.dfy: 47
+    // binary_assignment:: $ghost_i := instr_AddChecked($ghost_i, )
+    call r := instr_AddChecked(r, ECX, OConst(1));
+    $ghost_i := r.regs[ECX];
+
+    call proc_lemma__2toX();
+    call proc_lemma__word32(edi);
+    call reveal_WORD_HI();
+
+    // label:: L2  // isLoop = True
+    L2:
+    invariant MemInv(me,init,stk,statics,core_state,ptMem,mems);
+    invariant NucleusInv(objLayouts,$S,$toAbs,$absMem,$commonVars,$gcVars,me,init,stk,statics,core_state,ptMem,mems,$stacksFrames,io);
+    invariant SMemInvGcF(8, stk, old(stk_old), r.regs[ESP] + 4, old(r_old.regs[ESP]), $stacksFrames, $stacksFrames_old);
+    invariant HeapInv($absMem, objLayouts, heap);
+    invariant AbsExtend($toAbs, $toAbs_old, objLayouts, objLayouts_old);
+    invariant (forall i:int::{$absMem[i]}{heap.absData[i]} heap_old.absData[i] is AbsNone || (heap.absData[i] == heap_old.absData[i] && ($absMem[i] == $absMem_old[i])));
+    invariant io._inCtr == io_old._inCtr && io._outCtr == io_old._outCtr;
+
+    // loop invariants
+    invariant $ghost_i == (r.regs[ECX]);
+    invariant HeapAbsData(heap, $ghost_arr__abs) == Abs_ArrayOfInt($ghost_arr);
+    invariant HeapValue(objLayouts, true, $toAbs, r.regs[EAX], $ghost_arr__abs);
+    invariant $ghost_arr__abs == $ghost_arr.arrAbs;
+    invariant 0 <= $ghost_i && $ghost_i <= 262144;
+    invariant (forall j:int :: 0 <= j && j < $ghost_i ==> fun_INTERNAL__array__elems__index($absMem[$ghost_arr.arrAbs], j) == appCodeMem.map[0x340000 + j*4]);
+    invariant (forall j:int :: 0 <= j && j < $ghost_i ==> fun_word32(fun_INTERNAL__array__elems__index($absMem[$ghost_arr.arrAbs], j)));
+    //invariant (forall j:int :: 0 <= j && j < $ghost_i ==> word(fun_INTERNAL__array__elems__index($absMem[$ghost_arr.arrAbs], j)));
+    assert !false;
+    call proc_Seq__Equal__Equiv___int();
+    call proc_Seq__Equal__Equiv___Seq___int();
+    call proc_Seq__Equal__Equiv___atoe_Type();
+    call proc_Seq__Equal__Equiv___Seq___atoe_Type();
+    call proc_Seq__Equal__Equiv___bool();
+    // jump_to_label:: L1 condition = $ghost_i < 262144
+    if (ecx < 0x40000) {
+        goto L1;
+    }
+
+    // label:: L3  // isLoop = False
+    L3:
+
+    // regalloc_stack_store:: OMem(MReg(ESP, 4104)) := EAX  // var = $ghost_arr
+    call mems, $stacksFrames := heapStoreStack(r, core_state, stk, statics, io, mems, $commonVars, $gcVars, $absMem, $toAbs, $stacksFrames, objLayouts, OMem(MReg(ESP, 0x111008)), OReg(EAX), EvalPtr(r, OMem(MReg(ESP, 0x111008))), $ghost_arr__abs);
+    call logical_Add(inout r, ESP, OConst(4));
+
+    call proc_Seq__FromArray__Index();
+    call proc_lemma__word32__Word32();
+    assert (forall j:int :: 0 <= j && j < 262144 ==> word(fun_INTERNAL__array__elems__index($absMem[$ghost_arr.arrAbs], j)));
+    assert (forall j:int :: 0 <= j && j < 262144 ==> fun_Word32(fun_INTERNAL__array__elems__index($absMem[$ghost_arr.arrAbs], j)));
+
+    // return
+    {: call logical_Ret(inout r, core_state, stk); return; :}
+}
+#endif
+
+//implementation FaultHandler($_stackState:[int]StackState, $ebp:int, $esp:int, $eip:int)
+//{
+//  var $__stackState:[int]StackState := $StackState[$S := StackEmpty];
+//  call revealInv1($S, $StackState);
+//
+//  eax := CurrentStack;
+//  edx := ?TSize;
+//  call eax, edx := Mul(eax, edx);
+//  call eax := Add(eax, TLo);
+//  assert TV(TLo) && TO(64 * $S);
+//
+//  call setStackEmpty($S);
+//  call revealInv1(?InterruptStack, $__stackState);
+//
+//  ecx := FLo;
+//  call ecx := Add(ecx, ?StackReserve);
+//  call ecx := Add(ecx, ?InterruptReserve);
+//  StackCheck := ecx;
+//
+//  ecx := 0;
+//  edi := TLo;
+//  call ebx := Load(mems.tcb[?InterruptStack][edi]);
+//  if (ebx != ?STACK_YIELDED)
+//  {
+//    // Fatal error: interrupt stack not ready to receive interrupt
+//    eax := 0x55550004;
+//    call debugBreak();
+//  }
+//
+//  call setStackRunning3(?InterruptStack, $__stackState, $ebp, $esp, $eip);
+//  return;
+//}
+//
+//implementation ErrorHandler($_stackState:[int]StackState, $ebp:int, $esp:int, $eip:int)
+//{
+//  var $__stackState:[int]StackState := $StackState[$S := StackEmpty];
+//  call revealInv1($S, $StackState);
+//
+//  eax := CurrentStack;
+//  edx := ?TSize;
+//  call eax, edx := Mul(eax, edx);
+//  call eax := Add(eax, TLo);
+//  assert TV(TLo) && TO(64 * $S);
+//
+//  call setStackEmpty($S);
+//  call revealInv1(?InterruptStack, $__stackState);
+//
+//  ecx := FLo;
+//  call ecx := Add(ecx, ?StackReserve);
+//  call ecx := Add(ecx, ?InterruptReserve);
+//  StackCheck := ecx;
+//
+//  ecx := 0;
+//  edi := TLo;
+//  call ebx := Load(mems.tcb[?InterruptStack][edi]);
+//  if (ebx != ?STACK_YIELDED)
+//  {
+//    // Fatal error: interrupt stack not ready to receive interrupt
+//    eax := 0x55550005;
+//    call debugBreak();
+//  }
+//
+//  call setStackRunning3(?InterruptStack, $__stackState, $ebp, $esp, $eip);
+//  return;
+//}
+//
+//implementation InterruptHandler($_stackState:[int]StackState, $ebp:int, $esp:int, $eip:int)
+//{
+//  var $__stackState:[int]StackState :=
+//    $StackState[$S := StackInterrupted(eax, ebx, ecx, edx, esi, edi, ebp, esp + 12, $Mem[esp], $Mem[esp + 4], $Mem[esp + 8])];
+//  call stacksProofs();
+//  call setStackInterrupted();
+//  call revealInv1(?InterruptStack, $__stackState);
+//
+//  ecx := FLo;
+//  call ecx := Add(ecx, ?StackReserve);
+//  call ecx := Add(ecx, ?InterruptReserve);
+//  StackCheck := ecx;
+//
+//  ecx := 0;
+//  edi := TLo;
+//  call ebx := Load(mems.tcb[?InterruptStack][edi]);
+//  if (ebx != ?STACK_YIELDED)
+//  {
+//    // Fatal error: interrupt stack not ready to receive interrupt
+//    eax := 0x55550006;
+//    call debugBreak();
+//  }
+//
+//  call setStackRunning3(?InterruptStack, $__stackState, $ebp, $esp, $eip);
+//  return;
+//}
+//implementation Throw($_stackState:[int]StackState, $ebp:int, $esp:int, $eip:int)
+//{
+//  var $__stackState:[int]StackState := $StackState[$S := StackEmpty];
+//  call revealInv1($S, $StackState);
+//
+//  eax := CurrentStack;
+//  edx := ?TSize;
+//  call eax, edx := Mul(eax, edx);
+//  call eax := Add(eax, TLo);
+//  assert TV(TLo) && TO(64 * $S);
+//
+//  //assert&&& &&&(NucleusInv(objLayouts, $S, $StackState, $toAbs, $AbsMem, GcVars, $Mem_Vars, $FrameVars, $IoVars));
+//  call setStackEmpty($S);
+//  call revealInv1(?InterruptStack, $__stackState);
+//
+//  eax := FLo;
+//  call eax := Add(eax, ?StackReserve);
+//  call eax := Add(eax, ?InterruptReserve);
+//  call setStackCheck($__stackState);
+//
+//  ecx := 0;
+//  edi := TLo;
+//  call ebx := Load(mems.tcb[?InterruptStack][edi]);
+//  if (ebx != ?STACK_YIELDED)
+//  {
+//    // Fatal error: interrupt stack not ready to receive interrupt
+//    eax := 0x55550003;
+//    call debugBreak();
+//  }
+//
+//  call stacksProofs();
+//  call setStackRunning3(?InterruptStack, $__stackState, $ebp, $esp, $eip);
+//  return;
+//}
+
+//implementation FatalHandler()
+//{
+//  eax := 0x55550007;
+//  call debugBreak();
+//  return;
+//}
+
+//implementation GetStackState($s:int)
+//{
+//  if (ecx >= ?NumStacks)
+//  {
+//    eax := 0x55550009;
+//    call debugBreak();
+//  }
+//  call revealInv1($s, $StackState);
+//
+//  // Get $s state
+//  eax := ecx;
+//  edx := ?TSize;
+//  call eax, edx := Mul(eax, edx);
+//  call eax := Add(eax, TLo);
+//  assert TV(TLo) && TO(64 * $s);
+//  call eax := Load(mems.tcb[$s][eax]);
+//  return;
+//}
+//
+//implementation ResetStack($s:int)
+//{
+//  call stacksProofs();
+//  if (ecx >= ?NumStacks)
+//  {
+//    eax := 0x55550009;
+//    call debugBreak();
+//  }
+//  call revealInv1($s, $StackState);
+//
+//  // Get $s state
+//  eax := ecx;
+//  edx := ?TSize;
+//  call eax, edx := Mul(eax, edx);
+//  call eax := Add(eax, TLo);
+//  assert TV(TLo) && TO(64 * $s);
+//  call ebx := Load(mems.tcb[$s][eax]);
+//
+//  if (ebx == ?STACK_RUNNING)
+//  {
+//    // Can't reset our own stack
+//    eax := 0x5555000a;
+//    call debugBreak();
+//  }
+//
+//  call setStackEmpty($s);
+//  return;
+//}
+//
+//
+//implementation YieldTo($s:int, $_stackState:[int]StackState,
+//            $eax:int, $ebx:int, $ecx:int, $edx:int, $esi:int, $edi:int, $ebp:int, $esp:int,
+//            $eip:int, $cs:int, $efl:int)
+//{
+//  call stacksProofs();
+//  if (ecx >= ?NumStacks)
+//  {
+//    eax := 0x55550008;
+//    call debugBreak();
+//  }
+//
+//  var $__stackState:[int]StackState := $StackState[$S := StackYielded(ebp, esp + 4, $Mem[esp])];
+//  call revealInv1($s, $StackState);
+//
+//  // Set stack check limit
+//  eax := ecx;
+//  edx := ?FSize;
+//  call eax, edx := Mul(eax, edx);
+//  call eax := Add(eax, FLo);
+//  call eax := Add(eax, ?StackReserve);
+//  call eax := Add(eax, ?InterruptReserve);
+//  call setStackCheck($StackState);
+//
+//  // Get $s state
+//  eax := ecx;
+//  edx := ?TSize;
+//  call eax, edx := Mul(eax, edx);
+//  call eax := Add(eax, TLo);
+//  assert TV(TLo) && TO(64 * $s);
+//  call ebx := Load(mems.tcb[$s][eax]);
+//  edi := eax;
+//
+//  // Prepare to set $S state if necessary
+//  eax := CurrentStack;
+//  edx := ?TSize;
+//  call eax, edx := Mul(eax, edx);
+//  call eax := Add(eax, TLo);
+//  assert TV(TLo) && TO(64 * $S);
+//
+//  if (ebx == ?STACK_YIELDED)
+//  {
+//    call setStackYielded();
+//    call setStackRunning3($s, $__stackState, $ebp, $esp, $eip);
+//    return;
+//  }
+//  else {if(ebx == ?STACK_INTERRUPTED)
+//  {
+//    call setStackYielded();
+//    call setStackRunning4($s, $__stackState, $eax, $ebx, $ecx, $edx, $esi, $edi, $ebp, $esp, $eip, $cs, $efl);
+//    ireturn;
+//  }
+//  else {if(ebx == ?STACK_EMPTY)
+//  {
+//    call setStackYielded();
+//
+//    eax := ecx;
+//    edx := ?FSize;
+//    call eax, edx := Mul(eax, edx);
+//    call eax := Add(eax, FLo);
+//    assert TV(FLo) && TO($s * 4096 + 4094) && TO($s * 4096 + 4095);
+//    call esp := Lea(eax + 16376);
+//    eax := ?KernelEntryPoint;
+//    call setStackRunning2($s, $__stackState);
+//    ebp := 0;
+//    return;
+//  }}}
+//  // ebx == ?STACK_RUNNING
+//  return;
+//}
+//
+//implementation VgaTextWrite()
+//{
+//  if (ecx < 4000)
+//  {
+//    call VgaTextStore16(ecx + 1 * ecx + 0xb8000, edx);
+//  }
+//  return;
+//}
+//
+//implementation TryReadKeyboard()
+//{
+//  call /*eax := */ KeyboardStatusIn8();
+//  call eax := And(eax, 1);
+//  if (eax != 0) { goto skip; }
+//    call eax:=Mov(256);
+//    return;
+//  skip:
+//  call /*eax := */ KeyboardDataIn8();
+//  call eax := And(eax, 255);
+//  return;
+//}
+//
+//implementation StartTimer()
+//{
+//  call startTimer();
+//  return;
+//}
+//
+//implementation SendEoi()
+//{
+//  var $seq0:int := $PicSeq[0] + 1;
+//  var $seq1:int := $PicSeq[1] + 1;
+//  eax := 0x20; edx := 0x20; call PicOut8(0, 0, $seq0);
+//  eax := 0x20; edx := 0xa0; call PicOut8(1, 0, $seq1);
+//  return;
+//}
+//implementation CycleCounter()
+//{
+//  call Rdtsc();
+//  return;
+//}
+//
+//implementation DebugPrintHex()
+//{
+//  if (ecx >= 72)
+//  {
+//    eax := 0x5555000b;
+//    call debugBreak();
+//  }
+//  eax := edx;
+//  call edx := Lea(ecx + ecx);
+//  call writeHex();
+//  return;
+//}
+}

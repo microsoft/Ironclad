@@ -1,0 +1,329 @@
+%{
+
+open Microsoft.Dafny;;
+open Microsoft.Boogie;;
+open Parse_util;;
+open Microsoft.FSharp.Math;;
+open Microsoft.FSharp.Compatibility.OCaml.Big_int;;
+
+type decl = TopDecl of TopLevelDecl | MemDecl of MemberDecl | EmptyDecl
+let processDecls (ds:decl list) =
+  List.collect (fun d ->
+      match d with
+      | TopDecl t -> [t]
+      | MemDecl m -> ClassDecl.TheClass.Members.Add(m); []
+      | EmptyDecl -> [])
+    ds
+
+type spec = Requires of Attributes * Expression | Ensures of Attributes * Expression | Modifies of string list | Decreases of Expression
+let processSpecs (ss:spec list) =
+  ( List.collect (fun s -> match s with Requires (a, e) -> [(a, e)] | _ -> []) ss,
+    List.collect (fun s -> match s with Ensures  (a, e) -> [(a, e)] | _ -> []) ss,
+    List.collect (fun s -> match s with Modifies  xs -> xs | _ -> []) ss,
+    List.collect (fun s -> match s with Decreases e -> [e] | _ -> []) ss)
+
+let colonExpSeq (src:Expression) (idxs:Expression list):Expression =
+  let rec f l n =
+    match l with
+    | [] -> []
+    | h::t ->
+        let m = new BinaryExpr(Token.NoToken, BinaryExpr.Opcode.Add, n, h) :> Expression in
+        (n, m)::(f t m)
+    in
+    let zero = LiteralExpr.MakeBigInt.Invoke("0") :> Expression in
+    let subseqs = List.map (fun (i1, i2) -> new SeqSelectExpr(false, src, i1, i2) :> Expression) (f idxs zero) in
+    new SeqDisplayExpr(toList subseqs) :> Expression
+
+let underscores = ref 0;
+let renameBv (x:string):string = match x with "_" -> incr underscores; x + (string !underscores) | _ -> x
+%}
+
+%start start
+%type <TopLevelDecl list> start
+
+%token <string> UID
+%token <string> LID
+%token <string> DUID
+%token <string> DLID
+%token <string> QUID
+%token <string> QLID
+%token <string> SEGNAME
+%token <string> REGNAME
+%token <bigint> LITINT
+%token <string> LITREAL
+%token <bigint> LITBV32
+%token <bool> LITBOOL
+%token <string> LITSTRING
+%token SEMI LPAREN RPAREN LBRACKET RBRACKET BAR DOT HASH
+%token LT GT EQ BANG QUESTION COMMA LE GE EQEQ NE PLUS MINUS STAR DIV MOD AMPAMP BARBAR INT NAT REAL BOOL SEQ
+%token HAVOC OLD DOTDOT COLONBAR COLONCOLON EQGT EQEQGT LTEQEQ LTEQEQGT
+%token LEFT RIGHT RELATION PUBLIC CALL_LEMMA
+%token EAX EBX ECX EDX ESI EDI EBP ESP
+%token OPNREG OPNMEM IS THEN ELSE LET IN MATCH CASE LINEAR MY ATOMIC STABLE GHOST THIS TICK
+%token <loc> TYPE VAR CONST READONLY DATATYPE FUNCTION PREDICATE METHOD LEMMA AXIOM PROCEDURE IMPLEMENTATION STATIC MODULE INTERFACE IMPORT INCLUDE
+%token <loc> CALL RETURN IRETURN IF GOTO ASSERT INVARIANT COLON COLONEQ YIELD LBRACE RBRACE
+%token <loc> RETURNS REQUIRES ENSURES MODIFIES DECREASES
+%token <loc> FORALL EXISTS LAMBDA
+
+%token EOF
+
+/* Precedence declarations. */
+
+%right LET IN IF THEN ELSE FORALL EXISTS COLONCOLON MATCH CASE EQGT
+%left LTEQEQGT
+%right EQEQGT LTEQEQ
+%left AMPAMP BARBAR
+%left LT GT LE GE EQEQ NE IS
+%left PLUS MINUS
+%left STAR DIV MOD
+%right BANG
+%left LPAREN RPAREN LBRACKET RBRACKET DOT
+
+%%
+
+//start: INT EOF { [] }
+start: Decls EOF { (ClassDecl.TheClass :> TopLevelDecl)::(processDecls $1) }
+
+Id
+  : LID { $1 }
+  | UID { $1 }
+Ids
+  : { [] }
+  | Id { [$1] }
+  | Id COMMA Ids { $1::$3 }
+
+AttrArgs
+  : { [] }
+  | Exp { [$1] }
+  | Exp COMMA AttrArgs { $1::$3 }
+
+Attrs
+  : { null }
+  | LBRACE COLON Id AttrArgs RBRACE Attrs { new Attributes($3, toList $4, $6) }
+
+Type
+  : INT { Type.Int :> Type }
+  | NAT { Type.Nat :> Type }
+  | REAL { Type.Real :> Type }
+  | BOOL { Type.Bool :> Type }
+  | SEQ LT Type GT { new SeqType($3) :> Type }
+  | Id { new UserDefinedType(Token.NoToken, $1, null, toList []) :> Type }
+  | Id LT Types GT { new UserDefinedType(Token.NoToken, $1, null, toList $3) :> Type }
+
+Types
+  : { [] }
+  | Type { [$1] }
+  | Type COMMA Types { $1::$3 }
+
+BoundVar
+  : Id { new BoundVar(Token.NoToken, renameBv $1, null) }
+  | Id COLON Type { new BoundVar(Token.NoToken, renameBv $1, $3) }
+BoundVars
+  : { [] }
+  | BoundVar { [$1] }
+  | BoundVar COMMA BoundVars { $1::$3 }
+
+Formal
+  : Id COLON Type { new Formal($1, $3, false) }
+  | GHOST Id COLON Type { new Formal($2, $4, true) }
+Formals
+  : { [] }
+  | Formal { [$1] }
+  | Formal COMMA Formals { $1::$3 }
+
+Case
+  : CASE Id EQGT Exp1 { new MatchCaseExpr($2, toList [], $4) }
+  | CASE Id LPAREN BoundVars RPAREN EQGT Exp1 { new MatchCaseExpr($2, toList $4, $7) }
+Cases
+  : { [] }
+  | Case Cases { $1::$2 }
+
+ColonExpList
+  : COLON Exp1 { [$2] }
+  | COLON Exp1 ColonExpList { $2::$3 }
+
+Exp
+  : Exp2 { $1 }
+  | CALL_LEMMA Id LPAREN Exps RPAREN SEMI Exp { new StmtExprCall($2, toList $4, $7) :> Expression }
+  | VAR BoundVars COLONEQ Exps SEMI Exp
+    {
+      new LetExpr (true, toList (List.map (fun x -> new ExprLhs(x)) $2), toList $4, $6) :> Expression
+    }
+  | VAR BoundVars COLONBAR Exps SEMI Exp
+    {
+      new LetExpr (false, toList (List.map (fun x -> new ExprLhs(x)) $2), toList $4, $6) :> Expression
+    }
+
+Exp2
+  : Exp1 { $1 }
+  | MATCH Exp1 Cases { new MatchExpr($2, toList $3) :> Expression }
+
+Exp1
+  : LPAREN Exp RPAREN { $2 }
+  | IF Exp1 THEN Exp1 ELSE Exp1 { new ITEExpr($2, $4, $6) :> Expression }
+  | Exp1 LTEQEQGT Exp1 { new BinaryExpr(Token.NoToken, BinaryExpr.Opcode.Iff, $1, $3) :> Expression }
+  | Exp1 EQEQGT Exp1 { new BinaryExpr(Token.NoToken, BinaryExpr.Opcode.Imp, $1, $3) :> Expression }
+//TODO: check precedence, associativity  | Exp1 LTEQEQ Exp1 { new BinaryExpr(Token.NoToken, BinaryExpr.Opcode.Exp1, $1, $3) :> Expression }
+  | Exp1 AMPAMP Exp1 { new BinaryExpr(Token.NoToken, BinaryExpr.Opcode.And, $1, $3) :> Expression }
+  | Exp1 BARBAR Exp1 { new BinaryExpr(Token.NoToken, BinaryExpr.Opcode.Or, $1, $3) :> Expression }
+  | Exp1 EQEQ Exp1 { new BinaryExpr(Token.NoToken, BinaryExpr.Opcode.Eq, $1, $3) :> Expression }
+  | Exp1 NE Exp1 { new BinaryExpr(Token.NoToken, BinaryExpr.Opcode.Neq, $1, $3) :> Expression }
+  | Exp1 LT Exp1 { new BinaryExpr(Token.NoToken, BinaryExpr.Opcode.Lt, $1, $3) :> Expression }
+  | Exp1 GT Exp1 { new BinaryExpr(Token.NoToken, BinaryExpr.Opcode.Gt, $1, $3) :> Expression }
+  | Exp1 LE Exp1 { new BinaryExpr(Token.NoToken, BinaryExpr.Opcode.Le, $1, $3) :> Expression }
+  | Exp1 GE Exp1 { new BinaryExpr(Token.NoToken, BinaryExpr.Opcode.Ge, $1, $3) :> Expression }
+  | Exp1 PLUS Exp1 { new BinaryExpr(Token.NoToken, BinaryExpr.Opcode.Add, $1, $3) :> Expression }
+  | Exp1 MINUS Exp1 { new BinaryExpr(Token.NoToken, BinaryExpr.Opcode.Sub, $1, $3) :> Expression }
+  | Exp1 STAR Exp1 { new BinaryExpr(Token.NoToken, BinaryExpr.Opcode.Mul, $1, $3) :> Expression }
+  | Exp1 DIV Exp1 { new BinaryExpr(Token.NoToken, BinaryExpr.Opcode.Div, $1, $3) :> Expression }
+  | Exp1 MOD Exp1 { new BinaryExpr(Token.NoToken, BinaryExpr.Opcode.Mod, $1, $3) :> Expression }
+  | MINUS Exp1 { new BinaryExpr(Token.NoToken, BinaryExpr.Opcode.Sub, (LiteralExpr.MakeBigInt.Invoke("0") :> Expression), $2) :> Expression }
+  | BANG Exp1 { new UnaryOpExpr(Token.NoToken, UnaryOpExpr.Opcode.Not, $2) :> Expression }
+  | FORALL BoundVars Attrs COLONCOLON Exp1 { new ForallExpr(toList $2, $3, $5) :> Expression }
+  | EXISTS BoundVars Attrs COLONCOLON Exp1 { new ExistsExpr(toList $2, $3, $5) :> Expression }
+  | FORALL BoundVars Attrs BAR Exp1 COLONCOLON Exp1 { new ForallExpr(toList $2, $3, new BinaryExpr(Token.NoToken, BinaryExpr.Opcode.Imp, $5, $7)) :> Expression }
+  | EXISTS BoundVars Attrs BAR Exp1 COLONCOLON Exp1 { new ExistsExpr(toList $2, $3, new BinaryExpr(Token.NoToken, BinaryExpr.Opcode.Imp, $5, $7)) :> Expression }
+  | Exp1 LBRACKET Exp1 RBRACKET { new SeqSelectExpr(true, $1, $3, null) :> Expression }
+  | Exp1 LBRACKET DOTDOT Exp1 RBRACKET { new SeqSelectExpr(false, $1, null, $4) :> Expression }
+  | Exp1 LBRACKET Exp1 DOTDOT RBRACKET { new SeqSelectExpr(false, $1, $3, null) :> Expression }
+  | Exp1 LBRACKET Exp1 DOTDOT Exp1 RBRACKET { new SeqSelectExpr(false, $1, $3, $5) :> Expression }
+  | Exp1 LBRACKET Exp1 COLONEQ Exp1 RBRACKET { new SeqUpdateExpr($1, $3, $5) :> Expression }
+  | Exp1 LBRACKET Exp1 ColonExpList RBRACKET { colonExpSeq $1 ($3::$4) }
+  | LBRACKET Exps RBRACKET { new SeqDisplayExpr(toList $2) :> Expression }
+  | BAR Exp1 BAR { new UnaryOpExpr(Token.NoToken, UnaryOpExpr.Opcode.Cardinality, $2); :> Expression }
+  | Exp1 DOT Id { new MemberSelectExpr($1, $3) :> Expression }
+  | Exp1 DOT Id QUESTION { new MemberSelectExpr($1, $3 + "?") :> Expression }
+  | LITBOOL { new LiteralExpr($1) :> Expression }
+  | LITINT { LiteralExpr.MakeBigInt.Invoke(string_of_big_int $1) :> Expression }
+  | LITREAL { new LiteralExpr(Microsoft.Basetypes.BigDec.FromString($1)) :> Expression }
+  | OLD LPAREN Exp1 RPAREN { new OldExpr($3) :> Expression }
+  | Id LPAREN Exps RPAREN { new FunctionCallExpr($1, toList [], toList $3) :> Expression }
+  | REAL LPAREN Exp RPAREN { new ConversionExpr(new RealType(), $3) :> Expression }
+  | INT LPAREN Exp RPAREN {  new ConversionExpr(new IntType(),  $3) :> Expression }
+  | Id { new IdentifierExpr(Token.NoToken, $1) :> Expression }
+  | LITSTRING { new StringLiteralExpr($1) :> Expression  }
+Exps
+  : { [] }
+  | Exp { [$1] }
+  | Exp COMMA Exps { $1::$3 }
+
+Stmt
+  : Exp2 SEMI { () }
+  | ASSERT Exp2 SEMI { () }
+  | BlockStmt { () }
+
+Stmts
+  : { () }
+  | Stmt Stmts { () }
+
+BlockStmt: LBRACE Stmts RBRACE { () }
+BlockStmtOpt: { null } | BlockStmt { new BlockStmt() }
+
+Mod: THIS TICK Id { $3 }
+Mods
+  : { [] }
+  | Mod { [$1] }
+  | Mod COMMA Mods { $1::$3 }
+
+Spec
+  : REQUIRES Attrs Exp1 SEMI { Requires ($2, $3) }
+  | ENSURES Attrs Exp1 SEMI { Ensures ($2, $3) }
+  | MODIFIES Mods SEMI { Modifies $2 }
+  | DECREASES Exp1 SEMI { Decreases $2 }
+Specs
+  : { [] }
+  | Spec Specs { $1::$2 }
+
+StaticOpt: { () } | STATIC { () }
+GhostOpt: { false } | GHOST { true }
+MethodGhost
+  : METHOD { ($1, false) }
+  | GHOST METHOD { ($2, true) }
+  | LEMMA { ($1, true) }
+FunctionGhost
+  : FUNCTION { ($1, true) }
+  | FUNCTION METHOD { ($1, false) }
+
+BodyOpt: { null } | LBRACE Exp RBRACE { $2 }
+
+TypeCase
+  : Id { new DatatypeCtor($1, toList []) }
+  | Id LPAREN Formals RPAREN { new DatatypeCtor($1, toList $3) }
+TypeCases
+  : { [] }
+  | TypeCase { [$1] }
+  | TypeCase BAR TypeCases { $1::$3 }
+
+TypeParamsOpt
+  : { [] }
+  | LT Ids GT { List.map (fun t -> new TypeParameter(t)) $2 }
+ReturnsOpt
+  : { [] }
+  | RETURNS LPAREN Formals RPAREN { $3 }
+
+SemiOpt: { () } | SEMI { () }
+
+Decl
+  : DATATYPE Attrs Id TypeParamsOpt EQ TypeCases SemiOpt { TopDecl(new DatatypeDecl($1, $3, $2, toList $4, toList $6)) }
+  | StaticOpt GhostOpt VAR Attrs Id COLON Type SEMI { MemDecl(new Field($3, $4, $5, $2, $7)) }
+  | StaticOpt PREDICATE Attrs Id TypeParamsOpt LPAREN Formals RPAREN Specs BodyOpt
+    {
+      let (reqs, enss, mods, decs) = processSpecs $9 in
+      let reqs = List.map snd reqs in
+      let enss = List.map snd enss in
+      MemDecl(new Function($2, $3, $4, true, toList $5, toList $7, Type.Bool, toList reqs, toList enss, new Decreases(toList decs), $10))
+    }
+  | StaticOpt FunctionGhost Attrs Id TypeParamsOpt LPAREN Formals RPAREN COLON Type Specs BodyOpt
+    {
+      let (reqs, enss, mods, decs) = processSpecs $11 in
+      let reqs = List.map snd reqs in
+      let enss = List.map snd enss in
+      MemDecl(new Function(fst $2, $3, $4, snd $2, toList $5, toList $7, $10, toList reqs, toList enss, new Decreases(toList decs), $12))
+    }
+  | StaticOpt MethodGhost Attrs Id TypeParamsOpt LPAREN Formals RPAREN ReturnsOpt Specs BlockStmtOpt
+    {
+      let (reqs, enss, mods, decs) = processSpecs $10 in
+      let reqs = List.map (fun (a, e) -> new SpecExpression(a, e)) reqs in
+      let enss = List.map (fun (a, e) -> new SpecExpression(a, e)) enss in
+      let md = new Mod(toList (List.map (fun x -> new FrameExpression(x)) mods)) in
+      MemDecl(new Method(fst $2, $3, $4, snd $2, toList $5, toList $7, toList $9, toList reqs, toList enss, md, new Decreases(toList decs), $11))
+    }
+  | INCLUDE LITSTRING { EmptyDecl }
+
+Decls
+  : { [] }
+  | Decl Decls { $1::$2 }
+
+/*
+Stmt
+  | RETURN SEMI { ($1, SReturn) }
+  | LBRACE COLON Block COLON RBRACE { ($2, SGroup $3) }
+  | IF LPAREN Exp RPAREN LBRACE Block RBRACE
+    {
+      match ($3, $6) with
+      | (EApply (f, [EApply (".efl", [EVar x])]), [(_, SGoto l)]) -> ($1, SIfJcc (x, f, l))
+      | _ -> ($1, SIfGhost ($3, $6))
+    }
+  | FORALL LocalFormals COLONCOLON Triggers Exp LBRACE ProcDecls Block RBRACE
+    {
+      let decls = List.map (fun (x, t, lin) ->
+        match lin with Non -> (x, t) | Lin _ -> err "cannot declare linear variable in forall statement") $7 in
+      ($1, SForallGhost ($2, $4, $5, decls, $8))
+    }
+  | EXISTS LocalFormals COLONCOLON Triggers Exp SEMI { ($1, SExistsGhost ($2, $4, $5)) }
+  | ASSERT Exp SEMI { ($1, SAssert (NotInv, $2)) }
+  | Id COLONEQ Exp SEMI { ($2, SAssign ($1, $3)) }
+
+Decl
+  | VAR Id COLON Type SEMI { ($1, DStaticGhost ($2, $4, Non, ReadWrite)) }
+  | CONST Id COLON Type SEMI
+    { ($1, DFunDecl ($2, None, Some $4, None, None, None)) }
+  | CONST Id COLON Type COLONEQ Exp SEMI
+    { ($1, DFunDecl ($2, None, Some $4, Some $6, None, None)) }
+  | CONST SEGNAME COLON Type COLONEQ Exp SEMI
+    { ($1, DFunDecl ($2, None, Some $4, Some $6, None, None)) }
+  | CONST REGNAME COLON Type COLONEQ Exp SEMI
+    { ($1, DFunDecl ($2, None, Some $4, Some $6, None, None)) }
+*/
+
+

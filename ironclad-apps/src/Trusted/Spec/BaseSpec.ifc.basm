@@ -1,0 +1,134 @@
+//-
+//- Copyright (c) Microsoft Corporation.  All rights reserved.
+//-
+
+module interface BaseSpec
+{
+
+//-////////////////////////////////////////////////////////////////////////////
+//- TRIGGERS
+//-////////////////////////////////////////////////////////////////////////////
+
+//- Triggers for quantifiers
+//- We could use a single trigger for all values; the distinction between the
+//- various triggers below is just to help the prover run fast.
+
+//- TV is a trigger for values in general, including addresses.
+function{:expand false} TV(val:int):bool { true }
+
+//- TO is a trigger specifically for word offsets from addresses, where
+//- word offset n is byte offset 4 * n.
+function{:expand false} TO(wordOffset:int):bool { true }
+
+//-////////////////////////////////////////////////////////////////////////////
+//- WORDS
+//-////////////////////////////////////////////////////////////////////////////
+
+//- i1 <= x < i2
+function between(i1:int, i2:int, x:int):bool { i1 <= x && x < i2 }
+
+//- valid 32-bit unsigned words
+//- word(i) <==> 0 <= i < 2^32
+const WORD_HI:int; //- 2^32
+function word(val:int):bool { 0 <= val && val < WORD_HI }
+atomic ghost procedure reveal_WORD_HI();
+  ensures  WORD_HI == 4294967296;
+
+function wrap32(val:int):int;
+atomic ghost procedure reveal_wrap32(val:int);
+  ensures  wrap32(val) == val mod WORD_HI;
+
+//- converts 2's complement 32-bit val into signed integer
+function asSigned(val:int) returns(int);
+
+function{:expand false} add(i1:int, i2:int):int { i1 + i2 }
+function{:expand false} sub(i1:int, i2:int):int { i1 - i2 }
+function{:expand false} mul(i1:int, i2:int):int { i1 * i2 }
+function{:expand false} _div(i1:int, i2:int):int { i1 div i2 }
+function{:expand false} _mod(i1:int, i2:int):int { i1 mod i2 }
+function{:expand false} le(i1:int, i2:int):bool { i1 <= i2 }
+function{:expand false} lt(i1:int, i2:int):bool { i1 <  i2 }
+function{:expand false} ge(i1:int, i2:int):bool { i1 >= i2 }
+function{:expand false} gt(i1:int, i2:int):bool { i1 >  i2 }
+function neg (x:int):int;
+function and (x:int, y:int):int;
+function or  (x:int, y:int):int;
+function xor (x:int, y:int):int;
+function shl (x:int, y:int):int;
+function shr (x:int, y:int):int;
+function rol (x:int, y:int):int;
+function ror (x:int, y:int):int;
+
+function int_bit(n:int, index:int):bool;
+atomic ghost procedure reveal_int_bit(n:int, index:int);
+  ensures  int_bit(n, index) == (if (index > 0) then int_bit(n div 2, index - 1) else n mod 2 != 0);
+
+atomic ghost procedure axiom_neg(x:int);
+  ensures word(x) ==> word(neg(x));
+  ensures (forall i:int::{int_bit(neg(x), i)} 0 <= i && i < 32 ==> int_bit(neg(x), i) == !int_bit(x, i));
+atomic ghost procedure axiom_and(x:int, y:int);
+  ensures word(x) && word(y) ==> word(and(x, y));
+  ensures (forall i:int::{int_bit(and(x, y), i)} 0 <= i && i < 32 ==> int_bit(and(x, y), i) == (int_bit(x, i) && int_bit(y, i)));
+atomic ghost procedure axiom_or (x:int, y:int);
+  ensures word(x) && word(y) ==> word(or (x, y));
+  ensures (forall i:int::{int_bit(or (x, y), i)} 0 <= i && i < 32 ==> int_bit(or (x, y), i) == (int_bit(x, i) || int_bit(y, i)));
+atomic ghost procedure axiom_xor(x:int, y:int);
+  ensures word(x) && word(y) ==> word(xor(x, y));
+  ensures (forall i:int::{int_bit(xor(x, y), i)} 0 <= i && i < 32 ==> int_bit(xor(x, y), i) == (int_bit(x, i) != int_bit(y, i)));
+atomic ghost procedure axiom_shl(x:int, y:int);
+  ensures word(x) && word(y) ==> word(shl(x, y));
+  ensures (forall i:int::{int_bit(shl(x, y), i)} 0 <= i && i < 32 ==> int_bit(shl(x, y), i) == (i - y >= 0 && int_bit(x, i - y)));
+atomic ghost procedure axiom_shr(x:int, y:int);
+  ensures word(x) && word(y) ==> word(shr(x, y));
+  ensures (forall i:int::{int_bit(shr(x, y), i)} 0 <= i && i < 32 ==> int_bit(shr(x, y), i) == (i + y < 32 && int_bit(x, i + y)));
+atomic ghost procedure axiom_rol(x:int, y:int);
+  ensures word(x) && word(y) ==> word(rol(x, y));
+  ensures (forall i:int::{int_bit(rol(x, y), i)} 0 <= i && i < 32 ==> int_bit(rol(x, y), i) == int_bit(x, (i - y) mod 32));
+atomic ghost procedure axiom_ror(x:int, y:int);
+  ensures word(x) && word(y) ==> word(ror(x, y));
+  ensures (forall i:int::{int_bit(ror(x, y), i)} 0 <= i && i < 32 ==> int_bit(ror(x, y), i) == int_bit(x, (i + y) mod 32));
+
+//- null value(s)
+const NULL:int := 0;
+
+function{:expand false} TVM(a:int, b:int):bool { true }
+function Mult(a:int, b:int):int;
+function implementation{TVM(a, b)} Mult(a:int, b:int):int { a * b }
+
+function{:expand false} TVD(a:int, b:int):bool { true }
+function Div(a:int, b:int):int;
+function implementation{TVD(a, b)} Div(a:int, b:int):int { a div b }
+
+function{:expand false} TVM3(a:int, b1:int, b2:int):bool { true }
+
+//-////////////////////////////////////////////////////////////////////////////
+//- PROCEDURES
+//-////////////////////////////////////////////////////////////////////////////
+
+//- Where must the called procedure return to?
+//- (called procedure must return to RET:ReturnTo that was implicitly passed into the procedure)
+type ReturnTo;
+//- Return to return address $eip via "ret" instruction
+#ifdef x64
+       function ReturnToAddr64($eip_low:int, $eip_high:int) returns(ReturnTo);
+#else
+       function ReturnToAddr32($eip:int) returns(ReturnTo);
+#endif
+//- Return to stack (eip, cs, eflags, ...) at $esp
+function ReturnToInterrupted($eip:int, $cs:int, $efl:int) returns(ReturnTo);
+
+//-////////////////////////////////////////////////////////////////////////////
+//- INITIALIZATION
+//-////////////////////////////////////////////////////////////////////////////
+
+// REVIEW: if we had a better way to initialize this to false, we could move it out of the spec
+var init:bool;
+
+//-////////////////////////////////////////////////////////////////////////////
+//- LINEARITY
+//-////////////////////////////////////////////////////////////////////////////
+
+// TODO: when we start using linear maps, we probably won't need this:
+atomic ghost procedure new_linear_int() returns(linear i:int);
+
+}

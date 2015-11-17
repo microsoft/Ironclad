@@ -1,0 +1,846 @@
+//-<NuBuild BasmEnableSymdiff true />
+//-
+//- Copyright (c) Microsoft Corporation.  All rights reserved.
+//-
+
+module interface IoSpec
+{
+
+//- We model input and output as unbounded streams of input events or output events.
+
+function VgaTextStore($ptr:int, $val:int) returns(VgaEvent);
+
+const ?VgaTextLo:int := 0xb8000;
+const ?VgaTextHi:int := 0xb9f40;
+function vgaAddr2(i:int) returns (bool) {?VgaTextLo <= i && i <= ?VgaTextHi - 2}
+
+atomic procedure instr_VgaTextStore16(const my r:regs, linear io:IOState, ptr:opn_mem, val:opn)
+  returns(linear _io:IOState);
+  requires SrcOk(val);
+  requires vgaAddr2(EvalPtr(r, ptr));
+  requires public(ptr);
+  requires public(val);
+  requires public(io._inCtr);
+  requires public(io._outCtr);
+  ensures  _io == OutUpdate(VgaUpdate(io,
+              VgaState(
+                io._vga.VgaEvents[io._vga.VgaNextEvent := VgaTextStore(EvalPtr(r, ptr), Eval(r, val))],
+                io._vga.VgaNextEvent + 1
+              )));
+
+//- For diagnostics, allow arbitrary writes to the first line of the screen.
+//- (If no diagnostics are needed, this can be disabled.)
+// TODO: Disable for Oakland!
+atomic procedure instr_VgaDebugStore16(const my r:regs, ptr:opn_mem, val:opn);
+  requires SrcOk(val);
+  requires vgaAddr2(EvalPtr(r, ptr));
+  requires ?VgaTextLo <= EvalPtr(r, ptr) && EvalPtr(r, ptr) <= ?VgaTextLo + 158;
+
+atomic procedure instr_KeyboardStatusIn8(my r:regs, linear io:IOState) returns(my _r:regs, linear _io:IOState);
+  requires public(io._inCtr);
+  requires public(io._outCtr);
+  ensures  (exists eax_val:int, available:int::
+                _r.regs == r.regs[EAX := eax_val]
+             && _r.efl == r.efl
+             && _io == InOutUpdate(
+                  KeyboardUpdate(io,
+                    KeyboardState(
+                      io._keyboard.KeyboardEvents,
+                      available,
+                      io._keyboard.KeyboardDone)))
+             && (and(eax_val, 1) == 0 ==> available == io._keyboard.KeyboardDone)
+             && (and(eax_val, 1) != 0 ==> available > io._keyboard.KeyboardDone));
+  ensures public(_r.regs[EAX]);
+
+atomic procedure instr_KeyboardDataIn8(my r:regs, linear io:IOState) returns(my _r:regs, linear _io:IOState);
+  requires io._keyboard.KeyboardAvailable > io._keyboard.KeyboardDone;
+  requires public(io._inCtr);
+  requires public(io._outCtr);
+  ensures  (exists eax_val:int::
+                _r.regs == r.regs[EAX := eax_val]
+             && _r.efl == r.efl
+             && _io == InOutUpdate(
+                  KeyboardUpdate(io,
+                    KeyboardState(
+                      io._keyboard.KeyboardEvents,
+                      io._keyboard.KeyboardAvailable,
+                      io._keyboard.KeyboardDone+1)))
+             && and(eax_val, 255) == io._keyboard.KeyboardEvents[io._keyboard.KeyboardDone]);
+  ensures public(_r.regs[EAX]);
+
+//function ValidBaudRateLSB(a:int):bool
+//{
+//     a == 0x01 || a == 0x03 || a == 0x06 || a == 0x0c || a == 0x10 || a == 0x18 || a == 0x20 || a == 0x3a || a == 0x40 || a == 0x60 || a == 0xc0
+//  || a == 0x80 || a == 0x00 || a == 0x17
+//}
+//
+//function ValidBaudRateMSB(a:int):bool
+//{
+//  a == 0x00 || a == 0x01 || a == 0x03 || a == 0x04 || a == 0x09
+//}
+//
+//// line status register
+//function IsLSR(d:int):bool
+//{
+//     d == 0x3fd
+//}
+//
+//// transmit/receive buffer
+//function IsTRB(d:int):bool
+//{
+//     d == 0x3f8
+//}
+//
+//function ValidSerialConfig(regs:[int]int, mode:SerialPortMode):bool
+//{
+//    (regs[EDX] == 0x3f8 ==> (mode.DLAB == true &&  ValidBaudRateLSB(regs[EAX])))
+// || (regs[EDX] == 0x3f9 ==> (mode.DLAB == true ==> ValidBaudRateMSB(regs[EAX])))
+// || regs[EDX] == 0x3fa 
+// || regs[EDX] == 0x3fb 
+// || regs[EDX] == 0x3fc
+//}
+
+//- Interface for serial port output; used for debugging underspecified code,
+//- e.g., the network driver
+// TODO: Disable serial for Oakland submission
+
+function serialPortConfigged():bool;
+
+//- For more info, see http://www.lammertbies.nl/comm/info/RS-232_io.html
+atomic procedure instr_SerialDbgConfigOut(const my r:regs);
+    requires 0x3f8 <= r.regs[EDX] && r.regs[EDX] <= 0x3ff;  //- Must be in I/O range for COM1 
+    ensures serialPortConfigged();
+
+atomic procedure instr_SerialDbgStatusOut8(my r:regs) returns(my _r:regs);
+    requires r.regs[EDX] == 0x3fd;  //- LSR = line status register
+    ensures  (exists eax_val:int :: _r.regs == r.regs[EAX := eax_val]);
+
+atomic procedure instr_SerialDbgDataOut8(const my r:regs);
+    requires r.regs[EDX] == 0x3f8;
+
+
+//[ckh] How is p related to $serialState?
+//atomic procedure instr_SerialDbgConfig(const my r:regs, p:SerialPortState);
+//  requires ValidSerialConfig(r.regs, p.Mode);
+//  modifies $serialState;
+//  ensures  (exists mode:bool::
+//                $serialState == SerialPortState(SerialPortMode(mode), p.In, p.Out)
+//             && (r.regs[EAX] == 0x80 && r.regs[EDX] == 0x3fb ==> mode == true)
+//             && (r.regs[EAX] != 0x80 && r.regs[EDX] == 0x3fb ==> mode == false)
+//             && (r.regs[EDX] != 0x3fb ==> mode == p.Mode.DLAB));
+//
+//atomic procedure instr_SerialDbgDataOut8(const my r:regs, p:SerialPortState);
+//  requires IsTRB(r.regs[EDX]) && p.Mode.DLAB == false;
+//  requires p.Out.Available > p.Out.Done;
+//  modifies $serialState;
+//  ensures  $serialState == SerialPortState(p.Mode, p.In, SerialPortQueue(p.Out.Events, p.Out.Available, p.Out.Done+1));
+//  ensures  and(r.regs[EAX], 255) == $serialState.Out.Events[$serialState.Out.Done];
+//
+//atomic procedure instr_SerialDbgStatusOut8(my r:regs, p:SerialPortState) returns(my _r:regs);
+//  requires IsLSR(r.regs[EDX]);
+//  modifies $serialState;
+//  ensures  (exists eax_val:int, available:int::
+//                _r.regs == r.regs[EAX := eax_val]
+//             && $serialState == SerialPortState(p.Mode, p.In, SerialPortQueue(p.Out.Events, available, p.Out.Done))
+//             && (and(eax_val, 0x20) == 0 ==> available == p.Out.Done)
+//             && (and(eax_val, 0x20) != 0 ==> available > p.Out.Done));
+//
+//atomic procedure instr_SerialDbgDataIn8(my r:regs, p:SerialPortState) returns(my _r:regs);
+//  requires IsTRB(r.regs[EDX]) && p.Mode.DLAB == false;
+//  requires p.In.Available > p.In.Done;
+//  modifies $serialState;
+//  ensures  (exists eax_val:int::
+//                _r.regs == r.regs[EAX := eax_val]
+//             && $serialState == SerialPortState(p.Mode, SerialPortQueue(p.In.Events, p.In.Available, p.In.Done+1), p.Out)
+//             && (and(eax_val, 255) == $serialState.In.Events[$serialState.In.Done]));
+//
+//atomic procedure instr_SerialDbgStatusIn8(my r:regs, p:SerialPortState) returns(my _r:regs);
+//  requires IsLSR(r.regs[EDX]);
+//  modifies $serialState;
+//  ensures  (exists eax_val:int, available:int::
+//                _r.regs == r.regs[EAX := eax_val]
+//             && $serialState == SerialPortState(p.Mode, SerialPortQueue(p.In.Events, available, p.In.Done), p.Out)
+//             && (and(eax_val, 0x1) == 0 ==> available == p.In.Done)
+//             && (and(eax_val, 0x1) != 0 ==> available > p.In.Done));
+
+//function SampleCall (source:[int]int, indexOld:int, index:int, retval:int ) : bool
+//{
+//     (retval == source[indexOld])
+//  && (index == indexOld+1)
+//}
+//
+//function OneOneMap (M:[int]int) : bool
+//{
+//  (forall x:int, y:int :: word(x) && word(y) ==> M[x] == M[y] ==> x == y)
+//}
+
+//// This instruction should be connected to Intel Rdrand instruction in Ivy Bridge processors  
+//atomic procedure instr_SampleIn32(linear s:state, M:[int]int) returns(linear _s:state);
+//  requires OneOneMap(M);
+//  modifies $global_sample_index;
+//  ensures  (exists eax:int ::
+//       _s == InsUpdate1(me, s, OReg(EAX), eax, s._cores[me]._efl)
+//    && SampleCall ($randomSource, old($global_sample_index), $global_sample_index, eax));
+
+//// ACPI tables
+//const ?RsdpPtr:int;
+//const ?RsdpExists:bool;
+//const ?RsdtPtr:int;
+//const ?RsdtCount:int;
+//const ?DmarPtr:int;
+//const ?DmarExists:bool;
+//const ?DmarLen:int;
+//const ?DrhdPtr:[int]int;
+//const ?DrhdCount:int;
+//const ?DrhdRegs:[int]int;
+//
+//const ?RoBiosLo:int :=  0xE0000;
+//const ?RoBiosHi:int := 0x100000;
+//function inBiosRo(i:int) returns(bool) { ?RoBiosLo <= i && i < ?RoBiosHi }
+//
+//function ByteSum(ptr:int, end:int) returns(int);
+//
+//function MatchesRsdp(ptr:int) returns(bool)
+//{
+//    ro32(ptr + 0) == 0x20445352 // "RSD "
+// && ro32(ptr + 4) == 0x20525450 // "PTR "
+// && and(ByteSum(ptr, ptr + 20), 255) == 0
+//}
+//
+//function MatchesDmar(ptr:int) returns(bool)
+//{
+//    ro32(ptr + 0) == 0x52414d44 // "DMAR"
+//}
+//
+//function MatchesDrhd(ptr:int) returns(bool)
+//{
+//    roU16(ptr) == 0
+//}
+//
+//function MaybeDrhd(ptr:int, entry:int) returns(bool)
+//{
+//    ?DrhdPtr[entry] == ptr
+// && inRo(ptr + 0, 2)
+// && inRo(ptr + 2, 2)
+// && ptr + roU16(ptr + 2) <= ?DmarPtr + ?DmarLen
+//}
+//
+//function DrhdInv(ptr:int, entry:int) returns(bool)
+//{
+//    inRo(ptr + 8, 4)
+// && inRo(ptr + 12, 4)
+// && (ro32(ptr + 12) == 0 ==> ?DrhdRegs[entry] == ro32(?DrhdPtr[entry] + 8))
+//}
+//
+//atomic ghost procedure rsdpExists($ptr:int, $entry:int);
+//  requires $ptr == ?RoBiosLo + 16 * $entry;
+//  requires inBiosRo($ptr);
+//  requires MatchesRsdp($ptr);
+//  requires (forall j:int::{TV(j)} TV(j) && j < $entry && inBiosRo(?RoBiosLo + 16 * j)
+//            ==> !MatchesRsdp(?RoBiosLo + 16 * j));
+//  ensures  ?RsdpExists;
+//  ensures  ?RsdpPtr == $ptr;
+//
+//atomic ghost procedure dmarExists($ptr:int, $entry:int);
+//  requires $ptr == ro32(?RsdtPtr + 36 + 4 * $entry);
+//  requires ?RsdpExists;
+//  requires 0 <= $entry && $entry < ?RsdtCount;
+//  requires MatchesDmar($ptr);
+//  requires (forall j:int::{TV(j)} TV(j) && 0 <= j && j < ?RsdtCount && $entry != j
+//             ==> !MatchesDmar(ro32(?RsdtPtr + 36 + 4 * j)));
+//  ensures  ?DmarExists;
+//  ensures  ?DmarPtr == $ptr;
+//
+//atomic ghost procedure drhdExists($ptr:int, $entry:int);
+//  requires MaybeDrhd($ptr, $entry);
+//  requires $ptr < ?DmarPtr + ?DmarLen;
+//  requires MatchesDrhd($ptr);
+//  ensures  ?DrhdPtr[$entry] == $ptr;
+//  ensures  MaybeDrhd($ptr + roU16($ptr + 2), $entry + 1);
+//  ensures  DrhdInv($ptr, $entry);
+//
+//atomic ghost procedure drhdEnd($ptr:int, $entry:int);
+//  requires MaybeDrhd($ptr, $entry);
+//  requires $ptr == ?DmarPtr + ?DmarLen || !MatchesDrhd($ptr);
+//  ensures  ?DrhdCount == $entry;
+//
+//// IOMMU, DMA
+//
+//// Note: iom and dma must be contiguous (?iomHi == ?dmaLo),
+//// because iom contains the byte[] header for the dma region
+//const ?iomLo:int;
+//const ?iomHi:int := ?iomLo + 65536;
+//const ?dmaLo:int;
+//const ?dmaHi:int := ?dmaLo + 18 * 1024 * 1024;
+//
+//function iomAddr(i:int) returns (bool) {?iomLo <= i && i < ?iomHi}
+
+//// TODO: Disable Iom* instructions for Oakland
+//atomic procedure instr_IomStore(linear s:state, ptr:opn_mem, val:opn) returns(linear _s:state);
+//  requires iomAddr(EvalPtr(r, ptr));
+//  requires Aligned(EvalPtr(r, ptr));
+//  requires word(Eval(r, val));
+//  requires !s._io._iom.IomFrozen;
+//  ensures  _s == IomUpdate(s,
+//    IomState(
+//      s._io._iom.IomMem[EvalPtr(r, ptr) := Eval(r, val)],
+//      s._io._iom.IomFrozen,
+//      s._io._iom.IoMmuState,
+//      s._io._iom.IoMmuEnabled,
+//      s._io._iom.DevEnabled
+//      ));
+//
+//atomic procedure instr_IomRegLoad(entry:int, val:int, ptr:opn_mem);
+//  requires EvalPtr(r, ptr) == ?DrhdRegs[entry] + 28
+//        || EvalPtr(r, ptr) == ?DrhdRegs[entry] + 0
+//        || EvalPtr(r, ptr) == ?DrhdRegs[entry] + 8
+//        || EvalPtr(r, ptr) == ?DrhdRegs[entry] + 12;
+//  modifies regs;
+//  ensures  word(Eval(r, val));
+//  ensures  (exists v:int :: regs == r.regs[val := v]);
+//
+//// TODO: invalidate context-cache and IOTLB?
+//atomic procedure instr_IomRegStore(linear s:state, entry:int, ptr:opn_mem, val:opn) returns(linear _s:state);
+//  requires (s._io._iom.IoMmuState[entry] == 0 && EvalPtr(r, ptr) == ?DrhdRegs[entry] + 32 && IoRootTable(s._io._iom.IomMem, Eval(r, val)))
+//        || (s._io._iom.IoMmuState[entry] == 1 && EvalPtr(r, ptr) == ?DrhdRegs[entry] + 36 && Eval(r, val) == 0)
+//        || (s._io._iom.IoMmuState[entry] == 2 && EvalPtr(r, ptr) == ?DrhdRegs[entry] + 24 && Eval(r, val) == shl(1, 30))
+//        || (s._io._iom.IoMmuState[entry] == 3 && EvalPtr(r, ptr) == ?DrhdRegs[entry] + 24 && Eval(r, val) == shl(1, 31));
+//  ensures  _s == IomUpdate(s,
+//    IomState(
+//      s._io._iom.IomMem,
+//      true,
+//      s._io._iom.IoMmuState[entry := 1 + s._io._iom.IoMmuState[entry]],
+//      s._io._iom.IoMmuEnabled,
+//      s._io._iom.DevEnabled
+//      ));
+//
+//atomic procedure instr_ghost_IomEnabled(linear s:state) returns (linear _s:state);
+//  requires (forall i:int::{s._io._iom.IoMmuState[i]} 0 <= i && i < ?DrhdCount ==> s._io._iom.IoMmuState[i] == 4);
+//  requires false; // $IomMem[?dmaLo - 8] == ?BYTE_VECTOR_VTABLE; // byte[].VTable
+//  requires s._io._iom.IomMem[?dmaLo - 4] == ?dmaHi - ?dmaLo; // byte[].Length
+//  // REVIEW we often casually spec that a bunch of operations keep EFL
+//  // constant. We should probably check or let it vary nondeterministically.
+//  ensures  _s == IomUpdate(s,
+//    IomState(
+//      s._io._iom.IomMem,
+//      s._io._iom.IomFrozen,
+//      s._io._iom.IoMmuState,
+//      true,
+//      s._io._iom.DevEnabled
+//      ));
+
+//// Does physical page n fit inside dma area?  If so, we can map it.
+//function IsDmaPage(ptr:int) returns(bool)
+//{
+//    and(ptr, 4095) == 0
+// && ?dmaLo <= ptr && ptr + 4096 <= ?dmaHi
+//}
+//
+//function IoPageTableEntry(w0:int, w1:int) returns(bool)
+//{
+//    w1 == 0 && (w0 == 0 || IsDmaPage(w0 - 3))
+//}
+//
+//function{:expand false} IoPageTable($IomMem:[int]int, ptr:int) returns(bool)
+//{
+//    and(ptr, 4095) == 0
+// && (forall i:int::{TV(i)} TV(i) && 0 <= i && i < 512 ==>
+//      IoPageTableEntry($IomMem[ptr + 8 * i], $IomMem[ptr + 8 * i + 4]))
+//}
+//
+//function IoPageDirEntry($IomMem:[int]int, w0:int, w1:int) returns(bool)
+//{
+//    w1 == 0 && (w0 == 0 || IoPageTable($IomMem, w0 - 3))
+//}
+//
+//function{:expand false} IoPageDir($IomMem:[int]int, ptr:int) returns(bool)
+//{
+//    and(ptr, 4095) == 0
+// && (forall i:int::{TV(i)} TV(i) && 0 <= i && i < 512 ==>
+//      IoPageDirEntry($IomMem, $IomMem[ptr + 8 * i], $IomMem[ptr + 8 * i + 4]))
+//}
+//
+//function{:expand false} IoPageDirStub($IomMem:[int]int, ptr:int) returns(bool)
+//{
+//    and(ptr, 4095) == 0
+// && $IomMem[ptr + 4] == 0
+// && (forall i:int::{TV(i)} TV(i) && 1 <= i && i < 512 ==>
+//      $IomMem[ptr + 8 * i] == 0 && $IomMem[ptr + 8 * i + 4] == 0)
+//}
+//
+//function IoContextEntry($IomMem:[int]int, w0:int, w1:int, w2:int, w3:int) returns(bool)
+//{
+//    w3 == 0 && w2 == 258 && w1 == 0
+// && IoPageDirStub($IomMem, w0 - 3)
+// && IoPageDirStub($IomMem, $IomMem[w0 - 3] - 3)
+// && IoPageDir($IomMem, $IomMem[$IomMem[w0 - 3] - 3] - 3)
+//}
+//
+//function{:expand false} IoContextTable($IomMem:[int]int, ptr:int) returns(bool)
+//{
+//    and(ptr, 4095) == 0
+// && (forall i:int::{TV(i)} TV(i) && 0 <= i && i < 256 ==>
+//      IoContextEntry($IomMem,
+//        $IomMem[ptr + 16 * i + 0],
+//        $IomMem[ptr + 16 * i + 4],
+//        $IomMem[ptr + 16 * i + 8],
+//        $IomMem[ptr + 16 * i + 12]))
+//}
+//
+//function IoRootEntry($IomMem:[int]int, w0:int, w1:int, w2:int, w3:int) returns(bool)
+//{
+//    w3 == 0 && w2 == 0 && w1 == 0 && IoContextTable($IomMem, w0 - 1)
+//}
+//
+//function{:expand false} IoRootTable($IomMem:[int]int, ptr:int) returns(bool)
+//{
+//    and(ptr, 4095) == 0
+// && (forall i:int::{TV(i)} TV(i) && 0 <= i && i < 256 ==>
+//      IoRootEntry($IomMem,
+//        $IomMem[ptr + 16 * i + 0],
+//        $IomMem[ptr + 16 * i + 4],
+//        $IomMem[ptr + 16 * i + 8],
+//        $IomMem[ptr + 16 * i + 12]))
+//}
+
+
+//- PCI
+
+//- The 16-bit value BusNumber||DeviceNumber||FunctionNumber
+function IsValidPciId(id:int) returns(bool) {
+  0 <= id && id < 65536
+}
+function IsValidPciOffset(o:int) returns(bool) {
+  0 <= o && o < 256 && (o mod 4 == 0)
+}
+
+//- Note: these three functions record the fact that some read/load/store
+//- occured at some time.  We could make them more precise by recording the
+//- exact time (or some sequence number).
+function PciConfigReadResult(id:int, offset:int, val:int) returns(bool);
+function PciMemLoaded(id:int, ptr:int, val:int) returns(bool);
+function PciMemStored(id:int, ptr:int, val:int) returns(bool);
+
+function PciMemAddr(id:int) returns(int);
+function PciMemSize(id:int) returns(int);
+
+function PciDeviceAtId(id:int) returns(bool);   //- Is there actually a device present at id?
+function PciSupportsCapabilityList(id:int)   returns (bool);
+function PciCapabilityPtr(id:int, index:int) returns (int);  //- Returns a pointer to the index-th capability for ID
+function PciCapabilityID(id:int, index:int)  returns (int);  //- ID of the index-th capability
+
+function SafePciMemRegion(addr:int, size:int) returns(bool)
+{
+  word(addr) && 
+  addr >= 0xC0000000 &&   //- We designate the upper regions of memory for memory-mapped PCI-configuration registers
+  ((addr + size) < 0xFED40000 || addr >= 0xFED45000)   //- Don't clobber the TPM's memory mapping
+}
+
+//- $PciConfigState[id] in {0,1,2,3,4}
+//-   0 ==> start state
+//-   1 ==> memory space disabled
+//-   2 ==> BAR set to 0xffffffff
+//-   3 ==> BAR set to address
+//-   4 ==> memory space enabled
+
+function PciVendorId(config0:int) returns(int) { and(config0, 65535) }
+function PciHeaderType(config12:int) returns(int) { and(shr(config12, 16), 255) }
+
+atomic procedure instr_PciConfigAddrOut32(const my r:regs, linear io:IOState, id:int, offset:int)
+  returns(linear _io:IOState);
+  requires r.regs[EAX] == or(or(shl(id, 8), offset), 0x80000000);
+  requires r.regs[EDX] == 0xcf8;
+  requires public(id);  //- Secret values should have no effect on our id/address choices (which devices may see)
+  requires public(offset); 
+  requires public(io._inCtr);
+  requires public(io._outCtr);
+  requires IsValidPciId(id);
+  requires IsValidPciOffset(offset);
+  ensures  _io == OutUpdate(PciUpdate(io, PciState(id, offset, io._pci.PciConfigState)));
+
+atomic procedure instr_PciConfigDataIn32(my r:regs, linear io:IOState, id:int, offset:int)
+  returns(my _r:regs, linear _io:IOState);
+  requires id == io._pci.PciConfigId;
+  requires offset == io._pci.PciConfigOffset;
+  requires r.regs[EDX] == 0xcfc;
+  requires public(id);     //- Secret values should have no effect on our id/address choices (which devices may see)
+  requires public(offset); // REVIEW: Is this redundant with the checks on PciConfigAddrOut32 above?
+  requires public(io._inCtr);
+  requires public(io._outCtr);
+  requires IsValidPciId(id);
+  requires IsValidPciOffset(offset);
+  ensures  (exists eax_val:int :: 
+                _io == InOutUpdate(io)    //- Since addr we read is publicly visible, this is both an In and Out event
+             && _r.regs == r.regs[EAX := eax_val]
+             && _r.efl == r.efl
+             && PciConfigReadResult(id, offset, eax_val)
+             && (offset == 0 ==> (eax_val == 0xFFFFFFFF <==> !PciDeviceAtId(id))) //- Bus master must return Fs if you ask for offset 0 of a non-present device
+             && (PciDeviceAtId(id) ==>
+                    (offset == 4 ==> PciSupportsCapabilityList(id) == GetBit(20, eax_val))
+             && (offset == 0x34 && PciSupportsCapabilityList(id) ==> 
+                 PciCapabilityPtr(id, 0) == SelectLSBs(8, eax_val) && IsValidPciOffset(PciCapabilityPtr(id, 0)))
+             && (forall cap_index:int :: 
+                 PciCapabilityPtr(id, cap_index) == offset && offset != 0 ==>
+                 (   PciCapabilityID(id, cap_index) == SelectLSBs(8, eax_val)
+                  && PciCapabilityPtr(id, cap_index+1) == shr(SelectLSBs(16, eax_val), 8)
+                  && IsValidPciOffset(PciCapabilityPtr(id, cap_index+1))))
+                )
+             && (io._pci.PciConfigState[id] == 0 && offset == 16 && and(eax_val, 15) == 0 ==> PciMemAddr(id) == eax_val)
+             && (io._pci.PciConfigState[id] == 2 && offset == 16                          ==> PciMemSize(id) == 1 + neg(eax_val))
+             && word(eax_val) && word(PciMemSize(id)));
+  ensures public(_r.regs[EAX]);
+
+//- If a device doesn't exist, then it doesn't support capabilities
+atomic ghost procedure non_existent_devices(id:int);
+    requires !PciDeviceAtId(id);
+    ensures  !PciSupportsCapabilityList(id);
+
+//- Once you reach a NULL pointer, there are no interesting IDs remaining
+atomic ghost procedure cap_list_termination(id:int, cap_index:int);
+    requires PciCapabilityPtr(id, cap_index) == 0;
+    ensures  (forall other_cap_index:int :: {PciCapabilityID(id, other_cap_index)} 
+              other_cap_index >= cap_index ==> PciCapabilityID(id, other_cap_index) == 0);
+
+atomic procedure instr_PciConfigDataOut32(const my r:regs, linear io:IOState, id:int, offset:int,
+    config0:int, config4:int, config12:int, config16:int) returns(linear _io:IOState);
+  requires id == io._pci.PciConfigId;
+  requires offset == io._pci.PciConfigOffset;
+  requires r.regs[EDX] == 0xcfc;
+  requires public(id);     //- Secret values should have no effect on our id/address choices (which devices may see)
+  requires public(offset); // REVIEW: Is this redundant with the checks on PciConfigAddrOut32 above?
+  requires public(io._inCtr);
+  requires public(io._outCtr);
+  requires IsValidPciId(id);
+  requires IsValidPciOffset(offset);
+  requires and(id, 7) == 0; //- support only function 0 for now
+  requires PciConfigReadResult(id,  0, config0);
+  requires PciConfigReadResult(id,  4, config4);
+  requires PciConfigReadResult(id, 12, config12);
+  requires PciConfigReadResult(id, 16, config16);
+  requires PciVendorId(config0) != 65535;
+  requires PciHeaderType(config12) == 0;
+  requires io._pci.PciConfigState[id] == 0 ==> offset == 4  && r.regs[EAX] == and(config4, 0xfffffffd);
+  requires io._pci.PciConfigState[id] == 1 ==> offset == 16 && r.regs[EAX] == 0xffffffff;
+  requires io._pci.PciConfigState[id] == 2 ==> offset == 16 && r.regs[EAX] == PciMemAddr(id) && SafePciMemRegion(PciMemAddr(id), PciMemSize(id));
+  requires io._pci.PciConfigState[id] == 3 ==> offset == 4  && r.regs[EAX] == or(config4, 2);
+  requires io._pci.PciConfigState[id] != 4;
+  ensures  (exists _pci_config:int, _pci_config_offset:int::
+              _io == OutUpdate(PciUpdate(
+                io,
+                PciState(
+                  _pci_config,
+                  _pci_config_offset,
+                  io._pci.PciConfigState[id := 1 + io._pci.PciConfigState[id]]
+              ))));
+
+atomic procedure instr_PciMemLoad32(my r:regs, linear io:IOState, id:int, dst:int, ptr:opn_mem)
+  returns(my _r:regs, linear _io:IOState);
+  //requires io._iom.IoMmuEnabled;
+  requires io._pci.PciConfigState[id] == 4;
+  requires PciMemAddr(id) <= EvalPtr(r, ptr) && EvalPtr(r, ptr) + 4 <= PciMemAddr(id) + PciMemSize(id);
+  requires public(id);     //- Secret values should have no effect on our id choices (which devices may see)
+  requires public(io._inCtr);
+  requires public(io._outCtr);
+  requires public(EvalPtr(r, ptr));  //- Secret vals shouldn't affect addr we read on bus
+  ensures  PciMemLoaded(id, EvalPtr(r, ptr), _r.regs[dst]);
+  ensures  word(_r.regs[dst]);
+  ensures  (exists v:int:: //- Since addr we read is publicly visible, this is both an In and Out event
+                _io == InOutUpdate(io)
+             && _r.regs == r.regs[dst := v]
+             && _r.efl == r.efl
+             && word(v)
+           );
+  ensures public(_r.regs[dst]);
+
+atomic procedure instr_PciMemStore32(const my r:regs, linear io:IOState, id:int, ptr:opn_mem, src:opn)
+  returns(linear _io:IOState);
+  //requires io._iom.IoMmuEnabled;
+  requires io._pci.PciConfigState[id] == 4;
+  requires PciMemAddr(id) <= EvalPtr(r, ptr) && EvalPtr(r, ptr) + 4 <= PciMemAddr(id) + PciMemSize(id);
+  requires word(Eval(r, src));
+  requires public(id);     //- Secret values should have no effect on our id choices (which devices may see)
+  requires public(io._inCtr);
+  requires public(io._outCtr);
+  requires public(EvalPtr(r, ptr)); //- Secret vals shouldn't affect addr we read on bus
+  requires public(Eval(r, src));    //- nor the value itself
+  ensures  PciMemStored(id, EvalPtr(r, ptr), Eval(r, src));
+  ensures  _io == OutUpdate(io);
+
+//- Device memory is a region where devices can freely read and write, so we can't assume anything about its contents 
+const ?devMemLo:int := 0x08000000;  //- 128 MB up
+const ?devMemHi:int := 0xF0000000; 
+//const ?devMemHi:int := ?devMemLo + 64 * 1024 * 1024;  // 64 MB      // TODO: Restore if we enable DEV
+const ?wordsPerPacket:int := 1500 div 4;
+
+atomic procedure instr_DeviceLoad(my r:regs, linear io:IOState, dst:int, ptr:opn_mem)
+  returns(my _r:regs, linear _io:IOState);
+  //requires io._iom.DevEnabled;   // TODO: Restore if we enable the DEV
+  requires ?devMemLo <= EvalPtr(r, ptr) && EvalPtr(r, ptr) + 4 <= ?devMemHi;
+  requires public(io._inCtr);
+  requires public(io._outCtr);
+  requires public(EvalPtr(r, ptr)); //- Secret vals shouldn't affect addr we read on bus
+  ensures  (exists v:int:: //- Since addr we read is publicly visible, this is both an In and Out event
+                _io == InOutUpdate(io)
+             && _r.regs == r.regs[dst := v]
+             && _r.efl == r.efl
+             && word(v));
+  ensures public(_r.regs[dst]);
+
+atomic procedure instr_DeviceStore(const my r:regs, linear io:IOState, ptr:opn_mem, src:opn) returns(linear _io:IOState);
+  requires ?devMemLo <= EvalPtr(r, ptr) && EvalPtr(r, ptr) + 4 <= ?devMemHi;
+//  requires SrcOk(src); // not needed, checked by boogieasm
+  requires public(io._inCtr);
+  requires public(io._outCtr);
+  requires public(EvalPtr(r, ptr)); //- Secret vals shouldn't affect addr we read on bus
+  requires public(Eval(r, src));    //- nor the value itself
+  ensures  _io == OutUpdate(io);
+
+
+//-////////////////////////////////////////////////////////////////
+//-      Device Exclusion Vector (DEV) Configuration
+//-////////////////////////////////////////////////////////////////
+
+const ?DEVLo:int := ?CodeBase + 60*1024;  //- Must be 4K aligned
+const ?DEVHi:int := ?CodeBase + 64*1024;  //- 4K at the top of our 64K located at ?CodeBase
+
+//- Is this the capability portion of the DEV's PCI config space?
+function DEV_PciCapabilityAt(id:int, dev_offset:int) : bool
+{
+       dev_offset != 0
+    && PciSupportsCapabilityList(id)
+    && (exists cap_index:int :: {TV(cap_index)} TV(cap_index)
+         && 0 <= cap_index 
+         && PciCapabilityPtr(id, cap_index) == dev_offset   //- The offset points at some PCI capability
+         && PciCapabilityID(id, cap_index) == 0x0f)         //- The capability is the DEV capability (AMD vol2, Table 15-16)
+}
+
+//- According to the spec, a PCI capability ID is vendor agnostic,
+//- so finding the DEV capability ID should suffice 
+function Is_DEV_PCI_config(id:int) : bool
+{
+    (exists offset:int :: {TV(offset)} TV(offset) && DEV_PciCapabilityAt(id, offset))
+}
+
+//- Are we addressing the DEV_OP register in the DEV's capability block?
+function DEV_Op(id:int, dev_offset:int, write_offset:int) : bool
+{
+    DEV_PciCapabilityAt(id, dev_offset) && write_offset == dev_offset + 4
+}
+
+//- Are we addressing the DEV_DATA register in the DEV's capability block?
+function DEV_Data(id:int, dev_offset:int, write_offset:int) : bool
+{
+    DEV_PciCapabilityAt(id, dev_offset) && write_offset == dev_offset + 8
+}
+
+//- Has the memory for the DEV been configured properly, i.e., in the right location and with all 1s to block all access?
+function ValidDEV(dev_mem:mem) : bool
+{
+       (forall i:int :: dev_mem.dom[i] <==> (?DEVLo <= i && i < ?DEVHi))  
+    && (forall i:int :: PhysPtrOk(dev_mem, i) ==> 
+            if ?DEVLo <= i && i < ?DEVLo + 96 then dev_mem.map[i] == 0 else dev_mem.map[i] == 0xFFFFFFFF)       
+            //- First 96 bytes of DEV cover the first 3MB of memory (up to the base of our code). 
+            //- Allow device access so things like legacy VGA will work
+}
+
+//- How many DEV_MAP registers does this DEV support?
+function num_DEV_map_regs(id:int) returns(int);
+
+//-/////////////////////////////////////////////////////
+//-   PCI data writes that advance us through the 
+//-   DEV configuration state machine defined below
+//-/////////////////////////////////////////////////////
+function DEV_OpBaseLo(id:int, dev_offset:int, write_offset:int, val:int) : bool
+{
+    DEV_Op(id, dev_offset, write_offset) && val == 0x000
+}
+
+function DEV_OpBaseHi(id:int, dev_offset:int, write_offset:int, val:int) : bool
+{
+    DEV_Op(id, dev_offset, write_offset) && val == 0x100 
+}
+
+function DEV_OpMap(id:int, dev_offset:int, write_offset:int, val:int, map_index:int) : bool
+{
+    DEV_Op(id, dev_offset, write_offset) && val == (0x200 + map_index)
+}
+
+function DEV_OpCap(id:int, dev_offset:int, write_offset:int, val:int) : bool
+{
+    DEV_Op(id, dev_offset, write_offset) && val == 0x300
+}
+
+function DEV_OpCtrl(id:int, dev_offset:int, write_offset:int, val:int) : bool
+{
+    DEV_Op(id, dev_offset, write_offset) && val == 0x400
+}
+
+function DEV_DataBaseLo(id:int, dev_offset:int, write_offset:int, val:int) : bool
+{
+    DEV_Data(id, dev_offset, write_offset) 
+    && val == ?CodeBase + 60*1024 + 1  //- Bit 0 = 1 ==> Valid.  Size = 0 ==> DEV covers 4 GB.  Address must be ?CodeBase+60K
+}
+
+function DEV_DataBaseHi(id:int, dev_offset:int, write_offset:int, val:int) : bool
+{
+    DEV_Data(id, dev_offset, write_offset) && val == 0    //- Only using 32-bit addressing
+}
+
+function DEV_DataMap(id:int, dev_offset:int, write_offset:int, val:int) : bool
+{
+    DEV_Data(id, dev_offset, write_offset) && val == 0    //- Only using 32-bit addressing
+}
+
+function DEV_DataCtrl(id:int, dev_offset:int, write_offset:int, val:int) : bool
+{
+       DEV_Data(id, dev_offset, write_offset)
+    && val == 0x31 //- Enabled bits: [0]=DEV enable, [4]=Invalidate DEV cache, [5]=Keep existing 64K SKINIT protection
+                   //- Disabled bits: [6]=>Host bridge probes processor cache when reading DEV
+}
+
+//- Must not have any linear constructors! 
+type DEV_StateMachines = States(states:[int]DEV_StateMachine);     //- States of all north bridges
+type DEV_StateMachine = 
+      Init() 
+  | MemApproved() 
+  | SetOpBaseLo() 
+  | SetDataBaseLo() 
+  | SetOpBaseHi() 
+  | SetDataBaseHi() 
+  | SetOpCap() 
+  | GotDataCap() 
+    | SetOpMap(o_map_index:int)
+    | SetDataMap(d_map_index:int)
+  | SetOpCtrl() 
+  | SetDataCtrl() 
+  | Complete() 
+  | Invalid();
+
+type DEV_PCI_op = DEV_Read(rval:int) | DEV_Write(wval:int);
+
+function DEV_AdvanceStateMachine(op:DEV_PCI_op, DEV_state:DEV_StateMachine, id:int, dev_offset:int, write_offset:int) : DEV_StateMachine
+{
+    if op is DEV_Write then
+        if      DEV_state is MemApproved   && DEV_OpBaseLo  (id, dev_offset, write_offset, op.wval) then
+            SetOpBaseLo()
+        else if DEV_state is SetOpBaseLo   && DEV_DataBaseLo(id, dev_offset, write_offset, op.wval) then
+            SetDataBaseLo()
+        else if DEV_state is SetDataBaseLo && DEV_OpBaseHi  (id, dev_offset, write_offset, op.wval) then
+            SetOpBaseHi()
+        else if DEV_state is SetOpBaseHi   && DEV_DataBaseHi(id, dev_offset, write_offset, op.wval) then
+            SetDataBaseHi()
+        else if DEV_state is SetDataBaseHi && DEV_OpCap     (id, dev_offset, write_offset, op.wval) then
+            SetOpCap()
+        else if DEV_state is GotDataCap    && DEV_OpCtrl    (id, dev_offset, write_offset, op.wval) && num_DEV_map_regs(id) == 0 then
+            SetOpCtrl()  //- If there are no maps, go directly to ctrl configuration.          
+        else if DEV_state is GotDataCap    && DEV_OpMap     (id, dev_offset, write_offset, op.wval, 0) then
+            SetOpMap(0)  //- If there are maps, we need to configure each one.
+        else if DEV_state is SetOpMap      && DEV_DataMap   (id, dev_offset, write_offset, op.wval) then
+            SetDataMap(DEV_state.o_map_index)
+        else if DEV_state is SetDataMap then
+            if      DEV_state.d_map_index + 1  < num_DEV_map_regs(id) && DEV_OpMap (id, dev_offset, write_offset, op.wval, DEV_state.d_map_index+1) then
+                SetOpMap(DEV_state.d_map_index + 1)   //- Progress to the next map
+            else if DEV_state.d_map_index + 1 >= num_DEV_map_regs(id) && DEV_OpCtrl(id, dev_offset, write_offset, op.wval) then
+                SetOpCtrl()                     //- We've set all the maps, so we can set the ctrl reg
+            else  
+                Invalid()
+        else if DEV_state is SetOpCtrl     && DEV_DataCtrl  (id, dev_offset, write_offset, op.wval) then
+            SetDataCtrl()
+        else
+            Invalid()
+    else //- read_op
+        if DEV_state is SetDataCtrl && DEV_Data(id, dev_offset, write_offset) then    //- Valid read op
+            if !GetBit(4, op.rval) then  //- Cache invalidation completed
+                Complete()
+            else 
+                SetDataCtrl()            //- Cache invalidation still in progress, so stay in the same state
+        else if DEV_state is SetOpCap && DEV_Data(id, dev_offset, write_offset) then
+            GotDataCap()
+        else 
+            Invalid()
+
+}
+
+//- To start the DEV state machine, you must prove that the memory in dev_mem
+//- constitutes a well-formed (for our purposes) DEV bit-vector.  It consumes
+//- the linear token for dev_mem, which prevents future loads/store to the memory region.
+atomic ghost procedure begin_DEV_enablement(linear DEV_states:DEV_StateMachines, linear dev_mem:mem) returns (linear _DEV_states:DEV_StateMachines);
+    requires ?CodeBase == 0x300000;     //- Format of the DEV spec expects this
+    requires (forall i:int::{ DEV_states.states[i] }  DEV_states.states[i] is Init);       
+    requires ValidDEV(dev_mem);
+    ensures  (forall i:int::{ _DEV_states.states[i] } _DEV_states.states[i] is MemApproved);       
+
+atomic procedure instr_DEV_PciConfigDataIn32(my r:regs, linear io:IOState, linear DEV_states:DEV_StateMachines, id:int, dev_offset:int, offset:int)
+  returns(my _r:regs, linear _io:IOState, linear _DEV_states:DEV_StateMachines);
+  requires id     == io._pci.PciConfigId;
+  requires offset == io._pci.PciConfigOffset;
+  requires r.regs[EDX] == 0xcfc;
+  requires IsValidPciId(id);
+  requires IsValidPciOffset(offset);
+  requires (forall read_val:int :: DEV_AdvanceStateMachine(DEV_Read(read_val), DEV_states.states[id], id, dev_offset, offset) != Invalid());
+  requires public(id);      //- Secret values should have no effect on our id/address choices (which devices may see)
+  requires public(offset);  // REVIEW: Is this redundant with the checks on PciConfigAddrOut32 above?
+  requires public(io._inCtr);
+  requires public(io._outCtr);
+  ensures  _DEV_states == States(DEV_states.states[id := DEV_AdvanceStateMachine(DEV_Read(_r.regs[EAX]), DEV_states.states[id], id, dev_offset, offset)]);
+  ensures  (exists eax_val:int ::       //- Since addr we read is publicly visible, this is both an In and Out event
+                _io == InOutUpdate(io)
+             && _r.regs == r.regs[EAX := eax_val]
+             && _r.efl == r.efl
+             && (_DEV_states.states[id] is GotDataCap ==> num_DEV_map_regs(id) == SelectLSBs(8, shr(eax_val, 16)))
+             && word(eax_val)); 
+  ensures public(_r.regs[EAX]);
+
+
+atomic procedure instr_DEV_PciConfigDataOut32(const my r:regs, linear io:IOState, linear DEV_states:DEV_StateMachines, id:int, dev_offset:int, offset:int)
+    returns(linear _io:IOState, linear _DEV_states:DEV_StateMachines);
+  requires id     == io._pci.PciConfigId;
+  requires offset == io._pci.PciConfigOffset;
+  requires r.regs[EDX] == 0xcfc;
+  requires DEV_AdvanceStateMachine(DEV_Write(r.regs[EAX]), DEV_states.states[id], id, dev_offset, offset) != Invalid();
+  requires public(id);     //- Secret values should have no effect on our id/address choices (which devices may see)
+  requires public(offset); // REVIEW: Is this redundant with the checks on PciConfigAddrOut32 above?
+  requires public(io._inCtr);
+  requires public(io._outCtr);
+  ensures  _DEV_states == States(DEV_states.states[id := DEV_AdvanceStateMachine(DEV_Write(r.regs[EAX]), DEV_states.states[id], id, dev_offset, offset)]);
+  ensures  (exists _pci_config:int, _pci_config_offset:int::
+              _io == OutUpdate(PciUpdate(
+                io,
+                PciState(
+                  _pci_config,
+                  _pci_config_offset,
+                  io._pci.PciConfigState
+              ))));
+
+atomic ghost procedure complete_DEV_enablement(linear DEV_states:DEV_StateMachines) returns (linear new_mem:mem);
+    requires (forall i:int :: IsValidPciId(i) ==> (Is_DEV_PCI_config(i) ==> DEV_states.states[i] is Complete));       
+    ensures  (forall i:int ::{ new_mem.dom[i] } {TV(i)} new_mem.dom[i] <==> TV(i) && ?CodeBase + 64*1024 <= i && i < 128*1024*1024);    //- Top=base+64K  DEV covers 128MB total    // TODO: Need to fix triggers here!
+
+
+//-////////////////////////////////////////////////////////////////
+//-   Generic Dafny interface for reading/writing device memory 
+//-////////////////////////////////////////////////////////////////
+
+type IoMemPerm_t = Null() | IoReadAddr(r_addr:int, r_val:int) | IoWriteAddr(w_addr:int, w_val:int);
+readonly var $ghost_IoMemPerm:IoMemPerm_t;
+
+// REVIEW: Add relational requirements here or handle at the points where
+//         we dole out the IoMemPerms?
+atomic procedure instr_IoMemAddrRead(my r:regs, dst:int, ptr:opn_mem)
+  returns(my _r:regs);
+  requires $ghost_IoMemPerm is IoReadAddr;
+  requires $ghost_IoMemPerm.r_addr == EvalPtr(r, ptr);
+  modifies $ghost_IoMemPerm;
+  ensures  $ghost_IoMemPerm is Null;
+  ensures  _r.regs == r.regs[dst := old($ghost_IoMemPerm).r_val];
+  ensures  _r.efl == r.efl;
+  ensures  word(_r.regs[dst]);
+
+atomic procedure instr_IoMemAddrWrite(const my r:regs, ptr:opn_mem, src:opn);
+  requires $ghost_IoMemPerm is IoWriteAddr;
+  requires $ghost_IoMemPerm.w_addr == EvalPtr(r, ptr);
+  requires $ghost_IoMemPerm.w_val  == Eval(r, src);
+  modifies $ghost_IoMemPerm;
+  ensures  $ghost_IoMemPerm is Null;
+
+} //- End of module

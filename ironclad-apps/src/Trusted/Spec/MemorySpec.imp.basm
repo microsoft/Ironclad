@@ -1,0 +1,10 @@
+//-
+//- Copyright (c) Microsoft Corporation.  All rights reserved.
+//-
+
+module implementation MemorySpec
+{
+  implementation memAddrBounds(i:int) {}
+  implementation reveal_Aligned(val:int) {}
+
+}

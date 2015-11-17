@@ -1,0 +1,283 @@
+//-private-import BaseSpec;
+//-private-import MemorySpec;
+//-private-import IoTypesSpec;
+//-private-import MachineStateSpec;
+//-private-import AssemblySpec;
+//-private-import InterruptsSpec;
+//-private-import IoSpec;
+//-<NuBuild AddBoogieAxiom Base_axioms />
+//-<NuBuild AddBoogieAxiom Memory_axioms />
+//-<NuBuild AddBoogieAxiom Assembly_axioms />
+//-<NuBuild AddBoogieAxiom Word_axioms />
+//-private-import Partition;
+//-private-import Core;
+//-private-import IntLemmasBase;
+//-private-import LogicalAddressing;
+//-private-import Instructions;
+//-
+//- Copyright (c) Microsoft Corporation.  All rights reserved.
+//-
+
+module implementation Util
+{
+
+//- Write hex digit (ecx & 15) to screen offset edx
+implementation writeHexDigit()
+{
+  ecx := eax;
+  call ecx := And(ecx, 15);
+  if (ecx < 10)
+  {
+    ecx := ecx + 0x0c30;
+  }
+  else { call ecx := AddChecked(ecx, 0x0c37); }
+  call VgaDebugStore16(edx + 0xb8000, ecx);
+}
+
+//- Write value eax to screen offset edx
+implementation writeHex()
+{
+  edx := edx + 14;
+  call writeHexDigit();
+  edx := edx - 2;
+  call eax := Shr(eax, 4);
+  call writeHexDigit();
+  edx := edx - 2;
+  call eax := Shr(eax, 4);
+  call writeHexDigit();
+  edx := edx - 2;
+  call eax := Shr(eax, 4);
+  call writeHexDigit();
+  edx := edx - 2;
+  call eax := Shr(eax, 4);
+  call writeHexDigit();
+  edx := edx - 2;
+  call eax := Shr(eax, 4);
+  call writeHexDigit();
+  edx := edx - 2;
+  call eax := Shr(eax, 4);
+  call writeHexDigit();
+  edx := edx - 2;
+  call eax := Shr(eax, 4);
+  call writeHexDigit();
+}
+
+implementation debugBreak()
+{
+  edx := 2;
+  call writeHexIllogical();
+
+  edx := 0xb8000;
+  eax := 0;
+  loop:
+    invariant edx == 0xb8000;
+    //invariant logical_addressing_inv(init, ptMem, core_state);
+
+    //- Loop so we don't write to the screen too quickly (overwhelms card on phys machine?)
+    ecx := 0;
+    while (ecx <= 0x100000) 
+        invariant edx == 0xb8000;
+        //invariant logical_addressing_inv(init, ptMem, core_state);
+        invariant 0 <= ecx && ecx <= 0x100001;
+    {
+        ecx := ecx + 1;
+    }
+
+    //- Write to the screen to show we're still live
+    call eax := LeaUnchecked(eax + 1);
+    call VgaDebugStore16(edx, eax);
+    goto loop;
+}
+
+implementation DebugBreak()
+{
+  call debugBreak();
+  return;
+}
+
+//- Write hex digit (ecx & 15) to screen offset edx
+implementation writeHexDigitIllogical()
+{
+  ecx := eax;
+  call ecx := And(ecx, 15);
+  if (ecx < 10)
+  {
+    ecx := ecx + 0x0c30;
+  }
+  else { call ecx := AddChecked(ecx, 0x0c37); }
+  call VgaDebugStore16(edx + 0xb8000, ecx);
+}
+
+//- Write value eax to screen offset edx
+implementation writeHexIllogical()
+{
+  edx := edx + 14;
+  call writeHexDigitIllogical();
+  edx := edx - 2;
+  call eax := Shr(eax, 4);
+  call writeHexDigitIllogical();
+  edx := edx - 2;
+  call eax := Shr(eax, 4);
+  call writeHexDigitIllogical();
+  edx := edx - 2;
+  call eax := Shr(eax, 4);
+  call writeHexDigitIllogical();
+  edx := edx - 2;
+  call eax := Shr(eax, 4);
+  call writeHexDigitIllogical();
+  edx := edx - 2;
+  call eax := Shr(eax, 4);
+  call writeHexDigitIllogical();
+  edx := edx - 2;
+  call eax := Shr(eax, 4);
+  call writeHexDigitIllogical();
+  edx := edx - 2;
+  call eax := Shr(eax, 4);
+  call writeHexDigitIllogical();
+}
+
+
+implementation initializeSerialPort() returns ( )
+{
+  //- enable DLAB and set baudrate 115200
+  edx := 0x3fb;
+  eax := 0x80;
+  call SerialDbgConfigOut();
+  edx := 0x3f8;
+  eax := 0x01;
+  call SerialDbgConfigOut();
+  edx := 0x3f9;
+  eax := 0x00;
+  call SerialDbgConfigOut();
+  //- disable DLAB and set 8N1
+  edx := 0x3fb;
+  eax := 0x03;
+  call SerialDbgConfigOut();
+  //- reset IRQ register
+  edx := 0x3f9;
+  eax := 0x00;
+  call SerialDbgConfigOut();
+  //- enable fifo, flush buffer, enable fifo
+  edx := 0x3fa;
+  eax := 0x01;
+  call SerialDbgConfigOut();
+  edx := 0x3fa;
+  eax := 0x07;
+  call SerialDbgConfigOut();
+  edx := 0x3fa;
+  eax := 0x01;
+  call SerialDbgConfigOut();
+  //- set RTS,DTR
+  edx := 0x3fc;
+  eax := 0x03;
+  call SerialDbgConfigOut();
+}
+
+implementation serialDbgWordOut()
+{ 
+  //- Writes out esi, 8 bits at a time
+  ebx := esi;
+  call ebx := Shr(ebx, 24);
+  call serialDbgByteOut();
+  ebx := esi;
+  call ebx := Shr(ebx, 16);
+  call serialDbgByteOut();
+  ebx := esi;
+  call ebx := Shr(ebx, 8);
+  call serialDbgByteOut();
+  ebx := esi;
+  call serialDbgByteOut();
+}
+
+implementation serialDbgNewlineOut()
+{
+  //- Write a carriage return
+  ecx := 13;
+  call serialDbgDataOut8();
+  //- Write out a newline
+  ecx := 10;
+  call serialDbgDataOut8();
+}
+
+implementation serialDbgMarkOut()
+{
+  //- Write a caret with a carriage return
+  ecx := 94;
+  call serialDbgDataOut8();
+  call serialDbgNewlineOut();
+}
+
+implementation serialDbgByteOut()
+{
+  //- Truncate to byte size
+  ecx := ebx;
+  call ecx := And(ecx, 0xff);
+  
+  //- Convert top nibble to hex
+  call ecx := Shr(ecx, 4);
+  call and_bounds();
+  call shr_decreases();
+  if (ecx <= 9) {
+      ecx := ecx + 48;    //- ecx += '0'
+  } else {
+      ecx := ecx - 0xa;
+      ecx := ecx + 97;    //- ecx += 'a'
+  }
+  call serialDbgDataOut8();
+  
+  //- Convert lower nibble to hex
+  ecx := ebx;
+  call ecx := And(ecx, 0xf);
+  if (ecx <= 9) {
+      ecx := ecx + 48;    //- ecx += '0'
+  } else {
+      ecx := ecx - 0xa;
+      ecx := ecx + 97;    //- ecx += 'a'
+  }
+  call serialDbgDataOut8();
+}
+
+implementation serialDbgDataOut8() 
+{
+  //- Loop until serial port is ready
+waitForSerialPort:
+    invariant ecx == old(ecx);
+  
+  edx := 0x3fd;
+  call SerialDbgStatusOut8();
+  call eax := And(eax, 0x20);
+  if (eax == 0) 
+  {
+    goto waitForSerialPort;
+  }
+
+  //- Write out the value in ecx 
+  edx := 0x3f8;
+  eax := ecx;
+  call SerialDbgDataOut8();
+}
+
+
+//implementation serialDbgDataIn8() 
+//{
+//  // Loop until serial port is ready
+//waitForSerialPort:
+//  invariant logical_addressing_inv(me, init, $State, $part, ptOwner__id, core);
+//  //invariant $part.vars[me] == old($part).vars[me];
+//  invariant $serialState.Mode.DLAB == false;
+//  invariant $serialState.In.Done == old($serialState).In.Done;
+//
+//  edx := 0x3fd;
+//  call SerialDbgStatusIn8();
+//  call eax := And(eax, 0x1);
+//  if (eax == 0) 
+//  {
+//    goto waitForSerialPort;
+//  }
+//  // Read in the value in eax 
+//  edx := 0x3f8;
+//  call SerialDbgDataIn8();
+//}
+
+
+}

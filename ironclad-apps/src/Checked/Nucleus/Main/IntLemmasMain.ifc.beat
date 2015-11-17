@@ -1,0 +1,37 @@
+//-private-import BaseSpec;
+//-private-import MemorySpec;
+//-private-import IntSpec;
+//-private-import BitVectorLemmasMain;
+//-
+//- Copyright (c) Microsoft Corporation.  All rights reserved.
+//-
+
+module interface IntLemmasMain
+{
+
+atomic ghost procedure proc_XorLemmas();
+  ensures (forall x:int::xor(x, x) == 0);
+  ensures (forall x:int::word(x) ==> xor(x, 0) == x);
+  ensures (forall x:int, y:int::xor(x, y) == xor(y, x));
+  ensures (forall x:int, y:int, z:int:: xor(x, xor(y,z)) == xor(y, xor(x,z)));
+  ensures (forall x:int, y:int, z:int :: (word(x) && word(y) && word(z)) ==> (xor(x,z) == xor(y,z)) ==> (x == y));
+  
+
+atomic ghost procedure lemma_and_with_ff(x:int);
+  requires word(x);
+  ensures le(0, and(x, 0xff)) && lt(and(x, 0xff), 0x100);
+
+atomic ghost procedure lemma_and_with_ffff(x:int);
+  requires word(x);
+  ensures le(0, and(x, 0xffff)) && lt(and(x, 0xffff), 0x10000);
+
+atomic ghost procedure lemma_and_with_32_64(x:int);
+  requires word(x);
+  ensures gt(and(x, 32), 0) ==> int_bit(x, 5);
+  ensures gt(and(x, 64), 0) ==> int_bit(x, 6);
+
+atomic ghost procedure lemma_xor_bytes(x:int, y:int);
+  requires le(0, x) && lt(x, 256);
+  requires le(0, y) && lt(y, 256);
+  ensures le(0, xor(x, y)) && lt(xor(x, y), 256);
+}

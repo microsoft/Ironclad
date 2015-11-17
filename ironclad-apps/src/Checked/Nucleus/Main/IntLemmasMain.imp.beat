@@ -1,0 +1,108 @@
+//-private-import BaseSpec;
+//-private-import MemorySpec;
+//-private-import IntSpec;
+//-private-import BitVectorLemmasMain;
+//-<NuBuild AddBoogieAxiom Word_axioms />
+//-<NuBuild AddBoogieAxiom IntSpec_axioms />
+//-
+//- Copyright (c) Microsoft Corporation.  All rights reserved.
+//-
+
+module implementation IntLemmasMain
+{
+
+atomic ghost procedure _a($b1:bv32, $b2:bv32)
+  requires word(add(I($b1), I($b2)));
+  ensures  add(I($b1), I($b2)) == I($add($b1, $b2));
+{
+}
+
+atomic ghost procedure _s($b1:bv32, $b2:bv32)
+  requires word(sub(I($b1), I($b2)));
+  ensures  sub(I($b1), I($b2)) == I($sub($b1, $b2));
+{
+}
+
+atomic ghost procedure _m($b1:bv32, $b2:bv32)
+  requires word(mul(I($b1), I($b2)));
+  ensures  mul(I($b1), I($b2)) == I($mul($b1, $b2));
+{
+}
+
+
+atomic ghost procedure __const()
+  ensures 0 == I(0bv32);
+  ensures 2 == I(2bv32);
+  ensures 4 == I(4bv32);
+  ensures 16 == I(16bv32);
+  ensures 32 == I(32bv32);
+  ensures 64 == I(64bv32);
+  ensures 255 == I(255bv32);
+  ensures 256 == I(256bv32);
+  ensures 0x10000 == I(65536bv32);
+  ensures 0xffff == I(65535bv32);
+{
+  call _const();
+  call _s(1bv32, 1bv32);
+  call _a(1bv32, 1bv32);
+  call _m(2bv32, 2bv32);
+  call _m(4bv32, 4bv32);
+  call _a(16bv32, 16bv32);
+  call _a(32bv32, 32bv32);
+  call _m(16bv32, 16bv32);
+  call _m(256bv32, 256bv32);
+  call _s(256bv32, 1bv32);
+  call _s(65536bv32, 1bv32);
+}
+
+implementation proc_XorLemmas()
+{
+  call __const();
+  call _proc_XorLemmas();
+}
+
+implementation lemma_and_with_ff(x:int)
+{
+  call __const();
+  call _lemma_and_with_ff(B(x));
+}
+
+implementation lemma_and_with_ffff(x:int)
+{
+  call __const();
+  call _lemma_and_with_ffff(B(x));
+}
+
+implementation lemma_and_with_32_64(x:int) 
+{
+  call __const();
+  call _lemma_and_with_32_64(B(x));
+  call reveal_int_bit(x, 5);
+  call reveal_int_bit(x div 2, 4);
+  call reveal_int_bit((x div 2) div 2, 3);
+  call reveal_int_bit(((x div 2) div 2) div 2, 2);
+  call reveal_int_bit((((x div 2) div 2) div 2) div 2, 1);
+  call reveal_int_bit(((((x div 2) div 2) div 2) div 2) div 2, 0);
+
+  assert gt(and(x, 32), 0) ==> _mod(_div(_div(_div(_div(_div(x, 2), 2), 2), 2), 2), 2) != 0; //int_bit(x, 5) == 1;
+
+  call reveal_int_bit(x, 6);
+  call reveal_int_bit(x div 2, 5);
+  call reveal_int_bit((x div 2) div 2, 4);
+  call reveal_int_bit(((x div 2) div 2) div 2, 3);
+  call reveal_int_bit((((x div 2) div 2) div 2) div 2, 2);
+  call reveal_int_bit(((((x div 2) div 2) div 2) div 2) div 2, 1);
+  call reveal_int_bit((((((x div 2) div 2) div 2) div 2) div 2) div 2, 0);
+  assert gt(and(x, 64), 0) ==> _mod(_div(_div(_div(_div(_div(_div(x, 2), 2), 2), 2), 2), 2), 2) != 0; //int_bit(x, 6) == 1;
+}
+
+implementation lemma_xor_bytes(x:int, y:int)
+{
+  call __const();
+
+  assert le(0, x) && lt(x, 256);
+  assert le(0, y) && lt(y, 256);
+
+  call _lemma_xor_bytes(B(x), B(y));
+}
+}
