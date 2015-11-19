@@ -17,7 +17,6 @@ namespace NuBuild
 
         private PathNormalizer pathNormalizer;
         private SourcePathIncludeContext vervePathContext;
-        private string ironRoot;
         private Hasher hasher;
         private Repository repository;
         private CloudExecutionQueue cloudExecutionQueue;
@@ -71,7 +70,6 @@ namespace NuBuild
         {
             if (this.vervePathContext == null)
             {
-                Util.Assert(this.ironRoot != null);
                 this.vervePathContext = new SourcePathIncludeContext();
                 this.vervePathContext.addDirectory(VerveTrustedSpecDir);
                 this.vervePathContext.addDirectory("Checked\\Nucleus\\Base");
@@ -109,20 +107,16 @@ namespace NuBuild
 
         public string getIronRoot()
         {
-            return this.ironRoot;
-        }
-
-        internal void setIronRoot(string ironRoot)
-        {
-            this.ironRoot = this.pathNormalizer.normalizeAbsolutePath(ironRoot);
+            // todo: does normalizeAbsolutePath() do anything in this case?
+            return this.pathNormalizer.normalizeAbsolutePath(NuBuildEnvironment.RootDirectoryPath.ToString());
         }
 
         // Normalize the case of an ironRoot-relative path to the case present in the filesystem.
         internal string normalizeIronPath(string ironRelPath)
         {
-            string abspath = this.pathNormalizer.normalizeAbsolutePath(Path.GetFullPath(Path.Combine(this.ironRoot, ironRelPath)));
-            Util.Assert(abspath.StartsWith(this.ironRoot));
-            return abspath.Substring(this.ironRoot.Length);
+            string abspath = this.pathNormalizer.normalizeAbsolutePath(Path.GetFullPath(Path.Combine(this.getIronRoot(), ironRelPath)));
+            Util.Assert(abspath.StartsWith(this.getIronRoot()));
+            return abspath.Substring(this.getIronRoot().Length);
         }
 
         internal string getObjRoot()

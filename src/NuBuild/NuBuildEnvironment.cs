@@ -18,13 +18,78 @@ namespace NuBuild
         public const string ConfigDotYamlRelativePath = ".nubuild\\config.yaml";
         private static CloudStorageAccount cloudStorageAccount = null;
 
-        public static dynamic ConfigDotYaml { get; private set; }
-        public static IAbsoluteDirectoryPath RootDirectoryPath { get; private set; }
+        private static IAbsoluteDirectoryPath rootDirectoryPath = null;
+        private static dynamic configDotYaml = null;
 
-        static NuBuildEnvironment()
+        public static void initialize(IDirectoryPath specifiedRootPath = null)
         {
-            RootDirectoryPath = findNuBuildRoot();
-            ConfigDotYaml = loadConfigDotYaml();
+            if (isInitialized())
+            {
+                throw new InvalidOperationException("Attempt to initialize NuBuildEnvironment twice.");
+            }
+            rootDirectoryPath = initNuBuildRoot(specifiedRootPath);
+            configDotYaml = loadConfigDotYaml();
+        }
+
+        public static bool isInitialized()
+        {
+            return rootDirectoryPath != null;
+        }
+
+        private static void throwIfNotInitialized()
+        {
+            if (!isInitialized())
+            {
+                throw new InvalidOperationException("NuBuildEnvironment is not yet intialized.");
+            }
+        }
+
+        public static dynamic ConfigDotYaml
+        {
+            get
+            {
+                throwIfNotInitialized();
+                return configDotYaml;
+            }
+        }
+        public static IAbsoluteDirectoryPath RootDirectoryPath
+        {
+            get
+            {
+                throwIfNotInitialized();
+                return rootDirectoryPath;
+            }
+        }
+
+         private static IAbsoluteDirectoryPath initNuBuildRoot(IDirectoryPath specifiedRootPath)
+        {
+            if (specifiedRootPath != null)
+            {
+                IAbsoluteDirectoryPath p;
+                if (specifiedRootPath.IsRelativePath)
+                {
+                    p = ((IRelativeDirectoryPath)specifiedRootPath).GetAbsolutePathFrom(CurrentDirectoryPath);
+                }
+                else
+                {
+                    p = (IAbsoluteDirectoryPath)specifiedRootPath;
+                }
+                if (p.Exists && p.GetChildDirectoryWithName(DotNuBuild).Exists)
+                {
+                    Logger.WriteLine(string.Format("[NuBuild] Specified NuBuild root path found at `{0}`.", p));
+                    return p;
+                }
+                else
+                {
+                    throw new DirectoryNotFoundException(string.Format("Specified NuBuild root path (`{0}`) not found.", specifiedRootPath));
+                }
+            }
+            else
+            {
+                var p = findNuBuildRoot();
+                Logger.WriteLine(string.Format("[NuBuild] NuBuild root found at `{0}`.", p));
+                return p;
+            }
         }
 
         public static CloudStorageAccount CloudStorageAccount
@@ -40,6 +105,14 @@ namespace NuBuild
             }
         }
 
+        public static IAbsoluteDirectoryPath CurrentDirectoryPath
+        {
+            get
+            {
+                return Directory.GetCurrentDirectory().ToAbsoluteDirectoryPath();
+            }
+        }
+
         public static IAbsoluteDirectoryPath findNuBuildRoot()
         {
             var pwd = Directory.GetCurrentDirectory().ToAbsoluteDirectoryPath();
@@ -48,7 +121,6 @@ namespace NuBuild
                 var p = i.GetChildDirectoryWithName(DotNuBuild);
                 if (p.Exists)
                 {
-                    Logger.WriteLine(string.Format("[NuBuild] NuBuild root found at `{0}`.", i));
                     return i;
                 }
             }

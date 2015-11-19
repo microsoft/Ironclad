@@ -14,6 +14,8 @@ namespace NuBuild
     using System.Text;
     using System.Threading.Tasks;
 
+    using NDepend.Path;
+
     internal class Program
     {
         private bool useCloudExecution;
@@ -45,7 +47,6 @@ namespace NuBuild
             throw new UserError("Invalid options");
         }
 
-        string ironRoot;
         int jobParallelism = 1;
         List<IVerb> verbs = new List<IVerb>();
         string html_output = null;
@@ -73,24 +74,11 @@ namespace NuBuild
             return new SourcePath(path);
         }
 
-        void fixIronRoot()
-        {
-            if (ironRoot == null)
-            {
-                ironRoot = NuBuildEnvironment.getDefaultIronRoot();
-                if (ironRoot == null)
-                {
-                    usage("--ironRoot not specified and cannot infer ironRoot");
-                }
-            }
-
-            BuildEngine.theEngine.setIronRoot(ironRoot);
-        }
-
         void parseArgs(string[] args)
         {
             this.args = args;
             argi = 0;
+            var rootDirInitState = Tuple.Create((string)null, false);
             while (argi < args.Count())
             {
                 string next = takeArg("option or verb");    // Should always succeed due to while condition.
@@ -98,12 +86,12 @@ namespace NuBuild
                 {
                     if (next.Equals("--ironRoot"))
                     {
-                        if (this.ironRoot != null)
+                        if (rootDirInitState.Item2)
                         {
                             usage("ironRoot set after use");
                         }
 
-                        this.ironRoot = takeArg("value for ironRoot");
+                        rootDirInitState = Tuple.Create(takeArg("value for ironRoot"), false);
                     }
                     else if (next.Equals("-j") || next.Equals("--jobs"))
                     {
@@ -168,7 +156,13 @@ namespace NuBuild
                     string verb = next;
                     string target = takeArg("verb-target");
 
-                    fixIronRoot();
+                    if (!rootDirInitState.Item2)
+                    {
+                        IDirectoryPath p = rootDirInitState.Item1 == null ? null : rootDirInitState.Item1.ToDirectoryPath();
+                        NuBuildEnvironment.initialize(p);
+                        rootDirInitState = Tuple.Create(rootDirInitState.Item1, true);
+                    }
+
                     if (verb.Equals("DafnyVerifyTree"))
                     {
                         verbs.Add(new VerificationResultSummaryVerb(new DafnyVerifyTreeVerb(conditionSourcePath(target))));
@@ -234,7 +228,11 @@ namespace NuBuild
                 }
             }
 
-            fixIronRoot();
+            if (!rootDirInitState.Item2)
+            {
+                IDirectoryPath p = rootDirInitState.Item1 == null ? null : rootDirInitState.Item1.ToDirectoryPath();
+                NuBuildEnvironment.initialize(p);
+            }
         }
 
         private IItemCache GetItemCache()
@@ -281,7 +279,7 @@ namespace NuBuild
         private IEnumerable<string> fetchConfigArgs()
         {
             string config_path =
-                Path.Combine(NuBuildEnvironment.getDefaultIronRoot(), NUBUILD_CONFIG);
+                Path.Combine(NuBuildEnvironment.CurrentDirectoryPath.ToString(), NUBUILD_CONFIG);
             if (!File.Exists(config_path))
             {
                 return new string[] { };

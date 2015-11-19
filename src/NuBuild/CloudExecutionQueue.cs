@@ -103,10 +103,7 @@ namespace NuBuild
         {
             // Work-around for running this code in CloudExecutionEngine.  TODO: Clean this up!
             // The BuildEngine.theEngine.getIronRoot() call needs to work for BuildObject code to function properly.
-            if (BuildEngine.theEngine.getIronRoot() == null)
-            {
-                BuildEngine.theEngine.setIronRoot(Directory.GetCurrentDirectory());
-            }
+            NuBuildEnvironment.initialize(NuBuildEnvironment.CurrentDirectoryPath);
 
             this.queueEntryTtl = new TimeSpan(0, 30, 0);  // 30 minutes.
 
