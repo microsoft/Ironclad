@@ -77,7 +77,7 @@ namespace NuBuild
         {
             if (ironRoot == null)
             {
-                ironRoot = NuBuild.Environment.getDefaultIronRoot();
+                ironRoot = NuBuildEnvironment.getDefaultIronRoot();
                 if (ironRoot == null)
                 {
                     usage("--ironRoot not specified and cannot infer ironRoot");
@@ -223,6 +223,10 @@ namespace NuBuild
                     {
                         verbs.Add(new BootableAppVerb(conditionSourcePath(target), this.useFramePointer, this.verificationRequest));
                     }
+                    if (verb.Equals("VerifyFst"))
+                    {
+                        verbs.Add(new VerifyFstVerb(conditionSourcePath(target)));
+                    }
                     else
                     {
                         usage("Unknown verb " + verb);
@@ -266,7 +270,7 @@ namespace NuBuild
         void logNubuildInvocation(string[] args)
         {
             Logger.WriteLine(string.Format("{0} {1}",
-                Environment.getAssemblyPath(),
+                NuBuildEnvironment.getAssemblyPath(),
                 string.Join(" ", args)));
         }
 
@@ -277,7 +281,7 @@ namespace NuBuild
         private IEnumerable<string> fetchConfigArgs()
         {
             string config_path =
-                Path.Combine(Environment.getDefaultIronRoot(), NUBUILD_CONFIG);
+                Path.Combine(NuBuildEnvironment.getDefaultIronRoot(), NUBUILD_CONFIG);
             if (!File.Exists(config_path))
             {
                 return new string[] { };

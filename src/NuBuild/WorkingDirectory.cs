@@ -29,8 +29,8 @@ namespace NuBuild
         /// </param>
         public WorkingDirectory(string ironroot)
         {
-            // REVIEW: Have "nutemp" hard-wired here, or passed in?
-            this.path = Path.Combine(ironroot, "nutemp", Path.GetRandomFileName());
+            var nutemp = Path.Combine(NuBuildEnvironment.DotNuBuild, ".local\\temp");
+            this.path = Path.Combine(ironroot, nutemp, Path.GetRandomFileName());
             Directory.CreateDirectory(this.path);
         }
 

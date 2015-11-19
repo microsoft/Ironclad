@@ -206,8 +206,8 @@ namespace AzureManager
         /// <returns>An Azure account.</returns>
         private static AzureAccount GetOurAzureAccount()
         {
-            string subscriptionId = (string)NuBuild.Environment.ConfigDotYaml.credentials.subscription_id;
-            string certBase64Encoded = (string)NuBuild.Environment.ConfigDotYaml.credentials.certificate;
+            string subscriptionId = (string)NuBuild.NuBuildEnvironment.ConfigDotYaml.credentials.subscription_id;
+            string certBase64Encoded = (string)NuBuild.NuBuildEnvironment.ConfigDotYaml.credentials.certificate;
 
             byte[] cert = Convert.FromBase64String(certBase64Encoded);
             X509Certificate2 x509Cert = new X509Certificate2(cert);

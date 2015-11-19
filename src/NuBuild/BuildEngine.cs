@@ -145,11 +145,6 @@ namespace NuBuild
             return "tools";
         }
 
-        internal string getBinToolsRoot()
-        {
-            return "bin_tools";
-        }
-
         internal void setLocalCache(string path)
         {
             this.localCacheLocation = path;

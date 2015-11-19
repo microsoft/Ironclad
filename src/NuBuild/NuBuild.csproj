@@ -69,6 +69,10 @@
       <HintPath>..\packages\WindowsAzure.Storage.6.1.0\lib\net40\Microsoft.WindowsAzure.Storage.dll</HintPath>
       <Private>True</Private>
     </Reference>
+    <Reference Include="NDepend.Path, Version=1.0.0.0, Culture=neutral, PublicKeyToken=663402f81ccece54, processorArchitecture=MSIL">
+      <HintPath>..\packages\NDepend.Path.1.0.0\lib\net35\NDepend.Path.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
     <Reference Include="Newtonsoft.Json, Version=7.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
       <HintPath>..\packages\Newtonsoft.Json.7.0.1\lib\net45\Newtonsoft.Json.dll</HintPath>
       <Private>True</Private>
@@ -98,12 +102,16 @@
     <Compile Include="AbstractId.cs" />
     <Compile Include="AnnotationScanner.cs" />
     <Compile Include="AsmRewriterVerb.cs" />
+    <Compile Include="FilePath.cs" />
     <Compile Include="CloudExecutionQueue.cs" />
     <Compile Include="CloudExecutionReport.cs" />
     <Compile Include="CloudExecutionRequest.cs" />
     <Compile Include="CloudExecutionWaiter.cs" />
-    <Compile Include="Environment.cs" />
+    <Compile Include="NuBuildEnvironment.cs" />
     <Compile Include="DafnyExecutableDependencies.cs" />
+    <Compile Include="FStarEnvironment.cs" />
+    <Compile Include="VerificationResultFStarParser.cs" />
+    <Compile Include="VerifyFstVerb.cs" />
     <Compile Include="IProcessInvoker.cs" />
     <Compile Include="VerbRunner.cs">
     </Compile>

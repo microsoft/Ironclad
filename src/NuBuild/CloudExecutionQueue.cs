@@ -110,7 +110,7 @@ namespace NuBuild
 
             this.queueEntryTtl = new TimeSpan(0, 30, 0);  // 30 minutes.
 
-            var storageAccount = NuBuild.Environment.CloudStorageAccount;
+            var storageAccount = NuBuildEnvironment.CloudStorageAccount;
 
             this.queueClient = storageAccount.CreateCloudQueueClient();
 

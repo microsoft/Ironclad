@@ -12,6 +12,8 @@ namespace NuBuild
     using System.Linq;
     using System.Xml;
 
+    using NDepend.Path;
+
     /// <summary>
     /// An abstract identifier for "nouns" (i.e. the things that verbs operate
     /// on -- both verb outputs and dependencies are BuildObjects).
@@ -342,6 +344,16 @@ namespace NuBuild
             int slash = dirname.IndexOf('\\');
             Util.Assert(slash >= 0);
             return dirname.Substring(slash + 1);
+        }
+
+        public IRelativeFilePath toRelativeFilePath()
+        {
+            return FilePath.ImplicitToRelative(this.getRelativePath());
+        }
+
+        public IAbsoluteFilePath toAbsoluteFilePath()
+        {
+            return this.toRelativeFilePath().GetAbsolutePathFrom(NuBuildEnvironment.RootDirectoryPath);
         }
     }
 }

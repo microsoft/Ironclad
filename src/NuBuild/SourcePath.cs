@@ -13,7 +13,7 @@ namespace NuBuild
     /// Representation of a source BuildObject.
     /// These are things which we expect to pre-exist, instead of built by us.
     /// </summary>
-    internal class SourcePath
+    public class SourcePath
         : BuildObject
     {
         /// <summary>
@@ -34,9 +34,6 @@ namespace NuBuild
             : base(inpath)
         {
             // Sanity checks.
-            this.checkPrefix(sourceType, SourceType.Src, BuildEngine.theEngine.getSrcRoot());
-            this.checkPrefix(sourceType, SourceType.Tools, BuildEngine.theEngine.getToolsRoot());
-            this.checkPrefix(sourceType, SourceType.BinTools, BuildEngine.theEngine.getBinToolsRoot());
             this.checkPrefix(sourceType, SourceType.PrebakedObjExpediency, "obj");   // TODO remove.
 
             this.sourceType = sourceType;
@@ -58,13 +55,6 @@ namespace NuBuild
             /// Tools (executables usually) that we don't build ourselves.
             /// </summary>
             Tools,
-
-            /// <summary>
-            /// Tools that we could build ourselves.
-            /// Probably don't really want this in the long run,
-            /// since we can build these.
-            /// </summary>
-            BinTools,
 
             /// <summary>
             /// Special purpose expediency.
