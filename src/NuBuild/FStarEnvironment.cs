@@ -9,22 +9,91 @@ namespace NuBuild
     using System.Diagnostics;
     using System.IO;
 
+    using Minimatch;
+
     using NDepend.Path;
 
     public static class FStarEnvironment
     {
         private const string DefaultPathToFStarExe = ".\\bin\\fstar.exe";
-        public static SourcePath PathToFStarExe { get; private set; }
+
+        private static readonly IAbsoluteFilePath AbsolutePathToFStarExe;
+
+        private static readonly List<SourcePath> Binaries;
+        private static readonly List<SourcePath> StandardLibrary;
 
         static FStarEnvironment()
         {
-            findFStarExecutable();
+            var pathToFStarExe = findFStarExecutable();
+            Binaries = findBinaries(pathToFStarExe);
+            StandardLibrary = findStandardLibrary(pathToFStarExe);
+            AbsolutePathToFStarExe = pathToFStarExe;
         }
 
-        private static void findFStarExecutable()
+        public static IRelativeFilePath PathToFStarExe
+        {
+            get
+            {
+                return FilePath.AbsoluteToNuBuild(AbsolutePathToFStarExe);
+            }
+        }
+
+        public static IEnumerable<SourcePath> getStandardDependencies()
+        {
+            return Binaries.Concat(StandardLibrary);
+        }
+
+        private static List<SourcePath> findBinaries(IAbsoluteFilePath pathToFStarExe)
+        {
+            IAbsoluteDirectoryPath binPath = pathToFStarExe.ParentDirectoryPath;
+            var result = new List<SourcePath>();
+
+            result.Add(new SourcePath(FilePath.AbsoluteToNuBuild(pathToFStarExe).ToString(), SourcePath.SourceType.Tools));
+
+            var globs = new[] { new Minimatcher("*.dll"), new Minimatcher("*.pdb"), new Minimatcher("*.config") };
+            var paths = FilePath.GetListing(binPath, recurse: true);
+            foreach (var path in paths)
+            {
+                foreach (var glob in globs)
+                {
+                    if (glob.IsMatch(path.ToString()))
+                    {
+                        var nbPath = FilePath.AbsoluteToNuBuild(path).ToString();
+                        result.Add(new SourcePath(nbPath, SourcePath.SourceType.Tools));
+                        break;
+                    }
+                }
+            }
+            return result;
+        }
+
+        private static List<SourcePath> findStandardLibrary(IAbsoluteFilePath pathToFStarExe)
+        {
+            IAbsoluteDirectoryPath libPath = pathToFStarExe.ParentDirectoryPath.GetBrotherDirectoryWithName("lib");
+            var result = new List<SourcePath>();
+
+            var globs = new[] { new Minimatcher("*") };
+            var paths = FilePath.GetListing(libPath, recurse: true);
+            foreach (var path in paths)
+            {
+                foreach (var glob in globs)
+                {
+                    if (glob.IsMatch(path.ToString()))
+                    {
+                        // todo: should these be added as sources?
+                        var nbPath = FilePath.AbsoluteToNuBuild(path).ToString();
+                        result.Add(new SourcePath(nbPath, SourcePath.SourceType.Tools));
+                        break;
+                    }
+                }
+            }
+            return result;
+        }
+
+        private static IAbsoluteFilePath findFStarExecutable()
         {
             IRelativeFilePath relFilePath;
-            var configStr = (string)NuBuild.NuBuildEnvironment.ConfigDotYaml.paths.fstar;
+            var configStr = (string)NuBuildEnvironment.ConfigDotYaml.paths.fstar;
             if (configStr == null)
             {
                 Logger.WriteLine(string.Format("[NuBuild] `{0}` entry `paths.fstar` is unspecifed; assuming default path (`{1}`)", NuBuild.NuBuildEnvironment.ConfigDotYamlRelativePath, DefaultPathToFStarExe));
@@ -35,54 +104,17 @@ namespace NuBuild
                 relFilePath = FilePath.ImplicitToRelative(configStr);
             }
 
-            var relDirPath = relFilePath.ParentDirectoryPath;
-            var absFilePath = relDirPath.GetAbsolutePathFrom(NuBuildEnvironment.RootDirectoryPath);
+            var absFilePath = relFilePath.GetAbsolutePathFrom(NuBuildEnvironment.RootDirectoryPath);
             if (absFilePath.Exists)
             {
                 Logger.WriteLine(string.Format("[NuBuild] F* found at `{0}`.", absFilePath));
-                PathToFStarExe = new SourcePath(relFilePath.ToString(), SourcePath.SourceType.Tools);
+                return absFilePath;
             }
             else
             {
                 var s = absFilePath.ToString();
-                throw new FileNotFoundException(string.Format("A needed file (`{0}`) is missing. Please verify that the `paths.fstar` entry in your `{1}` file is accurate.", s, NuBuild.NuBuildEnvironment.ConfigDotYamlRelativePath));
+                throw new FileNotFoundException(string.Format("A needed file (`{0}`) is missing. Please verify that the `paths.fstar` entry in your `{1}` file is accurate.", s, NuBuildEnvironment.ConfigDotYamlRelativePath));
             }
-        }
-
-        public static IList<BuildObject> getTools()
-        {
-            var result = new List<BuildObject>();
-
-            result.Add(PathToFStarExe);
-            // todo: need to add all dependencies.
-            /*exeDepends.Add(new SourcePath("tools\\Dafny\\AbsInt.dll", SourcePath.SourceType.Tools));
-            exeDepends.Add(new SourcePath("tools\\Dafny\\BaseTypes.dll", SourcePath.SourceType.Tools));
-            exeDepends.Add(new SourcePath("tools\\Dafny\\CodeContractsExtender.dll", SourcePath.SourceType.Tools));
-            exeDepends.Add(new SourcePath("tools\\Dafny\\Concurrency.dll", SourcePath.SourceType.Tools));
-            exeDepends.Add(new SourcePath("tools\\Dafny\\Core.dll", SourcePath.SourceType.Tools));
-            exeDepends.Add(new SourcePath("tools\\Dafny\\Dafny.exe.config", SourcePath.SourceType.Tools));
-            exeDepends.Add(new SourcePath("tools\\Dafny\\DafnyPipeline.dll", SourcePath.SourceType.Tools));
-            exeDepends.Add(new SourcePath("tools\\Dafny\\DafnyPrelude.bpl", SourcePath.SourceType.Tools));
-            exeDepends.Add(new SourcePath("tools\\Dafny\\Doomed.dll", SourcePath.SourceType.Tools));
-            exeDepends.Add(new SourcePath("tools\\Dafny\\ExecutionEngine.dll", SourcePath.SourceType.Tools));
-            exeDepends.Add(new SourcePath("tools\\Dafny\\Graph.dll", SourcePath.SourceType.Tools));
-            exeDepends.Add(new SourcePath("tools\\Dafny\\Model.dll", SourcePath.SourceType.Tools));
-            exeDepends.Add(new SourcePath("tools\\Dafny\\msvcp100.dll", SourcePath.SourceType.Tools));  // Needed by z3.
-            exeDepends.Add(new SourcePath("tools\\Dafny\\msvcr100.dll", SourcePath.SourceType.Tools));  // Needed by z3.
-            exeDepends.Add(new SourcePath("tools\\Dafny\\ParserHelper.dll", SourcePath.SourceType.Tools));
-            exeDepends.Add(new SourcePath("tools\\Dafny\\Provers.SMTLib.dll", SourcePath.SourceType.Tools));
-            exeDepends.Add(new SourcePath("tools\\Dafny\\VCExpr.dll", SourcePath.SourceType.Tools));
-            exeDepends.Add(new SourcePath("tools\\Dafny\\VCGeneration.dll", SourcePath.SourceType.Tools));
-            exeDepends.Add(new SourcePath("tools\\Dafny\\vcomp100.dll", SourcePath.SourceType.Tools));  // Needed by z3.
-            exeDepends.Add(new SourcePath("tools\\Dafny\\DafnyRuntime.cs", SourcePath.SourceType.Tools));  // Needed for compilation
-            exeDepends.Add(new SourcePath("tools\\Dafny\\z3.exe", SourcePath.SourceType.Tools));*/
-
-            return result;
-        }
-
-        private static List<IAbsoluteFilePath> findDependencies(SourcePath fstSource)
-        {
-            return new List<IAbsoluteFilePath>();
         }
     }
 }

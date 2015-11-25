@@ -8,6 +8,8 @@ namespace NuBuild
 {
     using System;
     using System.Collections.Generic;
+    using System.Diagnostics;
+    using System.Linq;
 
     using NDepend.Path;
 
@@ -20,10 +22,13 @@ namespace NuBuild
         private SourcePath fstSource;
         private AbstractId abstractId;
 
+        private FStarFindDepsVerb depsVerb;
+
         public VerifyFstVerb(SourcePath fstSource)
         {
             this.fstSource = fstSource;
-            this.abstractId = new AbstractId(this.GetType().Name, Version, fstSource.ToString());                
+            this.abstractId = new AbstractId(this.GetType().Name, Version, fstSource.ToString());  
+            this.depsVerb = new FStarFindDepsVerb(fstSource);
         }
 
         public override AbstractId getAbstractIdentifier()
@@ -33,17 +38,23 @@ namespace NuBuild
 
         public override IEnumerable<BuildObject> getDependencies(out DependencyDisposition ddisp)
         {
-            var result = new HashSet<BuildObject>();
-            ddisp = DependencyDisposition.Complete;
+            // note: order of the returned IEnumerable object doesn't appear to matter.
+            var result = new HashSet<BuildObject> { this.getSource() };
+            result.UnionWith(FStarEnvironment.getStandardDependencies());
+            result.UnionWith(this.depsVerb.getOutputs());
 
-            result.UnionWith(this.getDependencies(fstSource));
-            result.Add(this.getSource());
+            var depsFound = this.depsVerb.getDependenciesFound(out ddisp);
+            if (ddisp != DependencyDisposition.Complete)
+            {
+                return result;
+            }
+            result.UnionWith(depsFound.Value);
             return result;
         }
 
         public override IEnumerable<IVerb> getVerbs()
         {
-            return new IVerb[0];    // All inputs are sources.
+            return new IVerb[] { this.depsVerb }; 
         }
 
         public override BuildObject getOutputFile()
@@ -61,7 +72,7 @@ namespace NuBuild
             List<string> arguments = new List<string>();
             arguments.Add("--auto_deps");
             arguments.Add(this.fstSource.getRelativePath());
-            var exePath = FStarEnvironment.PathToFStarExe.getRelativePath();
+            var exePath = FStarEnvironment.PathToFStarExe.ToString();
 
             Logger.WriteLine(string.Format("[NuBuild] cmd: {0} {1}", exePath, string.Join(" ", arguments)));
             return new ProcessInvokeAsyncWorker(
@@ -90,37 +101,9 @@ namespace NuBuild
             return disposition;
         }
 
-        public IEnumerable<BuildObject> getDirectIncludes()
-        {
-            // By the time this method is called by VerbToposorter,
-            // this verb is scheduled for execution, and hence its deps
-            // are complete. So all of these lookups should succeed.
-            // (wait, does that follow?)
-            //return this.getTransitiveDepsVerb().getShallowIncludes();
-            return new BuildObject[0];
-        }
-
         protected override BuildObject getSource()
         {
             return this.fstSource;
-        } 
-       
-        private IList<BuildObject> getDependencies(SourcePath fstSource)
-        {
-            // todo: this is a stopgap until proper dependency resolution is implemented.
-            var result = FStarEnvironment.getTools();
-            var absFilePaths = findDependencies(fstSource);
-            foreach (var absPath in absFilePaths)
-            {
-                var ob = new SourcePath(absPath.ToString(), SourcePath.SourceType.Src);
-                result.Add(ob);
-            }
-            return result;
-        }
-        private IList<IAbsoluteFilePath> findDependencies(SourcePath fstSource)
-        {
-            // todo: this is a stopgap until proper dependency resolution is implemented. contrary to what i repviously believed, i will need to implement a dependency scanning class and generate new targets for any .fs(t?)i files i encounter.
-            return new List<IAbsoluteFilePath> { fstSource.toAbsoluteFilePath() };
         }
     }
 }
