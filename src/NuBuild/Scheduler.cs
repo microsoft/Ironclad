@@ -24,7 +24,7 @@ namespace NuBuild
         /// Whether to produce conditional debug output in the scheduler and
         /// some of its components.
         /// </summary>
-        internal const bool Debug = true;
+        internal const bool Debug = false;
 
         /// <summary>
         /// Where to write scheduler progress information (for debugging).
@@ -669,10 +669,7 @@ namespace NuBuild
         /// <param name="disposition">Disposition of the verb execution.</param>
         private void emitRealtimeReport(IVerb verb, Disposition disposition)
         {
-            Presentation pr = verb.getRealtimePresentation(disposition);
-            ASCIIPresentater ascii = new ASCIIPresentater();
-            pr.format(ascii);
-            Logger.Write(ascii.ToString());
+            Logger.WritePresentation(verb.getRealtimePresentation(disposition));
         }
 
         /// <summary>
