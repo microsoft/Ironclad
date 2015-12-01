@@ -74,7 +74,7 @@ namespace NuBuild
             arguments.Add(this.fstSource.getRelativePath());
             var exePath = FStarEnvironment.PathToFStarExe.ToString();
 
-            Logger.WriteLine(string.Format("[NuBuild] cmd: {0} {1}", exePath, string.Join(" ", arguments)));
+            Logger.WriteLine(string.Format("[NuBuild] {0} invokes `{1} {2}`", this, exePath, string.Join(" ", arguments)));
             return new ProcessInvokeAsyncWorker(
                 workingDirectory,
                 this,

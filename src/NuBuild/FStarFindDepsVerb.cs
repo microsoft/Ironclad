@@ -59,7 +59,7 @@ namespace NuBuild
             arguments.Add(this.sourcePath.getRelativePath());
             var exePath = FStarEnvironment.PathToFStarExe.ToString();
 
-            Logger.WriteLine(string.Format("[NuBuild] cmd: {0} {1}", exePath, string.Join(" ", arguments)));
+            Logger.WriteLine(string.Format("[NuBuild] {0} invokes `{1} {2}`", this, exePath, string.Join(" ", arguments)));
             return new ProcessInvokeAsyncWorker(
                 workingDirectory,
                 this,
@@ -86,10 +86,6 @@ namespace NuBuild
                 return new Failed();
             }
             BuildEngine.theEngine.Repository.StoreVirtual(this.depsObj, new Fresh(), contents);
-            /*oreach (var path in contents.Value.)
-            {
-                            BuildEngine.theEngine.Repository.Store(workingDirectory, output, new Fresh());
-            }*/
             return new Fresh();
         }
 

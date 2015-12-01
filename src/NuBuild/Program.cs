@@ -271,7 +271,7 @@ namespace NuBuild
 
         void logNubuildInvocation(string[] args)
         {
-            Logger.WriteLine(string.Format("{0} {1}",
+            Logger.WriteLine(string.Format("[NuBuild] invoked as: {0} {1}",
                 NuBuildEnvironment.getAssemblyPath(),
                 string.Join(" ", args)));
         }
@@ -367,10 +367,8 @@ namespace NuBuild
                 Disposition d = scheduler.getObjectDisposition(outputTarget);
                 if (d is Fresh)
                 {
-                    ASCIIPresentater ascii = new ASCIIPresentater();
                     IVerb verb = scheduler.getParent(outputTarget);
-                    verb.getPresentation().format(ascii);
-                    Logger.Write(ascii.ToString());
+                    Logger.WritePresentation(verb.getPresentation());
 
                     if (this.html_output != null)
                     {
@@ -419,13 +417,13 @@ namespace NuBuild
             // Report what the background worker accomplished during this run.
             // -
             this.backgroundWorker.WaitForCompletion();
-            Logger.WriteLine(string.Format("Background Worker completed {0} work items out of {1} queued.",
+            Logger.WriteLine(string.Format("[NuBuild] Background Worker completed {0} work items out of {1} queued.",
                 this.backgroundWorker.GetWorkItemsPerformed,
                 this.backgroundWorker.GetWorkItemsQueued));
             if (this.backgroundWorker.GetWorkItemsFailed != 0)
             {
                 Logger.WriteLine(string.Format(
-                    "{0} work item procedures failed (threw an exception).",
+                    "[NuBuild] {0} work item procedures failed (threw an exception).",
                     this.backgroundWorker.GetWorkItemsFailed));
             }
         }
