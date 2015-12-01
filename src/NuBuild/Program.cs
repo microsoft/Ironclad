@@ -146,6 +146,10 @@ namespace NuBuild
                     {
                         this.releaseBuild = false;
                     }
+                    else if (next.ToLower().Equals("--no-color"))
+                    {
+                        NuBuildEnvironment.ColorizeOutput = false;
+                    }
                     else
                     {
                         usage("unrecognized option " + next);

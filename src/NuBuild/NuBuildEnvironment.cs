@@ -6,6 +6,7 @@ namespace NuBuild
     using System.IO;
     using System.Reflection;
 
+    using Microsoft.CSharp.RuntimeBinder;
     using Microsoft.WindowsAzure.Storage;
 
     using NDepend.Path;
@@ -20,6 +21,8 @@ namespace NuBuild
 
         private static IAbsoluteDirectoryPath rootDirectoryPath = null;
         private static dynamic configDotYaml = null;
+
+        private static bool? colorizeOutput;
 
         public static void initialize(IDirectoryPath specifiedRootPath = null)
         {
@@ -58,6 +61,35 @@ namespace NuBuild
             {
                 throwIfNotInitialized();
                 return rootDirectoryPath;
+            }
+        }
+
+        public static bool ColorizeOutput
+        {
+            get
+            {
+                const bool defaultValue = true;
+                if (colorizeOutput.HasValue)
+                {
+                    return colorizeOutput.Value;
+                }
+
+                bool result;
+                try
+                {
+                    result = (bool)ConfigDotYaml.options.colorize_output;
+                }
+                catch (RuntimeBinderException)
+                {
+                    result = defaultValue;
+                }
+                colorizeOutput = result;
+                return result;
+            }
+
+            set
+            {
+                colorizeOutput = value;
             }
         }
 
