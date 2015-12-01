@@ -24,7 +24,7 @@ namespace NuBuild
         /// Whether to produce conditional debug output in the scheduler and
         /// some of its components.
         /// </summary>
-        internal const bool Debug = false;
+        internal const bool Debug = true;
 
         /// <summary>
         /// Where to write scheduler progress information (for debugging).

@@ -411,7 +411,6 @@ namespace NuBuild
             public void Run()
             {
                 Say(string.Format("launch: {0}", this.verb));
-                Logger.WriteLine(string.Format("[NuBuild] launch: {0}", this.verb));
                 this.worker.RunAsync();
                 this.runner.completeTask(this.verb, this.worker);
                 Say(string.Format("complete: {0}", this.verb));

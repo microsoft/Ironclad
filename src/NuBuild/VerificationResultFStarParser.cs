@@ -11,6 +11,7 @@ namespace NuBuild
 
     internal class VerificationResultFStarParser : IVerificationResultParser
     {
+        private static readonly Regex success = CreateRegex("^All verification conditions discharged successfully$");
         private static readonly Regex errorCount = CreateRegex("^Error: (\\d+) errors were reported (see above)$");
 
         public void parseOutput(string output, out int parseFailures, out int verificationFailures, out int timeouts)
@@ -23,6 +24,11 @@ namespace NuBuild
             if (match.Success)
             {
                 verificationFailures = Int32.Parse(match.Groups[1].ToString());
+            }
+
+            match = success.Match(output);
+            if (match.Success)
+            {
                 return;
             }
 

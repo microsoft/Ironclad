@@ -2,6 +2,15 @@
 # Place a copy of this file named `config.yaml` in the `.nubuild` directory
 # to specify your cloud service credentials. Currently, only Azure services
 # are supported.
+
+options:
+    # set to `false` to remove ansi sequences from output.
+    #colorize_output: true
+
+# important paths to tools.
+#paths:
+#    fstar: ./bin/fstar.exe
+    
 credentials:
     # Specify your Azure Storage credentials here (needed for distributed caching of verification results).
     storage: DefaultEndpointsProtocol=https;AccountName=???;AccountKey=???

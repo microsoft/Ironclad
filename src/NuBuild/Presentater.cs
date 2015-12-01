@@ -224,17 +224,24 @@ namespace NuBuild
         public void startColor(string colorName)
         {
             Util.Assert(this.colorEnum == null);
-            switch (colorName)
+            if (NuBuildEnvironment.ColorizeOutput)
             {
-                case Presentation.RED:
-                    this.colorEnum = Red;
-                    break;
-                case Presentation.GREEN:
-                    this.colorEnum = Green;
-                    break;
-                default:
-                    this.colorEnum = Ordinary;
-                    break;
+                switch (colorName)
+                {
+                    case Presentation.RED:
+                        this.colorEnum = Red;
+                        break;
+                    case Presentation.GREEN:
+                        this.colorEnum = Green;
+                        break;
+                    default:
+                        this.colorEnum = Ordinary;
+                        break;
+                }                
+            }
+            else
+            {
+                this.colorEnum = Ordinary;
             }
 
             this.document.Append(this.colorEnum.start);

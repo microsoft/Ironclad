@@ -8,6 +8,7 @@ namespace NuBuild
 {
     using System;
     using System.IO;
+    using System.Linq;
 
     /// <summary>
     /// Utility for writing log messages simultaneously to the console and
@@ -40,6 +41,24 @@ namespace NuBuild
         public static void WriteLine(string msg)
         {
             Write(msg + System.Environment.NewLine);
+        }
+
+        public static void WritePresentation(Presentation pr)
+        {
+            ASCIIPresentater ascii = new ASCIIPresentater();
+            pr.format(ascii);
+            var lines = ascii.ToString().Split('\n').ToList();
+
+            // trim last line if empty.
+            if (string.IsNullOrWhiteSpace(lines[lines.Count - 1]))
+            {
+                lines.RemoveAt(lines.Count - 1);
+            }
+
+            foreach (var line in lines)
+            {
+                WriteLine(line);
+            }
         }
 
         /// <summary>
