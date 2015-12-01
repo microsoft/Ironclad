@@ -9,6 +9,8 @@ namespace NuBuild
     using System.Diagnostics;
     using System.IO;
 
+    using Microsoft.CSharp.RuntimeBinder;
+
     using Minimatch;
 
     using NDepend.Path;
@@ -93,7 +95,17 @@ namespace NuBuild
         private static IAbsoluteFilePath findFStarExecutable()
         {
             IRelativeFilePath relFilePath;
-            var configStr = (string)NuBuildEnvironment.ConfigDotYaml.paths.fstar;
+            string configStr;
+
+            try
+            {
+                configStr = (string)NuBuildEnvironment.ConfigDotYaml.paths.fstar;
+            }
+            catch (RuntimeBinderException)
+            {
+                configStr = null;
+            }
+
             if (configStr == null)
             {
                 Logger.WriteLine(string.Format("[NuBuild] `{0}` entry `paths.fstar` is unspecifed; assuming default path (`{1}`)", NuBuild.NuBuildEnvironment.ConfigDotYamlRelativePath, DefaultPathToFStarExe));
