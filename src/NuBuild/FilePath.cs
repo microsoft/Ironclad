@@ -20,9 +20,16 @@
             }
         }
 
-        public static IRelativeFilePath AbsoluteToNuBuild(IAbsoluteFilePath absFilePath)
+        public static IRelativeFilePath AbsoluteToNuBuild(IAbsoluteFilePath absFilePath, WorkingDirectory workDir = null)
         {
-            return absFilePath.GetRelativePathFrom(NuBuildEnvironment.RootDirectoryPath);
+            if (workDir == null)
+            {
+                return absFilePath.GetRelativePathFrom(NuBuildEnvironment.RootDirectoryPath);
+            }
+            else
+            {
+                return absFilePath.GetRelativePathFrom(workDir.Root.ToAbsoluteDirectoryPath());
+            }
         }
 
         

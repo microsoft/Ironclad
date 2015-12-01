@@ -78,7 +78,7 @@ namespace NuBuild
             FStarFindDepsResult contents;
             try
             {
-                contents = new FStarFindDepsResult(stdout);
+                contents = new FStarFindDepsResult(stdout, workingDirectory);
             }
             catch (Exception e)
             {
