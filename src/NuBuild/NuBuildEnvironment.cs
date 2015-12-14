@@ -17,6 +17,8 @@ namespace NuBuild
     {
         public const string DotNuBuild = ".nubuild";
         public const string ConfigDotYamlRelativePath = ".nubuild\\config.yaml";
+
+        public static IAbsoluteDirectoryPath InvocationPath { get; private set; }
         private static CloudStorageAccount cloudStorageAccount = null;
 
         private static IAbsoluteDirectoryPath rootDirectoryPath = null;
@@ -32,6 +34,9 @@ namespace NuBuild
             }
             rootDirectoryPath = initNuBuildRoot(specifiedRootPath);
             configDotYaml = loadConfigDotYaml();
+            InvocationPath = getInvocationPath(rootDirectoryPath);
+            // NuBuild seems flakey unless invoked from the NuBuild root.
+            Directory.SetCurrentDirectory(rootDirectoryPath.ToString());
         }
 
         public static bool isInitialized()
@@ -145,6 +150,15 @@ namespace NuBuild
             }
         }
 
+        public static IRelativeDirectoryPath ObjRootPath
+        {
+            get
+            {
+                var absPath = Path.Combine(RootDirectoryPath.ToString(), BuildEngine.theEngine.getObjRoot()).ToAbsoluteDirectoryPath();
+                return absPath.GetRelativePathFrom(RootDirectoryPath);
+            }
+        }
+
         public static IAbsoluteDirectoryPath findNuBuildRoot()
         {
             var pwd = Directory.GetCurrentDirectory().ToAbsoluteDirectoryPath();
@@ -186,6 +200,12 @@ namespace NuBuild
                 Logger.WriteLine(string.Format("[NuBuild] Unable to find {0}; assuming empty document.", s));
                 return new DynamicYaml(YamlDoc.LoadFromString("---\n"));
             }
+        }
+
+        static private IAbsoluteDirectoryPath getInvocationPath(IAbsoluteDirectoryPath nuBuildRootPath)
+        {
+            var pwd = Directory.GetCurrentDirectory();
+            return pwd.ToAbsoluteDirectoryPath().GetRelativePathFrom(nuBuildRootPath).GetAbsolutePathFrom(nuBuildRootPath);
         }
     }
 }

@@ -12,6 +12,7 @@ namespace NuBuild
     using System.Linq;
     using System.Xml;
 
+    using NDepend.Helpers;
     using NDepend.Path;
 
     /// <summary>
@@ -328,7 +329,7 @@ namespace NuBuild
             // Remap dafny filenames so resulting objects have correctly-parsed extns.
             filename = Util.dafnySpecMungeName(filename);
 
-            return Path.Combine(root, this.getDirRelativeToSrcOrObj(), filename + extension);
+            return Path.Combine(root, this.stripObjPrefixIfPresent(), filename + extension);
         }
 
         /// <summary>
@@ -338,12 +339,22 @@ namespace NuBuild
         /// The directory containing this object, relative to the source or
         /// object directory.
         /// </returns>
-        private string getDirRelativeToSrcOrObj()
+        private string stripObjPrefixIfPresent()
         {
-            string dirname = this.getDirPath();
-            int slash = dirname.IndexOf('\\');
-            Util.Assert(slash >= 0);
-            return dirname.Substring(slash + 1);
+            // attempt to determing if the path is within the NuBuild obj root.
+            var relFilePath = this.toRelativeFilePath();
+            var relFilePathStr = relFilePath.ToString();
+            var objPathStr = NuBuildEnvironment.ObjRootPath.ToString();
+            if (relFilePathStr.StartsWith(objPathStr))
+            {
+                var s = relFilePathStr.Substring(objPathStr.Length + 1);
+                return FilePath.NormalizeImplicit(s);
+            }
+            else
+            {
+                return this.getRelativePath();
+            }
+
         }
 
         public IRelativeFilePath toRelativeFilePath()

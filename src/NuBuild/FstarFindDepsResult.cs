@@ -3,6 +3,7 @@ namespace NuBuild
 {
     using System;
     using System.Collections.Generic;
+    using System.IO;
     using System.Linq;
 
     using NDepend.Path;
@@ -11,23 +12,31 @@ namespace NuBuild
     {
         public readonly OrderPreservingSet<BuildObject> Value;
 
-        public FStarFindDepsResult(string output, WorkingDirectory workDir)
+        public FStarFindDepsResult(string output, BuildObject fstSource, WorkingDirectory workDir)
         {
-            this.Value = this.ParseOutput(output, workDir);
+            this.Value = this.ParseOutput(output, fstSource, workDir);
         }
 
-        private OrderPreservingSet<BuildObject> ParseOutput(string output, WorkingDirectory workDir)
+        private OrderPreservingSet<BuildObject> ParseOutput(string output, BuildObject fstSource, WorkingDirectory workDir)
         {
             var stdDeps = FStarEnvironment.getStandardDependencies();
             var set = new OrderPreservingSet<BuildObject>();
             var entries = output.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries).ToList();
-            // the final item is always the input file.
-            //var inputFile = entries[entries.Count - 1];
+
+            // todo: verify that the final file is actually the source file.
+            /*var lastFile = entries[entries.Count - 1].ToAbsoluteFilePath();
+            var workSource = workDir.GetAbsoluteFilePath(FilePath.ImplicitToRelative(workDir.PathTo(fstSource)));
+            if (workSource.NotEquals(lastFile))
+            {
+                throw new InvalidOperationException("`fstar.exe --find_deps` did not return the top-level source file in its output");
+            }*/
             entries.RemoveAt(entries.Count - 1);
+
             // we need to search for dependencies that refer to files that come with the F* distribution to ensure that NuBuild handles those dependencies properly.
             foreach (var entry in entries)
             {
-                var relFilePath = FilePath.AbsoluteToNuBuild(entry.ToAbsoluteFilePath(), workDir);
+                var absFilePath = entry.ToAbsoluteFilePath();
+                var relFilePath = FilePath.AbsoluteToNuBuild(absFilePath, workDir);
                 BuildObject foundStdDep = null;
                 foreach (var stdDep in stdDeps)
                 {
@@ -39,7 +48,7 @@ namespace NuBuild
                         break;
                     }
                 }
-                set.Add(foundStdDep ?? new BuildObject(relFilePath.ToString()));
+                set.Add(foundStdDep ?? new SourcePath(relFilePath.ToString(), SourcePath.SourceType.Tools));
             }
             return set;
         }

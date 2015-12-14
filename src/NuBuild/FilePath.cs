@@ -20,6 +20,13 @@
             }
         }
 
+        public static string RelativeToImplicit(IRelativeFilePath relFilePath)
+        {
+            var s = relFilePath.ToString();
+            return s.Substring(2);
+        }
+
+
         public static IRelativeFilePath AbsoluteToNuBuild(IAbsoluteFilePath absFilePath, WorkingDirectory workDir = null)
         {
             if (workDir == null)
@@ -55,5 +62,15 @@
             return true;
         }
 
+        public static IRelativeFilePath StringToNuBuildPath(string s)
+        {
+            var absPathStr = Path.GetFullPath(s);
+            return AbsoluteToNuBuild(absPathStr.ToAbsoluteFilePath());
+        }
+
+        public static string NormalizeImplicit(string s)
+        {
+            return RelativeToImplicit(ImplicitToRelative(s));
+        }
     }
 }

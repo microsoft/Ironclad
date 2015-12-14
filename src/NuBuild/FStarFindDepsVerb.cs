@@ -8,6 +8,7 @@ namespace NuBuild
 {
     using System;
     using System.Collections.Generic;
+    using System.Linq;
 
     using NDepend.Path;
 
@@ -21,11 +22,15 @@ namespace NuBuild
 
         private AbstractId abstractId;
 
-        public FStarFindDepsVerb(SourcePath sourcePath)
+        private readonly string[] fstArgs;
+
+        public FStarFindDepsVerb(SourcePath sourcePath, IEnumerable<string> fstArgs)
         {
             this.sourcePath = sourcePath;
             this.depsObj = sourcePath.makeVirtualObject(BeatExtensions.whichPart(sourcePath).ExtnStr() + DepsObjExtension);
-            this.abstractId = new AbstractId(this.GetType().Name, Version, sourcePath.ToString());  
+            var concrete = string.Join(" ", fstArgs);
+            this.abstractId = new AbstractId(this.GetType().Name, Version, sourcePath.ToString(), concrete: concrete);
+            this.fstArgs = fstArgs.ToArray();
         }
 
         public override AbstractId getAbstractIdentifier()
@@ -56,6 +61,7 @@ namespace NuBuild
         {
             List<string> arguments = new List<string>();
             arguments.Add("--find_deps");
+            arguments.AddRange(this.fstArgs);
             arguments.Add(this.sourcePath.getRelativePath());
             var exePath = FStarEnvironment.PathToFStarExe.ToString();
 
@@ -78,11 +84,11 @@ namespace NuBuild
             FStarFindDepsResult contents;
             try
             {
-                contents = new FStarFindDepsResult(stdout, workingDirectory);
+                contents = new FStarFindDepsResult(stdout, this.sourcePath, workingDirectory);
             }
             catch (Exception e)
             {
-                Logger.WriteLine(string.Format("[NuBuild] ERROR; failed to invoke `{0} --find_deps`. Details follow:\n{1}", FStarEnvironment.PathToFStarExe, e.Message));
+                Logger.WriteLine(string.Format("[NuBuild] ERROR; failed to process output of `{0} --find_deps` (unhandled {1}). Details follow:\n{2}", FStarEnvironment.PathToFStarExe, e.GetType().Name, e.Message));
                 return new Failed();
             }
             BuildEngine.theEngine.Repository.StoreVirtual(this.depsObj, new Fresh(), contents);

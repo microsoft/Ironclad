@@ -69,9 +69,21 @@ namespace NuBuild
             return rc;
         }
 
-        SourcePath conditionSourcePath(string path)
+        IEnumerable<string> takeRemainingArgs()
         {
-            return new SourcePath(path);
+            IEnumerable<string> result = new List<string>();
+            if (this.argi < args.Length)
+            {
+                int n = argi;
+                result = (new ArraySegment<string>(args, n, args.Length - n)).Select(s => s.Trim());
+                argi = args.Length;
+            }
+            return result;
+        }
+        
+        SourcePath parseSourcePath(string s)
+        {
+            return new SourcePath(FilePath.StringToNuBuildPath(s).ToString());
         }
 
         void parseArgs(string[] args)
@@ -158,7 +170,6 @@ namespace NuBuild
                 else
                 {
                     string verb = next;
-                    string target = takeArg("verb-target");
 
                     if (!rootDirInitState.Item2)
                     {
@@ -167,67 +178,78 @@ namespace NuBuild
                         rootDirInitState = Tuple.Create(rootDirInitState.Item1, true);
                     }
 
-                    if (verb.Equals("DafnyVerifyTree"))
-                    {
-                        verbs.Add(new VerificationResultSummaryVerb(new DafnyVerifyTreeVerb(conditionSourcePath(target))));
-                    }
-                    else if (verb.Equals("BatchDafny"))
-                    {
-                        if (!target.EndsWith(".batch"))
-                        {
-                            usage("Batching expects a .batch file containing a list of .dfy files");
-                        }
-
-                        verbs.Add(new VerificationResultSummaryVerb(new BatchVerifyVerb(conditionSourcePath(target), BatchVerifyVerb.BatchMode.DAFNY, this.verificationRequest, useFramePointer)));
-                    }
-                    else if (verb.Equals("BatchApps"))
-                    {
-                        if (!target.EndsWith(".batch"))
-                        {
-                            usage("Batching expects a .batch file containing a list of .dfy files");
-                        }
-
-                        verbs.Add(new VerificationResultSummaryVerb(new BatchVerifyVerb(conditionSourcePath(target), BatchVerifyVerb.BatchMode.APP, this.verificationRequest, useFramePointer)));
-                    }
-                    else if (verb.Equals("Beat"))
-                    {
-                        verbs.Add(new BeatVerb(BuildEngine.theEngine.getVerveContextVerb(PoundDefines.empty()), conditionSourcePath(target), appLabel: null));
-                    }
-                    else if (verb.Equals("Boogie"))
-                    {
-                        verbs.Add(new BoogieVerb(BuildEngine.theEngine.getVerveContextVerb(PoundDefines.empty()), conditionSourcePath(target), symdiff: this.verificationRequest.getSymDiffMode()));
-                    }
-                    else if (verb.Equals("IroncladApp"))
-                    {
-                        verbs.Add(new IroncladAppVerb(conditionSourcePath(target), target_platform, this.useFramePointer, this.verificationRequest));
-                    }
-                    else if (verb.Equals("IronfleetApp"))
-                    {
-                        verbs.Add(new IronfleetAppVerb(conditionSourcePath(target), this.verificationRequest, this.releaseBuild));
-                    }
-                    else if (verb.Equals("DafnyCompileOne"))
-                    {
-                        verbs.Add(new DafnyCompileOneVerb(conditionSourcePath(target)));
-                    }
-                    else if (verb.Equals("VSSolution"))
-                    {
-                        verbs.Add(new VSSolutionVerb(new SourcePath(target, SourcePath.SourceType.Tools)));
-                    }
-                    else if (verb.Equals("nmake"))
-                    {
-                        verbs.Add(new NmakeVerb(new SourcePath(target, SourcePath.SourceType.Tools)));
-                    }
-                    else if (verb.Equals("BootableApp"))
-                    {
-                        verbs.Add(new BootableAppVerb(conditionSourcePath(target), this.useFramePointer, this.verificationRequest));
-                    }
                     if (verb.Equals("VerifyFst"))
                     {
-                        verbs.Add(new VerifyFstVerb(conditionSourcePath(target)));
+                        // VerifyFst can accept multiple arguments, hence the following complexity.
+                        var remainingArgs = this.takeRemainingArgs().ToList();
+                        if (remainingArgs.Count < 1)
+                        {
+                            throw new UserError("The VerifyFst verb requires at least one argument, specifying the NuBuild source file path.");
+                        }
+                        verbs.Add(new VerifyFstVerb(remainingArgs, rewritePaths: true));
                     }
                     else
                     {
-                        usage("Unknown verb " + verb);
+                        string target = takeArg("verb-target");
+
+                        if (verb.Equals("DafnyVerifyTree"))
+                        {
+                            verbs.Add(new VerificationResultSummaryVerb(new DafnyVerifyTreeVerb(this.parseSourcePath(target))));
+                        }
+                        else if (verb.Equals("BatchDafny"))
+                        {
+                            if (!target.EndsWith(".batch"))
+                            {
+                                usage("Batching expects a .batch file containing a list of .dfy files");
+                            }
+
+                            verbs.Add(new VerificationResultSummaryVerb(new BatchVerifyVerb(this.parseSourcePath(target), BatchVerifyVerb.BatchMode.DAFNY, this.verificationRequest, useFramePointer)));
+                        }
+                        else if (verb.Equals("BatchApps"))
+                        {
+                            if (!target.EndsWith(".batch"))
+                            {
+                                usage("Batching expects a .batch file containing a list of .dfy files");
+                            }
+
+                            verbs.Add(new VerificationResultSummaryVerb(new BatchVerifyVerb(this.parseSourcePath(target), BatchVerifyVerb.BatchMode.APP, this.verificationRequest, useFramePointer)));
+                        }
+                        else if (verb.Equals("Beat"))
+                        {
+                            verbs.Add(new BeatVerb(BuildEngine.theEngine.getVerveContextVerb(PoundDefines.empty()), this.parseSourcePath(target), appLabel: null));
+                        }
+                        else if (verb.Equals("Boogie"))
+                        {
+                            verbs.Add(new BoogieVerb(BuildEngine.theEngine.getVerveContextVerb(PoundDefines.empty()), this.parseSourcePath(target), symdiff: this.verificationRequest.getSymDiffMode()));
+                        }
+                        else if (verb.Equals("IroncladApp"))
+                        {
+                            verbs.Add(new IroncladAppVerb(this.parseSourcePath(target), target_platform, this.useFramePointer, this.verificationRequest));
+                        }
+                        else if (verb.Equals("IronfleetApp"))
+                        {
+                            verbs.Add(new IronfleetAppVerb(this.parseSourcePath(target), this.verificationRequest, this.releaseBuild));
+                        }
+                        else if (verb.Equals("DafnyCompileOne"))
+                        {
+                            verbs.Add(new DafnyCompileOneVerb(this.parseSourcePath(target)));
+                        }
+                        else if (verb.Equals("VSSolution"))
+                        {
+                            verbs.Add(new VSSolutionVerb(new SourcePath(target, SourcePath.SourceType.Tools)));
+                        }
+                        else if (verb.Equals("nmake"))
+                        {
+                            verbs.Add(new NmakeVerb(new SourcePath(target, SourcePath.SourceType.Tools)));
+                        }
+                        else if (verb.Equals("BootableApp"))
+                        {
+                            verbs.Add(new BootableAppVerb(this.parseSourcePath(target), this.useFramePointer, this.verificationRequest));
+                        }
+                        else
+                        {
+                            usage("Unknown verb " + verb);
+                        }
                     }
                 }
             }

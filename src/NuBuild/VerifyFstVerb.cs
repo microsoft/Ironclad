@@ -9,6 +9,7 @@ namespace NuBuild
     using System;
     using System.Collections.Generic;
     using System.Diagnostics;
+    using System.IO;
     using System.Linq;
 
     using NDepend.Path;
@@ -23,12 +24,29 @@ namespace NuBuild
         private AbstractId abstractId;
 
         private FStarFindDepsVerb depsVerb;
+        private readonly List<string> fstArgs;
 
-        public VerifyFstVerb(SourcePath fstSource)
+        public VerifyFstVerb(IEnumerable<string> fstArgs, bool rewritePaths = false)
         {
-            this.fstSource = fstSource;
-            this.abstractId = new AbstractId(this.GetType().Name, Version, fstSource.ToString());  
-            this.depsVerb = new FStarFindDepsVerb(fstSource);
+            // the final argument is assumed to be our NuBuild source.
+            //var sourcePath = new SourcePath(FilePath.StringToNuBuildPath(remainingArgs[remainingArgs.Count - 1]).ToString());
+            if (rewritePaths)
+            {
+                this.fstArgs = rewritePathArgs(fstArgs);
+            }
+            else
+            {
+                this.fstArgs = fstArgs.ToList();
+            }
+
+            var last = this.fstArgs.Count - 1;
+            this.fstSource = new SourcePath(this.fstArgs[last]);
+            this.fstArgs.RemoveAt(last);
+
+            var concrete = string.Join(" ", this.fstArgs);
+            this.abstractId = new AbstractId(this.GetType().Name, Version, fstSource.ToString(), concrete: concrete);
+            // note that what we pass into FStarFindDepsVerb's constructor is not necessarily the same as our 
+            this.depsVerb = new FStarFindDepsVerb(this.fstSource, this.fstArgs);
         }
 
         public override AbstractId getAbstractIdentifier()
@@ -41,7 +59,8 @@ namespace NuBuild
             // note: order of the returned IEnumerable object doesn't appear to matter.
             var result = new HashSet<BuildObject> { this.getSource() };
             result.UnionWith(FStarEnvironment.getStandardDependencies());
-            result.UnionWith(this.depsVerb.getOutputs());
+            var depOut = this.depsVerb.getOutputs();
+            result.UnionWith(depOut);
 
             var depsFound = this.depsVerb.getDependenciesFound(out ddisp);
             if (ddisp != DependencyDisposition.Complete)
@@ -71,6 +90,7 @@ namespace NuBuild
         {
             List<string> arguments = new List<string>();
             arguments.Add("--auto_deps");
+            arguments.AddRange(this.fstArgs);
             arguments.Add(this.fstSource.getRelativePath());
             var exePath = FStarEnvironment.PathToFStarExe.ToString();
 
@@ -104,6 +124,43 @@ namespace NuBuild
         protected override BuildObject getSource()
         {
             return this.fstSource;
+        }
+
+        private static string attemptToRewritePath(string path)
+        {
+            var s = Path.Combine(".", path);
+            if (s.IsValidRelativeFilePath())
+            {
+                var relFilePath = s.ToRelativeFilePath();
+                var absFilePath = relFilePath.GetAbsolutePathFrom(NuBuildEnvironment.InvocationPath);
+                if (absFilePath.Exists)
+                {
+                    var nbPath = absFilePath.GetRelativePathFrom(NuBuildEnvironment.RootDirectoryPath);
+                    return FilePath.RelativeToImplicit(nbPath);
+                }
+            }
+            return null;
+        }
+
+        private static List<string> rewritePathArgs(IEnumerable<string> args)
+        {
+            var result = new List<string>();
+            foreach (var a in args)
+            {
+                if (!a.StartsWith("--"))
+                {
+                    var s = attemptToRewritePath(a);
+                    if (s != null)
+                    {
+                        result.Add(s);
+                        continue;
+                    }
+                }
+
+                result.Add(a);
+            }
+
+            return result;
         }
     }
 }
