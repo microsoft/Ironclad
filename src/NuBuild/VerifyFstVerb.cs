@@ -17,7 +17,7 @@ namespace NuBuild
     internal class VerifyFstVerb
         : VerificationResultVerb, IProcessInvokeAsyncVerb
     {
-        public const string FStarFileNameExtension = ".fst";
+        public const string SourceFileExtension = ".fst";
         private const int Version = 1;
 
         private SourcePath fstSource;
@@ -28,8 +28,6 @@ namespace NuBuild
 
         public VerifyFstVerb(IEnumerable<string> fstArgs, bool rewritePaths = false)
         {
-            // the final argument is assumed to be our NuBuild source.
-            //var sourcePath = new SourcePath(FilePath.StringToNuBuildPath(remainingArgs[remainingArgs.Count - 1]).ToString());
             if (rewritePaths)
             {
                 this.fstArgs = rewritePathArgs(fstArgs);
@@ -39,8 +37,14 @@ namespace NuBuild
                 this.fstArgs = fstArgs.ToList();
             }
 
+            // the final argument is assumed to be our NuBuild source.
             var last = this.fstArgs.Count - 1;
             this.fstSource = new SourcePath(this.fstArgs[last]);
+            var ext = this.fstSource.getExtension();
+            if (ext == null || !ext.Equals(SourceFileExtension))
+            {
+                throw new ArgumentException(string.Format("The final argument to `VerifyFst` ({0}) was not an F* module source (`.fst` file); please considering rearranging the arguments to `fstar.exe` so that options preceed file names.", fstArgs.Last()));
+            }
             this.fstArgs.RemoveAt(last);
 
             var concrete = string.Join(" ", this.fstArgs);
