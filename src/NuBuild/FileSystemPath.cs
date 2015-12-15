@@ -6,9 +6,9 @@
 
     using NDepend.Path;
 
-    public static class FilePath
+    public static class FileSystemPath
     {
-        public static IRelativeFilePath ImplicitToRelative(string s)
+        public static IRelativeFilePath ImplicitPathStringToRelativeFilePath(string s)
         {
             if (!s.StartsWith(".\\") && !s.StartsWith("./"))
             {
@@ -16,31 +16,31 @@
             }
             else
             {
-                return s.ToRelativeFilePath();
+                return s.ToRelativeFilePath();            
             }
         }
 
-        public static string RelativeToImplicit(IRelativeFilePath relFilePath)
+        public static string ToImplicitPathString(this IRelativePath @this)
         {
-            var s = relFilePath.ToString();
+            var s = @this.ToString();
             return s.Substring(2);
         }
 
 
-        public static IRelativeFilePath AbsoluteToNuBuild(IAbsoluteFilePath absFilePath, WorkingDirectory workDir = null)
+        public static IRelativeFilePath ToBuildObjectPath(this IAbsoluteFilePath @this, WorkingDirectory workDir = null)
         {
             if (workDir == null)
             {
-                return absFilePath.GetRelativePathFrom(NuBuildEnvironment.RootDirectoryPath);
+                return @this.GetRelativePathFrom(NuBuildEnvironment.RootDirectoryPath);
             }
             else
             {
-                return absFilePath.GetRelativePathFrom(workDir.Root.ToAbsoluteDirectoryPath());
+                return @this.GetRelativePathFrom(workDir.Root.ToAbsoluteDirectoryPath());
             }
         }
 
         
-        public static IEnumerable<IAbsoluteFilePath> GetListing(IAbsoluteDirectoryPath dirPath, bool recurse = false)
+        public static IEnumerable<IAbsoluteFilePath> ListFiles(IAbsoluteDirectoryPath dirPath, bool recurse = false)
         {
             return 
                 Galactic.FileSystem.Directory.GetListing(dirPath.ToString(), true)
@@ -62,15 +62,14 @@
             return true;
         }
 
-        public static IRelativeFilePath StringToNuBuildPath(string s)
+        public static IRelativeFilePath ToBuildObjectPath(this string pathStr, WorkingDirectory workDir = null)
         {
-            var absPathStr = Path.GetFullPath(s);
-            return AbsoluteToNuBuild(absPathStr.ToAbsoluteFilePath());
+            return Path.GetFullPath(pathStr).ToAbsoluteFilePath().ToBuildObjectPath(workDir);
         }
 
-        public static string NormalizeImplicit(string s)
+        public static string NormalizeImplicitPathString(string s)
         {
-            return RelativeToImplicit(ImplicitToRelative(s));
+            return ToImplicitPathString(ImplicitPathStringToRelativeFilePath(s));
         }
     }
 }

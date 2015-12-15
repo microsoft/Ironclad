@@ -348,7 +348,7 @@ namespace NuBuild
             if (relFilePathStr.StartsWith(objPathStr))
             {
                 var s = relFilePathStr.Substring(objPathStr.Length + 1);
-                return FilePath.NormalizeImplicit(s);
+                return FileSystemPath.NormalizeImplicitPathString(s);
             }
             else
             {
@@ -359,7 +359,7 @@ namespace NuBuild
 
         public IRelativeFilePath toRelativeFilePath()
         {
-            return FilePath.ImplicitToRelative(this.getRelativePath());
+            return FileSystemPath.ImplicitPathStringToRelativeFilePath(this.getRelativePath());
         }
 
         public IAbsoluteFilePath toAbsoluteFilePath()

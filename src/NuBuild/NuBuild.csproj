@@ -112,7 +112,7 @@
     <Compile Include="AnnotationScanner.cs" />
     <Compile Include="AsmRewriterVerb.cs" />
     <Compile Include="FstarFindDepsResult.cs" />
-    <Compile Include="FilePath.cs" />
+    <Compile Include="FileSystemPath.cs" />
     <Compile Include="CloudExecutionQueue.cs" />
     <Compile Include="CloudExecutionReport.cs" />
     <Compile Include="CloudExecutionRequest.cs" />

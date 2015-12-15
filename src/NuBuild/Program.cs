@@ -83,7 +83,7 @@ namespace NuBuild
         
         SourcePath parseSourcePath(string s)
         {
-            return new SourcePath(FilePath.StringToNuBuildPath(s).ToString());
+            return new SourcePath(s.ToBuildObjectPath().ToString());
         }
 
         void parseArgs(string[] args)

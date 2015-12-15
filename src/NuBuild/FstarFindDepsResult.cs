@@ -25,7 +25,7 @@ namespace NuBuild
 
             // todo: verify that the final file is actually the source file.
             /*var lastFile = entries[entries.Count - 1].ToAbsoluteFilePath();
-            var workSource = workDir.GetAbsoluteFilePath(FilePath.ImplicitToRelative(workDir.PathTo(fstSource)));
+            var workSource = workDir.GetAbsoluteFilePath(FileSystemPath.ImplicitPathStringToRelativeFilePath(workDir.PathTo(fstSource)));
             if (workSource.NotEquals(lastFile))
             {
                 throw new InvalidOperationException("`fstar.exe --find_deps` did not return the top-level source file in its output");
@@ -36,7 +36,7 @@ namespace NuBuild
             foreach (var entry in entries)
             {
                 var absFilePath = entry.ToAbsoluteFilePath();
-                var relFilePath = FilePath.AbsoluteToNuBuild(absFilePath, workDir);
+                var relFilePath = absFilePath.ToBuildObjectPath(workDir);
                 BuildObject foundStdDep = null;
                 foreach (var stdDep in stdDeps)
                 {

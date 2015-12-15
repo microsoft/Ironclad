@@ -36,7 +36,7 @@ namespace NuBuild
         {
             get
             {
-                return FilePath.AbsoluteToNuBuild(AbsolutePathToFStarExe);
+                return AbsolutePathToFStarExe.ToBuildObjectPath();
             }
         }
 
@@ -50,17 +50,17 @@ namespace NuBuild
             IAbsoluteDirectoryPath binPath = pathToFStarExe.ParentDirectoryPath;
             var result = new List<SourcePath>();
 
-            result.Add(new SourcePath(FilePath.AbsoluteToNuBuild(pathToFStarExe).ToString(), SourcePath.SourceType.Tools));
+            result.Add(new SourcePath(pathToFStarExe.ToBuildObjectPath().ToString(), SourcePath.SourceType.Tools));
 
             var globs = new[] { new Minimatcher("*.dll"), new Minimatcher("*.pdb"), new Minimatcher("*.config") };
-            var paths = FilePath.GetListing(binPath, recurse: true);
+            var paths = FileSystemPath.ListFiles(binPath, recurse: true);
             foreach (var path in paths)
             {
                 foreach (var glob in globs)
                 {
                     if (glob.IsMatch(path.ToString()))
                     {
-                        var nbPath = FilePath.AbsoluteToNuBuild(path).ToString();
+                        var nbPath = path.ToBuildObjectPath().ToString();
                         result.Add(new SourcePath(nbPath, SourcePath.SourceType.Tools));
                         break;
                     }
@@ -75,7 +75,7 @@ namespace NuBuild
             var result = new List<SourcePath>();
 
             var globs = new[] { new Minimatcher("*") };
-            var paths = FilePath.GetListing(libPath, recurse: true);
+            var paths = FileSystemPath.ListFiles(libPath, recurse: true);
             foreach (var path in paths)
             {
                 foreach (var glob in globs)
@@ -83,7 +83,7 @@ namespace NuBuild
                     if (glob.IsMatch(path.ToString()))
                     {
                         // todo: should these be added as sources?
-                        var nbPath = FilePath.AbsoluteToNuBuild(path).ToString();
+                        var nbPath = path.ToBuildObjectPath().ToString();
                         result.Add(new SourcePath(nbPath, SourcePath.SourceType.Tools));
                         break;
                     }
@@ -113,7 +113,7 @@ namespace NuBuild
             }
             else
             {
-                relFilePath = FilePath.ImplicitToRelative(configStr);
+                relFilePath = FileSystemPath.ImplicitPathStringToRelativeFilePath(configStr);
             }
 
             var absFilePath = relFilePath.GetAbsolutePathFrom(NuBuildEnvironment.RootDirectoryPath);

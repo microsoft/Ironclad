@@ -140,7 +140,7 @@ namespace NuBuild
                 if (absFilePath.Exists)
                 {
                     var nbPath = absFilePath.GetRelativePathFrom(NuBuildEnvironment.RootDirectoryPath);
-                    return FilePath.RelativeToImplicit(nbPath);
+                    return FileSystemPath.ToImplicitPathString(nbPath);
                 }
             }
             return null;
