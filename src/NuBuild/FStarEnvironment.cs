@@ -113,7 +113,7 @@ namespace NuBuild
             }
             else
             {
-                relFilePath = FileSystemPath.ImplicitPathStringToRelativeFilePath(configStr);
+                relFilePath = FileSystemPath.ImplicitToRelative(configStr).ToRelativeFilePath();
             }
 
             var absFilePath = relFilePath.GetAbsolutePathFrom(NuBuildEnvironment.RootDirectoryPath);

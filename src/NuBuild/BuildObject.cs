@@ -359,7 +359,7 @@ namespace NuBuild
 
         public IRelativeFilePath toRelativeFilePath()
         {
-            return FileSystemPath.ImplicitPathStringToRelativeFilePath(this.getRelativePath());
+            return FileSystemPath.ImplicitToRelative(this.getRelativePath()).ToRelativeFilePath();
         }
 
         public IAbsoluteFilePath toAbsoluteFilePath()
