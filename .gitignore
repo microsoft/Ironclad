@@ -3,4 +3,5 @@
 *~
 /.local/**
 /config.yaml
+/log.txt
 

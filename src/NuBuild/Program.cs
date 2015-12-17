@@ -390,7 +390,7 @@ namespace NuBuild
                 if (d is Fresh)
                 {
                     IVerb verb = scheduler.getParent(outputTarget);
-                    Logger.WritePresentation(verb.getPresentation());
+                    Logger.WriteLines(verb.getPresentation());
 
                     if (this.html_output != null)
                     {

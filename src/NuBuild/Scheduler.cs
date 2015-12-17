@@ -669,7 +669,7 @@ namespace NuBuild
         /// <param name="disposition">Disposition of the verb execution.</param>
         private void emitRealtimeReport(IVerb verb, Disposition disposition)
         {
-            Logger.WritePresentation(verb.getRealtimePresentation(disposition));
+            Logger.WriteLines(verb.getRealtimePresentation(disposition));
         }
 
         /// <summary>

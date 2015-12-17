@@ -7,43 +7,60 @@
 namespace NuBuild
 {
     using System;
+    using System.Collections.Generic;
     using System.IO;
     using System.Linq;
 
+    using NDepend.Path;
+
     /// <summary>
-    /// Utility for writing log messages simultaneously to the console and
-    /// a log file.
+    /// Utility for writing Out messages simultaneously to the console and
+    /// a Out file.
     /// </summary>
     internal class Logger
     {
+        private static List<string> StartupBuffer;
+ 
         /// <summary>
-        /// The log file.
+        /// The Out file.
         /// </summary>
-        private static StreamWriter log;
+        private static StreamWriter Out;
+
+        private static IAbsoluteFilePath Path;
+
+        static Logger()
+        {
+            StartupBuffer = new List<string>();
+            Path = null;
+            Out = null;
+        }
 
         /// <summary>
-        /// Writes a message to both the log file and the console.
+        /// Writes a message to both the Out file and the console.
         /// </summary>
         /// <param name="msg">Message to write.</param>
         public static void Write(string msg)
         {
-            OpenLog();
-            log.Write(msg);
-            log.Flush();
+            Out.Flush();
             System.Console.Write(msg);
         }
 
         /// <summary>
-        /// Writes a message and the newline string to both the log file
+        /// Writes a message and the newline string to both the Out file
         /// and the console.
         /// </summary>
         /// <param name="msg">Message to write.</param>
         public static void WriteLine(string msg)
         {
-            Write(msg + System.Environment.NewLine);
+            System.Console.WriteLine(msg);
+            if (Out != null)
+            {
+                Out.WriteLine(msg);
+                Out.Flush();
+            }
         }
 
-        public static void WritePresentation(Presentation pr)
+        public static void WriteLines(Presentation pr)
         {
             ASCIIPresentater ascii = new ASCIIPresentater();
             pr.format(ascii);
@@ -62,14 +79,27 @@ namespace NuBuild
         }
 
         /// <summary>
-        /// Opens the log file (if it isn't already open).
+        /// Opens the Out file (if it isn't already open).
         /// </summary>
-        private static void OpenLog()
+        public static void Start(IAbsoluteFilePath path)
         {
-            if (log == null)
+            if (Out != null && !string.Equals(path.ToString(), Path.ToString(), StringComparison.InvariantCultureIgnoreCase))
             {
-                log = new StreamWriter("nubuild.log");
+                throw new InvalidOperationException("Attempt to open a log at conflicting locations.");
             }
+
+            Path = path;
+            Out = new StreamWriter(path.ToString(), append: true);
+            foreach (var line in StartupBuffer)
+            {
+                Out.WriteLine(line);
+            }
+            StartupBuffer = null;
+
+            var now = DateTime.UtcNow;
+            var greeting = string.Format("[NuBuild] NuBuild log `{0}` opened at {1}.", Path.ToString(), now.ToString());
+            WriteLine(greeting);
+            Out.Flush();
         }
     }
 }

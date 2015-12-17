@@ -17,6 +17,7 @@ namespace NuBuild
     {
         public const string DotNuBuild = ".nubuild";
         public const string ConfigDotYamlRelativePath = ".nubuild\\config.yaml";
+        public const string LogPath = ".nubuild\\log.txt";
 
         public static IAbsoluteDirectoryPath InvocationPath { get; private set; }
         private static CloudStorageAccount cloudStorageAccount = null;
@@ -33,6 +34,7 @@ namespace NuBuild
                 throw new InvalidOperationException("Attempt to initialize NuBuildEnvironment twice.");
             }
             rootDirectoryPath = initNuBuildRoot(specifiedRootPath);
+            Logger.Start(FileSystemPath.ImplicitToRelative(LogPath).ToRelativeFilePath().GetAbsolutePathFrom(rootDirectoryPath));
             configDotYaml = loadConfigDotYaml();
             InvocationPath = getInvocationPath(rootDirectoryPath);
             // NuBuild seems flakey unless invoked from the NuBuild root.
