@@ -35,14 +35,28 @@ namespace NuBuild
             Out = null;
         }
 
+        
         /// <summary>
-        /// Writes a message to both the Out file and the console.
+        /// Writes a message and the newline string to both the Out file
+        /// and the console.
         /// </summary>
         /// <param name="msg">Message to write.</param>
-        public static void Write(string msg)
+        private static void WriteLineToDisplay(string msg)
         {
-            Out.Flush();
-            System.Console.Write(msg);
+            Console.WriteLine(msg);
+        }
+
+        private static void WriteLineToFile(string msg)
+        {
+            if (Out != null)
+            {
+                Out.WriteLine(msg);
+                Out.Flush();
+            }
+            else
+            {
+                StartupBuffer.Add(msg);
+            }
         }
 
         /// <summary>
@@ -52,17 +66,13 @@ namespace NuBuild
         /// <param name="msg">Message to write.</param>
         public static void WriteLine(string msg)
         {
-            System.Console.WriteLine(msg);
-            if (Out != null)
-            {
-                Out.WriteLine(msg);
-                Out.Flush();
-            }
+            WriteLineToDisplay(msg);
+            WriteLineToFile(msg);
         }
 
         public static void WriteLines(Presentation pr)
         {
-            ASCIIPresentater ascii = new ASCIIPresentater();
+            var ascii = new ASCIIPresentater(colorize: false);
             pr.format(ascii);
             var lines = ascii.ToString().Split('\n').ToList();
 
@@ -74,7 +84,22 @@ namespace NuBuild
 
             foreach (var line in lines)
             {
-                WriteLine(line);
+                WriteLineToFile(line);
+            }
+
+            ascii = new ASCIIPresentater();
+            pr.format(ascii);
+            lines = ascii.ToString().Split('\n').ToList();
+
+            // trim last line if empty.
+            if (string.IsNullOrWhiteSpace(lines[lines.Count - 1]))
+            {
+                lines.RemoveAt(lines.Count - 1);
+            }
+
+            foreach (var line in lines)
+            {
+                WriteLineToDisplay(line);
             }
         }
 
@@ -97,7 +122,7 @@ namespace NuBuild
             StartupBuffer = null;
 
             var now = DateTime.UtcNow;
-            var greeting = string.Format("[NuBuild] NuBuild log `{0}` opened at {1}.", Path.ToString(), now.ToString());
+            var greeting = string.Format("[NuBuild] NuBuild log `{0}` opened at {1}.", Path, now);
             WriteLine(greeting);
             Out.Flush();
         }

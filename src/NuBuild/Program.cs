@@ -416,7 +416,7 @@ namespace NuBuild
                     Logger.WriteLine("Build failed.");
                     foreach (string msg in d.getMessages())
                     {
-                        Logger.Write(msg);
+                        Logger.WriteLine(msg);
                     }
                 }
             }

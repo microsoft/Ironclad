@@ -6,7 +6,6 @@
 
 namespace NuBuild
 {
-    using System;
     using System.Text;
 
     /// <summary>
@@ -180,11 +179,14 @@ namespace NuBuild
         private static ColorEnum WhiteOnBlack = ColorEnum.join(BlackBackground, BoldWhite);
         private static ColorEnum Ordinary = new ColorEnum(string.Empty, string.Empty);
 
+        private readonly bool colorize;
+
         private StringBuilder document;
         private ColorEnum colorEnum;
 
-        public ASCIIPresentater()
+        public ASCIIPresentater(bool? colorize = null)
         {
+            this.colorize = colorize ?? NuBuildEnvironment.ColorizeOutput;
             this.document = new StringBuilder();
         }
 
@@ -195,12 +197,19 @@ namespace NuBuild
 
         public void startHeader()
         {
-            this.document.Append(WhiteOnBlack.start);
+            if (this.colorize)
+            {
+                this.document.Append(WhiteOnBlack.start);                
+            }
         }
 
         public void endHeader()
         {
-            this.document.Append(WhiteOnBlack.stop + "\n");
+            if (this.colorize)
+            {
+                this.document.Append(WhiteOnBlack.stop);
+            }
+            this.document.Append("\n");
         }
 
         public void startLine()
@@ -224,7 +233,7 @@ namespace NuBuild
         public void startColor(string colorName)
         {
             Util.Assert(this.colorEnum == null);
-            if (NuBuildEnvironment.ColorizeOutput)
+            if (this.colorize)
             {
                 switch (colorName)
                 {
