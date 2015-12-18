@@ -108,7 +108,7 @@ namespace NuBuild
 
             if (configStr == null)
             {
-                Logger.WriteLine(string.Format("[NuBuild] `{0}` entry `paths.fstar` is unspecifed; assuming default path (`{1}`)", NuBuild.NuBuildEnvironment.ConfigDotYamlRelativePath, DefaultPathToFStarExe));
+                Logger.WriteLine(string.Format("`{0}` entry `paths.fstar` is unspecifed; assuming default path (`{1}`)", NuBuild.NuBuildEnvironment.ConfigDotYamlRelativePath, DefaultPathToFStarExe));
                 relFilePath = DefaultPathToFStarExe.ToRelativeFilePath();
             }
             else
@@ -119,7 +119,7 @@ namespace NuBuild
             var absFilePath = relFilePath.GetAbsolutePathFrom(NuBuildEnvironment.RootDirectoryPath);
             if (absFilePath.Exists)
             {
-                Logger.WriteLine(string.Format("[NuBuild] F* found at `{0}`.", absFilePath));
+                Logger.WriteLine(string.Format("F* found at `{0}`.", absFilePath));
                 return absFilePath;
             }
             else

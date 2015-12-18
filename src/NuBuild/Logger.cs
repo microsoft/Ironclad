@@ -10,137 +10,160 @@ namespace NuBuild
     using System.Collections.Generic;
     using System.IO;
     using System.Linq;
+    using System.Text;
 
+    using NDepend.Helpers;
     using NDepend.Path;
 
     internal class Logger
     {
-        private static List<string> StartupBuffer;
- 
-        private static StreamWriter Log;
+        private static readonly List<string> StartupBuffer;
+        private static readonly object Lock;
+        private static readonly HashSet<string> ActiveTags;
+        private static readonly HashSet<string> DefaultMessageTags;
 
+        private static StreamWriter Log;
         private static IAbsoluteFilePath Path;
 
-        private static object Lock;
+        private static Func<IEnumerable<string>, bool> IsOutput { get; set; } 
 
         static Logger()
         {
             StartupBuffer = new List<string>();
+            ActiveTags = new HashSet<string> { "error", "warning", "fatal", "info", "summary", "stderr" };
+            DefaultMessageTags = new HashSet<string> { "info" };
+            IsOutput = tags => tags.Contains("stdout");
             Lock = new object();
             Path = null;
             Log = null;
         }
 
-
-        private static void WriteLineToStdOut(string msg)
+        private static bool FilterTags(IEnumerable<string> messageTags, out SortedSet<string> effectiveTags)
         {
-            lock (Lock)
+            var e = Enumerable.Intersect(messageTags ?? DefaultMessageTags, ActiveTags);
+            if (e.Any())
             {
-                Console.Out.WriteLine(msg);
+                effectiveTags = new SortedSet<string>(e);
+                return true;
+            }
+            else
+            {
+                effectiveTags = null;
+                return false;
             }
         }
 
-        /// <summary>
-        /// Writes a message and the newline string to both the Log file
-        /// and the console.
-        /// </summary>
-        /// <param name="msg">Message to write.</param>
-        private static void WriteLineToStdError(string msg)
+        public static void LogTag(string tag)
         {
             lock (Lock)
             {
-                Console.Error.WriteLine(msg);
+                ActiveTags.Add(tag);
             }
         }
 
-        private static void WriteLineToLog(string msg)
+        public static void IgnoreTag(string tag)
         {
             lock (Lock)
             {
-                if (Log != null)
+                ActiveTags.Remove(tag);
+            }
+        }
+
+        private static string FormatMessage(string msg, SortedSet<string> tags)
+        {
+            string prefix = tags == null ? "" : $"{string.Join("|", tags)}|";
+            return $"{prefix}{msg}";
+        }
+
+        public static void WriteLine(string msg, IEnumerable<string> tags = null)
+        {
+            SortedSet<string> effective;
+            if (!FilterTags(tags, out effective))
+            {
+                return;
+            }
+
+            var formatted = FormatMessage(msg, effective);
+            bool isOutput = IsOutput(effective);
+            lock (Lock)
+            {
+                if (isOutput)
                 {
-                    Log.WriteLine(msg);
-                    Log.Flush();
+                    Console.Out.WriteLine(msg);
                 }
                 else
                 {
-                    StartupBuffer.Add(msg);
+                    Console.Error.WriteLine(formatted);
+                }
+
+                if (Log == null)
+                {
+                    StartupBuffer.Add(formatted);
+                }
+                else
+                {
+                    Log.WriteLine(formatted);
                 }
             }
         }
 
-        /// <summary>
-        /// Writes a message and the newline string to both the Log file
-        /// and the console.
-        /// </summary>
-        /// <param name="msg">Message to write.</param>
-        public static void WriteLine(string msg)
+        public static void WriteLine(string msg, string tag)
         {
-            lock (Lock)
-            {
-                WriteLineToStdError(msg);
-                WriteLineToLog(msg);
-            }
+            var tags = tag == null ? null : new[] { tag };
+            WriteLine(msg, tags);
         }
 
-        public static void WriteLines(Presentation pr)
+        public static void Write(Presentation pr, IEnumerable<string> tags = null)
         {
-            lock (Lock)
+            var sb = new StringBuilder();
+            // todo: is colorization really necessary? it's a pain to support as implemented.
+            var ascii = new ASCIIPresentater(colorize: false);
+            pr.format(ascii);
+            var lines = ascii.ToString().Split('\n').ToList();
+
+            // trim last line if empty.
+            if (string.IsNullOrWhiteSpace(lines[lines.Count - 1]))
             {
-                var ascii = new ASCIIPresentater(colorize: false);
-                pr.format(ascii);
-                var lines = ascii.ToString().Split('\n').ToList();
-
-                // trim last line if empty.
-                if (string.IsNullOrWhiteSpace(lines[lines.Count - 1]))
-                {
-                    lines.RemoveAt(lines.Count - 1);
-                }
-
-                foreach (var line in lines)
-                {
-                    WriteLineToLog(line);
-                }
-
-                ascii = new ASCIIPresentater();
-                pr.format(ascii);
-                lines = ascii.ToString().Split('\n').ToList();
-
-                // trim last line if empty.
-                if (string.IsNullOrWhiteSpace(lines[lines.Count - 1]))
-                {
-                    lines.RemoveAt(lines.Count - 1);
-                }
-
-                foreach (var line in lines)
-                {
-                    WriteLineToStdOut(line);
-                }
+                lines.RemoveAt(lines.Count - 1);
             }
+
+            foreach (var line in lines)
+            {
+                sb.AppendLine(line);
+            }
+
+            var msg = sb.ToString();
+            WriteLine(msg, tags);
         }
 
-        /// <summary>
-        /// Opens the Log file (if it isn't already open).
-        /// </summary>
+        public static void Write(Presentation pr, string tag)
+        {
+            var tags = tag == null ? null : new[] { tag };
+            Write(pr, tags);
+        }
+
         public static void Start(IAbsoluteFilePath path)
         {
-            if (Log != null && !string.Equals(path.ToString(), Path.ToString(), StringComparison.InvariantCultureIgnoreCase))
+            lock (Lock)
             {
-                throw new InvalidOperationException("Attempt to open a log at conflicting locations.");
-            }
+                if (Log != null && !string.Equals(path.ToString(), Path.ToString(), StringComparison.InvariantCultureIgnoreCase))
+                {
+                    throw new InvalidOperationException("Attempt to open a log at conflicting locations.");
+                }
 
-            Path = path;
-            Log = new StreamWriter(path.ToString(), append: true);
-            foreach (var line in StartupBuffer)
-            {
-                Log.WriteLine(line);
-            }
-            StartupBuffer = null;
+                Path = path;
+                Log = new StreamWriter(path.ToString(), append: true);
+                foreach (var line in StartupBuffer)
+                {
+                    Log.WriteLine(line);
+                }
+                StartupBuffer.Clear();
 
-            var now = DateTime.UtcNow;
-            var greeting = string.Format("[NuBuild] NuBuild log `{0}` opened at {1}.", Path, now);
-            WriteLine(greeting);
-            Log.Flush();
+                var now = DateTime.UtcNow;
+                var greeting = $"NuBuild log `{Path}` opened at {now}.";
+                WriteLine(greeting);
+                Log.Flush();
+            }
         }
     }
 }

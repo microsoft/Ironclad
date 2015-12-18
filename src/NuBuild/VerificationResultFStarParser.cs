@@ -33,7 +33,7 @@ namespace NuBuild
             }
 
             parseFailures = 1;
-            Logger.WriteLine("[NuBuild] Unrecognized F* output; will report as a single parsing failure.");
+            Logger.WriteLine("Unrecognized F* output; will report as a single parsing failure.", new[] {"warning", "fstar"});
         }
 
         private static Regex CreateRegex(string pattern)

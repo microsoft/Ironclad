@@ -143,7 +143,7 @@ namespace NuBuild
         {
             if (!condition)
             {
-                Logger.WriteLine("[NuBuild] NuBuild is about to fail a runtime assertion. In this spot, it's is usually due to a verb task not successfully transitioning its target from the `Stale` status to the `Fresh` status.");
+                Logger.WriteLine("NuBuild is about to fail a runtime assertion. In this spot, it's is usually due to a verb task not successfully transitioning its target from the `Stale` status to the `Fresh` status.", new[] {"error", "fatal"});
                 Debug.Assert(false);
 
                 for (int loop = 10; loop > 0; loop--)

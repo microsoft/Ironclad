@@ -115,7 +115,7 @@ namespace NuBuild
                 }
                 if (p.Exists && p.GetChildDirectoryWithName(DotNuBuild).Exists)
                 {
-                    Logger.WriteLine(string.Format("[NuBuild] Specified NuBuild root path found at `{0}`.", p));
+                    Logger.WriteLine(string.Format("Specified NuBuild root path found at `{0}`.", p));
                     return p;
                 }
                 else
@@ -126,7 +126,7 @@ namespace NuBuild
             else
             {
                 var p = findNuBuildRoot();
-                Logger.WriteLine(string.Format("[NuBuild] NuBuild root found at `{0}`.", p));
+                Logger.WriteLine(string.Format("NuBuild root found at `{0}`.", p));
                 return p;
             }
         }
@@ -199,7 +199,7 @@ namespace NuBuild
             }
             else
             {
-                Logger.WriteLine(string.Format("[NuBuild] Unable to find {0}; assuming empty document.", s));
+                Logger.WriteLine($"Unable to find {s}; assuming empty document.", "warning");
                 return new DynamicYaml(YamlDoc.LoadFromString("---\n"));
             }
         }

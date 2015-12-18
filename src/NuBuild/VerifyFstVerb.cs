@@ -28,6 +28,7 @@ namespace NuBuild
 
         public VerifyFstVerb(IEnumerable<string> fstArgs, bool rewritePaths = false)
         {
+            // todo: rewritng paths could be further filtered by preventing operatins on things not ending in .fst(i?)
             if (rewritePaths)
             {
                 this.fstArgs = rewritePathArgs(fstArgs);
@@ -98,7 +99,7 @@ namespace NuBuild
             arguments.Add(this.fstSource.getRelativePath());
             var exePath = FStarEnvironment.PathToFStarExe.ToString();
 
-            Logger.WriteLine(string.Format("[NuBuild] {0} invokes `{1} {2}`", this, exePath, string.Join(" ", arguments)));
+            Logger.WriteLine(string.Format("{0} invokes `{1} {2}`", this, exePath, string.Join(" ", arguments)));
             return new ProcessInvokeAsyncWorker(
                 workingDirectory,
                 this,
@@ -113,6 +114,15 @@ namespace NuBuild
 
         public Disposition Complete(WorkingDirectory workingDirectory, double cpuTimeSeconds, string stdout, string stderr, Disposition disposition)
         {
+            if (!string.IsNullOrWhiteSpace(stdout))
+            {
+                Logger.WriteLine(stdout, new[] { "fstar", "stdout" });
+            }
+            if (!string.IsNullOrWhiteSpace(stdout))
+            {
+                Logger.WriteLine(stderr, new[] { "fstar", "stderr" });
+            }
+
             VerificationResult vr = new VerificationResult(
                 this.fstSource.getRelativePath(),
                 cpuTimeSeconds,

@@ -162,6 +162,16 @@ namespace NuBuild
                     {
                         NuBuildEnvironment.ColorizeOutput = false;
                     }
+                    else if (next.ToLower().Equals("--log-tag"))
+                    {
+                        var tag = takeArg("tag");
+                        Logger.LogTag(tag);
+                    }
+                    else if (next.ToLower().Equals("--ignore-tag"))
+                    {
+                        var tag = takeArg("tag");
+                        Logger.IgnoreTag(tag);
+                    }
                     else
                     {
                         usage("unrecognized option " + next);
@@ -293,9 +303,9 @@ namespace NuBuild
 
         void logNubuildInvocation(string[] args)
         {
-            Logger.WriteLine(string.Format("[NuBuild] invoked as: {0} {1}",
+            Logger.WriteLine(string.Format("invoked as: {0} {1}",
                 NuBuildEnvironment.getAssemblyPath(),
-                string.Join(" ", args)));
+                string.Join(" ", args)), "verbose");
         }
 
         // NB this file is found in the default ironroot, since we
@@ -390,7 +400,7 @@ namespace NuBuild
                 if (d is Fresh)
                 {
                     IVerb verb = scheduler.getParent(outputTarget);
-                    Logger.WriteLines(verb.getPresentation());
+                    Logger.Write(verb.getPresentation(), "summary");
 
                     if (this.html_output != null)
                     {
@@ -439,13 +449,13 @@ namespace NuBuild
             // Report what the background worker accomplished during this run.
             // -
             this.backgroundWorker.WaitForCompletion();
-            Logger.WriteLine(string.Format("[NuBuild] Background Worker completed {0} work items out of {1} queued.",
+            Logger.WriteLine(string.Format("Background Worker completed {0} work items out of {1} queued.",
                 this.backgroundWorker.GetWorkItemsPerformed,
                 this.backgroundWorker.GetWorkItemsQueued));
             if (this.backgroundWorker.GetWorkItemsFailed != 0)
             {
                 Logger.WriteLine(string.Format(
-                    "[NuBuild] {0} work item procedures failed (threw an exception).",
+                    "{0} work item procedures failed (threw an exception).",
                     this.backgroundWorker.GetWorkItemsFailed));
             }
         }

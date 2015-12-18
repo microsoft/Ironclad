@@ -65,7 +65,7 @@ namespace NuBuild
             arguments.Add(this.sourcePath.getRelativePath());
             var exePath = FStarEnvironment.PathToFStarExe.ToString();
 
-            Logger.WriteLine(string.Format("[NuBuild] {0} invokes `{1} {2}`", this, exePath, string.Join(" ", arguments)));
+            Logger.WriteLine(string.Format("{0} invokes `{1} {2}`", this, exePath, string.Join(" ", arguments)));
             return new ProcessInvokeAsyncWorker(
                 workingDirectory,
                 this,
@@ -88,7 +88,8 @@ namespace NuBuild
             }
             catch (Exception e)
             {
-                Logger.WriteLine(string.Format("[NuBuild] ERROR; failed to process output of `{0} --find_deps` (unhandled {1}). Details follow:\n{2}", FStarEnvironment.PathToFStarExe, e.GetType().Name, e.Message));
+                var msg = $"failed to process output of `{FStarEnvironment.PathToFStarExe} --find_deps` (unhandled {e.GetType().Name}). Details follow:\n{e.Message}";
+                Logger.WriteLine(msg, new []{"error", "fstar"});
                 return new Failed();
             }
             BuildEngine.theEngine.Repository.StoreVirtual(this.depsObj, new Fresh(), contents);
