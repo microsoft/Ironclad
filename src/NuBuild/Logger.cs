@@ -13,18 +13,11 @@ namespace NuBuild
 
     using NDepend.Path;
 
-    /// <summary>
-    /// Utility for writing Out messages simultaneously to the console and
-    /// a Out file.
-    /// </summary>
     internal class Logger
     {
         private static List<string> StartupBuffer;
  
-        /// <summary>
-        /// The Out file.
-        /// </summary>
-        private static StreamWriter Out;
+        private static StreamWriter Log;
 
         private static IAbsoluteFilePath Path;
 
@@ -35,31 +28,39 @@ namespace NuBuild
             StartupBuffer = new List<string>();
             Lock = new object();
             Path = null;
-            Out = null;
+            Log = null;
         }
 
-        
-        /// <summary>
-        /// Writes a message and the newline string to both the Out file
-        /// and the console.
-        /// </summary>
-        /// <param name="msg">Message to write.</param>
-        private static void WriteLineToDisplay(string msg)
+
+        private static void WriteLineToStdOut(string msg)
         {
             lock (Lock)
             {
-                Console.WriteLine(msg);
+                Console.Out.WriteLine(msg);
             }
         }
 
-        private static void WriteLineToFile(string msg)
+        /// <summary>
+        /// Writes a message and the newline string to both the Log file
+        /// and the console.
+        /// </summary>
+        /// <param name="msg">Message to write.</param>
+        private static void WriteLineToStdError(string msg)
         {
             lock (Lock)
             {
-                if (Out != null)
+                Console.Error.WriteLine(msg);
+            }
+        }
+
+        private static void WriteLineToLog(string msg)
+        {
+            lock (Lock)
+            {
+                if (Log != null)
                 {
-                    Out.WriteLine(msg);
-                    Out.Flush();
+                    Log.WriteLine(msg);
+                    Log.Flush();
                 }
                 else
                 {
@@ -69,7 +70,7 @@ namespace NuBuild
         }
 
         /// <summary>
-        /// Writes a message and the newline string to both the Out file
+        /// Writes a message and the newline string to both the Log file
         /// and the console.
         /// </summary>
         /// <param name="msg">Message to write.</param>
@@ -77,8 +78,8 @@ namespace NuBuild
         {
             lock (Lock)
             {
-                WriteLineToDisplay(msg);
-                WriteLineToFile(msg);
+                WriteLineToStdError(msg);
+                WriteLineToLog(msg);
             }
         }
 
@@ -98,7 +99,7 @@ namespace NuBuild
 
                 foreach (var line in lines)
                 {
-                    WriteLineToFile(line);
+                    WriteLineToLog(line);
                 }
 
                 ascii = new ASCIIPresentater();
@@ -113,33 +114,33 @@ namespace NuBuild
 
                 foreach (var line in lines)
                 {
-                    WriteLineToDisplay(line);
+                    WriteLineToStdOut(line);
                 }
             }
         }
 
         /// <summary>
-        /// Opens the Out file (if it isn't already open).
+        /// Opens the Log file (if it isn't already open).
         /// </summary>
         public static void Start(IAbsoluteFilePath path)
         {
-            if (Out != null && !string.Equals(path.ToString(), Path.ToString(), StringComparison.InvariantCultureIgnoreCase))
+            if (Log != null && !string.Equals(path.ToString(), Path.ToString(), StringComparison.InvariantCultureIgnoreCase))
             {
                 throw new InvalidOperationException("Attempt to open a log at conflicting locations.");
             }
 
             Path = path;
-            Out = new StreamWriter(path.ToString(), append: true);
+            Log = new StreamWriter(path.ToString(), append: true);
             foreach (var line in StartupBuffer)
             {
-                Out.WriteLine(line);
+                Log.WriteLine(line);
             }
             StartupBuffer = null;
 
             var now = DateTime.UtcNow;
             var greeting = string.Format("[NuBuild] NuBuild log `{0}` opened at {1}.", Path, now);
             WriteLine(greeting);
-            Out.Flush();
+            Log.Flush();
         }
     }
 }
