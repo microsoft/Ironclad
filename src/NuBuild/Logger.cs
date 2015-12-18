@@ -28,9 +28,12 @@ namespace NuBuild
 
         private static IAbsoluteFilePath Path;
 
+        private static object Lock;
+
         static Logger()
         {
             StartupBuffer = new List<string>();
+            Lock = new object();
             Path = null;
             Out = null;
         }
@@ -43,19 +46,25 @@ namespace NuBuild
         /// <param name="msg">Message to write.</param>
         private static void WriteLineToDisplay(string msg)
         {
-            Console.WriteLine(msg);
+            lock (Lock)
+            {
+                Console.WriteLine(msg);
+            }
         }
 
         private static void WriteLineToFile(string msg)
         {
-            if (Out != null)
+            lock (Lock)
             {
-                Out.WriteLine(msg);
-                Out.Flush();
-            }
-            else
-            {
-                StartupBuffer.Add(msg);
+                if (Out != null)
+                {
+                    Out.WriteLine(msg);
+                    Out.Flush();
+                }
+                else
+                {
+                    StartupBuffer.Add(msg);
+                }
             }
         }
 
@@ -66,40 +75,46 @@ namespace NuBuild
         /// <param name="msg">Message to write.</param>
         public static void WriteLine(string msg)
         {
-            WriteLineToDisplay(msg);
-            WriteLineToFile(msg);
+            lock (Lock)
+            {
+                WriteLineToDisplay(msg);
+                WriteLineToFile(msg);
+            }
         }
 
         public static void WriteLines(Presentation pr)
         {
-            var ascii = new ASCIIPresentater(colorize: false);
-            pr.format(ascii);
-            var lines = ascii.ToString().Split('\n').ToList();
-
-            // trim last line if empty.
-            if (string.IsNullOrWhiteSpace(lines[lines.Count - 1]))
+            lock (Lock)
             {
-                lines.RemoveAt(lines.Count - 1);
-            }
+                var ascii = new ASCIIPresentater(colorize: false);
+                pr.format(ascii);
+                var lines = ascii.ToString().Split('\n').ToList();
 
-            foreach (var line in lines)
-            {
-                WriteLineToFile(line);
-            }
+                // trim last line if empty.
+                if (string.IsNullOrWhiteSpace(lines[lines.Count - 1]))
+                {
+                    lines.RemoveAt(lines.Count - 1);
+                }
 
-            ascii = new ASCIIPresentater();
-            pr.format(ascii);
-            lines = ascii.ToString().Split('\n').ToList();
+                foreach (var line in lines)
+                {
+                    WriteLineToFile(line);
+                }
 
-            // trim last line if empty.
-            if (string.IsNullOrWhiteSpace(lines[lines.Count - 1]))
-            {
-                lines.RemoveAt(lines.Count - 1);
-            }
+                ascii = new ASCIIPresentater();
+                pr.format(ascii);
+                lines = ascii.ToString().Split('\n').ToList();
 
-            foreach (var line in lines)
-            {
-                WriteLineToDisplay(line);
+                // trim last line if empty.
+                if (string.IsNullOrWhiteSpace(lines[lines.Count - 1]))
+                {
+                    lines.RemoveAt(lines.Count - 1);
+                }
+
+                foreach (var line in lines)
+                {
+                    WriteLineToDisplay(line);
+                }
             }
         }
 
