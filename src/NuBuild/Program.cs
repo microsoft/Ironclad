@@ -33,9 +33,14 @@ namespace NuBuild
 
         static void Main(string[] args)
         {
-            new Program().main(args);
-            ////DbgHashSpeedTest.thing();
-            ////DbgFileCopySpeedTest.thing();
+            try
+            {
+                new Program().main(args);
+            }
+            finally
+            {
+                Logger.Flush();
+            }
         }
 
         void usage(string msg)

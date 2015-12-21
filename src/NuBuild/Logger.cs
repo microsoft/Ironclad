@@ -17,6 +17,7 @@ namespace NuBuild
 
     internal class Logger
     {
+        private const string Quiet = "*quiet";
         private static readonly List<string> StartupBuffer;
         private static readonly object Lock;
         private static readonly HashSet<string> ActiveTags;
@@ -68,7 +69,14 @@ namespace NuBuild
                 }
                 else
                 {
-                    sb.Append(tag);
+                    if (tag.StartsWith("*"))
+                    {
+                        effective.Add(tag);
+                    }
+                    else
+                    {
+                        sb.Append(tag);
+                    }
                 }
                 sb.Append("|");
             }
@@ -110,14 +118,18 @@ namespace NuBuild
             bool isOutput = IsOutput(effective);
             lock (Lock)
             {
-                if (isOutput)
+                if (!effective.Contains(Quiet))
                 {
-                    Console.Out.WriteLine(msg);
+                    if (isOutput)
+                    {
+                        Console.Out.WriteLine(msg);
+                    }
+                    else
+                    {
+                        Console.Error.WriteLine(formatted);
+                    }
                 }
-                else
-                {
-                    Console.Error.WriteLine(formatted);
-                }
+
 
                 if (Log == null)
                 {
@@ -186,6 +198,17 @@ namespace NuBuild
                 var greeting = string.Format("NuBuild log `{0}` opened at {1}.", Path, now);
                 WriteLine(greeting);
                 Log.Flush();
+            }
+        }
+
+        public static void Flush()
+        {
+            lock (Lock)
+            {
+                if (Log != null)
+                {
+                    Log.Flush();
+                }
             }
         }
     }

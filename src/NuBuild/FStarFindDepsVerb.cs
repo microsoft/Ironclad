@@ -81,6 +81,15 @@ namespace NuBuild
 
         public Disposition Complete(WorkingDirectory workingDirectory, double cpuTimeSeconds, string stdout, string stderr, Disposition disposition)
         {
+            if (!string.IsNullOrWhiteSpace(stdout))
+            {
+                Logger.WriteLine(stdout, new[] { "fstar", "stdout", "*quiet" });
+            }
+            if (!string.IsNullOrWhiteSpace(stderr))
+            {
+                Logger.WriteLine(stderr, new[] { "fstar", "stderr" });
+            }
+
             FStarFindDepsResult contents;
             try
             {
