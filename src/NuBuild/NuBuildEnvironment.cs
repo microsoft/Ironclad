@@ -199,7 +199,7 @@ namespace NuBuild
             }
             else
             {
-                Logger.WriteLine($"Unable to find {s}; assuming empty document.", "warning");
+                Logger.WriteLine(string.Format("Unable to find {0}; assuming empty document.", s), "warning");
                 return new DynamicYaml(YamlDoc.LoadFromString("---\n"));
             }
         }

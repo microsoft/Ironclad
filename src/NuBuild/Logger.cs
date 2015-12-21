@@ -71,8 +71,9 @@ namespace NuBuild
 
         private static string FormatMessage(string msg, SortedSet<string> tags)
         {
-            string prefix = tags == null ? "" : $"{string.Join("|", tags)}|";
-            return $"{prefix}{msg}";
+            // todo: prefix should be "fstar|STDOUT" where CAPS is matched and fstar is unmatched msg tag.
+            string prefix = tags == null ? "" : string.Format("{0}|", string.Join("|", tags));
+            return string.Format("{0}{1}", prefix, msg);
         }
 
         public static void WriteLine(string msg, IEnumerable<string> tags = null)
@@ -160,7 +161,7 @@ namespace NuBuild
                 StartupBuffer.Clear();
 
                 var now = DateTime.UtcNow;
-                var greeting = $"NuBuild log `{Path}` opened at {now}.";
+                var greeting = string.Format("NuBuild log `{0}` opened at {1}.", Path, now);
                 WriteLine(greeting);
                 Log.Flush();
             }

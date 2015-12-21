@@ -88,7 +88,7 @@ namespace NuBuild
             }
             catch (Exception e)
             {
-                var msg = $"failed to process output of `{FStarEnvironment.PathToFStarExe} --find_deps` (unhandled {e.GetType().Name}). Details follow:\n{e.Message}";
+                var msg = string.Format("failed to process output of `{0} --find_deps` (unhandled {1}). Details follow:\n{2}", FStarEnvironment.PathToFStarExe, e.GetType().Name, e.Message);
                 Logger.WriteLine(msg, new []{"error", "fstar"});
                 return new Failed();
             }
