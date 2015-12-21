@@ -118,7 +118,7 @@ namespace NuBuild
             {
                 Logger.WriteLine(stdout, new[] { "fstar", "stdout" });
             }
-            if (!string.IsNullOrWhiteSpace(stdout))
+            if (!string.IsNullOrWhiteSpace(stderr))
             {
                 Logger.WriteLine(stderr, new[] { "fstar", "stderr" });
             }
