@@ -38,26 +38,49 @@ namespace NuBuild
             Log = null;
         }
 
-        private static bool FilterTags(IEnumerable<string> messageTags, out SortedSet<string> effectiveTags)
+        private static string FormatPrefix(IEnumerable<string> messageTags, out SortedSet<string> effective)
         {
-            var e = Enumerable.Intersect(messageTags ?? DefaultMessageTags, ActiveTags);
-            if (e.Any())
+            var tags = (messageTags ?? DefaultMessageTags).Select(s => s.ToLowerInvariant());
+            bool interesting = false;
+            foreach (var tag in tags)
             {
-                effectiveTags = new SortedSet<string>(e);
-                return true;
+                if (ActiveTags.Contains(tag))
+                {
+                    interesting = true;
+                    break;
+                }
             }
-            else
+            if (!interesting)
             {
-                effectiveTags = null;
-                return false;
+                effective = null;
+                return null;
             }
+
+            var sortedTags = new SortedSet<string>(tags);
+            effective = new SortedSet<string>();
+            var sb = new StringBuilder();
+            foreach (var tag in sortedTags)
+            {
+                if (ActiveTags.Contains(tag))
+                {
+                    sb.Append(tag.ToUpperInvariant());
+                    effective.Add(tag);
+                }
+                else
+                {
+                    sb.Append(tag);
+                }
+                sb.Append("|");
+            }
+            var result = sb.ToString();
+            return result;
         }
 
         public static void LogTag(string tag)
         {
             lock (Lock)
             {
-                ActiveTags.Add(tag);
+                ActiveTags.Add(tag.ToLowerInvariant());
             }
         }
 
@@ -65,26 +88,25 @@ namespace NuBuild
         {
             lock (Lock)
             {
-                ActiveTags.Remove(tag);
+                ActiveTags.Remove(tag.ToLowerInvariant());
             }
         }
 
-        private static string FormatMessage(string msg, SortedSet<string> tags)
+        private static string FormatMessage(string msg, IEnumerable<string> tags, out SortedSet<string> effective)
         {
-            // todo: prefix should be "fstar|STDOUT" where CAPS is matched and fstar is unmatched msg tag.
-            string prefix = tags == null ? "" : string.Format("{0}|", string.Join("|", tags));
-            return string.Format("{0}{1}", prefix, msg);
+            var prefix = FormatPrefix(tags, out effective);
+            return prefix == null ? null : string.Format("{0}{1}", prefix, msg);
         }
 
         public static void WriteLine(string msg, IEnumerable<string> tags = null)
         {
             SortedSet<string> effective;
-            if (!FilterTags(tags, out effective))
+            var formatted = FormatMessage(msg, tags, out effective);
+            if (formatted == null)
             {
                 return;
             }
 
-            var formatted = FormatMessage(msg, effective);
             bool isOutput = IsOutput(effective);
             lock (Lock)
             {
