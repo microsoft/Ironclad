@@ -8,11 +8,11 @@ namespace NuBuild
 
     using NDepend.Path;
 
-    class FStarFindDepsResult : VirtualContents
+    class FStarDepOutput : VirtualContents
     {
         public readonly OrderPreservingSet<BuildObject> Value;
 
-        public FStarFindDepsResult(string output, BuildObject fstSource, WorkingDirectory workDir)
+        public FStarDepOutput(string output, BuildObject fstSource, WorkingDirectory workDir)
         {
             this.Value = this.ParseOutput(output, fstSource, workDir);
         }

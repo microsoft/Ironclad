@@ -11,6 +11,8 @@ namespace NuBuild
     using System.IO;
     using System.Linq;
 
+    using Microsoft.Data.OData.Query.SemanticAst;
+
     using NDepend.Path;
 
     internal class FStarVerifyVerb
@@ -22,14 +24,16 @@ namespace NuBuild
         private SourcePath fstSource;
         private AbstractId abstractId;
 
-        private FStarFindDepsVerb depsVerb;
+        private FStarDepVerb depsVerb;
         private readonly List<string> fstArgs;
+
+        private List<SourcePath> secondarySources;
 
         public FStarVerifyVerb(IEnumerable<string> fstArgs, bool rewritePaths = false)
         {
             if (rewritePaths)
             {
-                this.fstArgs = rewritePathArgs(fstArgs);
+                this.fstArgs = rewritePathArgs(fstArgs, out this.secondarySources);
             }
             else
             {
@@ -48,8 +52,15 @@ namespace NuBuild
 
             var concrete = string.Join(" ", this.fstArgs);
             this.abstractId = new AbstractId(this.GetType().Name, Version, fstSource.ToString(), concrete: concrete);
-            // note that what we pass into FStarFindDepsVerb's constructor is not necessarily the same as our 
-            this.depsVerb = new FStarFindDepsVerb(this.fstSource, this.fstArgs);
+            if (extractAutoDep(this.fstArgs))
+            {
+                // note that what we pass into FStarDepVerb's constructor is not necessarily the same as what wasa passed into ours.
+                this.depsVerb = new FStarDepVerb(this.fstSource, this.fstArgs);
+            }
+            else
+            {
+                this.depsVerb = null;
+            }
         }
 
         public override AbstractId getAbstractIdentifier()
@@ -62,21 +73,37 @@ namespace NuBuild
             // note: order of the returned IEnumerable object doesn't appear to matter.
             var result = new HashSet<BuildObject> { this.getSource() };
             result.UnionWith(FStarEnvironment.getStandardDependencies());
-            var depOut = this.depsVerb.getOutputs();
-            result.UnionWith(depOut);
-
-            var depsFound = this.depsVerb.getDependenciesFound(out ddisp);
-            if (ddisp != DependencyDisposition.Complete)
+            result.UnionWith(this.secondarySources);
+            if (this.depsVerb == null)
             {
+                ddisp = DependencyDisposition.Complete;
                 return result;
             }
-            result.UnionWith(depsFound.Value);
-            return result;
+            else
+            {
+                var depOut = this.depsVerb.getOutputs();
+                result.UnionWith(depOut);
+
+                var depsFound = this.depsVerb.getDependenciesFound(out ddisp);
+                if (ddisp != DependencyDisposition.Complete)
+                {
+                    return result;
+                }
+                result.UnionWith(depsFound.Value);
+                return result;
+            }
         }
 
         public override IEnumerable<IVerb> getVerbs()
         {
-            return new IVerb[] { this.depsVerb }; 
+            if (this.depsVerb == null)
+            {
+                return new IVerb[0];
+            }
+            else
+            {
+                return new IVerb[] { this.depsVerb };
+            }
         }
 
         public override BuildObject getOutputFile()
@@ -92,13 +119,11 @@ namespace NuBuild
         public override IVerbWorker getWorker(WorkingDirectory workingDirectory)
         {
             List<string> arguments = new List<string>();
-            arguments.Add("--dep");
-            arguments.Add("nubuild");
             arguments.AddRange(this.fstArgs);
             arguments.Add(this.fstSource.getRelativePath());
             var exePath = FStarEnvironment.PathToFStarExe.ToString();
 
-            Logger.WriteLine(string.Format("{0} invokes `{1} {2}`", this, exePath, string.Join(" ", arguments)));
+            Logger.WriteLine(string.Format("{0} invokes `{1} {2}` from `{3}`", this, exePath, string.Join(" ", arguments), workingDirectory.ToAbsoluteDirectoryPath()));
             return new ProcessInvokeAsyncWorker(
                 workingDirectory,
                 this,
@@ -159,8 +184,9 @@ namespace NuBuild
             return buildObjPath.ToImplicitPathString();
         }
 
-        private static List<string> rewritePathArgs(IEnumerable<string> args)
+        private static List<string> rewritePathArgs(IEnumerable<string> args, out List<SourcePath> secondarySources)
         {
+            secondarySources = new List<SourcePath>();
             var result = new List<string>();
             foreach (var a in args)
             {
@@ -170,6 +196,7 @@ namespace NuBuild
                     if (s != null)
                     {
                         result.Add(s);
+                        secondarySources.Add(new SourcePath(s));
                         continue;
                     }
                 }
@@ -178,6 +205,21 @@ namespace NuBuild
             }
 
             return result;
+        }
+
+        private static bool extractAutoDep(IList<string> args)
+        {
+            for (var i = 0; i < args.Count; ++i)
+            {
+                // todo: this isn't implemented yet in F*.
+                if (args[i].Equals("--auto_dep", StringComparison.InvariantCulture))
+                {
+                    Logger.WriteLine("Dependency search option detected.", "verbose");
+                    args.RemoveAt(i);
+                    return true;
+                }
+            }
+            return false;
         }
     }
 }

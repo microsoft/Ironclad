@@ -95,7 +95,14 @@ namespace NuBuild
 
         public IAbsoluteDirectoryPath ToAbsoluteDirectoryPath()
         {
-            return this.Root.ToRelativeDirectoryPath().GetAbsolutePathFrom(NuBuildEnvironment.RootDirectoryPath);
+            if (this.Root.IsValidAbsoluteDirectoryPath())
+            {
+                return this.Root.ToAbsoluteDirectoryPath();
+            }
+            else
+            {
+                return this.Root.ToRelativeDirectoryPath().GetAbsolutePathFrom(NuBuildEnvironment.RootDirectoryPath);
+            }
         }
 
         public IAbsoluteFilePath GetAbsoluteFilePath(IRelativeFilePath relFilePath)

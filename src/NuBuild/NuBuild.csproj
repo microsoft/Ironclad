@@ -107,13 +107,13 @@
     <Compile Include="AbstractId.cs" />
     <Compile Include="AnnotationScanner.cs" />
     <Compile Include="AsmRewriterVerb.cs" />
-    <Compile Include="FstarFindDepsResult.cs" />
+    <Compile Include="FStarDepOutput.cs" />
     <Compile Include="FileSystemPath.cs" />
     <Compile Include="CloudExecutionQueue.cs" />
     <Compile Include="CloudExecutionReport.cs" />
     <Compile Include="CloudExecutionRequest.cs" />
     <Compile Include="CloudExecutionWaiter.cs" />
-    <Compile Include="FStarFindDepsVerb.cs" />
+    <Compile Include="FStarDepVerb.cs" />
     <Compile Include="NuBuildEnvironment.cs" />
     <Compile Include="DafnyExecutableDependencies.cs" />
     <Compile Include="FStarEnvironment.cs" />

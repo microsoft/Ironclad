@@ -1,5 +1,5 @@
 ﻿//--
-// <copyright file="FStarFindDepsVerb.cs" company="Microsoft Corporation">
+// <copyright file="FStarDepVerb.cs" company="Microsoft Corporation">
 //     Copyright (c) Microsoft Corporation.  All rights reserved.
 // </copyright>
 //--
@@ -12,7 +12,7 @@ namespace NuBuild
 
     using NDepend.Path;
 
-    internal class FStarFindDepsVerb: Verb, IProcessInvokeAsyncVerb
+    internal class FStarDepVerb: Verb, IProcessInvokeAsyncVerb
     {
         private const string DepsObjExtension = ".fstdeps.vob";
         private const int Version = 1;
@@ -24,7 +24,7 @@ namespace NuBuild
 
         private readonly string[] fstArgs;
 
-        public FStarFindDepsVerb(SourcePath sourcePath, IEnumerable<string> fstArgs)
+        public FStarDepVerb(SourcePath sourcePath, IEnumerable<string> fstArgs)
         {
             this.sourcePath = sourcePath;
             this.depsObj = sourcePath.makeVirtualObject(BeatExtensions.whichPart(sourcePath).ExtnStr() + DepsObjExtension);
@@ -60,7 +60,8 @@ namespace NuBuild
         public override IVerbWorker getWorker(WorkingDirectory workingDirectory)
         {
             List<string> arguments = new List<string>();
-            arguments.Add("--find_deps");
+            arguments.Add("--dep");
+            arguments.Add("nubuild");
             arguments.AddRange(this.fstArgs);
             arguments.Add(this.sourcePath.getRelativePath());
             var exePath = FStarEnvironment.PathToFStarExe.ToString();
@@ -90,10 +91,10 @@ namespace NuBuild
                 Logger.WriteLine(stderr, new[] { "fstar", "stderr" });
             }
 
-            FStarFindDepsResult contents;
+            FStarDepOutput contents;
             try
             {
-                contents = new FStarFindDepsResult(stdout, this.sourcePath, workingDirectory);
+                contents = new FStarDepOutput(stdout, this.sourcePath, workingDirectory);
             }
             catch (Exception e)
             {
@@ -105,12 +106,12 @@ namespace NuBuild
             return new Fresh();
         }
 
-        public FStarFindDepsResult getDependenciesFound(out DependencyDisposition ddisp)
+        public FStarDepOutput getDependenciesFound(out DependencyDisposition ddisp)
         {
             ddisp = DependencyDisposition.Failed;
             try
             {
-                var result = (FStarFindDepsResult)BuildEngine.theEngine.Repository.FetchVirtual(this.depsObj);
+                var result = (FStarDepOutput)BuildEngine.theEngine.Repository.FetchVirtual(this.depsObj);
                 ddisp = DependencyDisposition.Complete;
                 return result;
 
