@@ -8,11 +8,8 @@ namespace NuBuild
 {
     using System;
     using System.Collections.Generic;
-    using System.Diagnostics;
     using System.IO;
     using System.Linq;
-    using System.Text;
-    using System.Threading.Tasks;
 
     using NDepend.Path;
 
@@ -176,6 +173,10 @@ namespace NuBuild
                     {
                         var tag = takeArg("tag");
                         Logger.IgnoreTag(tag);
+                    }
+                    else if (next.Equals("--quiet", StringComparison.InvariantCultureIgnoreCase))
+                    {
+                        Logger.Quiet();
                     }
                     else
                     {

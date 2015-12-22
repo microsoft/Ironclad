@@ -17,7 +17,7 @@ namespace NuBuild
 
     internal class Logger
     {
-        private const string Quiet = "*quiet";
+        private const string QuietTag = "*quiet";
         private static readonly List<string> StartupBuffer;
         private static readonly object Lock;
         private static readonly HashSet<string> ActiveTags;
@@ -42,21 +42,6 @@ namespace NuBuild
         private static string FormatPrefix(IEnumerable<string> messageTags, out SortedSet<string> effective)
         {
             var tags = (messageTags ?? DefaultMessageTags).Select(s => s.ToLowerInvariant());
-            bool interesting = false;
-            foreach (var tag in tags)
-            {
-                if (ActiveTags.Contains(tag))
-                {
-                    interesting = true;
-                    break;
-                }
-            }
-            if (!interesting)
-            {
-                effective = null;
-                return null;
-            }
-
             var sortedTags = new SortedSet<string>(tags);
             effective = new SortedSet<string>();
             var sb = new StringBuilder();
@@ -100,25 +85,30 @@ namespace NuBuild
             }
         }
 
+        public static void Quiet()
+        {
+            lock (Lock)
+            {
+                ActiveTags.Clear();
+                LogTag("stderr");
+                LogTag("stdout");
+            }
+        }
+
         private static string FormatMessage(string msg, IEnumerable<string> tags, out SortedSet<string> effective)
         {
             var prefix = FormatPrefix(tags, out effective);
-            return prefix == null ? null : string.Format("{0}{1}", prefix, msg);
+            return string.Format("{0}{1}", prefix, msg);
         }
 
         public static void WriteLine(string msg, IEnumerable<string> tags = null)
         {
             SortedSet<string> effective;
             var formatted = FormatMessage(msg, tags, out effective);
-            if (formatted == null)
-            {
-                return;
-            }
-
             bool isOutput = IsOutput(effective);
             lock (Lock)
             {
-                if (!effective.Contains(Quiet))
+                if (effective.Count > 0 && !effective.Contains(QuietTag))
                 {
                     if (isOutput)
                     {
@@ -130,7 +120,7 @@ namespace NuBuild
                     }
                 }
 
-                if (effective.Contains(Quiet))
+                if (effective.Contains(QuietTag))
                 {
                     int _n = 0;
                 }
@@ -143,7 +133,9 @@ namespace NuBuild
                 {
                     Log.WriteLine(formatted);
                 }
+
             }
+
         }
 
         public static void WriteLine(string msg, string tag)
