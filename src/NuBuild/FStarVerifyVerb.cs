@@ -8,7 +8,6 @@ namespace NuBuild
 {
     using System;
     using System.Collections.Generic;
-    using System.Diagnostics;
     using System.IO;
     using System.Linq;
 
@@ -28,7 +27,6 @@ namespace NuBuild
 
         public FStarVerifyVerb(IEnumerable<string> fstArgs, bool rewritePaths = false)
         {
-            // todo: rewritng paths could be further filtered by preventing operatins on things not ending in .fst(i?)
             if (rewritePaths)
             {
                 this.fstArgs = rewritePathArgs(fstArgs);
@@ -144,17 +142,21 @@ namespace NuBuild
         private static string attemptToRewritePath(string path)
         {
             var s = Path.Combine(".", path);
-            if (s.IsValidRelativeFilePath())
+            if (!s.IsValidRelativeFilePath())
+                return null;
+            var relFilePath = s.ToRelativeFilePath();
+            var ext = relFilePath.FileExtension;
+            if (!ext.Equals(".fst", StringComparison.InvariantCultureIgnoreCase) && !ext.Equals(".fsi", StringComparison.InvariantCultureIgnoreCase) && !ext.Equals(".fsti", StringComparison.InvariantCultureIgnoreCase))
             {
-                var relFilePath = s.ToRelativeFilePath();
-                var absFilePath = relFilePath.GetAbsolutePathFrom(NuBuildEnvironment.InvocationPath);
-                if (absFilePath.Exists)
-                {
-                    var nbPath = absFilePath.GetRelativePathFrom(NuBuildEnvironment.RootDirectoryPath);
-                    return FileSystemPath.ToImplicitPathString(nbPath);
-                }
+                return null;
             }
-            return null;
+            var absFilePath = relFilePath.GetAbsolutePathFrom(NuBuildEnvironment.InvocationPath);
+            if (!absFilePath.Exists)
+            {
+                return null;
+            }
+            var buildObjPath = absFilePath.GetRelativePathFrom(NuBuildEnvironment.RootDirectoryPath);
+            return buildObjPath.ToImplicitPathString();
         }
 
         private static List<string> rewritePathArgs(IEnumerable<string> args)

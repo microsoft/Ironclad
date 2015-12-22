@@ -24,7 +24,7 @@ namespace NuBuild
         private string[] args;
         private VerificationRequest verificationRequest = new VerificationRequest();
 
-        public Program()
+        private Program()
         {
             this.useCloudExecution = false;
             this.useCloudCache = true;
