@@ -95,16 +95,22 @@ namespace NuBuild
             }
         }
 
-        private static string FormatMessage(string msg, IEnumerable<string> tags, out SortedSet<string> effective)
+        private static string FormatMessage(string msg, IEnumerable<string> tags, out SortedSet<string> effective, bool fixNewLines)
         {
             var prefix = FormatPrefix(tags, out effective);
-            return string.Format("{0}{1}", prefix, msg);
+            var s = string.Format("{0}{1}", prefix, msg);
+            if (fixNewLines)
+            {
+               s = s.Replace("\r\n", "\r");
+               s = s.Replace("\r", System.Environment.NewLine);
+            }
+            return s;
         }
 
-        public static void WriteLine(string msg, IEnumerable<string> tags = null)
+        public static void WriteLine(string msg, IEnumerable<string> tags = null, bool fixNewLines = true)
         {
             SortedSet<string> effective;
-            var formatted = FormatMessage(msg, tags, out effective);
+            var formatted = FormatMessage(msg, tags, out effective, fixNewLines);
             bool isOutput = IsOutput(effective);
             lock (Lock)
             {
