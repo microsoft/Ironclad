@@ -193,25 +193,25 @@ namespace NuBuild
                         rootDirInitState = Tuple.Create(rootDirInitState.Item1, true);
                     }
 
-                    if (verb.Equals("VerifyFst"))
+                    if (verb.Equals("FStarVerify", StringComparison.InvariantCultureIgnoreCase))
                     {
                         // VerifyFst can accept multiple arguments, hence the following complexity.
                         var remainingArgs = this.takeRemainingArgs().ToList();
                         if (remainingArgs.Count < 1)
                         {
-                            throw new UserError("The VerifyFst verb requires at least one argument, specifying the NuBuild source file path.");
+                            throw new UserError("The FStarVerify verb requires at least one argument, specifying the NuBuild source file path.");
                         }
-                        verbs.Add(new VerifyFstVerb(remainingArgs, rewritePaths: true));
+                        verbs.Add(new FStarVerifyVerb(remainingArgs, rewritePaths: true));
                     }
                     else
                     {
                         string target = takeArg("verb-target");
 
-                        if (verb.Equals("DafnyVerifyTree"))
+                        if (verb.Equals("DafnyVerifyTree", StringComparison.InvariantCultureIgnoreCase))
                         {
                             verbs.Add(new VerificationResultSummaryVerb(new DafnyVerifyTreeVerb(this.parseSourcePath(target))));
                         }
-                        else if (verb.Equals("BatchDafny"))
+                        else if (verb.Equals("BatchDafny", StringComparison.InvariantCultureIgnoreCase))
                         {
                             if (!target.EndsWith(".batch"))
                             {
@@ -220,7 +220,7 @@ namespace NuBuild
 
                             verbs.Add(new VerificationResultSummaryVerb(new BatchVerifyVerb(this.parseSourcePath(target), BatchVerifyVerb.BatchMode.DAFNY, this.verificationRequest, useFramePointer)));
                         }
-                        else if (verb.Equals("BatchApps"))
+                        else if (verb.Equals("BatchApps", StringComparison.InvariantCultureIgnoreCase))
                         {
                             if (!target.EndsWith(".batch"))
                             {
@@ -229,35 +229,35 @@ namespace NuBuild
 
                             verbs.Add(new VerificationResultSummaryVerb(new BatchVerifyVerb(this.parseSourcePath(target), BatchVerifyVerb.BatchMode.APP, this.verificationRequest, useFramePointer)));
                         }
-                        else if (verb.Equals("Beat"))
+                        else if (verb.Equals("Beat", StringComparison.InvariantCultureIgnoreCase))
                         {
                             verbs.Add(new BeatVerb(BuildEngine.theEngine.getVerveContextVerb(PoundDefines.empty()), this.parseSourcePath(target), appLabel: null));
                         }
-                        else if (verb.Equals("Boogie"))
+                        else if (verb.Equals("Boogie", StringComparison.InvariantCultureIgnoreCase))
                         {
                             verbs.Add(new BoogieVerb(BuildEngine.theEngine.getVerveContextVerb(PoundDefines.empty()), this.parseSourcePath(target), symdiff: this.verificationRequest.getSymDiffMode()));
                         }
-                        else if (verb.Equals("IroncladApp"))
+                        else if (verb.Equals("IroncladApp", StringComparison.InvariantCultureIgnoreCase))
                         {
                             verbs.Add(new IroncladAppVerb(this.parseSourcePath(target), target_platform, this.useFramePointer, this.verificationRequest));
                         }
-                        else if (verb.Equals("IronfleetApp"))
+                        else if (verb.Equals("IronfleetApp", StringComparison.InvariantCultureIgnoreCase))
                         {
                             verbs.Add(new IronfleetAppVerb(this.parseSourcePath(target), this.verificationRequest, this.releaseBuild));
                         }
-                        else if (verb.Equals("DafnyCompileOne"))
+                        else if (verb.Equals("DafnyCompileOne", StringComparison.InvariantCultureIgnoreCase))
                         {
                             verbs.Add(new DafnyCompileOneVerb(this.parseSourcePath(target)));
                         }
-                        else if (verb.Equals("VSSolution"))
+                        else if (verb.Equals("VSSolution", StringComparison.InvariantCultureIgnoreCase))
                         {
                             verbs.Add(new VSSolutionVerb(new SourcePath(target, SourcePath.SourceType.Tools)));
                         }
-                        else if (verb.Equals("nmake"))
+                        else if (verb.Equals("NMake", StringComparison.InvariantCultureIgnoreCase))
                         {
                             verbs.Add(new NmakeVerb(new SourcePath(target, SourcePath.SourceType.Tools)));
                         }
-                        else if (verb.Equals("BootableApp"))
+                        else if (verb.Equals("BootableApp", StringComparison.InvariantCultureIgnoreCase))
                         {
                             verbs.Add(new BootableAppVerb(this.parseSourcePath(target), this.useFramePointer, this.verificationRequest));
                         }

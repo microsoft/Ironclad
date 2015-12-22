@@ -1,5 +1,5 @@
 ﻿//--
-// <copyright file="VerifyFstVerb.cs" company="Microsoft Corporation">
+// <copyright file="FStarVerifyVerb.cs" company="Microsoft Corporation">
 //     Copyright (c) Microsoft Corporation.  All rights reserved.
 // </copyright>
 //--
@@ -14,7 +14,7 @@ namespace NuBuild
 
     using NDepend.Path;
 
-    internal class VerifyFstVerb
+    internal class FStarVerifyVerb
         : VerificationResultVerb, IProcessInvokeAsyncVerb
     {
         public const string SourceFileExtension = ".fst";
@@ -26,7 +26,7 @@ namespace NuBuild
         private FStarFindDepsVerb depsVerb;
         private readonly List<string> fstArgs;
 
-        public VerifyFstVerb(IEnumerable<string> fstArgs, bool rewritePaths = false)
+        public FStarVerifyVerb(IEnumerable<string> fstArgs, bool rewritePaths = false)
         {
             // todo: rewritng paths could be further filtered by preventing operatins on things not ending in .fst(i?)
             if (rewritePaths)
@@ -94,7 +94,8 @@ namespace NuBuild
         public override IVerbWorker getWorker(WorkingDirectory workingDirectory)
         {
             List<string> arguments = new List<string>();
-            arguments.Add("--auto_deps");
+            arguments.Add("--dep");
+            arguments.Add("nubuild");
             arguments.AddRange(this.fstArgs);
             arguments.Add(this.fstSource.getRelativePath());
             var exePath = FStarEnvironment.PathToFStarExe.ToString();

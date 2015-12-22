@@ -118,7 +118,7 @@
     <Compile Include="DafnyExecutableDependencies.cs" />
     <Compile Include="FStarEnvironment.cs" />
     <Compile Include="VerificationResultFStarParser.cs" />
-    <Compile Include="VerifyFstVerb.cs" />
+    <Compile Include="FStarVerifyVerb.cs" />
     <Compile Include="IProcessInvoker.cs" />
     <Compile Include="VerbRunner.cs">
     </Compile>

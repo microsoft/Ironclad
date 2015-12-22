@@ -130,6 +130,10 @@ namespace NuBuild
                     }
                 }
 
+                if (effective.Contains(Quiet))
+                {
+                    int _n = 0;
+                }
 
                 if (Log == null)
                 {
