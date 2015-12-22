@@ -120,11 +120,6 @@ namespace NuBuild
                     }
                 }
 
-                if (effective.Contains(QuietTag))
-                {
-                    int _n = 0;
-                }
-
                 if (Log == null)
                 {
                     StartupBuffer.Add(formatted);
