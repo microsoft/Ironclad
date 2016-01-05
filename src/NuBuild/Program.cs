@@ -16,7 +16,6 @@ namespace NuBuild
     internal class Program
     {
         private bool useCloudExecution;
-        private bool useCloudCache;
         private BackgroundWorker backgroundWorker;
         private string[] args;
         private VerificationRequest verificationRequest = new VerificationRequest();
@@ -24,7 +23,6 @@ namespace NuBuild
         private Program()
         {
             this.useCloudExecution = false;
-            this.useCloudCache = true;
             this.backgroundWorker = new BackgroundWorker();
         }
 
@@ -117,11 +115,11 @@ namespace NuBuild
                     }
                     else if (next.ToLower().Equals("--cloudcache"))
                     {
-                        this.useCloudCache = true;
+                        NuBuildEnvironment.UseCloudCache = true;
                     }
                     else if (next.ToLower().Equals("--no-cloudcache"))
                     {
-                        this.useCloudCache = false;
+                        NuBuildEnvironment.UseCloudCache = false;
                     }
                     else if (next.Equals("--cloudexecution"))
                     {
@@ -283,7 +281,7 @@ namespace NuBuild
                 BuildEngine.theEngine.getIronRoot(),
                 BuildEngine.theEngine.getLocalCache());
 
-            if (this.useCloudCache)
+            if (NuBuildEnvironment.UseCloudCache)
             {
                 try
                 {
@@ -356,7 +354,7 @@ namespace NuBuild
             BuildEngine.theEngine.Repository = new Repository(BuildEngine.theEngine.ItemCache);
             if (this.useCloudExecution)
             {
-                if (!this.useCloudCache)
+                if (!NuBuildEnvironment.UseCloudCache)
                 {
                     usage("Cloud Execution requires Cloud Cache!");
                 }

@@ -27,6 +27,8 @@ namespace NuBuild
 
         private static bool? colorizeOutput;
 
+        private static bool? useCloudCache;
+
         public static void initialize(IDirectoryPath specifiedRootPath = null)
         {
             if (isInitialized())
@@ -100,7 +102,36 @@ namespace NuBuild
             }
         }
 
-         private static IAbsoluteDirectoryPath initNuBuildRoot(IDirectoryPath specifiedRootPath)
+        public static bool UseCloudCache
+        {
+            get
+            {
+                const bool defaultValue = false;
+                if (useCloudCache.HasValue)
+                {
+                    return useCloudCache.Value;
+                }
+
+                bool result;
+                try
+                {
+                    result = (bool)ConfigDotYaml.options.use_cloud_cache;
+                }
+                catch (RuntimeBinderException)
+                {
+                    result = defaultValue;
+                }
+                useCloudCache = result;
+                return result;
+            }
+
+            set
+            {
+                useCloudCache = value;
+            }
+        }
+
+        private static IAbsoluteDirectoryPath initNuBuildRoot(IDirectoryPath specifiedRootPath)
         {
             if (specifiedRootPath != null)
             {

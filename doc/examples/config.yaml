@@ -6,14 +6,16 @@
 options:
     # set to `false` to remove ansi sequences from output.
     #colorize_output: true
+    # set to `true` to use distributed caching. synonymous with CLI options `--cloudcache` and `--no-cloudcache`.
+    #use_cloud_cache: false
 
 # important paths to tools.
 #paths:
 #    fstar: ./bin/fstar.exe
-    
-credentials:
-    # Specify your Azure Storage credentials here (needed for distributed caching of verification results).
-    storage: DefaultEndpointsProtocol=https;AccountName=???;AccountKey=???
-    # Your Azure subscription ID and certificate, needed for cloud-based verification (--cloudexecution).
-    subscription_id: ???
-    certificate: ???
+
+#credentials:
+#    # Specify your Azure Storage credentials here (needed for distributed caching of verification results).
+#    storage: DefaultEndpointsProtocol=https;AccountName=???;AccountKey=???
+#    # Your Azure subscription ID and certificate, needed for cloud-based verification (--cloudexecution).
+#    subscription_id: ???
+#    certificate: ???
