@@ -4,4 +4,5 @@
 /.local/**
 /config.yaml
 /log.txt
+/progress.txt
 

@@ -29,7 +29,7 @@ namespace NuBuild
         /// <summary>
         /// Where to write scheduler progress information (for debugging).
         /// </summary>
-        private const string DbgProgressFileName = "nubuild.progress";
+        private const string DbgProgressFileName = ".nubuild/progress.txt";
 
         /// <summary>
         /// REVIEW: Not used.  Remove?
