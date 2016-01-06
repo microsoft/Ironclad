@@ -85,7 +85,10 @@ namespace NuBuild
             using (MemoryStream memoryStream = new MemoryStream())
             {
                 cloudBlob.DownloadToStream(memoryStream);
-                return memoryStream.ToArray();
+                var bytes = memoryStream.ToArray();
+                var msg = string.Format("Retrieved item {0}/{1} from cloud cache.", container, itemHash);
+                Logger.WriteLine(msg, new[] { "cache", "cloud", "verbose" });
+                return bytes;
             }
         }
 
@@ -111,6 +114,8 @@ namespace NuBuild
             try
             {
                 cloudBlob.DownloadToFile(localFilesystemDestinationPath, FileMode.Create);
+                var msg = string.Format("Retrieved item {0}/{1} from cloud cache and stored as `{2}`.", container, itemHash, localFilesystemDestinationPath);
+                Logger.WriteLine(msg, new[] { "cache", "cloud", "info" });
             }
             catch (Microsoft.WindowsAzure.Storage.StorageException)
             {
@@ -137,6 +142,8 @@ namespace NuBuild
         {
             CloudBlockBlob cloudBlob = this.cloudContainers[(int)container].GetBlockBlobReference(itemHash);
             cloudBlob.UploadFromByteArray(contents, 0, contents.Length);
+            var msg = string.Format("Wrote item {0}/{1} to cloud cache.", container, itemHash);
+            Logger.WriteLine(msg, new[] { "cache", "cloud", "verbose" });
         }
 
         /// <summary>
@@ -158,6 +165,8 @@ namespace NuBuild
         {
             CloudBlockBlob cloudBlob = this.cloudContainers[(int)container].GetBlockBlobReference(itemHash);
             cloudBlob.UploadFromFile(localFilesystemSourcePath, FileMode.Open);
+            var msg = string.Format("Wrote contents of `{0}` to cloud cache as item {1}/{2}.", localFilesystemSourcePath, container, itemHash);
+            Logger.WriteLine(msg, new[] { "cache", "cloud", "verbose" });
         }
 
         /// <summary>

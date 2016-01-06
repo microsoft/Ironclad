@@ -38,6 +38,7 @@ namespace NuBuild
         /// <summary>
         /// Item cache container for unsuccessful result records.
         /// </summary>
+        // todo: failed results should not be cached unless the tools are guaranteed to provide deterministic results.
         FailedResults = 3
     }
 

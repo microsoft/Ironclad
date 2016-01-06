@@ -134,6 +134,7 @@ namespace NuBuild
                 // -
                 // Schedule cloud push on successful local read.
                 // REVIEW: Is this rare optimization really worth it?
+                // todo: iirc, it's been responsible for corrupting the cache in the past.
                 // -
                 this.QueueItemForCloudSync(container, itemHash);
             }
