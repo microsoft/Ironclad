@@ -44,7 +44,7 @@ namespace NuBuild
             var last = this.fstArgs.Count - 1;
             this.fstSource = new SourcePath(this.fstArgs[last]);
             var ext = this.fstSource.getExtension();
-            if (ext == null || !ext.Equals(SourceFileExtension))
+            if (ext == null || !ext.EndsWith(SourceFileExtension, StringComparison.InvariantCultureIgnoreCase))
             {
                 throw new ArgumentException(string.Format("The final argument to `VerifyFst` ({0}) was not an F* module source (`.fst` file); please considering rearranging the arguments to `fstar.exe` so that options preceed file names.", fstArgs.Last()));
             }
