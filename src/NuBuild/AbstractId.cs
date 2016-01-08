@@ -12,7 +12,7 @@ namespace NuBuild
 
     internal class AbstractId
     {
-        private const int MASTER_VERSION = 3;   // Bump this to invalidate every verb in all caches.
+        private const int MASTER_VERSION = 1000;   // Bump this to invalidate every verb in all caches.
 
         private string verbName;
         private int version;

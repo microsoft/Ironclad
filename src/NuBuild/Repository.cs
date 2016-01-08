@@ -442,13 +442,13 @@ namespace NuBuild
                     {
                         // Complain if someone uses tabs or non-CRLF line endings in a source file.
                         // Visual Studio is pretty insistent on using tabs in solution (.sln) files, so we let it.
-                        if ((src.Type == SourcePath.SourceType.Src) && (src.getExtension() != ".sln"))
+                        /*if ((src.Type == SourcePath.SourceType.Src) && (src.getExtension() != ".sln"))
                         {
                             if (!Util.CheckSourceFileForBadCharacters(IronRootDirectory.PathTo(obj)))
                             {
                                 throw new SourceConfigurationError("Bad characters (tabs?) or non-CRLF line endings in source file " + obj.getRelativePath());
                             }
-                        }
+                        }*/
 
                         string hash = Util.hashFilesystemPath(IronRootDirectory.PathTo(obj));
                         this.itemCache.StoreItemFromFile(ItemCacheContainer.Sources, hash, IronRootDirectory.PathTo(obj));
