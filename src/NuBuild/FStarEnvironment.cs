@@ -8,10 +8,9 @@ namespace NuBuild
 {
     using System.Diagnostics;
     using System.IO;
+    using System.Text.RegularExpressions;
 
     using Microsoft.CSharp.RuntimeBinder;
-
-    using Minimatch;
 
     using NDepend.Path;
 
@@ -52,13 +51,13 @@ namespace NuBuild
 
             result.Add(new SourcePath(pathToFStarExe.ToBuildObjectPath().ToString(), SourcePath.SourceType.Tools));
 
-            var globs = new[] { new Minimatcher("*.dll"), new Minimatcher("*.pdb"), new Minimatcher("*.config") };
+            var regExprs = new[] { new Regex(@".*\.dll$", RegexOptions.IgnoreCase), new Regex(@".*\.pdb$", RegexOptions.IgnoreCase), new Regex(@".*\.config$", RegexOptions.IgnoreCase) };
             var paths = FileSystemPath.ListFiles(binPath, recurse: true);
             foreach (var path in paths)
             {
-                foreach (var glob in globs)
+                foreach (var re in regExprs)
                 {
-                    if (glob.IsMatch(path.ToString()))
+                    if (re.IsMatch(path.ToString()))
                     {
                         var nbPath = path.ToBuildObjectPath().ToString();
                         result.Add(new SourcePath(nbPath, SourcePath.SourceType.Tools));
@@ -74,20 +73,12 @@ namespace NuBuild
             IAbsoluteDirectoryPath libPath = pathToFStarExe.ParentDirectoryPath.GetBrotherDirectoryWithName("lib");
             var result = new List<SourcePath>();
 
-            var globs = new[] { new Minimatcher("*") };
             var paths = FileSystemPath.ListFiles(libPath, recurse: true);
             foreach (var path in paths)
             {
-                foreach (var glob in globs)
-                {
-                    if (glob.IsMatch(path.ToString()))
-                    {
-                        // todo: should these be added as sources?
-                        var nbPath = path.ToBuildObjectPath().ToString();
-                        result.Add(new SourcePath(nbPath, SourcePath.SourceType.Tools));
-                        break;
-                    }
-                }
+                // todo: should these be added as sources?
+                var nbPath = path.ToBuildObjectPath().ToString();
+                result.Add(new SourcePath(nbPath, SourcePath.SourceType.Tools));
             }
             return result;
         }
