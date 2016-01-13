@@ -1,0 +1,26 @@
+<?xml version="1.0"?>
+<Dictionary>
+  <Words>
+    <Recognized>
+      <Word>asynchronicity</Word> <!-- We think this is a word -->
+      <Word>cscfg</Word> <!-- Azure configuration file extension -->
+      <Word>csdef</Word> <!-- Azure service defintion file extension -->
+      <Word>cspkg</Word> <!-- Azure package file extension -->
+      <Word>cpu</Word> <!-- Valid acryonym -->
+      <Word>Dafny</Word> <!-- Name of a programming language -->
+      <Word>filesystem</Word> <!-- We think this is a word -->
+      <Word>ifc</Word> <!-- Beat file extension -->
+      <Word>Ironfleet</Word> <!-- Name of our beloved project -->
+      <Word>munged</Word> <!-- We think this is a word -->
+      <Word>nuobj</Word> <!-- Name of our object directory -->
+      <Word>rejectable</Word> <!-- We think this is a word -->
+      <Word>src</Word> <!-- Valid abbreviation of source -->
+      <Word>obj</Word> <!-- Valid abbreviation of object -->
+    </Recognized>
+  </Words>
+  <Acronyms>
+    <CasingExceptions>
+      <Acronym>Nu</Acronym> <!-- Part of NuBuild name -->
+    </CasingExceptions>
+  </Acronyms>
+</Dictionary>

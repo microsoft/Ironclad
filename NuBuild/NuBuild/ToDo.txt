@@ -1,0 +1,127 @@
+** High Level Issues **
+
+- Shared remote execution results queue doesn't work well.  Probably should
+  switch this to a different method of returning results to the submitting
+  client.  Possibilities include an Azure table or per-client results queues.
+
+- Current method of cloud/local item cache synchronization is inefficient.
+
+- We need a better story for how we treat verb execution failures.
+
+- Pulling results from the cache throws (instead of failing gracefully) if a
+  result is missing a referenced object.  Fortunately, this doesn't seem to
+  happen often (ever?).
+
+- All async verbs should list their executable (and its dependencies) as verb
+  dependencies.  Not clear we're there yet.  Comment is in ProcessInvoker.cs.
+
+** Medium Level Issues **
+
+- Azure connection string (and other credentials for AzureManager tool) are
+  hard-coded.  Should read these from App Settings in the prescribed manner.
+
+- Use of arbitrary working directories is not yet supported by all verbs (for
+  example, NMakeVerb uses workingDirOverride).  Some efficiency improvements
+  could be made if arbitrary working directories were universal.
+
+- Nothing checks to ensure that the XML representation of the various things
+  we put in Azure queues (CloudExecutionRequest, CloudExecutionReport) don't
+  exceed the maximum size for a queue entry.  Unlikely to happen, except for
+  how we currently return stdout & stderr (i.e. inline).
+
+- Nothing checks to ensure that we never exceed blob store size limitations.
+  This is extremely unlikely to happen, as we are several orders below that.
+
+- ItemCacheMultiplexer treats all item cache entries as immutable -- this is
+  true for objects and sources (since they're named by hashes of their contents)
+  but not for results.  This prevented us from overwritting bad results with
+  good ones.  Current solution is to cache bad results elsewhere.  Good enough?
+
+- The "ASCIIPresentater" code for command line output implements ECMA-48 (aka
+  "ANSI Escape Sequences") incorrectly.  These also aren't supported by cmd.exe,
+  so only people running NuBuild in alternate shells see the colored output.
+
+** Code Cleanup **
+
+- Cosmetic or non-functional changes:
+  - Rename all methodNames to MethodNames as per StyleCop conventions.
+  - Remove underscores from all private field names as per StyleCop conventions.
+  - BuildObject has getRelativePath method instead of RelativePath property.
+  - Rename IVerb's getFailureOutputs to getDiagnosticOutputs.
+  - Presentater.cs is badly named, for multiple reasons.
+  - Scheduler.cs has an addVerb method which could be private.
+  - XmlFiller.cs should be IXmlFiller.cs (if we keep it at all).
+
+- Structural changes:
+  - Fresh, Stale, and Failed are actual types in the type system (Disposition
+    is the base class) rather than just values of Disposition.  This causes
+    various problems -- might want to make these just values of Disposition.
+  - Hasher class contains only things that should be elsewhere.
+  - CloudExecutionQueue constructor has lousy work-around for getIronRoot.
+    How we determine the IronRoot (and how we manage progarm-wide state in
+    general) could use some rearchitecting.
+  - ProcessInvokeAsyncWorker takes the executable as a string, rather than a
+    BuildObject (like all the other dependencies are).
+
+- Ugly code:
+  - In propagePrivateImports in BeatExtensions.cs, a file is pre-pended to in a
+    very inefficient manner.
+  - DafnyTransformBaseVerb does getFileNameWithoutExtension manually?
+
+** Things Outside of NuBuild's Control **
+
+- Beat (Basm?) should be propagating import statements from the Beat file
+  to the Basm output.
+
+- Beat doesn't properly ignore commented-out imports in ifcs files?
+
+- Dafny doesn't handle its include files properly, so we have to pull in all
+  the include files ourselves in NuBuild (see DafnyCompileOneVerb).
+
+- DafnyCompileOneVerb RewriteCSharpFile does some stuff Dafny itself should.
+
+- DafnyTransformBaseVerb has special cases to handle weird differences between
+  DafnyCC and DafnySpec.
+
+-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+Other ToDos:
+
+- Add source scanning capability to DafnyVerifyOneVerb.
+
+- Brittle code in BeatExtensions.cs getBeatFlavoredShallowDependencies.
+
+- Scary comment in BoogieVerb constructor.
+
+- Various issues with BootableAppVerb.cs:
+  - Does this verb even work currently?  Paths have broken?
+  - We should build the pxe-loader, rather than include it.
+    - SourceType.PrebakedObjExpediency is just to support this.
+  - Other comments about bootloader.
+
+- We should build Dafny, not include a pre-built binary.
+
+- We should build nmake, not include a pre-built binary.
+
+- DafnyVerifyTreeVerb assumes all dafny files are source files (i.e. not built
+  by NuBuild).  An issue if we ever end up building and verifying intermediate
+  dafny files.
+
+- BuildObject splitExtension has some Ironclad project file naming conventions
+  built in.
+
+- EntryStitcherVerb contains a major special-case workaround.
+
+- IroncladAppVerb has a special case for pound define support.
+
+- MasmVerb should call ml.exe with with argument to include SPEC_INCLUDE_DIR?
+
+- VSSolutionVerb uses an absolute exe path for MSBuild.exe.
+
+- WinLinkerVerb uses absolute paths for various exes and libs.
+    - Visual Studio and Windows SDK files mostly.
+    - Also has two large files of mostly zeros that we wouldn't want to cache.
+    - These don't appear to be listed as actual dependencies.
+
+- OrderPreservingSet has a comment by its author about not knowing what one of
+  ICollection's methods (that it implements) is for.
