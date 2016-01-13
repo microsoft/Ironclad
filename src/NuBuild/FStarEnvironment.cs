@@ -16,7 +16,7 @@ namespace NuBuild
 
     public static class FStarEnvironment
     {
-        private const string DefaultPathToFStarExe = ".\\bin\\fstar.exe";
+        private const string DefaultPathToFStarExe = ".\\.fstar\\bin\\fstar.exe";
 
         private static readonly IAbsoluteFilePath AbsolutePathToFStarExe;
 
@@ -90,7 +90,7 @@ namespace NuBuild
 
             try
             {
-                configStr = (string)NuBuildEnvironment.ConfigDotYaml.paths.fstar;
+                configStr = NuBuildEnvironment.Options.LookupPath("fstar", DefaultPathToFStarExe);
             }
             catch (RuntimeBinderException)
             {
@@ -99,7 +99,7 @@ namespace NuBuild
 
             if (configStr == null)
             {
-                Logger.WriteLine(string.Format("`{0}` entry `paths.fstar` is unspecifed; assuming default path (`{1}`)", NuBuild.NuBuildEnvironment.ConfigDotYamlRelativePath, DefaultPathToFStarExe));
+                Logger.WriteLine(string.Format("`{0}` entry `paths.fstar` is unspecifed; assuming default path (`{1}`)", NuBuild.NuBuildEnvironment.ConfigFileRelativePath, DefaultPathToFStarExe));
                 relFilePath = DefaultPathToFStarExe.ToRelativeFilePath();
             }
             else
@@ -116,7 +116,7 @@ namespace NuBuild
             else
             {
                 var s = absFilePath.ToString();
-                throw new FileNotFoundException(string.Format("A needed file (`{0}`) is missing. Please verify that the `paths.fstar` entry in your `{1}` file is accurate.", s, NuBuildEnvironment.ConfigDotYamlRelativePath));
+                throw new FileNotFoundException(string.Format("A needed file (`{0}`) is missing. Please verify that the `paths.fstar` entry in your `{1}` file is accurate.", s, NuBuildEnvironment.ConfigFileRelativePath));
             }
         }
     }

@@ -2,6 +2,7 @@
 namespace NuBuild
 {
     using System;
+    using System.Collections.Generic;
     using System.Linq;
     using System.IO;
     using System.Reflection;
@@ -11,23 +12,19 @@ namespace NuBuild
 
     using NDepend.Path;
 
-    using YamlDotNet.Dynamic;
+    using Newtonsoft.Json;
 
     public static class NuBuildEnvironment
     {
         public const string DotNuBuild = ".nubuild";
-        public const string ConfigDotYamlRelativePath = ".nubuild\\config.yaml";
+        public const string ConfigFileRelativePath = ".nubuild\\config.json";
         public const string LogPath = ".nubuild\\log.txt";
 
         public static IAbsoluteDirectoryPath InvocationPath { get; private set; }
-        private static CloudStorageAccount cloudStorageAccount = null;
 
+        public static Options Options { get; private set; }
         private static IAbsoluteDirectoryPath rootDirectoryPath = null;
-        private static dynamic configDotYaml = null;
 
-        private static bool? colorizeOutput;
-
-        private static bool? useCloudCache;
 
         public static void initialize(IDirectoryPath specifiedRootPath = null)
         {
@@ -37,7 +34,7 @@ namespace NuBuild
             }
             rootDirectoryPath = initNuBuildRoot(specifiedRootPath);
             Logger.Start(FileSystemPath.ImplicitToRelative(LogPath).ToRelativeFilePath().GetAbsolutePathFrom(rootDirectoryPath));
-            configDotYaml = loadConfigDotYaml();
+            Options = LoadConfig();
             InvocationPath = getInvocationPath(rootDirectoryPath);
             // NuBuild seems flakey unless invoked from the NuBuild root.
             Directory.SetCurrentDirectory(rootDirectoryPath.ToString());
@@ -56,78 +53,12 @@ namespace NuBuild
             }
         }
 
-        public static dynamic ConfigDotYaml
-        {
-            get
-            {
-                throwIfNotInitialized();
-                return configDotYaml;
-            }
-        }
         public static IAbsoluteDirectoryPath RootDirectoryPath
         {
             get
             {
                 throwIfNotInitialized();
                 return rootDirectoryPath;
-            }
-        }
-
-        public static bool ColorizeOutput
-        {
-            get
-            {
-                const bool defaultValue = true;
-                if (colorizeOutput.HasValue)
-                {
-                    return colorizeOutput.Value;
-                }
-
-                bool result;
-                try
-                {
-                    result = (bool)ConfigDotYaml.options.colorize_output;
-                }
-                catch (RuntimeBinderException)
-                {
-                    result = defaultValue;
-                }
-                colorizeOutput = result;
-                return result;
-            }
-
-            set
-            {
-                colorizeOutput = value;
-            }
-        }
-
-        public static bool UseCloudCache
-        {
-            get
-            {
-                const bool defaultValue = false;
-                if (useCloudCache.HasValue)
-                {
-                    return useCloudCache.Value;
-                }
-
-                bool result;
-                try
-                {
-                    result = (bool)ConfigDotYaml.options.use_cloud_cache;
-                }
-                catch (RuntimeBinderException)
-                {
-                    result = defaultValue;
-                }
-                useCloudCache = result;
-                return result;
-            }
-
-            set
-            {
-                useCloudCache = value;
             }
         }
 
@@ -159,19 +90,6 @@ namespace NuBuild
                 var p = findNuBuildRoot();
                 Logger.WriteLine(string.Format("NuBuild root found at `{0}`.", p));
                 return p;
-            }
-        }
-
-        public static CloudStorageAccount CloudStorageAccount
-        {
-            get
-            {
-                if (cloudStorageAccount == null)
-                {
-                    var connectionString = (string)ConfigDotYaml.credentials.storage;
-                    cloudStorageAccount = CloudStorageAccount.Parse(connectionString);
-                }
-                return cloudStorageAccount;
             }
         }
 
@@ -220,22 +138,26 @@ namespace NuBuild
             return assyPath;
         }
 
-        static private dynamic loadConfigDotYaml()
+        private static dynamic LoadConfig()
         {
-            var a = System.IO.Path.Combine(RootDirectoryPath.ToString(), ConfigDotYamlRelativePath).ToAbsoluteFilePath();
-            var s = a.ToString();
-            if (a.Exists)
+            var path = System.IO.Path.Combine(RootDirectoryPath.ToString(), ConfigFileRelativePath).ToAbsoluteFilePath();
+            var pathStr = path.ToString();
+            if (path.Exists)
             {
-                return new DynamicYaml(YamlDoc.LoadFromFile(s));
+                using (TextReader stream = File.OpenText(pathStr))
+                {
+                    var s = stream.ReadToEnd();
+                    return Options.FromString(s);
+                }
             }
             else
             {
-                Logger.WriteLine(string.Format("Unable to find {0}; assuming empty document.", s), "warning");
-                return new DynamicYaml(YamlDoc.LoadFromString("---\n"));
+                Logger.WriteLine(string.Format("Unable to find {0}; assuming empty document.", pathStr), "warning");
+                return new Dictionary<string, object>();
             }
         }
 
-        static private IAbsoluteDirectoryPath getInvocationPath(IAbsoluteDirectoryPath nuBuildRootPath)
+        private static IAbsoluteDirectoryPath getInvocationPath(IAbsoluteDirectoryPath nuBuildRootPath)
         {
             var pwd = Directory.GetCurrentDirectory();
             return pwd.ToAbsoluteDirectoryPath().GetRelativePathFrom(nuBuildRootPath).GetAbsolutePathFrom(nuBuildRootPath);

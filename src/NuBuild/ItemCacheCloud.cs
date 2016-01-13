@@ -34,7 +34,7 @@ namespace NuBuild
         /// </summary>
         public ItemCacheCloud()
         {
-            var storageAccount = NuBuildEnvironment.CloudStorageAccount;
+            var storageAccount = NuBuildEnvironment.Options.CloudStorageAccount;
 
             // -
             // Create our CloudBlobClient object.

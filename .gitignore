@@ -2,7 +2,7 @@
 *.swp
 *~
 /.local/**
-/config.yaml
+/config.json
 /log.txt
 /progress.txt
 

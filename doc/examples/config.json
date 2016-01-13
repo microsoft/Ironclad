@@ -1,0 +1,14 @@
+{ 
+   "use_cloud_cache": false,
+   "paths": 
+   {
+      "fstar": "./path/to/fstar.exe -- ./.fstar/bin/fstar.exe is the default."
+   },
+
+   "credentials":
+   {
+       "storage": "your storage credentials go here",
+       "subscription_id": "your subscription id goes here",
+       "certificate": "your certificate goes here"
+}}
+

@@ -115,11 +115,11 @@ namespace NuBuild
                     }
                     else if (next.ToLower().Equals("--cloudcache"))
                     {
-                        NuBuildEnvironment.UseCloudCache = true;
+                        NuBuildEnvironment.Options.UseCloudCache = true;
                     }
                     else if (next.ToLower().Equals("--no-cloudcache"))
                     {
-                        NuBuildEnvironment.UseCloudCache = false;
+                        NuBuildEnvironment.Options.UseCloudCache = false;
                     }
                     else if (next.Equals("--cloudexecution"))
                     {
@@ -157,10 +157,6 @@ namespace NuBuild
                     else if (next.ToLower().Equals("--debug"))
                     {
                         this.releaseBuild = false;
-                    }
-                    else if (next.ToLower().Equals("--no-color"))
-                    {
-                        NuBuildEnvironment.ColorizeOutput = false;
                     }
                     else if (next.ToLower().Equals("--log-tag"))
                     {
@@ -281,7 +277,7 @@ namespace NuBuild
                 BuildEngine.theEngine.getIronRoot(),
                 BuildEngine.theEngine.getLocalCache());
 
-            if (NuBuildEnvironment.UseCloudCache)
+            if (NuBuildEnvironment.Options.UseCloudCache)
             {
                 try
                 {
@@ -354,7 +350,7 @@ namespace NuBuild
             BuildEngine.theEngine.Repository = new Repository(BuildEngine.theEngine.ItemCache);
             if (this.useCloudExecution)
             {
-                if (!NuBuildEnvironment.UseCloudCache)
+                if (!NuBuildEnvironment.Options.UseCloudCache)
                 {
                     usage("Cloud Execution requires Cloud Cache!");
                 }

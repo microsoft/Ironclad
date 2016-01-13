@@ -186,7 +186,7 @@ namespace NuBuild
 
         public ASCIIPresentater(bool? colorize = null)
         {
-            this.colorize = colorize ?? NuBuildEnvironment.ColorizeOutput;
+            this.colorize = colorize ?? false;
             this.document = new StringBuilder();
         }
 
