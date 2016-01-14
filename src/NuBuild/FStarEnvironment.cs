@@ -68,10 +68,14 @@ namespace NuBuild
 
         private static List<SourcePath> findStandardLibrary(AbsoluteFileSystemPath pathToFStarExe)
         {
-            AbsoluteFileSystemPath libPath = pathToFStarExe.ParentDirectoryPath.CreateSiblingPath("lib");
             var result = new List<SourcePath>();
 
-            var paths = libPath.ListFiles(recurse: true);
+            AbsoluteFileSystemPath libDir = pathToFStarExe.ParentDirectoryPath.CreateSiblingPath("lib");
+            var libPaths = libDir.ListFiles(recurse: true);
+            AbsoluteFileSystemPath contribDir = pathToFStarExe.ParentDirectoryPath.CreateSiblingPath("contrib");
+            var contribFiles = contribDir.ListFiles(recurse: true);
+
+            var paths = libPaths.Concat(contribFiles);
             foreach (var path in paths)
             {
                 // todo: should these be added as sources?
