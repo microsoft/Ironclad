@@ -61,7 +61,6 @@
                 this.EncodeHeader(memStream); // case for CMessage_Request
                 this.EncodeUlong(memStream, (ulong)seqNum); // field one in CMessage_Request
                 this.EncodeUlong(memStream, (ulong)0); // case for CAppMessageIncrement               
-                this.EncodeUlong(memStream, (ulong)0); // (empty) field one in CAppMessageIncrement
 
                 return memStream.ToArray();
             }
