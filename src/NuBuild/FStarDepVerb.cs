@@ -10,8 +10,6 @@ namespace NuBuild
     using System.Collections.Generic;
     using System.Linq;
 
-    using NDepend.Path;
-
     internal class FStarDepVerb: Verb, IProcessInvokeAsyncVerb
     {
         private const string DepsObjExtension = ".fstdeps.vob";

@@ -10,8 +10,6 @@ namespace NuBuild
     using System.Collections.Generic;
     using System.IO;
 
-    using NDepend.Path;
-
     /// <summary>
     /// A directory tree in the local filesystem for a verb to operate upon.
     /// Verbs should not access files outside of this directory tree.
@@ -93,21 +91,24 @@ namespace NuBuild
             return contents;
         }
 
-        public IAbsoluteDirectoryPath ToAbsoluteDirectoryPath()
+        public AbsoluteFileSystemPath Prefix
         {
-            if (this.Root.IsValidAbsoluteDirectoryPath())
+            get
             {
-                return this.Root.ToAbsoluteDirectoryPath();
-            }
-            else
-            {
-                return this.Root.ToRelativeDirectoryPath().GetAbsolutePathFrom(NuBuildEnvironment.RootDirectoryPath);
+                if (FileSystemPath.IsAbsolutePath(this.Root))
+                {
+                    return AbsoluteFileSystemPath.Parse(this.Root);
+                }
+                else
+                {
+                    return AbsoluteFileSystemPath.FromRelative(RelativeFileSystemPath.Parse(this.Root), NuBuildEnvironment.RootDirectoryPath);
+                }
             }
         }
 
-        public IAbsoluteFilePath GetAbsoluteFilePath(IRelativeFilePath relFilePath)
+        public AbsoluteFileSystemPath MapToAbsolutePath(RelativeFileSystemPath relFilePath)
         {
-            return relFilePath.GetAbsolutePathFrom(this.ToAbsoluteDirectoryPath());
+            return FileSystemPath.Join(this.Prefix, relFilePath);
         }
 
     }

@@ -12,9 +12,6 @@ namespace NuBuild
     using System.Linq;
     using System.Text;
 
-    using NDepend.Helpers;
-    using NDepend.Path;
-
     internal class Logger
     {
         private const string QuietTag = "*quiet";
@@ -24,7 +21,7 @@ namespace NuBuild
         private static readonly HashSet<string> DefaultMessageTags;
 
         private static StreamWriter Log;
-        private static IAbsoluteFilePath Path;
+        private static AbsoluteFileSystemPath Path;
 
         private static Func<IEnumerable<string>, bool> IsOutput { get; set; } 
 
@@ -174,7 +171,7 @@ namespace NuBuild
             Write(pr, tags);
         }
 
-        public static void Start(IAbsoluteFilePath path)
+        public static void Start(AbsoluteFileSystemPath path)
         {
             lock (Lock)
             {

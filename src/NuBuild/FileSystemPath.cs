@@ -4,118 +4,321 @@
     using System.Collections.Generic;
     using System.IO;
     using System.Linq;
+    using System.Threading;
 
-    using NDepend.Path;
+    using Microsoft.Data.Edm;
 
-    public static class FileSystemPath
+    public abstract class FileSystemPath
     {
-        public static string ImplicitToRelative(string s)
+        private readonly string normalized;
+
+        protected FileSystemPath(string normalized)
         {
-            // todo: replace with pre-defined constants, et al.
-            if (!s.StartsWith(".\\") && !s.StartsWith("./"))
+            if (normalized == null)
             {
-                return ".\\" + s;
+                throw new ArgumentNullException("normalized");
             }
-            else
+
+            this.normalized = normalized;
+        }
+
+        public override string ToString()
+        {
+            return this.normalized;
+        }
+
+        public string FileExtension
+        {
+            get
             {
-                return s;            
+                return Path.GetExtension(this.ToString());
             }
         }
 
-        public static string ToImplicitPathString(this IRelativePath @this)
+        public string FileNameWithoutExtension
         {
-            var s = @this.ToString();
-            return s.Substring(2);
-        }
-
-
-        public static IRelativeFilePath ToBuildObjectPath(this IAbsoluteFilePath @this, WorkingDirectory workDir = null)
-        {
-            if (workDir == null)
+            get
             {
-                return @this.GetRelativePathFrom(NuBuildEnvironment.RootDirectoryPath);
-            }
-            else
-            {
-                return @this.GetRelativePathFrom(workDir.Root.ToAbsoluteDirectoryPath());
+                return Path.GetFileNameWithoutExtension(this.ToString());
             }
         }
 
-        
-        public static IEnumerable<IAbsoluteFilePath> ListFiles(IAbsoluteDirectoryPath dirPath, bool recurse = false)
+        public static bool IsAbsolutePath(string pathStr)
         {
-            return 
-                Directory.EnumerateFiles(dirPath.ToString(), "*", SearchOption.TopDirectoryOnly)
-                .Where(s => !s.IsValidAbsoluteDirectoryPath() || !ExistsAndIsReallyDirectory(s.ToAbsoluteDirectoryPath()))
-                .Select(s => s.ToAbsoluteFilePath());
+            return Path.IsPathRooted(pathStr);
         }
 
-        private static bool ExistsAndIsReallyDirectory(IAbsoluteDirectoryPath path)
+        public static bool IsRelativePath(string pathStr, bool permitImplicit = false)
         {
-            try
-            {
-                var dirInfo = path.DirectoryInfo;
-
-            }
-            catch (DirectoryNotFoundException)
+            if (Path.IsPathRooted(pathStr))
             {
                 return false;
+            }
+            if (!permitImplicit)
+            {
+                return !IsImplicitRelativePath(pathStr);
             }
             return true;
         }
 
-        public static bool HasPrefix(this IAbsolutePath path, IAbsolutePath prefix)
+        public static RelativeFileSystemPath Join(RelativeFileSystemPath lhs, RelativeFileSystemPath rhs)
         {
-            return path.ToString().StartsWith(prefix.ToString(), StringComparison.InvariantCultureIgnoreCase);
+            return RelativeFileSystemPath.Parse(Path.Combine(lhs.ToString(), rhs.ToString()));            
         }
 
-        public static bool HasPrefix(this IRelativePath path, IRelativePath prefix)
+        public static AbsoluteFileSystemPath Join(AbsoluteFileSystemPath lhs, RelativeFileSystemPath rhs)
         {
-            return path.ToString().StartsWith(prefix.ToString(), StringComparison.InvariantCultureIgnoreCase);
+            return AbsoluteFileSystemPath.Parse(Path.Combine(lhs.ToString(), rhs.ToString()));
         }
 
-        public static IRelativeFilePath ToBuildObjectPath(this IRelativeFilePath path, IRelativeDirectoryPath prefix)
+        public static RelativeFileSystemPath MapToBuildObjectPath(string pathStr, WorkingDirectory workDir = null)
         {
-            if (prefix == null || path.HasPrefix(prefix))
+            // todo: this is a candidate for relocating to BuildObject
+            return AbsoluteFileSystemPath.Parse(pathStr).MapToBuildObjectPath(workDir);
+        }
+        protected static bool IsImplicitRelativePath(string s)
+        {
+            if (Path.IsPathRooted(s))
             {
-                return path.ToString().ToRelativeFilePath();
+                throw new ArgumentException("Absolute paths are disallowed.");
+            }
+            return !s.StartsWith("." + Path.DirectorySeparatorChar) && !s.StartsWith("." + Path.AltDirectorySeparatorChar);
+        }
+
+        protected static string Normalize(string pathStr)
+        {
+            string s;
+            // remove trailing directory separator.
+            if (pathStr.EndsWith(new string(Path.DirectorySeparatorChar, 1)) || pathStr.EndsWith(new string(Path.AltDirectorySeparatorChar, 1)))
+            {
+                s = pathStr.Substring(pathStr.Length - 1);
             }
             else
             {
+                s = pathStr;
+            }
+            // canonicalize path separators.
+            s = s.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+            return s;
+        }
+    }
 
-                return Join(prefix, path);
+    public class AbsoluteFileSystemPath : FileSystemPath
+    {
+        private AbsoluteFileSystemPath(string normalized) :
+            base(normalized)
+        {
+        }
+
+        public static AbsoluteFileSystemPath Parse(string pathStr, bool permitImplicit = false)
+        {
+            if (!permitImplicit || IsAbsolutePath(pathStr))
+            {
+                return new AbsoluteFileSystemPath(NormalizeAbsolute(pathStr));
+            }
+            else
+            {
+                return FromRelative(RelativeFileSystemPath.Parse(pathStr, permitImplicit: true), FromCurrentDirectory());
             }
         }
 
-        public static IRelativeFilePath Join(IRelativeDirectoryPath lhs, IRelativeFilePath rhs)
+        public static AbsoluteFileSystemPath FromCurrentDirectory()
         {
-            return Path.Combine(lhs.ToString(), rhs.ToString()).ToRelativeFilePath();            
+            return Parse(Directory.GetCurrentDirectory());
         }
 
-        public static IAbsoluteDirectoryPath Join(IAbsoluteDirectoryPath lhs, IRelativeDirectoryPath rhs)
+        public static AbsoluteFileSystemPath FromRelative(RelativeFileSystemPath relative, AbsoluteFileSystemPath prefix = null)
         {
-            return Path.Combine(lhs.ToString(), rhs.ToString()).ToAbsoluteDirectoryPath();            
+            return Join(prefix ?? FromCurrentDirectory(), relative);
         }
 
-        public static IAbsoluteFilePath Join(IAbsoluteDirectoryPath lhs, IRelativeFilePath rhs)
+        public bool HasPrefix(AbsoluteFileSystemPath prefix)
         {
-            return Path.Combine(lhs.ToString(), rhs.ToString()).ToAbsoluteFilePath();            
+            return this.ToString().StartsWith(prefix.ToString(), StringComparison.InvariantCultureIgnoreCase);
         }
 
-        public static IRelativeDirectoryPath Join(IRelativeDirectoryPath lhs, IRelativeDirectoryPath rhs)
+        public bool IsExistingFile
         {
-            return Path.Combine(lhs.ToString(), rhs.ToString()).ToRelativeDirectoryPath();            
+            get
+            {
+                return File.Exists(this.ToString());
+            }
+        }
+
+        public bool IsExistingDirectory
+        {
+            get
+            {
+                return Directory.Exists(this.ToString());
+            }
         }
 
 
-        public static IRelativeFilePath ToBuildObjectPath(this string pathStr, WorkingDirectory workDir = null)
+        public bool ExistsAsFile
         {
-            return Path.GetFullPath(pathStr).ToAbsoluteFilePath().ToBuildObjectPath(workDir);
+            get
+            {
+                return File.Exists(this.ToString());
+            }
         }
 
-        public static string NormalizeImplicitPathString(string s)
+        public bool ExistsAsDirectory
         {
-            return ImplicitToRelative(s).ToRelativeFilePath().ToImplicitPathString();
+            get
+            {
+                return Directory.Exists(this.ToString());
+            }
+        }
+
+        public AbsoluteFileSystemPath ParentDirectoryPath
+        {
+            get
+            {
+                var parent = Path.GetDirectoryName(this.ToString());
+                return parent == null ? null : Parse(parent);
+            }
+        }
+
+        public IEnumerable<AbsoluteFileSystemPath> ListFiles(bool recurse = false)
+        {
+            return Directory.EnumerateFiles(this.ToString(), "*", recurse ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly)
+                .Select(s => Parse(s))
+                .Where(p => !p.ExistsAsDirectory);
+        }
+
+        public RelativeFileSystemPath ExtractRelative(AbsoluteFileSystemPath prefix)
+        {
+            var prefixStr = prefix.ToString();
+            var thisStr = this.ToString();
+            if (!this.HasPrefix(prefix))
+            {
+                var msg = string.Format("Unable to extract relative directory given mismatched prefix (`{0}`) with source path (`{1}`).", prefixStr, thisStr);
+                throw new ArgumentException(msg, "prefix");
+            }
+
+            var relStr = thisStr.Substring(prefixStr.Length + 1, thisStr.Length - prefixStr.Length - 1);
+            return RelativeFileSystemPath.Parse(relStr);
+        }
+
+        public AbsoluteFileSystemPath CreateSiblingPath(string filename)
+        {
+            var rhs = RelativeFileSystemPath.Parse(filename, permitImplicit: true);
+            return Join(this.ParentDirectoryPath, rhs);
+        }
+
+        public AbsoluteFileSystemPath CreateChildPath(string filename)
+        {
+            var rhs = RelativeFileSystemPath.Parse(filename, permitImplicit: true);
+            return Join(this, rhs);
+        }
+
+        public RelativeFileSystemPath MapToBuildObjectPath(WorkingDirectory workDir = null)
+        {
+            // todo: this is a candidate for relocating to BuildObject
+            if (workDir == null)
+            {
+                return this.ExtractRelative(NuBuildEnvironment.RootDirectoryPath);
+            }
+            else
+            {
+                return this.ExtractRelative(Parse(workDir.Root));
+            }
+        }
+
+        private static string NormalizeAbsolute(string pathStr)
+        {
+            if (!IsAbsolutePath(pathStr))
+            {
+                var msg = string.Format("Attempt to create an AbsoluteFileSystemPath with a non-absolute path (`{0}`).", pathStr);
+                throw new ArgumentException(msg, "pathStr");
+            }
+            return Normalize(Path.GetFullPath(pathStr));
+        }
+    }
+
+    public class RelativeFileSystemPath : FileSystemPath
+    {
+        private RelativeFileSystemPath(string normalized) :
+            base(normalized)
+        {
+        }
+
+        public static RelativeFileSystemPath Parse(string pathStr, bool permitImplicit = false)
+        {
+            return new RelativeFileSystemPath(NormalizeRelative(permitImplicit ? ImplicitToRelative(pathStr) : pathStr));
+        }
+
+        public string ToString(string fmt)
+        {
+            if (string.Equals(fmt, "i", StringComparison.InvariantCultureIgnoreCase))
+            {
+                return this.ToStringImplicit();
+            }
+            if (string.Equals(fmt, "n", StringComparison.InvariantCultureIgnoreCase))
+            {
+                return this.ToString();
+            }
+            var msg = string.Format("Unrecognized ToString() formatting code ('{0}').", fmt);
+            throw new ArgumentException(msg, "fmt");
+        }
+
+        public RelativeFileSystemPath ParentDirectoryPath
+        {
+            get
+            {
+                return Parse(Path.GetDirectoryName(this.ToString()));
+            }
+        }
+
+        public bool HasPrefix(RelativeFileSystemPath prefix)
+        {
+            return this.ToString().StartsWith(prefix.ToString(), StringComparison.InvariantCultureIgnoreCase);
+        }
+
+        public RelativeFileSystemPath CreateSiblingPath(string filename)
+        {
+            var rhs = RelativeFileSystemPath.Parse(filename, permitImplicit: true);
+            return Join(this.ParentDirectoryPath, rhs);
+        }
+
+        public RelativeFileSystemPath CreateChildPath(string filename)
+        {
+            var rhs = Parse(filename, permitImplicit: true);
+            return Join(this, rhs);
+        }
+
+        public RelativeFileSystemPath MapToBuildObjectPath(RelativeFileSystemPath prefix = null)
+        {
+            // todo: this is a candidate for relocating to BuildObject
+            if (prefix == null || this.HasPrefix(prefix))
+            {
+                return this;
+            }
+            return Join(prefix, this);
+        }
+
+        private static string ImplicitToRelative(string s)
+        {
+            return IsImplicitRelativePath(s) ? "." + Path.DirectorySeparatorChar + s : s;
+        }
+
+        private string ToStringImplicit()
+        {
+            var s = this.ToString();
+            return s.Substring(2);
+        }
+
+        private static string NormalizeRelative(string pathStr)
+        {
+            if (Path.IsPathRooted(pathStr))
+            {
+                var msg = string.Format("Attempt to create an AbsoluteFileSystemPath with an absolute path (`{0}`).", pathStr);
+                throw new ArgumentException(msg, "pathStr");
+            }
+            var dummyPrefix = @"C:\";
+            var s0 = Path.GetFullPath(Path.Combine(dummyPrefix, pathStr));
+            var s1 = s0.Substring(dummyPrefix.Length, s0.Length - dummyPrefix.Length);
+            return Normalize(ImplicitToRelative(s1));
         }
     }
 }

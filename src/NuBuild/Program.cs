@@ -10,8 +10,7 @@ namespace NuBuild
     using System.Collections.Generic;
     using System.IO;
     using System.Linq;
-
-    using NDepend.Path;
+    using System.Linq.Expressions;
 
     internal class Program
     {
@@ -83,7 +82,9 @@ namespace NuBuild
         
         SourcePath parseSourcePath(string s)
         {
-            return new SourcePath(s.ToBuildObjectPath().ToString());
+            var relPath = RelativeFileSystemPath.Parse(s, permitImplicit: true);
+            var boPath = relPath.MapToBuildObjectPath();
+            return new SourcePath(boPath.ToString());
         }
 
         void parseArgs(string[] args)
@@ -183,7 +184,7 @@ namespace NuBuild
 
                     if (!rootDirInitState.Item2)
                     {
-                        IDirectoryPath p = rootDirInitState.Item1 == null ? null : rootDirInitState.Item1.ToDirectoryPath();
+                        var p = rootDirInitState.Item1 == null ? null : rootDirInitState.Item1;
                         NuBuildEnvironment.initialize(p);
                         rootDirInitState = Tuple.Create(rootDirInitState.Item1, true);
                     }
@@ -266,7 +267,7 @@ namespace NuBuild
 
             if (!rootDirInitState.Item2)
             {
-                IDirectoryPath p = rootDirInitState.Item1 == null ? null : rootDirInitState.Item1.ToDirectoryPath();
+                var p = rootDirInitState.Item1 == null ? null : rootDirInitState.Item1;
                 NuBuildEnvironment.initialize(p);
             }
         }
@@ -315,7 +316,7 @@ namespace NuBuild
         private IEnumerable<string> fetchConfigArgs()
         {
             string config_path =
-                Path.Combine(NuBuildEnvironment.CurrentDirectoryPath.ToString(), NUBUILD_CONFIG);
+                Path.Combine(Directory.GetCurrentDirectory(), NUBUILD_CONFIG);
             if (!File.Exists(config_path))
             {
                 return new string[] { };

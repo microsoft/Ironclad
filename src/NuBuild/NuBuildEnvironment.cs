@@ -10,33 +10,31 @@ namespace NuBuild
     using Microsoft.CSharp.RuntimeBinder;
     using Microsoft.WindowsAzure.Storage;
 
-    using NDepend.Path;
-
     using Newtonsoft.Json;
 
     public static class NuBuildEnvironment
     {
         public const string DotNuBuild = ".nubuild";
-        public const string ConfigFileRelativePath = ".nubuild\\config.json";
-        public const string LogPath = ".nubuild\\log.txt";
+        public const string ConfigFileRelativePath = ".\\.nubuild\\config.json";
+        public const string LogPath = ".\\.nubuild\\log.txt";
 
-        public static IAbsoluteDirectoryPath InvocationPath { get; private set; }
+        public static AbsoluteFileSystemPath InvocationPath { get; private set; }
 
         public static Options Options { get; private set; }
-        private static IAbsoluteDirectoryPath rootDirectoryPath = null;
+        private static AbsoluteFileSystemPath rootDirectoryPath = null;
 
 
-        public static void initialize(IDirectoryPath specifiedRootPath = null)
+        public static void initialize(string specifiedRootPath)
         {
             if (isInitialized())
             {
                 throw new InvalidOperationException("Attempt to initialize NuBuildEnvironment twice.");
             }
+            InvocationPath = AbsoluteFileSystemPath.FromCurrentDirectory();
             rootDirectoryPath = initNuBuildRoot(specifiedRootPath);
-            Logger.Start(FileSystemPath.ImplicitToRelative(LogPath).ToRelativeFilePath().GetAbsolutePathFrom(rootDirectoryPath));
+            Logger.Start(AbsoluteFileSystemPath.FromRelative(RelativeFileSystemPath.Parse(LogPath), rootDirectoryPath));
             Options = LoadConfig();
-            InvocationPath = getInvocationPath(rootDirectoryPath);
-            // NuBuild seems flakey unless invoked from the NuBuild root.
+            // NuBuild seems flakey unless the current directory is the NuBuild root.
             Directory.SetCurrentDirectory(rootDirectoryPath.ToString());
         }
 
@@ -53,7 +51,7 @@ namespace NuBuild
             }
         }
 
-        public static IAbsoluteDirectoryPath RootDirectoryPath
+        public static AbsoluteFileSystemPath RootDirectoryPath
         {
             get
             {
@@ -62,20 +60,12 @@ namespace NuBuild
             }
         }
 
-        private static IAbsoluteDirectoryPath initNuBuildRoot(IDirectoryPath specifiedRootPath)
+        private static AbsoluteFileSystemPath initNuBuildRoot(string specifiedRootPath)
         {
             if (specifiedRootPath != null)
             {
-                IAbsoluteDirectoryPath p;
-                if (specifiedRootPath.IsRelativePath)
-                {
-                    p = ((IRelativeDirectoryPath)specifiedRootPath).GetAbsolutePathFrom(CurrentDirectoryPath);
-                }
-                else
-                {
-                    p = (IAbsoluteDirectoryPath)specifiedRootPath;
-                }
-                if (p.Exists && p.GetChildDirectoryWithName(DotNuBuild).Exists)
+                AbsoluteFileSystemPath p = AbsoluteFileSystemPath.Parse(specifiedRootPath, permitImplicit: true);
+                if (p.IsExistingDirectory && p.CreateChildPath(DotNuBuild).IsExistingDirectory)
                 {
                     Logger.WriteLine(string.Format("Specified NuBuild root path found at `{0}`.", p));
                     return p;
@@ -93,30 +83,20 @@ namespace NuBuild
             }
         }
 
-        public static IAbsoluteDirectoryPath CurrentDirectoryPath
+        public static RelativeFileSystemPath ObjRootPath
         {
             get
             {
-                return Directory.GetCurrentDirectory().ToAbsoluteDirectoryPath();
+                return RelativeFileSystemPath.Parse(BuildEngine.theEngine.getObjRoot(), permitImplicit: true);
             }
         }
 
-        public static IRelativeDirectoryPath ObjRootPath
+        public static AbsoluteFileSystemPath findNuBuildRoot()
         {
-            get
+            for (var i = InvocationPath; i != null; i = i.ParentDirectoryPath)
             {
-                var absPath = Path.Combine(RootDirectoryPath.ToString(), BuildEngine.theEngine.getObjRoot()).ToAbsoluteDirectoryPath();
-                return absPath.GetRelativePathFrom(RootDirectoryPath);
-            }
-        }
-
-        public static IAbsoluteDirectoryPath findNuBuildRoot()
-        {
-            var pwd = Directory.GetCurrentDirectory().ToAbsoluteDirectoryPath();
-            for (var i = pwd; i != null; i = i.ParentDirectoryPath)
-            {
-                var p = i.GetChildDirectoryWithName(DotNuBuild);
-                if (p.Exists)
+                var p = i.CreateChildPath(DotNuBuild);
+                if (p.IsExistingDirectory)
                 {
                     return i;
                 }
@@ -140,9 +120,9 @@ namespace NuBuild
 
         private static dynamic LoadConfig()
         {
-            var path = System.IO.Path.Combine(RootDirectoryPath.ToString(), ConfigFileRelativePath).ToAbsoluteFilePath();
+            var path = AbsoluteFileSystemPath.FromRelative(RelativeFileSystemPath.Parse(ConfigFileRelativePath), RootDirectoryPath);
             var pathStr = path.ToString();
-            if (path.Exists)
+            if (path.IsExistingFile)
             {
                 using (TextReader stream = File.OpenText(pathStr))
                 {
@@ -155,12 +135,6 @@ namespace NuBuild
                 Logger.WriteLine(string.Format("Unable to find {0}; assuming empty document.", pathStr), "warning");
                 return new Dictionary<string, object>();
             }
-        }
-
-        private static IAbsoluteDirectoryPath getInvocationPath(IAbsoluteDirectoryPath nuBuildRootPath)
-        {
-            var pwd = Directory.GetCurrentDirectory();
-            return pwd.ToAbsoluteDirectoryPath().GetRelativePathFrom(nuBuildRootPath).GetAbsolutePathFrom(nuBuildRootPath);
         }
     }
 }

@@ -154,10 +154,10 @@ namespace NuBuild
                     if (failureBase != null && AlwaysEmitDiagnostics)
                     {
                         workingDirectory.CreateDirectoryFor(failureBase);
-                        File.WriteAllText(workingDirectory.PathTo(failureBase.makeOutputObject(".bat")), commandLine);
-                        File.WriteAllText(workingDirectory.PathTo(failureBase.makeOutputObject(".txt")), dbgText);
-                        File.WriteAllText(workingDirectory.PathTo(failureBase.makeOutputObject(".stdout")), this.GetStdoutString());
-                        File.WriteAllText(workingDirectory.PathTo(failureBase.makeOutputObject(".stderr")), this.GetStderr());
+                        File.WriteAllText(workingDirectory.PathTo(Path.Combine(failureBase.getDirPath(), "cmd.bat")), commandLine);
+                        File.WriteAllText(workingDirectory.PathTo(Path.Combine(failureBase.getDirPath(), "dbg.txt")), dbgText);
+                        File.WriteAllText(workingDirectory.PathTo(Path.Combine(failureBase.getDirPath(), "stdout.txt")), this.GetStdoutString());
+                        File.WriteAllText(workingDirectory.PathTo(Path.Combine(failureBase.getDirPath(), "stderr.txt")), this.GetStderr());
                     }
                 }
             }

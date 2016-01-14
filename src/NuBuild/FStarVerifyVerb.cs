@@ -13,8 +13,6 @@ namespace NuBuild
 
     using Microsoft.Data.OData.Query.SemanticAst;
 
-    using NDepend.Path;
-
     internal class FStarVerifyVerb
         : VerificationResultVerb, IProcessInvokeAsyncVerb
     {
@@ -123,7 +121,7 @@ namespace NuBuild
             arguments.Add(this.fstSource.getRelativePath());
             var exePath = FStarEnvironment.PathToFStarExe.ToString();
 
-            Logger.WriteLine(string.Format("{0} invokes `{1} {2}` from `{3}`", this, exePath, string.Join(" ", arguments), workingDirectory.ToAbsoluteDirectoryPath()));
+            Logger.WriteLine(string.Format("{0} invokes `{1} {2}` from `{3}`", this, exePath, string.Join(" ", arguments), workingDirectory.Prefix));
             return new ProcessInvokeAsyncWorker(
                 workingDirectory,
                 this,
@@ -166,22 +164,27 @@ namespace NuBuild
 
         private static string attemptToRewritePath(string path)
         {
-            var s = Path.Combine(".", path);
-            if (!s.IsValidRelativeFilePath())
+            RelativeFileSystemPath relFilePath;
+            try
+            {
+                relFilePath = RelativeFileSystemPath.Parse(path, permitImplicit: true);
+            }
+            catch (Exception)
+            {
                 return null;
-            var relFilePath = s.ToRelativeFilePath();
+            }
             var ext = relFilePath.FileExtension;
             if (!ext.Equals(".fst", StringComparison.InvariantCultureIgnoreCase) && !ext.Equals(".fsi", StringComparison.InvariantCultureIgnoreCase) && !ext.Equals(".fsti", StringComparison.InvariantCultureIgnoreCase))
             {
                 return null;
             }
-            var absFilePath = relFilePath.GetAbsolutePathFrom(NuBuildEnvironment.InvocationPath);
-            if (!absFilePath.Exists)
+            var absFilePath = AbsoluteFileSystemPath.FromRelative(relFilePath, NuBuildEnvironment.InvocationPath);
+            if (!absFilePath.IsExistingFile && !absFilePath.IsExistingDirectory)
             {
                 return null;
             }
-            var buildObjPath = absFilePath.GetRelativePathFrom(NuBuildEnvironment.RootDirectoryPath);
-            return buildObjPath.ToImplicitPathString();
+            var buildObjPath = absFilePath.ExtractRelative(NuBuildEnvironment.RootDirectoryPath);
+            return buildObjPath.ToString("i");
         }
 
         private static List<string> rewritePathArgs(IEnumerable<string> args, out List<SourcePath> secondarySources)

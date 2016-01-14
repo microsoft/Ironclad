@@ -12,9 +12,6 @@ namespace NuBuild
     using System.Linq;
     using System.Xml;
 
-    using NDepend.Helpers;
-    using NDepend.Path;
-
     /// <summary>
     /// An abstract identifier for "nouns" (i.e. the things that verbs operate
     /// on -- both verb outputs and dependencies are BuildObjects).
@@ -348,7 +345,8 @@ namespace NuBuild
             if (relFilePathStr.StartsWith(objPathStr))
             {
                 var s = relFilePathStr.Substring(objPathStr.Length + 1);
-                return FileSystemPath.NormalizeImplicitPathString(s);
+                // normalize 's'.
+                return RelativeFileSystemPath.Parse(s, permitImplicit: true).ToString();
             }
             else
             {
@@ -357,14 +355,14 @@ namespace NuBuild
 
         }
 
-        public IRelativeFilePath toRelativeFilePath()
+        public RelativeFileSystemPath toRelativeFilePath()
         {
-            return FileSystemPath.ImplicitToRelative(this.getRelativePath()).ToRelativeFilePath();
+            return RelativeFileSystemPath.Parse(this.getRelativePath(), permitImplicit: true);
         }
 
-        public IAbsoluteFilePath toAbsoluteFilePath()
+        public AbsoluteFileSystemPath toAbsoluteFilePath()
         {
-            return this.toRelativeFilePath().GetAbsolutePathFrom(NuBuildEnvironment.RootDirectoryPath);
+            return FileSystemPath.Join(NuBuildEnvironment.RootDirectoryPath, this.toRelativeFilePath());
         }
     }
 }

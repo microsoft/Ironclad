@@ -6,8 +6,7 @@ namespace NuBuild
     using System.IO;
     using System.Linq;
 
-    using NDepend.Path;
-
+   
     class FStarDepOutput : VirtualContents
     {
         public readonly OrderPreservingSet<BuildObject> Value;
@@ -35,8 +34,8 @@ namespace NuBuild
             // we need to search for dependencies that refer to files that come with the F* distribution to ensure that NuBuild handles those dependencies properly.
             foreach (var entry in entries)
             {
-                var absFilePath = entry.ToAbsoluteFilePath();
-                var relFilePath = absFilePath.ToBuildObjectPath(workDir);
+                var absFilePath = AbsoluteFileSystemPath.Parse(entry);
+                var relFilePath = absFilePath.MapToBuildObjectPath(workDir);
                 BuildObject foundStdDep = null;
                 foreach (var stdDep in stdDeps)
                 {

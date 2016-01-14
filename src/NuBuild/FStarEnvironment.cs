@@ -12,13 +12,11 @@ namespace NuBuild
 
     using Microsoft.CSharp.RuntimeBinder;
 
-    using NDepend.Path;
-
     public static class FStarEnvironment
     {
         private const string DefaultPathToFStarExe = ".\\.fstar\\bin\\fstar.exe";
 
-        private static readonly IAbsoluteFilePath AbsolutePathToFStarExe;
+        private static readonly AbsoluteFileSystemPath AbsolutePathToFStarExe;
 
         private static readonly List<SourcePath> Binaries;
         private static readonly List<SourcePath> StandardLibrary;
@@ -31,11 +29,11 @@ namespace NuBuild
             AbsolutePathToFStarExe = pathToFStarExe;
         }
 
-        public static IRelativeFilePath PathToFStarExe
+        public static RelativeFileSystemPath PathToFStarExe
         {
             get
             {
-                return AbsolutePathToFStarExe.ToBuildObjectPath();
+                return AbsolutePathToFStarExe.MapToBuildObjectPath();
             }
         }
 
@@ -44,22 +42,22 @@ namespace NuBuild
             return Binaries.Concat(StandardLibrary);
         }
 
-        private static List<SourcePath> findBinaries(IAbsoluteFilePath pathToFStarExe)
+        private static List<SourcePath> findBinaries(AbsoluteFileSystemPath pathToFStarExe)
         {
-            IAbsoluteDirectoryPath binPath = pathToFStarExe.ParentDirectoryPath;
+            AbsoluteFileSystemPath binPath = pathToFStarExe.ParentDirectoryPath;
             var result = new List<SourcePath>();
 
-            result.Add(new SourcePath(pathToFStarExe.ToBuildObjectPath().ToString(), SourcePath.SourceType.Tools));
+            result.Add(new SourcePath(pathToFStarExe.MapToBuildObjectPath().ToString(), SourcePath.SourceType.Tools));
 
             var regExprs = new[] { new Regex(@".*\.dll$", RegexOptions.IgnoreCase), new Regex(@".*\.pdb$", RegexOptions.IgnoreCase), new Regex(@".*\.config$", RegexOptions.IgnoreCase) };
-            var paths = FileSystemPath.ListFiles(binPath, recurse: true);
+            var paths = binPath.ListFiles(recurse: true);
             foreach (var path in paths)
             {
                 foreach (var re in regExprs)
                 {
                     if (re.IsMatch(path.ToString()))
                     {
-                        var nbPath = path.ToBuildObjectPath().ToString();
+                        var nbPath = path.MapToBuildObjectPath().ToString();
                         result.Add(new SourcePath(nbPath, SourcePath.SourceType.Tools));
                         break;
                     }
@@ -68,24 +66,24 @@ namespace NuBuild
             return result;
         }
 
-        private static List<SourcePath> findStandardLibrary(IAbsoluteFilePath pathToFStarExe)
+        private static List<SourcePath> findStandardLibrary(AbsoluteFileSystemPath pathToFStarExe)
         {
-            IAbsoluteDirectoryPath libPath = pathToFStarExe.ParentDirectoryPath.GetBrotherDirectoryWithName("lib");
+            AbsoluteFileSystemPath libPath = pathToFStarExe.ParentDirectoryPath.CreateSiblingPath("lib");
             var result = new List<SourcePath>();
 
-            var paths = FileSystemPath.ListFiles(libPath, recurse: true);
+            var paths = libPath.ListFiles(recurse: true);
             foreach (var path in paths)
             {
                 // todo: should these be added as sources?
-                var nbPath = path.ToBuildObjectPath().ToString();
+                var nbPath = path.MapToBuildObjectPath().ToString();
                 result.Add(new SourcePath(nbPath, SourcePath.SourceType.Tools));
             }
             return result;
         }
 
-        private static IAbsoluteFilePath findFStarExecutable()
+        private static AbsoluteFileSystemPath findFStarExecutable()
         {
-            IRelativeFilePath relFilePath;
+            RelativeFileSystemPath relFilePath;
             string configStr;
 
             try
@@ -99,16 +97,16 @@ namespace NuBuild
 
             if (configStr == null)
             {
-                Logger.WriteLine(string.Format("`{0}` entry `paths.fstar` is unspecifed; assuming default path (`{1}`)", NuBuild.NuBuildEnvironment.ConfigFileRelativePath, DefaultPathToFStarExe));
-                relFilePath = DefaultPathToFStarExe.ToRelativeFilePath();
+                Logger.WriteLine(string.Format("`{0}` entry `paths.fstar` is unspecifed; assuming default path (`{1}`)", NuBuildEnvironment.ConfigFileRelativePath, DefaultPathToFStarExe));
+                relFilePath = RelativeFileSystemPath.Parse(DefaultPathToFStarExe);
             }
             else
             {
-                relFilePath = FileSystemPath.ImplicitToRelative(configStr).ToRelativeFilePath();
+                relFilePath = RelativeFileSystemPath.Parse(configStr, permitImplicit: true);
             }
 
-            var absFilePath = relFilePath.GetAbsolutePathFrom(NuBuildEnvironment.RootDirectoryPath);
-            if (absFilePath.Exists)
+            var absFilePath = AbsoluteFileSystemPath.FromRelative(relFilePath, NuBuildEnvironment.RootDirectoryPath);
+            if (absFilePath.IsExistingFile)
             {
                 Logger.WriteLine(string.Format("F* found at `{0}`.", absFilePath));
                 return absFilePath;
