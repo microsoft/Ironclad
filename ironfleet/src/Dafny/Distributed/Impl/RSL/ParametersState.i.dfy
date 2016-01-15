@@ -28,11 +28,11 @@ function AbstractifyParametersStateToLParameters(params:ParametersState) : LPara
 function method StaticParams() : ParametersState
 {
     ParametersState(7,  // max log length
-                    100000, // baseline view timeout period (1000 ms = 1 sec)
-                    10,  // heartbeat period (200 ms)
+                    1000, // baseline view timeout period (1000 ms = 1 sec)
+                    100,  // heartbeat period (100 ms)
                     0x8000_0000_0000_0000 - 1,  // Max integer value:  2^63 - 1
                     32, // max_batch_size
-                    10) // max_batch_delay (10ms)
+                    10) // max_batch_delay (10 ms)
 }
 
 predicate WFParametersState(params:ParametersState)
