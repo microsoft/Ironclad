@@ -12,6 +12,7 @@
     {
         private readonly JObject root;
         private bool? useCloudCache;
+        private bool? enforceWhitespace;
 
         private Options(JObject root)
         {
@@ -117,6 +118,35 @@
             }
         }
 
+        public bool EnforceWhitespace
+        {
+            get
+            {
+                const bool defaultValue = false;
+                if (this.enforceWhitespace.HasValue)
+                {
+                    return this.enforceWhitespace.Value;
+                }
 
+                bool result;
+                try
+                {
+                    result = (bool)this.root["enforce_whitespace"];
+
+                }
+                catch (NullReferenceException)
+                {
+                    return defaultValue;
+                }
+
+                this.enforceWhitespace = result;
+                return this.enforceWhitespace.Value;
+            }
+
+            set
+            {
+                this.enforceWhitespace = value;
+            }
+        }
     }
 }

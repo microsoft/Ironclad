@@ -440,15 +440,18 @@ namespace NuBuild
                     // REVIEW: Should we require that source files are explicitly added?
                     try
                     {
-                        // Complain if someone uses tabs or non-CRLF line endings in a source file.
-                        // Visual Studio is pretty insistent on using tabs in solution (.sln) files, so we let it.
-                        /*if ((src.Type == SourcePath.SourceType.Src) && (src.getExtension() != ".sln"))
+                        if (NuBuildEnvironment.Options.EnforceWhitespace)
                         {
-                            if (!Util.CheckSourceFileForBadCharacters(IronRootDirectory.PathTo(obj)))
+                            // Complain if someone uses tabs or non-CRLF line endings in a source file.
+                            // Visual Studio is pretty insistent on using tabs in solution (.sln) files, so we let it.
+                            if ((src.Type == SourcePath.SourceType.Src) && (src.getExtension() != ".sln"))
                             {
-                                throw new SourceConfigurationError("Bad characters (tabs?) or non-CRLF line endings in source file " + obj.getRelativePath());
+                                if (!Util.CheckSourceFileForBadCharacters(IronRootDirectory.PathTo(obj)))
+                                {
+                                    throw new SourceConfigurationError("Bad characters (tabs?) or non-CRLF line endings in source file " + obj.getRelativePath());
+                                }
                             }
-                        }*/
+                        }
 
                         string hash = Util.hashFilesystemPath(IronRootDirectory.PathTo(obj));
                         this.itemCache.StoreItemFromFile(ItemCacheContainer.Sources, hash, IronRootDirectory.PathTo(obj));

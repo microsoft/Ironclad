@@ -173,6 +173,10 @@ namespace NuBuild
                     {
                         Logger.Quiet();
                     }
+                    else if (next.Equals("--enforce-whitespace", StringComparison.InvariantCultureIgnoreCase))
+                    {
+                        NuBuildEnvironment.Options.EnforceWhitespace = true;
+                    }
                     else
                     {
                         usage("unrecognized option " + next);
