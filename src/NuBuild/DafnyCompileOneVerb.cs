@@ -8,6 +8,7 @@ namespace NuBuild
 {
     using System;
     using System.Collections.Generic;
+    using System.Data.SqlTypes;
     using System.Diagnostics;
     using System.IO;
 
@@ -16,7 +17,7 @@ namespace NuBuild
     /// </summary>
     internal class DafnyCompileOneVerb : Verb, IProcessInvokeAsyncVerb
     {
-        private const int Version = 10;
+        private const int Version = 11;
 
         private const string IntermediateSourceFilename = "ExpandedSource.dfy";
         private const string CSharpExt = ".cs";
@@ -27,8 +28,9 @@ namespace NuBuild
         private readonly DafnyTransitiveDepsVerb transitiveDepsVerb;
         private List<BuildObject> dependencies;
         private SourcePath expandedSource;
+        private readonly bool needEntryPoint;
 
-        public DafnyCompileOneVerb(SourcePath input)
+        public DafnyCompileOneVerb(SourcePath input, bool needEntryPoint = false)
         {
             if (input == null)
             {
@@ -40,6 +42,7 @@ namespace NuBuild
             this.output = input.makeOutputObject(CSharpExt);
             this.transitiveDepsVerb = new DafnyTransitiveDepsVerb(input);
             this.verbs = new IVerb[] { this.transitiveDepsVerb };
+            this.needEntryPoint = needEntryPoint;
         }
 
         public override IEnumerable<BuildObject> getDependencies(out DependencyDisposition ddisp)
@@ -119,16 +122,20 @@ namespace NuBuild
                 dis = new Failed();
             }
 
-            if (dis is Fresh)
-            {
-                this.RewriteCSharpFile(cSharpPath, workingDirectory.PathTo(this.output));
-            }
+            this.RewriteCSharpFile(cSharpPath, workingDirectory.PathTo(this.output), ref dis);
 
             return dis;
         }
 
-        private void RewriteCSharpFile(string inputPath, string outputPath)
+        private void RewriteCSharpFile(string inputPath, string outputPath, ref Disposition dis)
         {
+            if (!(dis is Fresh))
+            {
+                return;
+            }
+
+            bool foundEntryPoint = false;
+
             using (TextWriter writer = new StreamWriter(outputPath))
             {
                 // Compile a list of namespaces that require edits
@@ -163,7 +170,12 @@ namespace NuBuild
                         line = line.Replace("public class ", "public partial class ");
 
                         // Another temporary work-around.  ToDo: Figure out better solution.
-                        line = line.Replace("@_default_Main", "@IronfleetMain");
+                        var line1 = line.Replace("@_default_Main", "@IronfleetMain");
+                        if (!string.Equals(line1, line, StringComparison.InvariantCulture))
+                        {
+                            foundEntryPoint = true;
+                            line = line1;
+                        }
 
                         // Find a more efficient approach?
                         foreach (KeyValuePair<string, string> entry in namespaces) 
@@ -173,6 +185,13 @@ namespace NuBuild
 
                         writer.WriteLine(line);
                     }
+                }
+
+                if (this.needEntryPoint && !foundEntryPoint)
+                {
+                    var msg = string.Format("ERROR: Unable to find entry point in `{0}`. IronfleetApp front-end will not compile.", this.input.getFileName());
+                    Logger.WriteLine(msg);
+                    dis = new Failed();
                 }
             }
         }

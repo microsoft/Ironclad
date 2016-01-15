@@ -45,7 +45,7 @@ namespace NuBuild
 
             if (optionalDafnyInput != null)
             {
-                this.dafnyCompileOneVerb = new DafnyCompileOneVerb(optionalDafnyInput);
+                this.dafnyCompileOneVerb = new DafnyCompileOneVerb(optionalDafnyInput, needEntryPoint: true);
             }
         }
 
