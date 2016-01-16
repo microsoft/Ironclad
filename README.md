@@ -15,7 +15,27 @@ file.
 Setup
 =====
 
-TBD
+1.  Clone NuBuild into the root of your project directory. It must be cloned
+    into a directory named `.nubuild`.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+git clone -b nubuild --single-branch https://github.com/Microsoft/Ironclad .nubuild
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+1.  Alternatively, you can clone NuBuild into any directory and use a symbolic
+    link to point `$PROJECT/.nubuild` to the cloned repository.
+
+2.  Build NuBuild. The Visual Studio solution is located at
+    `$PROJECT/.nubuild/src/NuBuild.sln`.
+
+3.  Customize your `$PROJECT/.nubuild/config.json` file. You can find a sample
+    copy of the file at `$PROJECT/.nubuild/doc/examples/config.json`.
+
+4.  Tools used by NuBuild must reside within the `$PROJECT` directory. For
+    example, if you’re using the *FStarVerify *verb, you’re likely to need to
+    either clone or link the F\* project directory into `$PROJECT`. The default
+    path to find F\* is `$PROJECT/.fstar/bin/fstar.exe` but this can be
+    customized in your `$PROJECT/.nubuild/config.json` file.
 
 Known Issues
 ------------
