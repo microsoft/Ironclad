@@ -17,6 +17,20 @@ Setup
 
 TBD
 
+Known Issues
+------------
+
+-   Distributed build has not been regression tested (may no longer work).
+
+-   Whitespace differences are likely to reduce caching effectiveness.
+
+-   Linux support is untested.
+
+-   The local (on-disk) cache cannot be safely shared between parallel
+    invocations of `NuBuild.exe` (e.g. NuBuild is incompatible with `make -j`).
+
+-   Integration with CI tools is not yet implemented.
+
 Code Layout
 ===========
 
