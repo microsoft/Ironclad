@@ -2,7 +2,8 @@ About
 =====
 
 This directory contains an experimental tool for verifying and building the
-Ironclad Apps and IronFleet code.
+Ironclad Apps and IronFleet code. Additional support has been added for F\*
+verification.
 
 See http://research.microsoft.com/ironclad for more details on these projects.
 
@@ -16,7 +17,8 @@ Setup
 =====
 
 1.  Clone NuBuild into the root of your project directory. It must be cloned
-    into a directory named `.nubuild`.
+    into a directory named `.nubuild` at the root of your project (referred to
+    hereafter as `$PROJECT`).
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 git clone -b nubuild --single-branch https://github.com/Microsoft/Ironclad .nubuild
@@ -31,8 +33,8 @@ git clone -b nubuild --single-branch https://github.com/Microsoft/Ironclad .nubu
 3.  Customize your `$PROJECT/.nubuild/config.json` file. You can find a sample
     copy of the file at `$PROJECT/.nubuild/doc/examples/config.json`.
 
-4.  Tools used by NuBuild must reside within the `$PROJECT` directory. For
-    example, if you’re using the *FStarVerify *verb, you’re likely to need to
+4.  Tools invoked by NuBuild must reside within the `$PROJECT` directory. For
+    example, if you're using the *FStarVerify* verb, you're likely to need to
     either clone or link the F\* project directory into `$PROJECT`. The default
     path to find F\* is `$PROJECT/.fstar/bin/fstar.exe` but this can be
     customized in your `$PROJECT/.nubuild/config.json` file.
@@ -42,7 +44,9 @@ Known Issues
 
 -   Distributed build has not been regression tested (may no longer work).
 
--   Whitespace differences are likely to reduce caching effectiveness.
+-   Whitespace differences across developers are likely to reduce caching
+    effectiveness (use `--enforce-whitespace` option to have NuBuild reject
+    files with problems).
 
 -   Linux support is untested.
 
