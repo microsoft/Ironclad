@@ -42,6 +42,36 @@ function {:opaque} RequestWithSeqnoExecutedTemporal(b:Behavior<RslState>, client
     stepmap(imap i :: RequestWithSeqnoExecuted(b[i], b[i+1], client, seqno, idx))
 }
 
+predicate ReplySentToClientAtLeastSeqno(ps:RslState, ps':RslState, client:NodeIdentity, seqno:int, idx:int, ios:seq<RslIo>, batch_idx:int)
+{
+       0 <= idx < |ps.replicas|
+    && 0 <= idx < |ps'.replicas|
+    && var s := ps.replicas[idx].replica;
+       var s' := ps'.replicas[idx].replica;
+          RslNextOneReplica(ps, ps', idx, ios)
+       && LReplicaNextSpontaneousMaybeExecute(s, s', ExtractSentPacketsFromIos(ios))
+       && s.executor.next_op_to_execute.OutstandingOpKnown?
+       && LtUpperBound(s.executor.ops_complete, s.executor.constants.all.params.max_integer_val)
+       && LReplicaConstantsValid(s.executor.constants)
+       && 0 <= batch_idx < |s.executor.next_op_to_execute.v|
+       && s.executor.next_op_to_execute.v[batch_idx].Request?
+       && s.executor.next_op_to_execute.v[batch_idx].client == client
+       && s.executor.next_op_to_execute.v[batch_idx].seqno >= seqno
+}
+
+predicate RequestAtLeastSeqnoExecuted(ps:RslState, ps':RslState, client:NodeIdentity, seqno:int, idx:int)
+{
+    exists ios, batch_idx :: ReplySentToClientAtLeastSeqno(ps, ps', client, seqno, idx, ios, batch_idx)
+}
+
+function {:opaque} RequestAtLeastSeqnoExecutedTemporal(b:Behavior<RslState>, client:NodeIdentity, seqno:int, idx:int):temporal
+    requires imaptotal(b);
+    ensures  forall i {:trigger sat(i, RequestAtLeastSeqnoExecutedTemporal(b, client, seqno, idx))} ::
+             sat(i, RequestAtLeastSeqnoExecutedTemporal(b, client, seqno, idx)) <==> RequestAtLeastSeqnoExecuted(b[i], b[i+1], client, seqno, idx);
+{
+    stepmap(imap i :: RequestAtLeastSeqnoExecuted(b[i], b[i+1], client, seqno, idx))
+}
+
 
 lemma lemma_PersistentRequestNeverExecuted(
     b:Behavior<RslState>,

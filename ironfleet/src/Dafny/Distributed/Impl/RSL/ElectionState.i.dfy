@@ -73,6 +73,11 @@ predicate method CRequestsMatch(r1:CRequest, r2:CRequest)
     r1.client == r2.client && r1.seqno == r2.seqno
 }
 
+predicate method CRequestSatisfiedBy(r1:CRequest, r2:CRequest)
+{
+    r1.client == r2.client && r1.seqno <= r2.seqno
+}
+
 predicate HeadersMatch(requests:seq<CRequest>, headers:set<CRequestHeader>)
 {
     |requests| == |headers|

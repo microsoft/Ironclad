@@ -155,165 +155,294 @@ method BoundCRequestHeaders(s:seq<CRequest>, ghost headers:set<CRequestHeader>, 
 // REQUESTS
 //////////////////////
 
-function {:fuel 5,6} RemoveFirstMatchingCRequestInSequence(s:seq<CRequest>, r:CRequest):seq<CRequest>
+function {:fuel 5,6} RemoveAllSatisfiedCRequestsInSequence(s:seq<CRequest>, r:CRequest):seq<CRequest>
 {
     if |s| == 0 then
         []
-    else if CRequestsMatch(s[0], r) then
-        s[1..]
+    else if CRequestSatisfiedBy(s[0], r) then
+        RemoveAllSatisfiedCRequestsInSequence(s[1..], r)
     else
-        [s[0]] + RemoveFirstMatchingCRequestInSequence(s[1..], r)
+        [s[0]] + RemoveAllSatisfiedCRequestsInSequence(s[1..], r)
 }
 
-lemma lemma_RemoveFirstMatchingCRequestInSequenceNoMatch(s:seq<CRequest>, r:CRequest)
-    requires forall i :: 0 <= i < |s| ==> !CRequestsMatch(s[i], r);
-    ensures  RemoveFirstMatchingCRequestInSequence(s, r) == s;
-{ }
-
-lemma lemma_RemoveFirstMatchingCRequestInSequenceMatch(s:seq<CRequest>, r:CRequest, index:int)
-    requires 0 <= index < |s|;
-    requires forall i :: 0 <= i < index ==> !CRequestsMatch(s[i], r);
-    requires |s| > 0;
-    requires CRequestsMatch(s[index], r);
-    ensures  RemoveFirstMatchingCRequestInSequence(s, r) == s[0..index] + s[index+1..];
+function {:fuel 5,6} RemoveAllSatisfiedCRequestsInSequenceAlt(s:seq<CRequest>, r:CRequest):seq<CRequest>
 {
-    if index == 0 {
-        assert s[0..0] + s[1..] == s[1..];
-    } else {
-        calc {
-            RemoveFirstMatchingCRequestInSequence(s, r);
-            [s[0]] + RemoveFirstMatchingCRequestInSequence(s[1..], r);
-            [s[0]] + RemoveFirstMatchingCRequestInSequence(s[1..], r);
-                { lemma_RemoveFirstMatchingCRequestInSequenceMatch(s[1..], r, index-1); } 
-            [s[0]] + s[1..][0..index-1] + s[1..][index-1+1..];
-                { assert s[1..][0..index-1] == s[1..index]; }
-            [s[0]] + s[1..index] + s[1..][index..];
-            [s[0]] + s[1..index] + s[index+1..];
-            s[0..index] + s[index+1..];
-        }
-    }
-    
+    if |s| == 0 then
+        []
+    else if CRequestSatisfiedBy(last(s), r) then
+        RemoveAllSatisfiedCRequestsInSequence(all_but_last(s), r)
+    else
+        RemoveAllSatisfiedCRequestsInSequence(all_but_last(s), r) + [last(s)]
 }
 
-method{:timeLimitMultiplier 4} RemoveFirstMatchingCRequestInSequenceIter(s:seq<CRequest>, ghost headers:set<CRequestHeader>, cur_req_set:MutableSet<CRequestHeader>, r:CRequest)
-    returns (s':seq<CRequest>, ghost headers':set<CRequestHeader>)
-    requires |s| < 0x1_0000_0000_0000_0000;
+lemma lemma_RemoveAllSatisfiedCRequestsInSequenceAltEquivalent(s:seq<CRequest>, r:CRequest)
+    ensures RemoveAllSatisfiedCRequestsInSequence(s, r) == RemoveAllSatisfiedCRequestsInSequenceAlt(s, r);
+{
+    if |s| == 0 || |s| == 1 {
+        return;
+    }
+
+    lemma_RemoveAllSatisfiedCRequestsInSequenceAltEquivalent(s[1..], r);
+    lemma_RemoveAllSatisfiedCRequestsInSequenceAltEquivalent(all_but_last(s[1..]), r);
+    assert all_but_last(s)[0] == s[0];
+    assert all_but_last(s)[1..] == all_but_last(s[1..]);
+}
+
+lemma lemma_RemoveAllSatisfiedCRequestsInSequenceUpdate(s:seq<CRequest>, r:CRequest, i:int)
+    requires 0 <= i < |s|;
+    ensures  RemoveAllSatisfiedCRequestsInSequence(s[..i+1], r) == RemoveAllSatisfiedCRequestsInSequence(s[..i], r) + if CRequestSatisfiedBy(s[i], r) then [] else [s[i]];
+{
+    var s' := s[..i+1];
+    assert last(s') == s[i];
+    assert all_but_last(s') == s[..i];
+    lemma_RemoveAllSatisfiedCRequestsInSequenceAltEquivalent(s', r);
+}
+
+function HeadersFromPrefix(s:seq<CRequest>, i:int):set<CRequestHeader>
+    requires 0 <= i <= |s|;
+{
+    set j | 0 <= j < i :: CRequestHeader(s[j].client, s[j].seqno)
+}
+
+lemma lemma_HeadersFromPrefixIncrease(s:seq<CRequest>, i:int)
+    requires 0 <= i;
+    requires i+1 <= |s|;
+    ensures  HeadersFromPrefix(s, i+1) == HeadersFromPrefix(s, i) + { CRequestHeader(s[i].client, s[i].seqno) };
+{
+}
+
+lemma lemma_EmptyHeadersMatch(
+    s:seq<CRequest>,
+    ghost headers:set<CRequestHeader>
+    )
+    requires s == [];
+    requires headers == {};
+    ensures HeadersMatch(s, headers);
+{
+}
+
+lemma lemma_HeadersMatchImpliesEveryHeaderHasACorrespondingEntry(
+    requests:seq<CRequest>,
+    ghost headers:set<CRequestHeader>,
+    header:CRequestHeader
+    )
+    returns
+    (i:int)
+    requires HeadersMatch(requests, headers);
+    requires header in headers;
+    ensures  0 <= i < |requests|;
+    ensures  header.client == requests[i].client;
+    ensures  header.seqno == requests[i].seqno;
+{
+    if |requests| == 0 {
+        return;
+    }
+
+    var num_requests := |requests|;
+    var last_header := CRequestHeader(requests[num_requests-1].client, requests[num_requests-1].seqno);
+    assert last_header in headers;
+
+    if header == last_header
+    {
+        i := num_requests - 1;
+        return;
+    }
+
+    var requests' := requests[..num_requests-1];
+    var headers' := headers - { last_header };
+
+    forall r' | r' in requests'
+        ensures CRequestHeader(r'.client, r'.seqno) in headers';
+    {
+        var j :| 0 <= j < |requests|-1 && r' == requests[j];
+        var k := |requests| - 1;
+        assert !CRequestsMatch(requests[j], requests[k]);
+    }
+
+    i := lemma_HeadersMatchImpliesEveryHeaderHasACorrespondingEntry(requests[..num_requests - 1], headers - { last_header }, header);
+}
+
+lemma lemma_AddingOneHeaderPreservesMatch(
+    s:seq<CRequest>,
+    ghost headers:set<CRequestHeader>,
+    r:CRequest,
+    s':seq<CRequest>,
+    ghost headers':set<CRequestHeader>
+    )
+    requires s' == s + [r];
+    requires headers' == headers + { CRequestHeader(r.client, r.seqno) };
     requires HeadersMatch(s, headers);
+    requires forall r' :: r' in s ==> !CRequestsMatch(r', r);
+    ensures  HeadersMatch(s', headers');
+{
+    var new_header := CRequestHeader(r.client, r.seqno);
+    if new_header in headers
+    {
+        var i := lemma_HeadersMatchImpliesEveryHeaderHasACorrespondingEntry(s, headers, new_header);
+        assert CRequestsMatch(s[i], r);
+        assert false;
+    }
+    calc {
+        |s'|;
+        |s| + 1;
+        |headers| + 1;
+        |headers'|;
+    }
+    assert forall r' :: r' in s' ==> CRequestHeader(r'.client, r'.seqno) in headers';
+}
+
+lemma lemma_HeadersMatchImpliesHeadersFromPrefix(requests:seq<CRequest>, headers:set<CRequestHeader>)
+    requires HeadersMatch(requests, headers);
+    ensures  headers == HeadersFromPrefix(requests, |requests|);
+{
+    var headers' := HeadersFromPrefix(requests, |requests|);
+
+    forall h | h in headers
+        ensures h in headers'
+    {
+        var i := lemma_HeadersMatchImpliesEveryHeaderHasACorrespondingEntry(requests, headers, h);
+    }
+
+    forall h | h in headers'
+        ensures h in headers
+    {
+        var i :| 0 <= i < |requests| && h == CRequestHeader(requests[i].client, requests[i].seqno);
+    }
+}
+
+method{:timeLimitMultiplier 2} RemoveAllSatisfiedCRequestsInSequenceIter(
+    requests:seq<CRequest>,
+    ghost headers:set<CRequestHeader>,
+    cur_req_set:MutableSet<CRequestHeader>,
+    r:CRequest
+    )
+    returns (
+        requests':seq<CRequest>,
+        ghost headers':set<CRequestHeader>
+    )
+    requires |requests| < 0x1_0000_0000_0000_0000;
+    requires HeadersMatch(requests, headers);
     requires cur_req_set != null;
     requires MutableSet.SetOf(cur_req_set) == headers;
     modifies cur_req_set;
-    ensures  s' == RemoveFirstMatchingCRequestInSequence(s, r);
-    ensures  HeadersMatch(s', headers');
-    ensures  headers' == headers || headers' + { CRequestHeader(r.client, r.seqno) } == headers;
-    ensures  s' == s || forall other_r :: other_r in s && !CRequestsMatch(other_r, r) ==> other_r in s';
-    ensures  headers' == headers <==> s' == s;
-    ensures MutableSet.SetOf(cur_req_set) == headers';
+    ensures  requests' == RemoveAllSatisfiedCRequestsInSequence(requests, r);
+    ensures  HeadersMatch(requests', headers');
+//    ensures  headers' == headers <==> requests' == requests;
+    ensures  MutableSet.SetOf(cur_req_set) == headers';
 {
     var i:uint64 := 0;
-    var found := false;
+    var len := uint64(|requests|);
+    ghost var removed_headers:set<CRequestHeader> := {};
+    headers' := {};
+    requests' := [];
+    i := 0;
 
-    while i < uint64(|s|) && !found
-        invariant 0 <= int(i) <= |s|;
-        invariant forall j :: 0 <= j < int(i) ==> !CRequestsMatch(s[j], r);
-        invariant found ==> 0 <= int(i) < |s| && CRequestsMatch(s[i], r);
-        decreases |s| - int(i), !found;
+    lemma_EmptyHeadersMatch(requests', headers');
+
+    while i < len
+        invariant 0 <= i <= len;
+        invariant HeadersMatch(requests', headers');
+        invariant forall r' :: r' in requests' ==> r' in requests[..i];
+        invariant requests' == RemoveAllSatisfiedCRequestsInSequence(requests[..i], r);
+        invariant MutableSet.SetOf(cur_req_set) == headers - removed_headers;
+        invariant headers' + removed_headers == HeadersFromPrefix(requests, int(i));
+        invariant removed_headers * headers' == {};
     {
-        if CRequestsMatch(s[i], r) {
-            found := true;
-        } else {
-            i := i + 1;
+        ghost var old_requests' := requests';
+        ghost var old_headers' := headers';
+
+        lemma_RemoveAllSatisfiedCRequestsInSequenceUpdate(requests, r, int(i));
+
+        var h := CRequestHeader(requests[i].client, requests[i].seqno);
+        if h in removed_headers || h in headers'
+        {
+            var j :| 0 <= j < i && h == CRequestHeader(requests[j].client, requests[j].seqno);
+            assert CRequestsMatch(requests[j], requests[i]);
+            assert false;
         }
+        
+        if CRequestSatisfiedBy(requests[i], r) {
+            cur_req_set.Remove(h);
+            removed_headers := removed_headers + {h};
+        }
+        else {
+            headers' := headers' + {h};
+            requests' := requests' + [requests[i]];
+            lemma_AddingOneHeaderPreservesMatch(old_requests', old_headers', requests[i], requests', headers');
+        }
+
+        lemma_HeadersFromPrefixIncrease(requests, int(i));
+        i := i + 1;
     }
 
-    if !found {
-        s' := s;
-        headers' := headers;
-        lemma_RemoveFirstMatchingCRequestInSequenceNoMatch(s, r);
-    } else {
-        s' := s[0..i] + s[i+1..];
-        ghost var header := CRequestHeader(s[i].client, s[i].seqno);
-        // Very inefficient!
-        //headers' := set h | h in headers && h != CRequestHeader(s[i].client, s[i].seqno);
-        headers' := headers - { CRequestHeader(s[i].client, s[i].seqno) };
-        cur_req_set.Remove(CRequestHeader(s[i].client, s[i].seqno));
-        assert headers' == set h | h in headers && h != CRequestHeader(s[i].client, s[i].seqno);
-        assert headers' + { header } == headers;
-        assert |headers'| == |headers| - 1;
-        assert {:split_here} true;
-        forall r' | r' in s' 
-            ensures CRequestHeader(r'.client, r'.seqno) in headers';
-        {
-            ghost var h := CRequestHeader(r'.client, r'.seqno); 
-            assert r' in s;
-            if h != header {
-                assert h in headers';
-            } else {
-                ghost var j :| 0 <= j < |s'| && s'[j] == r';
-                ghost var k :| 0 <= k < |s| && s[k] == s'[j];
-                if int(i) < k {
-                    assert CRequestsMatch(s[i], s[k]);
-                } else {
-                    assert CRequestsMatch(s[k], s[i]);
-                }
-            }
-        }
-        assert {:split_here} true;
-        forall other_r | other_r in s && !CRequestsMatch(other_r, r)
-            ensures other_r in s';
-        {
-            ghost var j :| 0 <= j < |s| && s[j] == other_r;
-            assert j != int(i);
-            if j < int(i) {
-                assert s'[j] == s[j];
-                assert s'[j] == other_r;
-            } else {
-                assert s[j] == s'[j-1];
-                assert s'[j-1] == other_r;
-            }
-        }
-
-        forall i',j' | 0 <= i' < j' < |s'| && CRequestsMatch(s'[i'], s'[j']) 
-            ensures i' == j';
-        {
-        }
-
-        lemma_RemoveFirstMatchingCRequestInSequenceMatch(s, r, int(i));
-    }
+    assert requests[..i] == requests;
+    lemma_HeadersMatchImpliesHeadersFromPrefix(requests, headers);
 }
 
-
-lemma lemma_RemoveFirstMatchingPreservesHeaderMatches(s1:seq<CRequest>,  headers1:set<CRequestHeader>, 
-                                                        s2:seq<CRequest>,  headers2:set<CRequestHeader>,
-                                                        s1':seq<CRequest>, headers1':set<CRequestHeader>,
-                                                        s2':seq<CRequest>, headers2':set<CRequestHeader>,
-                                                        r:CRequest)
-    requires HeadersMatch(s1, headers1);
-    requires HeadersMatch(s2, headers2);
-    requires HeadersMatch(s1 + s2, headers1 + headers2);
-    requires HeadersMatch(s1', headers1');
-    requires HeadersMatch(s2', headers2');
-    requires headers1' == headers1 || headers1' + { CRequestHeader(r.client, r.seqno) } == headers1;
-    requires headers2' == headers2 || headers2' + { CRequestHeader(r.client, r.seqno) } == headers2;
-    requires forall other_r :: other_r in s1 && !CRequestsMatch(other_r, r) ==> other_r in s1';
-    requires forall other_r :: other_r in s2 && !CRequestsMatch(other_r, r) ==> other_r in s2';
-    requires headers1' == headers1 <==> s1' == s1;
-    requires headers2' == headers2 <==> s2' == s2;
-    ensures  HeadersMatch(s1' + s2', headers1' + headers2');
+lemma lemma_RemoveAllSatisfiedCRequestsProducesCRequestSubset(requests:seq<CRequest>, r:CRequest)
+    ensures  forall r' :: r' in RemoveAllSatisfiedCRequestsInSequence(requests, r) ==> r' in requests;
 {
 }
 
-lemma lemma_RemoveFirstMatchingCRequestInSequenceAbstractable(s:seq<CRequest>, r:CRequest)
+lemma lemma_RemoveAllSatisfiedCRequestsProducesHeaderSubset(
+    requests:seq<CRequest>,
+    headers:set<CRequestHeader>,
+    requests':seq<CRequest>,
+    headers':set<CRequestHeader>,
+    r:CRequest
+    )
+    requires HeadersMatch(requests, headers);
+    requires HeadersMatch(requests', headers');
+    requires requests' == RemoveAllSatisfiedCRequestsInSequence(requests, r);
+    ensures  headers' <= headers;
+{
+    forall h | h in headers'
+        ensures h in headers;
+    {
+        var i := lemma_HeadersMatchImpliesEveryHeaderHasACorrespondingEntry(requests', headers', h);
+        lemma_RemoveAllSatisfiedCRequestsProducesCRequestSubset(requests, r);
+        assert requests'[i] in requests;
+    }
+}
+    
+
+lemma lemma_RemoveAllSatisfiedPreservesHeaderMatches(requests1:seq<CRequest>,  headers1:set<CRequestHeader>, 
+                                                     requests2:seq<CRequest>,  headers2:set<CRequestHeader>,
+                                                     requests1':seq<CRequest>, headers1':set<CRequestHeader>,
+                                                     requests2':seq<CRequest>, headers2':set<CRequestHeader>,
+                                                     r:CRequest)
+    requires HeadersMatch(requests1, headers1);
+    requires HeadersMatch(requests2, headers2);
+    requires HeadersMatch(requests1 + requests2, headers1 + headers2);
+    requires HeadersMatch(requests1', headers1');
+    requires HeadersMatch(requests2', headers2');
+    requires requests1' == RemoveAllSatisfiedCRequestsInSequence(requests1, r);
+    requires requests2' == RemoveAllSatisfiedCRequestsInSequence(requests2, r);
+    ensures  HeadersMatch(requests1' + requests2', headers1' + headers2');
+{
+    var requests3 := requests1 + requests2;
+    var requests3' := requests1' + requests2';
+    var headers3' := headers1' + headers2';
+
+    lemma_RemoveAllSatisfiedCRequestsProducesHeaderSubset(requests1, headers1, requests1', headers1', r);
+    lemma_RemoveAllSatisfiedCRequestsProducesHeaderSubset(requests2, headers2, requests2', headers2', r);
+
+    forall h | h in headers1' && h in headers2'
+        ensures false;
+    {
+        assert h in headers1 && h in headers2;
+        var i := lemma_HeadersMatchImpliesEveryHeaderHasACorrespondingEntry(requests1, headers1, h);
+        var j := lemma_HeadersMatchImpliesEveryHeaderHasACorrespondingEntry(requests2, headers2, h);
+        assert CRequestsMatch(requests3[i], requests3[j + |requests1|]);
+    }
+    assert headers1' * headers2' == {};
+    assert |requests3'| == |headers3'|;
+}
+
+lemma lemma_RemoveAllSatisfiedCRequestsInSequenceAbstractable(s:seq<CRequest>, r:CRequest)
     requires CRequestsSeqIsAbstractable(s);
     requires CRequestIsAbstractable(r);
-    ensures  CRequestsSeqIsAbstractable(RemoveFirstMatchingCRequestInSequence(s, r));
-{
-}
-
-lemma lemma_RemoveFirstMatchingCRequestInSequenceLength(s:seq<CRequest>, r:CRequest)
-    ensures if (exists r' :: r' in s && CRequestsMatch(r', r)) then 
-                |RemoveFirstMatchingCRequestInSequence(s,r)| == |s| - 1
-            else 
-                |RemoveFirstMatchingCRequestInSequence(s,r)| == |s|;
+    ensures  CRequestsSeqIsAbstractable(RemoveAllSatisfiedCRequestsInSequence(s, r));
 {
 }
 
@@ -330,40 +459,21 @@ lemma lemma_CRequestsMatch()
 }
 
 
-lemma lemma_RemoveFirstMatchingCRequestInSequencePrefix(s:seq<CRequest>, r:CRequest)
-    requires CRequestsSeqIsAbstractable(s);
-    requires CRequestIsAbstractable(r);
-    requires |s| >= 1;
-    requires !CRequestsMatch(s[0], r);
-    ensures  CRequestsSeqIsAbstractable(RemoveFirstMatchingCRequestInSequence(s, r));
-    ensures  AbstractifyCRequestsSeqToRequestsSeq(RemoveFirstMatchingCRequestInSequence(s, r))
-             == [AbstractifyCRequestToRequest(s[0])] + AbstractifyCRequestsSeqToRequestsSeq(RemoveFirstMatchingCRequestInSequence(s[1..], r));
-{
-    lemma_RemoveFirstMatchingCRequestInSequenceAbstractable(s, r);
-    lemma_CRequestsMatch();
-    calc {
-        AbstractifyCRequestsSeqToRequestsSeq(RemoveFirstMatchingCRequestInSequence(s, r));
-        AbstractifyCRequestsSeqToRequestsSeq([s[0]] + RemoveFirstMatchingCRequestInSequence(s[1..], r));
-        AbstractifyCRequestsSeqToRequestsSeq([s[0]]) + AbstractifyCRequestsSeqToRequestsSeq(RemoveFirstMatchingCRequestInSequence(s[1..], r));
-        [AbstractifyCRequestToRequest(s[0])] + AbstractifyCRequestsSeqToRequestsSeq(RemoveFirstMatchingCRequestInSequence(s[1..], r));
-    }
-}
-
 lemma lemma_SequenceDots<T>(s:seq<T>, start:int)
     requires 0 <= start <= |s|;
     ensures s[start..] == s[start..|s|];
 {}
 
-lemma lemma_RemoveFirstMatchingCRequestInSequenceProperties(s:seq<CRequest>, r:CRequest)
+lemma lemma_RemoveAllSatisfiedCRequestsInSequenceProperties(s:seq<CRequest>, r:CRequest)
     requires CRequestsSeqIsAbstractable(s);
     requires CRequestIsAbstractable(r);
-    ensures  CRequestsSeqIsAbstractable(RemoveFirstMatchingCRequestInSequence(s, r));
-    ensures  AbstractifyCRequestsSeqToRequestsSeq(RemoveFirstMatchingCRequestInSequence(s, r)) 
-             == RemoveFirstMatchingRequestInSequence(AbstractifyCRequestsSeqToRequestsSeq(s), AbstractifyCRequestToRequest(r));
-    ensures  |RemoveFirstMatchingCRequestInSequence(s, r)| <= |s|;
-    ensures ElectionRequestQueueValid(s) ==> ElectionRequestQueueValid(RemoveFirstMatchingCRequestInSequence(s, r));
+    ensures  CRequestsSeqIsAbstractable(RemoveAllSatisfiedCRequestsInSequence(s, r));
+    ensures  AbstractifyCRequestsSeqToRequestsSeq(RemoveAllSatisfiedCRequestsInSequence(s, r)) 
+             == RemoveAllSatisfiedRequestsInSequence(AbstractifyCRequestsSeqToRequestsSeq(s), AbstractifyCRequestToRequest(r));
+    ensures  |RemoveAllSatisfiedCRequestsInSequence(s, r)| <= |s|;
+    ensures ElectionRequestQueueValid(s) ==> ElectionRequestQueueValid(RemoveAllSatisfiedCRequestsInSequence(s, r));
 {
-    lemma_RemoveFirstMatchingCRequestInSequenceAbstractable(s, r);
+    lemma_RemoveAllSatisfiedCRequestsInSequenceAbstractable(s, r);
     reveal_AbstractifyCRequestsSeqToRequestsSeq();
 
     if |s| == 0
@@ -376,7 +486,7 @@ lemma lemma_RemoveFirstMatchingCRequestInSequenceProperties(s:seq<CRequest>, r:C
         lemma_AbstractifyEndPointToNodeIdentity_injective(s[0].client, r.client);
     }
 
-    lemma_RemoveFirstMatchingCRequestInSequenceProperties(s[1..], r);
+    lemma_RemoveAllSatisfiedCRequestsInSequenceProperties(s[1..], r);
 }
 
 //////////////////////
@@ -921,21 +1031,21 @@ method {:timeLimitMultiplier 10} ElectionReflectReceivedRequest(ces:CElectionSta
     }
 }
 
-lemma lemma_SequenceRemoveFirstMatching(rseq:seq<Request>, batch:RequestBatch, i:int, rseq':seq<Request>, rseq'':seq<Request>)
+lemma lemma_SequenceRemoveAllSatisfied(rseq:seq<Request>, batch:RequestBatch, i:int, rseq':seq<Request>, rseq'':seq<Request>)
     requires 0 <= i < |batch|;
     requires rseq' == RemoveExecutedRequestBatch(rseq, batch[..i]);
-    requires rseq'' == RemoveFirstMatchingRequestInSequence(rseq', batch[i]);
+    requires rseq'' == RemoveAllSatisfiedRequestsInSequence(rseq', batch[i]);
     ensures rseq'' == RemoveExecutedRequestBatch(rseq, batch[..i+1]);
     decreases i;
 {
     if i > 0 {
         assert batch[1..][..i-1] == batch[1..i]; 
         assert batch[1..][..i] == batch[1..i+1]; 
-        var rseqalt := RemoveFirstMatchingRequestInSequence(rseq, batch[0]);
+        var rseqalt := RemoveAllSatisfiedRequestsInSequence(rseq, batch[0]);
         var rseqalt' := RemoveExecutedRequestBatch(rseqalt, batch[1..i]);
-        var rseqalt'' := RemoveFirstMatchingRequestInSequence(rseqalt', batch[i]);
+        var rseqalt'' := RemoveAllSatisfiedRequestsInSequence(rseqalt', batch[i]);
 
-        lemma_SequenceRemoveFirstMatching(rseqalt, batch[1..], i-1, rseqalt', rseqalt''); 
+        lemma_SequenceRemoveAllSatisfied(rseqalt, batch[1..], i-1, rseqalt', rseqalt''); 
     }
 }
 
@@ -943,7 +1053,7 @@ method {:timeLimitMultiplier 3} ElectionReflectExecutedRequestBatch(ces:CElectio
     requires CElectionStateIsValid(ces);
     requires CRequestBatchIsAbstractable(creqb);
     requires ValidRequestBatch(creqb);
-    requires cur_req_set != null && prev_req_set != null;
+    requires cur_req_set != null && prev_req_set != null && cur_req_set != prev_req_set;
     requires MutableSet.SetOf(cur_req_set) == ces.cur_req_set;
     requires MutableSet.SetOf(prev_req_set) == ces.prev_req_set;
     modifies cur_req_set, prev_req_set;
@@ -970,25 +1080,27 @@ method {:timeLimitMultiplier 3} ElectionReflectExecutedRequestBatch(ces:CElectio
         ghost var req := AbstractifyCRequestToRequest(creq);
         ghost var es':ElectionState := AbstractifyCElectionStateToElectionState(tempces');
        
-        lemma_RemoveFirstMatchingCRequestInSequenceProperties(tempces'.requests_received_prev_epochs, creq);
-        lemma_RemoveFirstMatchingCRequestInSequenceProperties(tempces'.requests_received_this_epoch, creq);
+        lemma_RemoveAllSatisfiedCRequestsInSequenceProperties(tempces'.requests_received_prev_epochs, creq);
+        lemma_RemoveAllSatisfiedCRequestsInSequenceProperties(tempces'.requests_received_this_epoch, creq);
 
         assert ElectionStateReflectExecutedRequestBatch(es, AbstractifyCElectionStateToElectionState(tempces'), AbstractifyCRequestBatchToRequestBatch(creqb[..i]));
-        ghost var es'' := es'.(requests_received_prev_epochs := RemoveFirstMatchingRequestInSequence(es'.requests_received_prev_epochs, req),
-                               requests_received_this_epoch := RemoveFirstMatchingRequestInSequence(es'.requests_received_this_epoch, req));
+        ghost var es'' := es'.(requests_received_prev_epochs := RemoveAllSatisfiedRequestsInSequence(es'.requests_received_prev_epochs, req),
+                               requests_received_this_epoch := RemoveAllSatisfiedRequestsInSequence(es'.requests_received_this_epoch, req));
 
         var prevEpoch;
         ghost var prevEpochSet;
-        prevEpoch, prevEpochSet := RemoveFirstMatchingCRequestInSequenceIter(tempces'.requests_received_prev_epochs, tempces'.prev_req_set, prev_req_set, creq);
+        prevEpoch, prevEpochSet := RemoveAllSatisfiedCRequestsInSequenceIter(tempces'.requests_received_prev_epochs, tempces'.prev_req_set, prev_req_set, creq);
         var thisEpoch; 
         ghost var thisEpochSet;
-        thisEpoch, thisEpochSet := RemoveFirstMatchingCRequestInSequenceIter(tempces'.requests_received_this_epoch, tempces'.cur_req_set, cur_req_set, creq);
+        thisEpoch, thisEpochSet := RemoveAllSatisfiedCRequestsInSequenceIter(tempces'.requests_received_this_epoch, tempces'.cur_req_set, cur_req_set, creq);
 
-        lemma_RemoveFirstMatchingPreservesHeaderMatches(tempces'.requests_received_prev_epochs, tempces'.prev_req_set,
+
+        lemma_RemoveAllSatisfiedPreservesHeaderMatches(tempces'.requests_received_prev_epochs, tempces'.prev_req_set,
                                                           tempces'.requests_received_this_epoch, tempces'.cur_req_set,
                                                           prevEpoch, prevEpochSet,
                                                           thisEpoch, thisEpochSet,
                                                           creq);
+
         tempces' := tempces'.(requests_received_prev_epochs := prevEpoch,
                               requests_received_this_epoch := thisEpoch)
                               [cur_req_set := thisEpochSet]
@@ -996,8 +1108,8 @@ method {:timeLimitMultiplier 3} ElectionReflectExecutedRequestBatch(ces:CElectio
         assert {:split_here} true;
         assert AbstractifyCRequestBatchToRequestBatch(creqb[..i]) == AbstractifyCRequestBatchToRequestBatch(creqb)[..i];
         assert AbstractifyCRequestBatchToRequestBatch(creqb[..i+1]) == AbstractifyCRequestBatchToRequestBatch(creqb)[..i+1];
-        lemma_SequenceRemoveFirstMatching(es.requests_received_prev_epochs, AbstractifyCRequestBatchToRequestBatch(creqb), int(i), es'.requests_received_prev_epochs, es''.requests_received_prev_epochs);
-        lemma_SequenceRemoveFirstMatching(es.requests_received_this_epoch, AbstractifyCRequestBatchToRequestBatch(creqb), int(i), es'.requests_received_this_epoch, es''.requests_received_this_epoch);
+        lemma_SequenceRemoveAllSatisfied(es.requests_received_prev_epochs, AbstractifyCRequestBatchToRequestBatch(creqb), int(i), es'.requests_received_prev_epochs, es''.requests_received_prev_epochs);
+        lemma_SequenceRemoveAllSatisfied(es.requests_received_this_epoch, AbstractifyCRequestBatchToRequestBatch(creqb), int(i), es'.requests_received_this_epoch, es''.requests_received_this_epoch);
         i := i + 1;
     }
     assert creqb[..i] == creqb;

@@ -70,14 +70,19 @@ predicate RequestsMatch(r1:Request, r2:Request)
     r1.Request? && r2.Request? && r1.client == r2.client && r1.seqno == r2.seqno
 }
 
-function RemoveFirstMatchingRequestInSequence(s:seq<Request>, r:Request):seq<Request>
+predicate RequestSatisfiedBy(r1:Request, r2:Request)
+{
+    r1.Request? && r2.Request? && r1.client == r2.client && r1.seqno <= r2.seqno
+}
+
+function RemoveAllSatisfiedRequestsInSequence(s:seq<Request>, r:Request):seq<Request>
 {
     if |s| == 0 then
         []
-    else if RequestsMatch(s[0], r) then
-        s[1..]
+    else if RequestSatisfiedBy(s[0], r) then
+        RemoveAllSatisfiedRequestsInSequence(s[1..], r)
     else
-        [s[0]] + RemoveFirstMatchingRequestInSequence(s[1..], r)
+        [s[0]] + RemoveAllSatisfiedRequestsInSequence(s[1..], r)
 }
 
 //////////////////////
@@ -187,7 +192,7 @@ function RemoveExecutedRequestBatch(reqs:seq<Request>, batch:RequestBatch):seq<R
     if |batch| == 0 then
         reqs
     else
-        RemoveExecutedRequestBatch(RemoveFirstMatchingRequestInSequence(reqs, batch[0]), batch[1..])
+        RemoveExecutedRequestBatch(RemoveAllSatisfiedRequestsInSequence(reqs, batch[0]), batch[1..])
 }
 
 predicate ElectionStateReflectExecutedRequestBatch(

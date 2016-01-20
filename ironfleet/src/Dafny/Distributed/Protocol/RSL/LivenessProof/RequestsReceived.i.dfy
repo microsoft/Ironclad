@@ -51,24 +51,26 @@ function {:opaque} RequestInRequestsReceivedThisOrPrevEpochsTemporal(b:Behavior<
     stepmap(imap i :: RequestInRequestsReceivedThisOrPrevEpochs(b[i], req, idx))
 }
 
-lemma lemma_RemoveFirstMatchingRequestRemoval(s:seq<Request>, r:Request, r':Request)
-    ensures r' in s && r' !in RemoveFirstMatchingRequestInSequence(s, r) ==> RequestsMatch(r, r');
+lemma lemma_RemoveAllSatisfiedRequestsRemoval(s:seq<Request>, r:Request, r':Request)
+    ensures r' in s && r' !in RemoveAllSatisfiedRequestsInSequence(s, r) ==> RequestSatisfiedBy(r', r);
 {
-    if r' in s && r' !in RemoveFirstMatchingRequestInSequence(s, r)
+    if r' in s && r' !in RemoveAllSatisfiedRequestsInSequence(s, r)
     {
         assert |s| > 0;
-        if RequestsMatch(s[0], r)
+        assert r' !in RemoveAllSatisfiedRequestsInSequence(s[1..], r);
+        lemma_RemoveAllSatisfiedRequestsRemoval(s[1..], r, r');
+        if RequestSatisfiedBy(s[0], r)
         {
-            assert r' !in s[1..];
             assert r' in s;
-            assert r' == s[0];
-            assert RequestsMatch(r, r');
+            if r' == s[0]
+            {
+                assert RequestSatisfiedBy(r', r);
+            }
         }
         else
         {
             assert r' != s[0];
             assert r' in s[1..];
-            lemma_RemoveFirstMatchingRequestRemoval(s[1..], r, r');
         }
     }
 }
@@ -77,21 +79,21 @@ lemma lemma_RemoveExecutedRequestBatchRemoval(s:seq<Request>, batch:RequestBatch
     requires r' in s;
     requires r' !in RemoveExecutedRequestBatch(s, batch);
     ensures  0 <= req_idx < |batch|;
-    ensures  RequestsMatch(batch[req_idx], r');
+    ensures  RequestSatisfiedBy(r', batch[req_idx]);
     decreases |batch|;
 {
     if |batch| == 0
     {
     }
-    else if RequestsMatch(batch[0], r')
+    else if RequestSatisfiedBy(r', batch[0])
     {
         req_idx := 0;
     }
     else
     {
-        lemma_RemoveFirstMatchingRequestRemoval(s, batch[0], r');
-        assert r' in RemoveFirstMatchingRequestInSequence(s, batch[0]);
-        var req_idx_minus_1 := lemma_RemoveExecutedRequestBatchRemoval(RemoveFirstMatchingRequestInSequence(s, batch[0]), batch[1..], r');
+        lemma_RemoveAllSatisfiedRequestsRemoval(s, batch[0], r');
+        assert r' in RemoveAllSatisfiedRequestsInSequence(s, batch[0]);
+        var req_idx_minus_1 := lemma_RemoveExecutedRequestBatchRemoval(RemoveAllSatisfiedRequestsInSequence(s, batch[0]), batch[1..], r');
         req_idx := req_idx_minus_1 + 1;
     }
 }
@@ -104,38 +106,45 @@ lemma lemma_IfObjectNotInFirstNOfSequenceItsNotTheFirst<T>(r:T, s:seq<T>, n:int)
 {
 }
 
-lemma lemma_RemoveFirstMatchingRequestRemovalFromFirstN(s:seq<Request>, r:Request, r':Request, n:int)
-    ensures ObjectInFirstNOfSequence(r', s, n) && !ObjectInFirstNOfSequence(r', RemoveFirstMatchingRequestInSequence(s, r), n)
-            ==> RequestsMatch(r, r');
+lemma lemma_RemoveAllSatisfiedRequestsRemovalFromFirstN(s:seq<Request>, r:Request, r':Request, n:int)
+    ensures ObjectInFirstNOfSequence(r', s, n) && !ObjectInFirstNOfSequence(r', RemoveAllSatisfiedRequestsInSequence(s, r), n)
+            ==> RequestSatisfiedBy(r', r);
 {
-    if ObjectInFirstNOfSequence(r', s, n) && !ObjectInFirstNOfSequence(r', RemoveFirstMatchingRequestInSequence(s, r), n)
+    if ObjectInFirstNOfSequence(r', s, n) && !ObjectInFirstNOfSequence(r', RemoveAllSatisfiedRequestsInSequence(s, r), n)
     {
         assert |s| > 0;
         assert n > 0;
-        if RequestsMatch(s[0], r)
+        if RequestSatisfiedBy(s[0], r)
         {
-            assert !ObjectInFirstNOfSequence(r', s[1..], n);
-            if |s[1..]| <= n
+            if !ObjectInFirstNOfSequence(r', s[1..], n)
             {
-                assert r' !in s[1..];
-                assert r' == s[0];
+                if |s[1..]| <= n
+                {
+                    assert r' !in s[1..];
+                    assert r' == s[0];
+                }
+                else
+                {
+                    assert r' !in s[1..][..n];
+                    assert r' !in s[1..n];
+                    assert |s| >= n;
+                    assert r' in s[..n];
+                    assert r' == s[0];
+                }
+                assert RequestSatisfiedBy(r', r);
             }
             else
             {
-                assert r' !in s[1..][..n];
-                assert r' !in s[1..n];
-                assert |s| >= n;
-                assert r' in s[..n];
-                assert r' == s[0];
-            }                
-            assert RequestsMatch(r, r');
+                lemma_RemoveAllSatisfiedRequestsRemovalFromFirstN(s[1..], r, r', n-1);
+                assert RequestSatisfiedBy(r', r);
+            }
         }
         else
         {
-            assert !ObjectInFirstNOfSequence(r', [s[0]] + RemoveFirstMatchingRequestInSequence(s[1..], r), n);
-            lemma_IfObjectNotInFirstNOfSequenceItsNotTheFirst(r', [s[0]] + RemoveFirstMatchingRequestInSequence(s[1..], r), n);
+            assert !ObjectInFirstNOfSequence(r', [s[0]] + RemoveAllSatisfiedRequestsInSequence(s[1..], r), n);
+            lemma_IfObjectNotInFirstNOfSequenceItsNotTheFirst(r', [s[0]] + RemoveAllSatisfiedRequestsInSequence(s[1..], r), n);
             assert r' != s[0];
-            lemma_RemoveFirstMatchingRequestRemovalFromFirstN(s[1..], r, r', n-1);
+            lemma_RemoveAllSatisfiedRequestsRemovalFromFirstN(s[1..], r, r', n-1);
         }
     }
 }
@@ -144,25 +153,47 @@ lemma lemma_RemoveExecutedRequestBatchRemovalFromFirstN(s:seq<Request>, batch:Re
     requires ObjectInFirstNOfSequence(r', s, n);
     requires !ObjectInFirstNOfSequence(r', RemoveExecutedRequestBatch(s, batch), n);
     ensures  0 <= req_idx < |batch|;
-    ensures  RequestsMatch(batch[req_idx], r');
+    ensures  RequestSatisfiedBy(r', batch[req_idx]);
     decreases |batch|;
 {
     if |batch| == 0
     {
     }
-    else if RequestsMatch(batch[0], r')
+    else if RequestSatisfiedBy(r', batch[0])
     {
         req_idx := 0;
     }
     else
     {
-        lemma_RemoveFirstMatchingRequestRemovalFromFirstN(s, batch[0], r', n);
-        var s' := RemoveFirstMatchingRequestInSequence(s, batch[0]);
+        lemma_RemoveAllSatisfiedRequestsRemovalFromFirstN(s, batch[0], r', n);
+        var s' := RemoveAllSatisfiedRequestsInSequence(s, batch[0]);
         assert ObjectInFirstNOfSequence(r', s', n);
         assert !ObjectInFirstNOfSequence(r', RemoveExecutedRequestBatch(s', batch[1..]), n);
         var req_idx_minus_1 := lemma_RemoveExecutedRequestBatchRemovalFromFirstN(s', batch[1..], r', n);
         req_idx := req_idx_minus_1 + 1;
     }
+}
+
+lemma lemma_NextOpToExecuteNeverExceedsSeqno(
+    b:Behavior<RslState>,
+    asp:AssumptionParameters,
+    i:int,
+    idx:int,
+    req_idx:int
+    )
+    requires LivenessAssumptions(b, asp);
+    requires 0 <= i;
+    requires 0 <= idx < |b[i].replicas|;
+    requires b[i].replicas[idx].replica.executor.next_op_to_execute.OutstandingOpKnown?;
+    requires 0 <= req_idx < |b[i].replicas[idx].replica.executor.next_op_to_execute.v|;
+    requires b[i].replicas[idx].replica.executor.next_op_to_execute.v[req_idx].client == asp.persistent_request.client;
+    ensures  b[i].replicas[idx].replica.executor.next_op_to_execute.v[req_idx].seqno <= asp.persistent_request.seqno;
+{
+    var s := b[i].replicas[idx].replica;
+
+    lemma_SequenceNumberStateInvHolds(b, asp, i);
+    assert SequenceNumberReplicaInv(s, asp.persistent_request);
+    assert SequenceNumberRequestInv(s.executor.next_op_to_execute.v[req_idx], asp.persistent_request);
 }
 
 lemma lemma_EventuallyPersistentRequestInRequestsReceivedThisOrPrevEpochs(
@@ -285,11 +316,13 @@ lemma lemma_EventuallyPersistentRequestAlwaysInRequestsReceivedThisOrPrevEpochs(
             if asp.persistent_request in es.requests_received_prev_epochs
             {
                 var req_idx := lemma_RemoveExecutedRequestBatchRemoval(es.requests_received_prev_epochs, s.executor.next_op_to_execute.v, asp.persistent_request);
+                lemma_NextOpToExecuteNeverExceedsSeqno(b, asp, j, idx, req_idx);
                 assert ReplySentToClientWithSeqno(b[j], b[j+1], client, seqno, idx, ios, req_idx);
             }
             else
             {
                 var req_idx := lemma_RemoveExecutedRequestBatchRemoval(es.requests_received_this_epoch, s.executor.next_op_to_execute.v, asp.persistent_request);
+                lemma_NextOpToExecuteNeverExceedsSeqno(b, asp, j, idx, req_idx);
                 assert ReplySentToClientWithSeqno(b[j], b[j+1], client, seqno, idx, ios, req_idx);
             }
             lemma_PersistentRequestNeverExecuted(b, asp, idx);
@@ -362,6 +395,7 @@ lemma lemma_RequestInRequestsReceivedThisOrPrevEpochsWithSpecificEpochEndLeadsTo
             if LReplicaNextSpontaneousMaybeExecute(s, s', ExtractSentPacketsFromIos(ios))
             {
                 var req_idx := lemma_RemoveExecutedRequestBatchRemoval(es.requests_received_this_epoch, s.executor.next_op_to_execute.v, asp.persistent_request);
+                lemma_NextOpToExecuteNeverExceedsSeqno(b, asp, i, idx, req_idx);
                 assert ReplySentToClientWithSeqno(b[i], b[i+1], asp.persistent_request.client, asp.persistent_request.seqno, idx, ios, req_idx);
                 lemma_PersistentRequestNeverExecuted(b, asp, idx);
                 TemporalDeduceFromAlways(asp.synchrony_start, i, not(RequestWithSeqnoExecutedTemporal(b, asp.persistent_request.client, asp.persistent_request.seqno, idx)));
@@ -530,6 +564,7 @@ lemma lemma_EventuallyPersistentRequestAlwaysInRequestsReceivedPrevEpochs(
             var es' := s'.proposer.election_state;
             assert LReplicaNextSpontaneousMaybeExecute(s, s', ExtractSentPacketsFromIos(ios));
             var req_idx := lemma_RemoveExecutedRequestBatchRemoval(es.requests_received_prev_epochs, s.executor.next_op_to_execute.v, asp.persistent_request);
+            lemma_NextOpToExecuteNeverExceedsSeqno(b, asp, j, idx, req_idx);
             assert ReplySentToClientWithSeqno(b[j], b[j+1], client, seqno, idx, ios, req_idx);
             lemma_PersistentRequestNeverExecuted(b, asp, idx);
             TemporalDeduceFromAlways(asp.synchrony_start, j, not(RequestWithSeqnoExecutedTemporal(b, client, seqno, idx)));
@@ -633,6 +668,7 @@ lemma lemma_PersistentRequestDoesNotIncreasePositionInRequestsReceivedPrevEpochs
             var es' := s'.proposer.election_state;
             assert LReplicaNextSpontaneousMaybeExecute(s, s', ExtractSentPacketsFromIos(ios));
             var req_idx := lemma_RemoveExecutedRequestBatchRemovalFromFirstN(es.requests_received_prev_epochs, s.executor.next_op_to_execute.v, asp.persistent_request, n);
+            lemma_NextOpToExecuteNeverExceedsSeqno(b, asp, j, idx, req_idx);
             assert ReplySentToClientWithSeqno(b[j], b[j+1], client, seqno, idx, ios, req_idx);
             lemma_PersistentRequestNeverExecuted(b, asp, idx);
             TemporalDeduceFromAlways(asp.synchrony_start, j, not(RequestWithSeqnoExecutedTemporal(b, client, seqno, idx)));

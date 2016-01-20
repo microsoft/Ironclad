@@ -1340,7 +1340,7 @@ method ProposerResetViewTimerDueToExecution(proposer:ProposerState, val:CRequest
     requires ProposerIsValid(proposer);
     requires CRequestBatchIsAbstractable(val);
     requires ValidRequestBatch(val);
-    requires cur_req_set != null && prev_req_set != null;
+    requires cur_req_set != null && prev_req_set != null && cur_req_set != prev_req_set;
     requires MutableSet.SetOf(cur_req_set) == proposer.election_state.cur_req_set;
     requires MutableSet.SetOf(prev_req_set) == proposer.election_state.prev_req_set;
     modifies cur_req_set, prev_req_set;

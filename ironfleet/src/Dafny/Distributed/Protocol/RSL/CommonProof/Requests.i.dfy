@@ -16,13 +16,13 @@ import opened CommonProof__Environment_i
 import opened CommonProof__PacketSending_i
 import opened CommonProof__Chosen_i
 
-lemma lemma_RemoveFirstMatchingRequestInSequenceProducesSubsequence(s':seq<Request>, s:seq<Request>, r:Request)
-    requires s' == RemoveFirstMatchingRequestInSequence(s, r);
+lemma lemma_RemoveAllSatisfiedRequestsInSequenceProducesSubsequence(s':seq<Request>, s:seq<Request>, r:Request)
+    requires s' == RemoveAllSatisfiedRequestsInSequence(s, r);
     ensures  forall x :: x in s' ==> x in s;
 {
     if |s| > 0 && !RequestsMatch(s[0], r)
     {
-        lemma_RemoveFirstMatchingRequestInSequenceProducesSubsequence(RemoveFirstMatchingRequestInSequence(s[1..], r), s[1..], r);
+        lemma_RemoveAllSatisfiedRequestsInSequenceProducesSubsequence(RemoveAllSatisfiedRequestsInSequence(s[1..], r), s[1..], r);
     }
         
 }
@@ -34,8 +34,8 @@ lemma lemma_RemoveExecutedRequestBatchProducesSubsequence(s':seq<Request>, s:seq
 {
     if |batch| > 0
     {
-        var s'' := RemoveFirstMatchingRequestInSequence(s, batch[0]);
-        lemma_RemoveFirstMatchingRequestInSequenceProducesSubsequence(s'', s, batch[0]);
+        var s'' := RemoveAllSatisfiedRequestsInSequence(s, batch[0]);
+        lemma_RemoveAllSatisfiedRequestsInSequenceProducesSubsequence(s'', s, batch[0]);
         lemma_RemoveExecutedRequestBatchProducesSubsequence(s', s'', batch[1..]);
     }
 }
