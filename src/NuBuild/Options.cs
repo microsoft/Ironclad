@@ -1,4 +1,4 @@
-﻿namespace NuBuild
+namespace NuBuild
 {
     using System;
     using System.Collections.Generic;
@@ -36,6 +36,10 @@
                 {
                     connectionString = (string)this.root["credentials"]["storage"];
                 }
+                catch (ArgumentNullException)
+                {
+                    throw new InvalidOperationException("Unable to find storage credentials. Please check your config.json file.");
+                }
                 catch (NullReferenceException)
                 {
                     throw new InvalidOperationException("Unable to find storage credentials. Please check your config.json file.");
@@ -60,6 +64,10 @@
                     result = (bool)this.root["use_cloud_cache"];
 
                 }
+                catch (ArgumentNullException)
+                {
+                    return defaultValue;
+                }
                 catch (NullReferenceException)
                 {
                     return defaultValue;
@@ -82,6 +90,10 @@
                 return (string)this.root["paths"][name];
 
             }
+            catch (ArgumentNullException)
+            {
+                return defaultValue;
+            }
             catch (NullReferenceException)
             {
                 return defaultValue;
@@ -95,6 +107,10 @@
                 try
                 {
                     return (string)this.root["credentials"]["subscription_id"];
+                }
+                catch (ArgumentNullException)
+                {
+                    throw new InvalidOperationException("Unable to find subscription id. Please check your config.json file.");
                 }
                 catch (NullReferenceException)
                 {
@@ -110,6 +126,10 @@
                 try
                 {
                     return (string)this.root["credentials"]["certificate"];
+                }
+                catch (ArgumentNullException)
+                {
+                    throw new InvalidOperationException("Unable to find certificate. Please check your config.json file.");
                 }
                 catch (NullReferenceException)
                 {
@@ -133,6 +153,10 @@
                 {
                     result = (bool)this.root["enforce_whitespace"];
 
+                }
+                catch (ArgumentNullException)
+                {
+                    return defaultValue;
                 }
                 catch (NullReferenceException)
                 {
