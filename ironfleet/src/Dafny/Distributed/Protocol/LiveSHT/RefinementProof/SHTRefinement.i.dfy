@@ -52,11 +52,9 @@ predicate LSHTState_RefinementInvariant(s:LSHT_State)
                LScheduler_RefinementInvariant(s.hosts[nodeIndex]))
 }
 
-predicate IsSHTStateRefinementSequenceOf(s:seq<SHT_State>, ls:SHT_State, ls':SHT_State)
+predicate SHTNextOrStutter(ls:SHT_State, ls':SHT_State)
 {
-       |s| > 0
-    && s[0] == ls
-    && s[|s|-1] == ls'
-    && (forall i {:trigger SHT_Next(s[i], s[i+1])} :: 0 <= i < |s|-1 ==> SHT_Next(s[i], s[i+1]))
+    ls == ls' || SHT_Next(ls, ls')
 }
+
 } 

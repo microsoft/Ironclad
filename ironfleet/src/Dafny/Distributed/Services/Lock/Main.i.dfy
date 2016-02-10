@@ -372,37 +372,32 @@ module Main_i exclusively refines Main_s {
         }
     }
 
-    lemma {:timeLimitMultiplier 2} RefinementToServiceState(config:ConcreteConfiguration, glb:seq<GLS_State>) returns (sb:seq<ServiceState>, cm:seq<int>)
+    lemma {:timeLimitMultiplier 2} RefinementToServiceState(config:ConcreteConfiguration, glb:seq<GLS_State>) returns (sb:seq<ServiceState>)
         requires |glb| > 0;
         requires GLS_Init(glb[0], config);
         requires forall i {:trigger GLS_Next(glb[i], glb[i+1])} :: 0 <= i < |glb| - 1 ==> GLS_Next(glb[i], glb[i+1]);
-        ensures  |cm| == |glb|;
-        ensures  cm[0] == 0;                                            // Beginnings match
-        ensures  forall i :: 0 <= i < |cm| ==> 0 <= cm[i] < |sb|;       // Mappings are in bounds
-        ensures  forall i {:trigger cm[i], cm[i+1]} :: 0 <= i < |cm| - 1 ==> cm[i] <= cm[i+1];    // Mapping is monotonic
+        ensures  |sb| == |glb|;
         ensures  Service_Init(sb[0], MapSeqToSet(config, x=>x));
-        ensures  forall i {:trigger Service_Next(sb[i], sb[i+1])} :: 0 <= i < |sb| - 1 ==> Service_Next(sb[i], sb[i+1]);
-        ensures  forall i :: 0 <= i < |glb| ==> sb[cm[i]] == AbstractifyGLS_State(glb[i]);
+        ensures  forall i {:trigger Service_Next(sb[i], sb[i+1])} :: 0 <= i < |sb| - 1 ==> sb[i] == sb[i+1] || Service_Next(sb[i], sb[i+1]);
+        ensures  forall i :: 0 <= i < |glb| ==> sb[i] == AbstractifyGLS_State(glb[i]);
         ensures  forall i :: 0 <= i < |sb| ==> sb[i].hosts == sb[0].hosts;
         ensures  sb[|sb|-1] == AbstractifyGLS_State(glb[|glb|-1]);
     {
         if |glb| == 1 {
             sb := [AbstractifyGLS_State(glb[0])];
-            cm := [0];
             lemma_InitRefines(glb[0], config);
             assert Service_Init(AbstractifyGLS_State(glb[0]), MapSeqToSet(config, x=>x));
         } else {
-            var rest, rest_cm := RefinementToServiceState(config, all_but_last(glb));
+            var rest := RefinementToServiceState(config, all_but_last(glb));
             var gls := last(all_but_last(glb));
             var gls' := last(glb);
 
             lemma_LS_NextAbstract(glb, config, |glb|-2);
+            sb := rest + [AbstractifyGLS_State(gls')];
             if (AbstractifyGLS_State(gls) == AbstractifyGLS_State(gls')) {
-                sb := rest;
-                cm := rest_cm + [last(rest_cm)];
+                assert sb[|sb|-2] == sb[|sb|-1];
             } else {
-                sb := rest + [AbstractifyGLS_State(gls')];
-                cm := rest_cm + [|sb|-1];
+                assert Service_Next(sb[|sb|-2], sb[|sb|-1]);
             }
         }
     }
@@ -486,30 +481,28 @@ module Main_i exclusively refines Main_s {
         lemma_DsConsistency(config, db, i-1);
     }
 
-    lemma RefinementProof(config:ConcreteConfiguration, db:seq<DS_State>) returns (sb:seq<ServiceState>, cm:seq<int>)
-        /*requires |db| > 0;
+    lemma RefinementProof(config:ConcreteConfiguration, db:seq<DS_State>) returns (sb:seq<ServiceState>)
+        /*
+        requires |db| > 0;
         requires DS_Init(db[0], config);
-        requires forall i :: 0 <= i < |db| - 1 ==> DS_Next(db[i], db[i+1]);
-        requires last(db).environment.nextStep.LEnvStepStutter?;
-        ensures  |db| == |cm|;
-        ensures  cm[0] == 0;                                            // Beginnings match
-        ensures  forall i :: 0 <= i < |cm| ==> 0 <= cm[i] < |sb|;       // Mappings are in bounds
-        ensures  forall i :: 0 <= i < |cm| - 1 ==> cm[i] <= cm[i+1];    // Mapping is monotonic
+        requires forall i {:trigger DS_Next(db[i], db[i+1])} :: 0 <= i < |db| - 1 ==> DS_Next(db[i], db[i+1]);
+        ensures  |db| == |sb|;
         ensures  Service_Init(sb[0], Collections__Maps2_s.mapdomain(db[0].servers));
-        ensures  forall i :: 0 <= i < |sb| - 1 ==> Service_Next(sb[i], sb[i+1]);
-        ensures  forall i :: 0 <= i < |db| ==> Service_Correspondence(db[i].environment.sentPackets, sb[cm[i]]);*/
+        ensures  forall i {:trigger Service_Next(sb[i], sb[i+1])} :: 0 <= i < |sb| - 1 ==> sb[i] == sb[i+1] || Service_Next(sb[i], sb[i+1]);
+        ensures  forall i :: 0 <= i < |db| ==> Service_Correspondence(db[i].environment.sentPackets, sb[i]);
+        */
     {
         var lsb := RefinementToLSState(config, db);
         var glsb := MakeGLSBehaviorFromLS(config, lsb);
-        sb, cm := RefinementToServiceState(config, glsb);
+        sb := RefinementToServiceState(config, glsb);
         //assert forall i :: 0 <= i < |sb| - 1 ==> Service_Next(sb[i], sb[i+1]);
         
         forall i | 0 <= i < |db|
-            ensures Service_Correspondence(db[i].environment.sentPackets, sb[cm[i]]);
+            ensures Service_Correspondence(db[i].environment.sentPackets, sb[i]);
         {
             var ls := lsb[i];
             var gls := glsb[i];
-            var ss := sb[cm[i]];
+            var ss := sb[i];
             var history := MakeLockHistory(glsb, config, i);
             assert history == gls.history;
             forall p, epoch | 

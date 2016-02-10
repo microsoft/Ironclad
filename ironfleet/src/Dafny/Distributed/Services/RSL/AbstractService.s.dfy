@@ -1,8 +1,10 @@
 include "../../Common/Framework/AbstractService.s.dfy"
+include "../../Common/Collections/Seqs.s.dfy"
 include "AppStateMachine.s.dfy"
 
 module AbstractServiceRSL_s exclusively refines AbstractService_s {
 import opened AppStateMachine_s
+import opened Collections__Seqs_s
     
 datatype AppRequest = AppRequest(client:EndPoint, seqno:int, request:AppMessage)
 datatype AppReply   = AppReply(client:EndPoint, seqno:int, reply:AppMessage)
@@ -24,17 +26,25 @@ predicate Service_Init(s:ServiceState, serverAddresses:set<EndPoint>)
     && s.replies == {}
 }
 
-predicate ServiceNextServerExecutesAppRequest(s:ServiceState, s':ServiceState, client:EndPoint, seqno:int, request:AppMessage)
+predicate ServiceExecutesAppRequest(s:ServiceState, s':ServiceState, req:AppRequest)
 {
        s'.serverAddresses == s.serverAddresses
-    && s'.requests == s.requests + { AppRequest(client, seqno, request) }
-    && s'.app == AppHandleRequest(s.app, request).0
-    && s'.replies == s.replies + { AppReply(client, seqno, AppHandleRequest(s.app, request).1) }
+    && s'.requests == s.requests + { req }
+    && s'.app == AppHandleRequest(s.app, req.request).0
+    && s'.replies == s.replies + { AppReply(req.client, req.seqno, AppHandleRequest(s.app, req.request).1) }
+}
+
+predicate StateSequenceReflectsBatchExecution(s:ServiceState, s':ServiceState, intermediate_states:seq<ServiceState>, batch:seq<AppRequest>)
+{
+       |intermediate_states| == |batch| + 1
+    && intermediate_states[0] == s
+    && last(intermediate_states) == s'
+    && forall i :: 0 <= i < |batch| ==> ServiceExecutesAppRequest(intermediate_states[i], intermediate_states[i+1], batch[i])
 }
 
 predicate Service_Next(s:ServiceState, s':ServiceState)
 {
-    exists client, seqno, request :: ServiceNextServerExecutesAppRequest(s, s', client, seqno, request)
+    exists intermediate_states, batch :: StateSequenceReflectsBatchExecution(s, s', intermediate_states, batch)
 }
 
 function Uint64ToBytes(u:uint64) : seq<byte>

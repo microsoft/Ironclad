@@ -19,17 +19,25 @@ predicate RslSystemInit(s:RSLSystemState, server_addresses:set<NodeIdentity>)
     && s.replies == {}
 }
 
-predicate RslSystemNextServerExecutesRequest(s:RSLSystemState, s':RSLSystemState, client:NodeIdentity, seqno:int, request:AppMessage)
+predicate RslSystemNextServerExecutesRequest(s:RSLSystemState, s':RSLSystemState, req:Request)
 {
        s'.server_addresses == s.server_addresses
-    && s'.requests == s.requests + { Request(client, seqno, request) }
-    && s'.app == AppHandleRequest(s.app, request).0
-    && s'.replies == s.replies + { Reply(client, seqno, AppHandleRequest(s.app, request).1) }
+    && s'.requests == s.requests + { req }
+    && s'.app == AppHandleRequest(s.app, req.request).0
+    && s'.replies == s.replies + { Reply(req.client, req.seqno, AppHandleRequest(s.app, req.request).1) }
+}
+
+predicate RslStateSequenceReflectsBatchExecution(s:RSLSystemState, s':RSLSystemState, intermediate_states:seq<RSLSystemState>, batch:seq<Request>)
+{
+       |intermediate_states| == |batch| + 1
+    && intermediate_states[0] == s
+    && last(intermediate_states) == s'
+    && forall i :: 0 <= i < |batch| ==> RslSystemNextServerExecutesRequest(intermediate_states[i], intermediate_states[i+1], batch[i])
 }
 
 predicate RslSystemNext(s:RSLSystemState, s':RSLSystemState)
 {
-    exists client, seqno, request :: RslSystemNextServerExecutesRequest(s, s', client, seqno, request)
+    exists intermediate_states, batch :: RslStateSequenceReflectsBatchExecution(s, s', intermediate_states, batch)
 }
 
 predicate RslSystemRefinement(ps:RslState, rs:RSLSystemState)
@@ -40,15 +48,11 @@ predicate RslSystemRefinement(ps:RslState, rs:RSLSystemState)
                                               && req == Request(p.src, p.msg.seqno_req, p.msg.val))
 }
 
-predicate RslSystemBehaviorRefinementCorrect(server_addresses:set<NodeIdentity>, low_level_behavior:seq<RslState>, high_level_behavior:seq<RSLSystemState>, refinement_mapping:seq<int>)
+predicate RslSystemBehaviorRefinementCorrect(server_addresses:set<NodeIdentity>, low_level_behavior:seq<RslState>, high_level_behavior:seq<RSLSystemState>)
 {
-       |refinement_mapping| == |low_level_behavior|
-    && (forall i :: 0 <= i < |refinement_mapping| ==> 0 <= refinement_mapping[i] < |high_level_behavior|)
-    && (forall i {:trigger refinement_mapping[i], refinement_mapping[i+1]} :: 0 <= i < |low_level_behavior| - 1 ==> refinement_mapping[i] <= refinement_mapping[i+1])
-    && (forall i :: 0 <= i < |low_level_behavior| ==> RslSystemRefinement(low_level_behavior[i], high_level_behavior[refinement_mapping[i]]))
+       |high_level_behavior| == |low_level_behavior|
+    && (forall i :: 0 <= i < |low_level_behavior| ==> RslSystemRefinement(low_level_behavior[i], high_level_behavior[i]))
     && |high_level_behavior| > 0
-    && |refinement_mapping| > 0 
-    && refinement_mapping[0] == 0
     && RslSystemInit(high_level_behavior[0], server_addresses)
     && (forall i {:trigger high_level_behavior[i], high_level_behavior[i+1]} :: 0 <= i < |high_level_behavior| - 1 ==> RslSystemNext(high_level_behavior[i], high_level_behavior[i+1]))
 }

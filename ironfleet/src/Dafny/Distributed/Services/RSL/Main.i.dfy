@@ -743,6 +743,13 @@ module Main_i exclusively refines Main_s {
         set r | r in replies :: RenameToAppReply(r)
     }
 
+    function RenameToAppBatch(batch:seq<Request>) : seq<AppRequest>
+        ensures |RenameToAppBatch(batch)| == |batch|;
+        ensures forall i :: 0 <= i < |batch| ==> RenameToAppBatch(batch)[i] == RenameToAppRequest(batch[i]);
+    {
+        if |batch| == 0 then [] else RenameToAppBatch(all_but_last(batch)) + [RenameToAppRequest(last(batch))]
+    }
+
     function RenameToServiceState(rs:RSLSystemState) : ServiceState
     {
         ServiceState'(rs.server_addresses, rs.app, RenameToAppRequests(rs.requests), RenameToAppReplies(rs.replies))
@@ -757,10 +764,32 @@ module Main_i exclusively refines Main_s {
 
     }
 
+    lemma lemma_ServiceNextDoesntChangeServerAddresses(s:ServiceState, s':ServiceState)
+        requires s == s' || Service_Next(s, s');
+        ensures  s'.serverAddresses == s.serverAddresses;
+    {
+        if s == s' {
+            return;
+        }
+
+        var intermediate_states, batch :| StateSequenceReflectsBatchExecution(s, s', intermediate_states, batch);
+        var i := 0;
+        while i < |batch|
+            invariant 0 <= i <= |batch|;
+            invariant intermediate_states[i].serverAddresses == s.serverAddresses;
+        {
+            assert ServiceExecutesAppRequest(intermediate_states[i], intermediate_states[i+1], batch[i]);
+            assert intermediate_states[i+1].serverAddresses == intermediate_states[i].serverAddresses == s.serverAddresses;
+            i := i + 1;
+        }
+
+        assert intermediate_states[i] == last(intermediate_states) == s';
+    }
+
     lemma lemma_ServiceStateServerAddressesNeverChange(sb:seq<ServiceState>, server_addresses:set<NodeIdentity>, i:int)
         requires |sb| > 0;
         requires Service_Init(sb[0], server_addresses);
-        requires forall j {:trigger Service_Next(sb[j], sb[j+1])} :: 0 <= j < |sb| - 1 ==> Service_Next(sb[j], sb[j+1]);
+        requires forall j {:trigger Service_Next(sb[j], sb[j+1])} :: 0 <= j < |sb| - 1 ==> sb[j] == sb[j+1] || Service_Next(sb[j], sb[j+1]);
         requires 0 <= i < |sb|;
         ensures  sb[i].serverAddresses == server_addresses;
     {
@@ -769,47 +798,59 @@ module Main_i exclusively refines Main_s {
         }
 
         var j := i-1;
-        assert Service_Next(sb[j], sb[j+1]);
+        assert sb[j] == sb[j+1] || Service_Next(sb[j], sb[j+1]);
         assert i == j+1;
-        assert Service_Next(sb[i-1], sb[i]);
+        assert sb[i-1] == sb[i] || Service_Next(sb[i-1], sb[i]);
+        lemma_ServiceNextDoesntChangeServerAddresses(sb[i-1], sb[i]);
         assert sb[i].serverAddresses == sb[i-1].serverAddresses;
         lemma_ServiceStateServerAddressesNeverChange(sb, server_addresses, i-1);
     }
 
-    lemma lemma_RefinementProofForFixedBehavior(config:ConcreteConfiguration, db:seq<DS_State>) returns (sb:seq<ServiceState>, cm:seq<int>)
+    lemma lemma_RslSystemNextImpliesServiceNext(
+        rs:RSLSystemState,
+        rs':RSLSystemState,
+        s:ServiceState,
+        s':ServiceState'
+        )
+        requires s == RenameToServiceState(rs);
+        requires s' == RenameToServiceState(rs');
+        requires RslSystemNext(rs, rs');
+        ensures  Service_Next(s, s');
+    {
+        var intermediate_states, batch :| RslStateSequenceReflectsBatchExecution(rs, rs', intermediate_states, batch);
+        var intermediate_states_renamed := RenameToServiceStates(intermediate_states);
+        var batch_renamed := RenameToAppBatch(batch);
+        assert StateSequenceReflectsBatchExecution(s, s', intermediate_states_renamed, batch_renamed);
+    }
+
+    lemma lemma_RefinementProofForFixedBehavior(config:ConcreteConfiguration, db:seq<DS_State>) returns (sb:seq<ServiceState>)
         requires IsValidBehavior(config, db);
         requires last(db).environment.nextStep.LEnvStepStutter?;
-        ensures  |db| == |cm|;
-        ensures  cm[0] == 0;                                            // Beginnings match
-        ensures  forall i :: 0 <= i < |cm| ==> 0 <= cm[i] < |sb|;       // Mappings are in bounds
-        ensures  forall i {:trigger cm[i], cm[i+1]} :: 0 <= i < |cm| - 1 ==> cm[i] <= cm[i+1];    // Mapping is monotonic
+        ensures  |db| == |sb|;
         ensures  Service_Init(sb[0], mapdomain(db[0].servers));
-        ensures  forall i {:trigger Service_Next(sb[i], sb[i+1])} :: 0 <= i < |sb| - 1 ==> Service_Next(sb[i], sb[i+1]);
-        ensures  forall i :: 0 <= i < |db| ==> Service_Correspondence(db[i].environment.sentPackets, sb[cm[i]]);
+        ensures  forall i {:trigger Service_Next(sb[i], sb[i+1])} :: 0 <= i < |sb| - 1 ==> sb[i] == sb[i+1] || Service_Next(sb[i], sb[i+1]);
+        ensures  forall i :: 0 <= i < |db| ==> Service_Correspondence(db[i].environment.sentPackets, sb[i]);
     {
         var protocol_behavior, lconstants := lemma_GetImplBehaviorRefinement(config, db);
-        var rs, mapping := lemma_GetBehaviorRefinement(protocol_behavior, lconstants);
+        var rs := lemma_GetBehaviorRefinement(protocol_behavior, lconstants);
         sb := RenameToServiceStates(rs);
-        cm := mapping;
 
         var server_addresses := MapSeqToSet(config.config.replica_ids, x=>x);
         assert Service_Init(sb[0], server_addresses);
 
-        forall i | 0 <= i < |sb| - 1
-            ensures Service_Next(sb[i], sb[i+1]);
+        forall i {:trigger Service_Next(sb[i], sb[i+1])} | 0 <= i < |sb| - 1
+            ensures sb[i] == sb[i+1] || Service_Next(sb[i], sb[i+1]);
         {
-            assert RslSystemNext(rs[i], rs[i+1]);
-            var client, seqno, request :| RslSystemNextServerExecutesRequest(rs[i], rs[i+1], client, seqno, request);
-            assert ServiceNextServerExecutesAppRequest(sb[i], sb[i+1], client, seqno, request);
+            lemma_RslSystemNextImpliesServiceNext(rs[i], rs[i+1], sb[i], sb[i+1]);
         }
           
         forall i | 0 <= i < |db|
-            ensures Service_Correspondence(db[i].environment.sentPackets, sb[cm[i]]);
+            ensures Service_Correspondence(db[i].environment.sentPackets, sb[i]);
         {
             var concretePkts := db[i].environment.sentPackets;
-            var serviceState := sb[cm[i]];
+            var serviceState := sb[i];
 
-            var rsl := rs[cm[i]];
+            var rsl := rs[i];
             var ps := protocol_behavior[i];
             assert RslSystemRefinement(ps, rsl);
             assert RenameToServiceState(rsl) == serviceState;
@@ -819,7 +860,7 @@ module Main_i exclusively refines Main_s {
                 ensures AppReply(p.dst, seqno, reply) in serviceState.replies;
             {
                 var abstract_p := AbstractifyConcretePacket(p);
-                lemma_ServiceStateServerAddressesNeverChange(sb, server_addresses, cm[i]);
+                lemma_ServiceStateServerAddressesNeverChange(sb, server_addresses, i);
                 assert serviceState.serverAddresses == server_addresses;
                 assert p.src in config.config.replica_ids;
                 lemma_PacketSentByServerIsMarshallable(config, db, i, p);
@@ -877,9 +918,9 @@ module Main_i exclusively refines Main_s {
         }
     }
 
-    lemma RefinementProof(config:ConcreteConfiguration, db:seq<DS_State>) returns (sb:seq<ServiceState>, cm:seq<int>)
+    lemma RefinementProof(config:ConcreteConfiguration, db:seq<DS_State>) returns (sb:seq<ServiceState>)
     {
         var db' := lemma_FixFinalEnvStep(config, db);
-        sb, cm := lemma_RefinementProofForFixedBehavior(config, db');
+        sb := lemma_RefinementProofForFixedBehavior(config, db');
     }
 }

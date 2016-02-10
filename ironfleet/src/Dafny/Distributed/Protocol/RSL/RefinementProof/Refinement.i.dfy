@@ -88,15 +88,17 @@ lemma lemma_ProduceIntermediateAbstractStatesSatisfiesNext(
     server_addresses:set<NodeIdentity>,
     batches:seq<RequestBatch>,
     reqs_in_last_batch:int
-    )
+    ) returns
+    (request:Request)
     requires |batches| > 0;
     requires 0 <= reqs_in_last_batch < |last(batches)|;
-    ensures  RslSystemNext(ProduceIntermediateAbstractState(server_addresses, batches, reqs_in_last_batch), ProduceIntermediateAbstractState(server_addresses, batches, reqs_in_last_batch+1));
+    ensures  request == last(batches)[reqs_in_last_batch];
+    ensures  RslSystemNextServerExecutesRequest(ProduceIntermediateAbstractState(server_addresses, batches, reqs_in_last_batch), ProduceIntermediateAbstractState(server_addresses, batches, reqs_in_last_batch+1), request);
 {
     var rs := ProduceIntermediateAbstractState(server_addresses, batches, reqs_in_last_batch);
     var rs' := ProduceIntermediateAbstractState(server_addresses, batches, reqs_in_last_batch+1);
 
-    var request := last(batches)[reqs_in_last_batch];
+    request := last(batches)[reqs_in_last_batch];
     var reply := GetReplyFromRequestBatches(batches, |batches|-1, reqs_in_last_batch);
 
     assert rs'.requests == rs.requests + { request };
@@ -110,7 +112,7 @@ lemma lemma_ProduceIntermediateAbstractStatesSatisfiesNext(
     assert rs'.app == result.0;
     assert reply.reply == result.1;
 
-    assert RslSystemNextServerExecutesRequest(rs, rs', request.client, request.seqno, request.request);
+    assert RslSystemNextServerExecutesRequest(rs, rs', request);
 }
 
 lemma lemma_FirstProduceIntermediateAbstractStateProducesAbstractState(
@@ -122,8 +124,6 @@ lemma lemma_FirstProduceIntermediateAbstractStateProducesAbstractState(
 {
     var rs := ProduceAbstractState(server_addresses, all_but_last(batches));
     var rs' := ProduceIntermediateAbstractState(server_addresses, batches, 0);
-
-
 
     var requests := set batch_num, req_num | 0 <= batch_num < |batches| && 0 <= req_num < (if batch_num == |batches|-1 then 0 else |batches[batch_num]|) :: batches[batch_num][req_num];
     var replies := set batch_num, req_num | 0 <= batch_num < |batches| && 0 <= req_num < (if batch_num == |batches|-1 then 0 else |batches[batch_num]|) :: GetReplyFromRequestBatches(batches, batch_num, req_num);
@@ -204,17 +204,13 @@ function {:opaque} ConvertBehaviorSeqToImap<T>(s:seq<T>):imap<int, T>
 predicate RslSystemBehaviorRefinementCorrectImap(
     b:Behavior<RslState>,
     prefix_len:int,
-    high_level_behavior:seq<RSLSystemState>,
-    refinement_mapping:seq<int>
+    high_level_behavior:seq<RSLSystemState>
     )
 {
        imaptotal(b)
-    && |refinement_mapping| == prefix_len
-    && (forall i :: 0 <= i < |refinement_mapping| ==> 0 <= refinement_mapping[i] < |high_level_behavior|)
-    && (forall i {:trigger refinement_mapping[i], refinement_mapping[i+1]} :: 0 <= i < prefix_len - 1 ==> refinement_mapping[i] <= refinement_mapping[i+1])
-    && (forall i :: 0 <= i < prefix_len ==> RslSystemRefinement(b[i], high_level_behavior[refinement_mapping[i]]))
+    && |high_level_behavior| == prefix_len
+    && (forall i :: 0 <= i < prefix_len ==> RslSystemRefinement(b[i], high_level_behavior[i]))
     && |high_level_behavior| > 0
-    && (|refinement_mapping| > 0 ==> refinement_mapping[0] == 0)
     && RslSystemInit(high_level_behavior[0], MapSeqToSet(b[0].constants.config.replica_ids, x=>x))
     && (forall i {:trigger RslSystemNext(high_level_behavior[i], high_level_behavior[i+1])} :: 0 <= i < |high_level_behavior| - 1 ==> RslSystemNext(high_level_behavior[i], high_level_behavior[i+1]))
 }
@@ -224,13 +220,12 @@ lemma lemma_GetBehaviorRefinementForBehaviorOfOneStep(
     c:LConstants
     )
     returns
-    (high_level_behavior:seq<RSLSystemState>,
-     refinement_mapping:seq<int>)
+    (high_level_behavior:seq<RSLSystemState>)
     requires imaptotal(b);
     requires RslInit(c, b[0]);
-    ensures  RslSystemBehaviorRefinementCorrectImap(b, 1, high_level_behavior, refinement_mapping);
-    ensures  SystemRefinementRelation(b[0], last(high_level_behavior));
-    ensures  refinement_mapping[0] == |high_level_behavior| - 1;
+    ensures  RslSystemBehaviorRefinementCorrectImap(b, 1, high_level_behavior);
+    ensures  |high_level_behavior| == 1;
+    ensures  SystemRefinementRelation(b[0], high_level_behavior[0]);
 {
     var qs := [];
     var rs := ProduceAbstractState(GetServerAddresses(b[0]), GetSequenceOfRequestBatches(qs));
@@ -244,70 +239,81 @@ lemma lemma_GetBehaviorRefinementForBehaviorOfOneStep(
     assert IsMaximalQuorumOf2bsSequence(b[0], qs);
     assert SystemRefinementRelation(b[0], rs);
     high_level_behavior := [ rs ];
-    refinement_mapping := [ 0 ];
 }
 
-lemma lemma_ExtendBehaviorWithExtraRequests(
+lemma lemma_DemonstrateRslSystemNextWhenBatchExtended(
     server_addresses:set<NodeIdentity>,
-    high_level_behavior:seq<RSLSystemState>,
+    s:RSLSystemState,
+    s':RSLSystemState,
     batches:seq<RequestBatch>,
-    reqs_in_last_batch:int
-    )
-    returns
-    (high_level_behavior':seq<RSLSystemState>)
-    requires |high_level_behavior| > 0;
-    requires RslSystemInit(high_level_behavior[0], server_addresses);
-    requires forall i {:trigger RslSystemNext(high_level_behavior[i], high_level_behavior[i+1])} :: 0 <= i < |high_level_behavior| - 1 ==> RslSystemNext(high_level_behavior[i], high_level_behavior[i+1]);
+    count:int
+    ) returns
+    (intermediate_states:seq<RSLSystemState>,
+    batch:seq<Request>)
     requires |batches| > 0;
-    requires 0 <= reqs_in_last_batch <= |last(batches)|;
-    requires last(high_level_behavior) == ProduceAbstractState(server_addresses, all_but_last(batches));
-    ensures  |high_level_behavior| <= |high_level_behavior'|;
-    ensures  high_level_behavior'[..|high_level_behavior|] == high_level_behavior;
-    ensures  forall i {:trigger RslSystemNext(high_level_behavior'[i], high_level_behavior'[i+1])} :: 0 <= i < |high_level_behavior'| - 1 ==> RslSystemNext(high_level_behavior'[i], high_level_behavior'[i+1]);
-    ensures  last(high_level_behavior') == ProduceIntermediateAbstractState(server_addresses, batches, reqs_in_last_batch);
+    requires 0 <= count <= |last(batches)|;
+    requires s == ProduceIntermediateAbstractState(server_addresses, batches, 0);
+    requires s' == ProduceIntermediateAbstractState(server_addresses, batches, count);
+    ensures  RslStateSequenceReflectsBatchExecution(s, s', intermediate_states, batch);
+    ensures  RslSystemNext(s, s');
+    decreases count;
 {
-    if reqs_in_last_batch == 0
-    {
-        high_level_behavior' := high_level_behavior;
-        lemma_FirstProduceIntermediateAbstractStateProducesAbstractState(server_addresses, batches);
+    if count == 0 {
+        assert s' == s;
+        intermediate_states := [s];
+        batch := [];
+        assert RslStateSequenceReflectsBatchExecution(s, s', intermediate_states, batch);
         return;
     }
 
-    var high_level_behavior_mid := lemma_ExtendBehaviorWithExtraRequests(server_addresses, high_level_behavior, batches, reqs_in_last_batch - 1);
-    var last_state := ProduceIntermediateAbstractState(server_addresses, batches, reqs_in_last_batch);
-    high_level_behavior' := high_level_behavior_mid + [ last_state ];
-    lemma_ProduceIntermediateAbstractStatesSatisfiesNext(server_addresses, batches, reqs_in_last_batch - 1);
+    var s_middle := ProduceIntermediateAbstractState(server_addresses, batches, count - 1);
+    var intermediate_states_middle, batch_middle := lemma_DemonstrateRslSystemNextWhenBatchExtended(server_addresses, s, s_middle,
+                                                                                                    batches, count - 1);
+
+    intermediate_states := intermediate_states_middle + [s'];
+
+    var next_request := lemma_ProduceIntermediateAbstractStatesSatisfiesNext(server_addresses, batches, count-1);
+    batch := batch_middle + [next_request];
+    assert RslSystemNextServerExecutesRequest(s_middle, s', next_request);
+    assert RslStateSequenceReflectsBatchExecution(s, s', intermediate_states, batch);
 }
 
-lemma lemma_ExtendBehaviorWithExtraRequestBatches(
+lemma lemma_DemonstrateRslSystemNextWhenBatchesAdded(
     server_addresses:set<NodeIdentity>,
-    high_level_behavior:seq<RSLSystemState>,
+    s:RSLSystemState,
+    s':RSLSystemState,
     batches:seq<RequestBatch>,
     batches':seq<RequestBatch>
-    )
-    returns
-    (high_level_behavior':seq<RSLSystemState>)
-    requires |high_level_behavior| > 0;
-    requires RslSystemInit(high_level_behavior[0], server_addresses);
-    requires forall i {:trigger RslSystemNext(high_level_behavior[i], high_level_behavior[i+1])} :: 0 <= i < |high_level_behavior| - 1 ==> RslSystemNext(high_level_behavior[i], high_level_behavior[i+1]);
-    requires last(high_level_behavior) == ProduceAbstractState(server_addresses, batches);
+    ) returns
+    (intermediate_states:seq<RSLSystemState>,
+     batch:seq<Request>)
+    requires s == ProduceAbstractState(server_addresses, batches);
+    requires s' == ProduceAbstractState(server_addresses, batches');
     requires |batches| <= |batches'|;
     requires batches'[..|batches|] == batches;
-    ensures  |high_level_behavior| <= |high_level_behavior'|;
-    ensures  high_level_behavior'[..|high_level_behavior|] == high_level_behavior;
-    ensures  forall i {:trigger RslSystemNext(high_level_behavior'[i], high_level_behavior'[i+1])} :: 0 <= i < |high_level_behavior'| - 1 ==> RslSystemNext(high_level_behavior'[i], high_level_behavior'[i+1]);
-    ensures  last(high_level_behavior') == ProduceAbstractState(server_addresses, batches');
+    ensures  RslStateSequenceReflectsBatchExecution(s, s', intermediate_states, batch);
+    ensures  RslSystemNext(s, s');
+    decreases |batches'|;
 {
-    if |batches'| == |batches|
-    {
-        high_level_behavior' := high_level_behavior;
+    if |batches| == |batches'| {
         assert batches' == batches;
+        assert s == s';
+        intermediate_states := [s];
+        batch := [];
+        assert RslStateSequenceReflectsBatchExecution(s, s', intermediate_states, batch);
         return;
     }
 
-    var high_level_behavior_mid := lemma_ExtendBehaviorWithExtraRequestBatches(server_addresses, high_level_behavior, batches, all_but_last(batches'));
-    high_level_behavior' := lemma_ExtendBehaviorWithExtraRequests(server_addresses, high_level_behavior_mid, batches', |last(batches')|);
+    var s_middle := ProduceAbstractState(server_addresses, all_but_last(batches'));
+    var intermediate_states_middle, batch_middle := lemma_DemonstrateRslSystemNextWhenBatchesAdded(server_addresses, s, s_middle,
+                                                                                                   batches, all_but_last(batches'));
+    lemma_FirstProduceIntermediateAbstractStateProducesAbstractState(server_addresses, batches');
     lemma_LastProduceIntermediateAbstractStateProducesAbstractState(server_addresses, batches');
+    var intermediate_states_next, batch_next := lemma_DemonstrateRslSystemNextWhenBatchExtended(server_addresses, s_middle, s', batches',
+                                                                                                |last(batches')|);
+    intermediate_states := all_but_last(intermediate_states_middle) + intermediate_states_next;
+    batch := batch_middle + batch_next;
+    assert RslStateSequenceReflectsBatchExecution(s, s', intermediate_states, batch);
 }
 
 lemma lemma_GetBehaviorRefinementForPrefix(
@@ -316,17 +322,15 @@ lemma lemma_GetBehaviorRefinementForPrefix(
     i:int
     )
     returns
-    (high_level_behavior:seq<RSLSystemState>,
-     refinement_mapping:seq<int>)
+    (high_level_behavior:seq<RSLSystemState>)
     requires 0 <= i;
     requires IsValidBehaviorPrefix(b, c, i);
-    ensures  RslSystemBehaviorRefinementCorrectImap(b, i+1, high_level_behavior, refinement_mapping);
-    ensures  refinement_mapping[i] == |high_level_behavior| - 1;
+    ensures  RslSystemBehaviorRefinementCorrectImap(b, i+1, high_level_behavior);
     ensures  SystemRefinementRelation(b[i], last(high_level_behavior));
 {
     if i == 0
     {
-        high_level_behavior, refinement_mapping := lemma_GetBehaviorRefinementForBehaviorOfOneStep(b, c);
+        high_level_behavior := lemma_GetBehaviorRefinementForBehaviorOfOneStep(b, c);
         return;
     }
 
@@ -335,7 +339,7 @@ lemma lemma_GetBehaviorRefinementForPrefix(
     assert GetServerAddresses(b[i-1]) == GetServerAddresses(b[i]);
     var server_addresses := GetServerAddresses(b[i-1]);
 
-    var prev_high_level_behavior, prev_refinement_mapping := lemma_GetBehaviorRefinementForPrefix(b, c, i-1);
+    var prev_high_level_behavior := lemma_GetBehaviorRefinementForPrefix(b, c, i-1);
     var prev_rs := last(prev_high_level_behavior);
     var prev_qs :|    IsMaximalQuorumOf2bsSequence(b[i-1], prev_qs)
                    && prev_rs == ProduceAbstractState(server_addresses, GetSequenceOfRequestBatches(prev_qs));
@@ -347,8 +351,11 @@ lemma lemma_GetBehaviorRefinementForPrefix(
     lemma_IfValidQuorumOf2bsSequenceNowThenNext(b, c, i-1, prev_qs);
     lemma_RegularQuorumOf2bSequenceIsPrefixOfMaximalQuorumOf2bSequence(b, c, i, prev_qs, qs);
 
-    high_level_behavior := lemma_ExtendBehaviorWithExtraRequestBatches(server_addresses, prev_high_level_behavior, prev_batches, batches);
-    refinement_mapping := prev_refinement_mapping + [ |high_level_behavior| - 1 ];
+    var s' := ProduceAbstractState(server_addresses, batches);
+    var intermediate_states, batch := lemma_DemonstrateRslSystemNextWhenBatchesAdded(server_addresses, last(prev_high_level_behavior), s', prev_batches, batches);
+
+    high_level_behavior := prev_high_level_behavior + [s'];
+    
     lemma_ProduceAbstractStateSatisfiesRefinementRelation(b, c, i, qs, last(high_level_behavior));
     assert RslSystemRefinement(b[i], last(high_level_behavior));
 }
@@ -358,15 +365,14 @@ lemma lemma_GetBehaviorRefinement(
     c:LConstants
     )
     returns
-    (high_level_behavior:seq<RSLSystemState>,
-     refinement_mapping:seq<int>)
+    (high_level_behavior:seq<RSLSystemState>)
     requires |low_level_behavior| > 0;
     requires RslInit(c, low_level_behavior[0]);
     requires forall i {:trigger RslNext(low_level_behavior[i], low_level_behavior[i+1])} :: 0 <= i < |low_level_behavior| - 1 ==> RslNext(low_level_behavior[i], low_level_behavior[i+1]);
-    ensures  RslSystemBehaviorRefinementCorrect(MapSeqToSet(c.config.replica_ids, x=>x), low_level_behavior, high_level_behavior, refinement_mapping);
+    ensures  RslSystemBehaviorRefinementCorrect(MapSeqToSet(c.config.replica_ids, x=>x), low_level_behavior, high_level_behavior);
 {
     var b := ConvertBehaviorSeqToImap(low_level_behavior);
-    high_level_behavior, refinement_mapping := lemma_GetBehaviorRefinementForPrefix(b, c, |low_level_behavior|-1);
+    high_level_behavior := lemma_GetBehaviorRefinementForPrefix(b, c, |low_level_behavior|-1);
 }
 
 }

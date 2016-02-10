@@ -1196,7 +1196,7 @@ module Main_i exclusively refines Main_s {
     lemma InvHolds(config:SHTConfiguration, db:seq<SHT_State>) 
         requires |db| > 0;
         requires SHT_Init(config, db[0]);
-        requires forall i {:trigger SHT_Next(db[i], db[i+1])} :: 0 <= i < |db| - 1 ==> SHT_Next(db[i], db[i+1]);
+        requires forall i {:trigger SHT_Next(db[i], db[i+1])} :: 0 <= i < |db| - 1 ==> db[i] == db[i+1] || SHT_Next(db[i], db[i+1]);
         ensures  forall i {:trigger Inv(db[i])} :: 0 <= i < |db| ==> Inv(db[i]);
         ensures  forall i {:trigger MapComplete(db[i])} :: 0 <= i < |db| ==> MapComplete(db[i]);
         ensures  forall i {:trigger AllDelegationsToKnownHosts(db[i])} :: 0 <= i < |db| ==> AllDelegationsToKnownHosts(db[i]);
@@ -1209,116 +1209,60 @@ module Main_i exclusively refines Main_s {
             var d  := last(all_but_last(db));
             var d' := last(db);
             var penultimate_index := |db| - 2;
-            calc {
-                SHT_Next(db[penultimate_index], db[penultimate_index + 1]); // OBSERVE: +1 needed for trigger
-                SHT_Next(d, d');
+            if db[penultimate_index] != db[penultimate_index + 1] {
+                calc {
+                    SHT_Next(db[penultimate_index], db[penultimate_index + 1]); // OBSERVE: +1 needed for trigger
+                    SHT_Next(d, d');
+                }
+                NextInv(d, d');
             }
-            NextInv(d, d');
             assert Inv(d');
             assert forall i :: 0 <= i < |db| ==> Inv(db[i]);
         }
     }
 
-    lemma {:timeLimitMultiplier 5} RefinementToServiceStateSequence(config:SHTConfiguration, db:seq<SHT_State>) returns (sb:seq<ServiceState>, cm:seq<int>)
+    lemma {:timeLimitMultiplier 5} RefinementToServiceStateSequence(config:SHTConfiguration, db:seq<SHT_State>) returns (sb:seq<ServiceState>)
         requires |db| > 0;
         requires SHT_Init(config, db[0]);
-        requires forall i {:trigger SHT_Next(db[i], db[i+1])} :: 0 <= i < |db| - 1 ==> SHT_Next(db[i], db[i+1]);
-        ensures  |cm| == |db|;
-        ensures  cm[0] == 0;                                            // Beginnings match
-        ensures  forall i {:trigger cm[i]} :: 0 <= i < |cm| ==> 0 <= cm[i] < |sb|;       // Mappings are in bounds
-        ensures  forall i {:trigger cm[i], cm[i+1]} :: 0 <= i < |cm| - 1 ==> cm[i] <= cm[i+1];    // Mapping is monotonic
-        ensures  last(cm) == |sb| - 1;  // No extra values dangling at the end of sb
+        requires forall i {:trigger SHT_Next(db[i], db[i+1])} :: 0 <= i < |db| - 1 ==> db[i] == db[i+1] || SHT_Next(db[i], db[i+1]);
+        ensures  |sb| == |db|;
         ensures  forall i {:trigger MapComplete(db[i])} :: 0 <= i < |db| ==> MapComplete(db[i]);
         ensures  forall i {:trigger PacketsHaveSaneHeaders(db[i])} :: 0 <= i < |db| ==> PacketsHaveSaneHeaders(db[i]);
         ensures  forall i {:trigger AllDelegationsToKnownHosts(db[i])} :: 0 <= i < |db| ==> AllDelegationsToKnownHosts(db[i]);
-        ensures  forall i {:trigger Refinement(db[i])} :: 0 <= i < |db| ==> Refinement(db[i]) == sb[cm[i]];
+        ensures  forall i {:trigger Refinement(db[i])} :: 0 <= i < |db| ==> Refinement(db[i]) == sb[i];
         ensures  Service_Init(sb[0], MapSeqToSet(config.hostIds, x => x));
-        ensures  forall i {:trigger Service_Next(sb[i], sb[i+1])} :: 0 <= i < |sb| - 1 ==> Service_Next(sb[i], sb[i+1]);
+        ensures  forall i {:trigger Service_Next(sb[i], sb[i+1])} :: 0 <= i < |sb| - 1 ==> sb[i] == sb[i+1] || Service_Next(sb[i], sb[i+1]);
         //ensures  forall i :: 0 <= i < |db| ==> Service_Correspondence(db[i].environment.sentPackets, sb[i]);
     {
         if |db| == 1 {
             sb := [Refinement(db[0])];
-            cm := [0];
         } else {
             InvHolds(config, db);
-            var sb_others, cm_others := RefinementToServiceStateSequence(config, all_but_last(db));
-            assert forall i :: 0 <= i < |all_but_last(db)| ==> Refinement(all_but_last(db)[i]) == sb_others[cm_others[i]];
+            var sb_others := RefinementToServiceStateSequence(config, all_but_last(db));
+            assert forall i :: 0 <= i < |all_but_last(db)| ==> Refinement(all_but_last(db)[i]) == sb_others[i];
             var d  := last(all_but_last(db));
             var d' := last(db);
             var s  := Refinement(d);
             
             var penultimate_index := |db| - 2;
-            calc {
-                SHT_Next(db[penultimate_index], db[penultimate_index + 1]); // OBSERVE: +1 needed for trigger
-                SHT_Next(d, d');
-            }
-            NextRefinesService(d, d');
-            var s' := Refinement(d');
-            if Service_Next(s, s') {
-                sb := sb_others + [s'];
-                cm := cm_others + [|sb_others|];
-                assert last(sb_others) == s;
+            if db[penultimate_index] != db[penultimate_index + 1] {
                 calc {
-                    last(cm);
-                    |sb_others|;
-                    |sb| - 1;
+                    SHT_Next(db[penultimate_index], db[penultimate_index + 1]); // OBSERVE: +1 needed for trigger
+                    SHT_Next(d, d');
                 }
-                assert forall i {:trigger cm[i]} :: 0 <= i < |cm| ==> 0 <= cm[i] < |sb|;
-                assert forall i {:trigger Service_Next(sb[i], sb[i+1])} :: 0 <= i < |sb| - 1 ==> Service_Next(sb[i], sb[i+1]);
+                NextRefinesService(d, d');
+            }
+            var s' := Refinement(d');
+            sb := sb_others + [s'];
+            if Service_Next(s, s') {
+                assert last(sb_others) == s;
+                assert forall i {:trigger Service_Next(sb[i], sb[i+1])} :: 0 <= i < |sb| - 1 ==> sb[i] == sb[i+1] || Service_Next(sb[i], sb[i+1]);
             } else {
                 assert ServiceStutter(s, s');
-                sb := sb_others;
-                cm := cm_others + [last(cm_others)];
             }
         }
     }
     
-    
-    
-    lemma lemma_SHTSeqAppend(sb_others:seq<SHT_State>, s:seq<SHT_State>, sb:seq<SHT_State>)
-        requires |sb_others| >= 1;
-        requires |s| >= 1;
-        requires sb_others[|sb_others|-1] == s[0];
-        requires sb == sb_others + s[1..];
-        requires forall i {:trigger SHT_Next(sb_others[i], sb_others[i+1])} :: 0 <= i < |sb_others| - 1 ==> SHT_Next(sb_others[i], sb_others[i+1]);
-        requires forall i {:trigger SHT_Next(s[i], s[i+1])} :: 0 <= i < |s| - 1 ==> SHT_Next(s[i], s[i+1]);
-        ensures forall i {:trigger SHT_Next(sb[i], sb[i+1])} :: 0 <= i < |sb| - 1 ==> SHT_Next(sb[i], sb[i+1]);
-    {
-        forall i | 0 <= i < |sb| - 1 
-            ensures SHT_Next(sb[i], sb[i+1]) {
-            if (i < |sb_others| - 1) {
-                assert forall i {:trigger SHT_Next(sb_others[i], sb_others[i+1])} :: 0 <= i < |sb_others| - 1 ==> SHT_Next(sb_others[i], sb_others[i+1]);
-            } else if i == |sb_others| - 1 {
-                var idx := |sb_others| - 1;
-                var idx2 := 0;
-                calc {
-                    SHT_Next(s[idx2], s[idx2+1]);
-                    SHT_Next(sb_others[idx], s[idx2+1]);
-                    SHT_Next(sb[idx], s[idx2+1]);
-                    SHT_Next(sb[idx], sb[idx+1]);
-                }
-            } else if i >= |sb_others| {
-                assert forall i {:trigger SHT_Next(s[i], s[i+1])} :: 0 <= i < |s| - 1 ==> SHT_Next(s[i], s[i+1]);
-                var idx := i - |sb_others| + 1;
-                assert SHT_Next(s[idx], s[idx + 1]);
-                assert sb[i] == s[i - |sb_others| + 1];
-                assert SHT_Next(sb[i], sb[i+1]);
-            }
-        }
-    }
-
-   lemma lemma_SHTCmSeqAppend(sb:seq<SHT_State>, cm:seq<int>, db:seq<LSHT_State>)
-        requires |db| > 0;
-        requires |cm| == |db|;
-        requires cm[0] == 0;                                            // Beginnings match
-        requires  forall i :: 0 <= i < |cm| ==> 0 <= cm[i] < |sb|;       // Mappings are in bounds
-        requires  forall i,j :: 0 <= i < |cm| - 1 && j == i+1 ==> cm[i] <= cm[j];
-        requires  forall i :: 0 <= i < |db| ==> LSHTState_RefinementInvariant(db[i]);
-        requires forall i :: 0 <= i < |db|-1 ==> LSHTState_Refine(db[i]) == sb[cm[i]] 
-        requires LSHTState_Refine(db[|db|-1]) == sb[last(cm)];
-        ensures forall i :: 0 <= i < |db| ==> LSHTState_Refine(db[i]) == sb[cm[i]];
-    {
-    }    
 
     lemma lemma_SHTRefinementInvariantAppend(db:seq<LSHT_State>)
         requires |db| > 0;
@@ -1328,44 +1272,23 @@ module Main_i exclusively refines Main_s {
     {
     }
 
-    lemma {:timeLimitMultiplier 3} RefinementToSHTSequence(config:SHTConfiguration, db:seq<LSHT_State>) returns (sb:seq<SHT_State>, cm:seq<int>)
+    lemma {:timeLimitMultiplier 3} RefinementToSHTSequence(config:SHTConfiguration, db:seq<LSHT_State>) returns (sb:seq<SHT_State>)
         requires |db| > 0;
         requires LSHT_Init(config, db[0]);
         requires forall i {:trigger LSHT_Next(db[i], db[i+1])} :: 0 <= i < |db| - 1 ==> LSHT_Next(db[i], db[i+1]);
         ensures forall i {:trigger LSHTState_RefinementInvariant(db[i])} :: 0 <= i < |db| ==> LSHTState_RefinementInvariant(db[i]);
         ensures forall i {:trigger LSHT_MapsComplete(db[i])} :: 0 <= i < |db| ==> LSHT_MapsComplete(db[i]);
-        ensures  |cm| == |db|;
-        ensures  cm[0] == 0;                                            // Beginnings match
-        ensures  forall i {:trigger cm[i]} :: 0 <= i < |cm| ==> 0 <= cm[i] < |sb|;       // Mappings are in bounds
-        ensures  forall i {:trigger cm[i], cm[i+1]} :: 0 <= i < |cm| - 1 ==> cm[i] <= cm[i+1];    // Mapping is monotonic
-        ensures  forall i {:trigger LSHTState_Refine(db[i])} :: 0 <= i < |db| ==> LSHTState_Refine(db[i]) == sb[cm[i]];
+        ensures  |sb| == |db|;
+        ensures  forall i {:trigger LSHTState_Refine(db[i])} :: 0 <= i < |db| ==> LSHTState_Refine(db[i]) == sb[i];
         ensures  SHT_Init(config, sb[0]);
-        ensures  forall i {:trigger SHT_Next(sb[i], sb[i+1])} :: 0 <= i < |sb| - 1 ==> SHT_Next(sb[i], sb[i+1]);
-        ensures sb[|sb|-1] == LSHTState_Refine(db[|db|-1])
+        ensures  forall i {:trigger SHT_Next(sb[i], sb[i+1])} :: 0 <= i < |sb| - 1 ==> sb[i] == sb[i+1] || SHT_Next(sb[i], sb[i+1]);
         //ensures  forall i :: 0 <= i < |db| ==> Service_Correspondence(db[i].environment.sentPackets, sb[i]);
     {
         
         if |db| == 1 {
             sb := [LSHTState_Refine(db[0])];
-            cm := [0];
-        } else if |db| == 2 {
-            assert forall i {:trigger LSHT_Next(db[i], db[i+1])} :: 0 <= i < |db| - 1 ==> LSHT_Next(db[i], db[i+1]);
-            var start_idx := 0;
-            var d := db[0];
-            var d' := db[1];
-            calc {
-                LSHT_Next(db[start_idx], db[start_idx + 1]); // OBSERVE: +1 needed for trigger
-                LSHT_Next(d, d');
-            }
-            assert LSHT_Next(d, d');
-            
-            Lemma_LSHTNextImpliesSHTNext(d, d');
-            var s :| IsSHTStateRefinementSequenceOf(s, LSHTState_Refine(d), LSHTState_Refine(d'));
-            sb := s;
-            cm := [0, |s|-1];
-            assert sb[0] == LSHTState_Refine(d);
         } else {
-            var sb_others, cm_others := RefinementToSHTSequence(config, all_but_last(db));
+            var sb_others := RefinementToSHTSequence(config, all_but_last(db));
             var d  := last(all_but_last(db));
             var d' := last(db);
             var penultimate_index := |db| - 2;
@@ -1377,23 +1300,15 @@ module Main_i exclusively refines Main_s {
             }
 
             Lemma_LSHTNextImpliesSHTNext(d, d');
-            var s :| IsSHTStateRefinementSequenceOf(s, LSHTState_Refine(d), LSHTState_Refine(d'));
-            assert last(sb_others) == s[0];
             
-            sb := sb_others + s[1..];
-            cm := cm_others + [|sb|-1];
+            sb := sb_others + [LSHTState_Refine(last(db))];
             
-            lemma_SHTSeqAppend(sb_others, s, sb);
-            assert LSHTState_RefinementInvariant(db[|db|-1]);
+            assert LSHTState_RefinementInvariant(last(db));
             lemma_SHTRefinementInvariantAppend(db);
             assert forall i :: 0 <= i < |db| ==> LSHTState_RefinementInvariant(db[i]);
-            assert   forall i :: 0 <= i < |cm| ==> 0 <= cm[i] < |sb|;       // Mappings are in bounds
-            //assert  forall i :: 0 <= i < |cm| - 1 ==> cm[i] <= cm[i+1];
-            assert  forall i :: 0 <= i < |all_but_last(db)| ==> LSHTState_Refine(all_but_last(db)[i]) == sb_others[cm_others[i]];
-            assert forall i :: 0 <= i < |db|-1 ==> LSHTState_Refine(db[i]) == sb[cm[i]]; 
-            assert LSHTState_Refine(db[|db|-1]) == sb[last(cm)];
-            lemma_SHTCmSeqAppend(sb, cm, db);
-                
+            assert  forall i :: 0 <= i < |all_but_last(db)| ==> LSHTState_Refine(all_but_last(db)[i]) == sb_others[i];
+            assert forall i :: 0 <= i < |db|-1 ==> LSHTState_Refine(db[i]) == sb[i];
+            assert LSHTState_Refine(last(db)) == last(sb);
         }
     }
 
@@ -1437,40 +1352,10 @@ module Main_i exclusively refines Main_s {
         }   
     }
 
-    lemma ComposeMappings(lm:seq<int>, sm:seq<int>) returns (cm:seq<int>)
-        requires |lm| > 0;
-        requires |sm| > 0;
-        requires lm[0] == sm[0] == 0;
-        requires forall i,j :: (0 <= i < |lm| - 1) && (j == i+1) ==> lm[i] <= lm[j];
-        requires forall i,j :: (0 <= i < |sm| - 1) && (j == i+1) ==> sm[i] <= sm[j];
-        requires forall i :: 0 <= i < |lm| ==> 0 <= lm[i] < |sm|;
-        ensures  |cm| == |lm|;
-        ensures  cm[0] == 0;
-        ensures  forall i :: 0 <= i < |cm| ==> cm[i] == sm[lm[i]];
-        ensures  forall i, j :: (0 <= i < |cm| - 1) && (j == i+1) ==> cm[i] <= cm[j];
-    {
-        if |lm| == 1 {
-            cm := [0];
-        } else {
-            var rest := ComposeMappings(lm[0..|lm|-1],sm);
-            var last_cm := sm[lm[|lm|-1]];
-            cm := rest + [last_cm];
-            assert forall i,j :: (0 <= i < |lm[0..|lm|-1]| - 1) && (j == i + 1) ==> cm[i] <= cm[j];
-            var k := |cm|-2;
-            assert 0 <= k < |lm| - 1;
-            assert lm[k] <= lm[k+1];
-            SequenceSortedProperty(sm, lm[|cm|-2], lm[|cm|-1]);
-            assert sm[lm[|cm|-2]] <= sm[lm[|cm|-1]]; 
-            assert cm[|cm|-2] <= cm[|cm|-1];
-            //assert cm[i] == sm[lm[i]];
-            //assert cm[
-        }
-    }
-
     lemma lemma_ServiceStateServerAddressesNeverChange(sb:seq<ServiceState>, server_addresses:set<NodeIdentity>, i:int)
         requires |sb| > 0;
         requires Service_Init(sb[0], server_addresses);
-        requires forall j {:trigger Service_Next(sb[j], sb[j+1])} :: 0 <= j < |sb| - 1 ==> Service_Next(sb[j], sb[j+1]);
+        requires forall j {:trigger Service_Next(sb[j], sb[j+1])} :: 0 <= j < |sb| - 1 ==> sb[j] == sb[j+1] || Service_Next(sb[j], sb[j+1]);
         requires 0 <= i < |sb|;
         ensures  sb[i].serverAddresses == server_addresses;
     {
@@ -1479,9 +1364,9 @@ module Main_i exclusively refines Main_s {
         }
 
         var j := i-1;
-        assert Service_Next(sb[j], sb[j+1]);
+        assert sb[j] == sb[j+1] || Service_Next(sb[j], sb[j+1]);
         assert i == j+1;
-        assert Service_Next(sb[i-1], sb[i]);
+        assert sb[i-1] == sb[i] || Service_Next(sb[i-1], sb[i]);
         assert sb[i].serverAddresses == sb[i-1].serverAddresses;
         lemma_ServiceStateServerAddressesNeverChange(sb, server_addresses, i-1);
     }
@@ -1491,41 +1376,38 @@ module Main_i exclusively refines Main_s {
         exists h,req_index :: h in maprange(sht_state.hosts) && 0 <= req_index < |h.receivedRequests| && req == h.receivedRequests[req_index]
     }
 
-    lemma RefinementProofForFixedBehavior(config:ConcreteConfiguration, db:seq<DS_State>) returns (sb:seq<ServiceState>, cm:seq<int>)
+    lemma {:timeLimitMultiplier 2} RefinementProofForFixedBehavior(config:ConcreteConfiguration, db:seq<DS_State>) returns (sb:seq<ServiceState>)
         requires |db| > 0;
         requires DS_Init(db[0], config);
         requires forall i {:trigger DS_Next(db[i], db[i+1])} :: 0 <= i < |db| - 1 ==> DS_Next(db[i], db[i+1]);
         requires last(db).environment.nextStep.LEnvStepStutter?;
-        ensures  |db| == |cm|;
-        ensures  cm[0] == 0;                                            // Beginnings match
-        ensures  forall i {:trigger cm[i]} :: 0 <= i < |cm| ==> 0 <= cm[i] < |sb|;       // Mappings are in bounds
-        ensures  forall i {:trigger cm[i], cm[i+1]} :: 0 <= i < |cm| - 1 ==> cm[i] <= cm[i+1];    // Mapping is monotonic
+        ensures  |db| == |sb|;
         ensures  Service_Init(sb[0], Collections__Maps2_s.mapdomain(db[0].servers));
-        ensures  forall i {:trigger Service_Next(sb[i], sb[i+1])} :: 0 <= i < |sb| - 1 ==> Service_Next(sb[i], sb[i+1]);
-        ensures  forall i {:trigger Service_Correspondence(db[i].environment.sentPackets, sb[cm[i]])} :: 0 <= i < |db| ==> Service_Correspondence(db[i].environment.sentPackets, sb[cm[i]]);
+        ensures  forall i {:trigger Service_Next(sb[i], sb[i+1])} :: 0 <= i < |sb| - 1 ==> sb[i] == sb[i+1] || Service_Next(sb[i], sb[i+1]);
+        ensures  forall i {:trigger Service_Correspondence(db[i].environment.sentPackets, sb[i])} :: 0 <= i < |db| ==> Service_Correspondence(db[i].environment.sentPackets, sb[i]);
     {
         var sht_config := AbstractifyConcreteConfiguration(config);
         //var db' := FixFinalEnvStep(config, db);
         var lsht_states := RefinementToLiveSHTProof(config, db);
-        var sht_states, map_lsht_to_sht := RefinementToSHTSequence(sht_config, lsht_states);
-        var service_states, map_sht_to_service := RefinementToServiceStateSequence(sht_config, sht_states);
+        var sht_states := RefinementToSHTSequence(sht_config, lsht_states);
+        var service_states := RefinementToServiceStateSequence(sht_config, sht_states);
         
         sb := service_states;
-        cm := ComposeMappings(map_lsht_to_sht, map_sht_to_service);
         var server_addresses := MapSeqToSet(config.hostIds, x=>x);
         assert Service_Init(sb[0], server_addresses);
 
-        forall i | 0 <= i < |sb| - 1
-            ensures Service_Next(sb[i], sb[i+1]);
+        forall i {:trigger Service_Next(sb[i], sb[i+1])} | 0 <= i < |sb| - 1
+            ensures sb[i] == sb[i+1] || Service_Next(sb[i], sb[i+1]);
         {
         }
+
         forall i | 0 <= i < |db|
-            ensures Service_Correspondence(db[i].environment.sentPackets, sb[cm[i]]);
+            ensures Service_Correspondence(db[i].environment.sentPackets, sb[i]);
         {
             var concretePkts := db[i].environment.sentPackets;
-            var serviceState := sb[cm[i]];
+            var serviceState := sb[i];
             var lsht_state := lsht_states[i];
-            var sht_state := sht_states[map_lsht_to_sht[i]];
+            var sht_state := sht_states[i];
             
             forall p, reply, reserved_bytes | 
                     p in concretePkts 
@@ -1535,7 +1417,7 @@ module Main_i exclusively refines Main_s {
                  ensures reply in serviceState.replies;
             {
                 var lsht_packet := AbstractifyConcretePacket(p);
-                lemma_ServiceStateServerAddressesNeverChange(sb, server_addresses, cm[i]);
+                lemma_ServiceStateServerAddressesNeverChange(sb, server_addresses, i);
                 assert serviceState.serverAddresses == server_addresses;
                 assert p.src in config.hostIds;
                 lemma_PacketSentByServerIsMarshallable(config, db, i, p);
@@ -1659,10 +1541,10 @@ module Main_i exclusively refines Main_s {
         }
     }
 
-    lemma RefinementProof(config:ConcreteConfiguration, db:seq<DS_State>) returns (sb:seq<ServiceState>, cm:seq<int>)
+    lemma RefinementProof(config:ConcreteConfiguration, db:seq<DS_State>) returns (sb:seq<ServiceState>)
     {
         var db' := lemma_FixFinalEnvStep(config, db);
-        sb, cm := RefinementProofForFixedBehavior(config, db');
+        sb := RefinementProofForFixedBehavior(config, db');
     }
 
     
