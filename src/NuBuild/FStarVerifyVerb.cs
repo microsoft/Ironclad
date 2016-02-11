@@ -34,7 +34,7 @@ namespace NuBuild
         public FStarVerifyVerb(IEnumerable<string> args)
         {
             this.optParser = new FStarOptionParser(args);
-            this.signature = MakeArgumentSignature(args);
+            this.signature = MakeArgumentSignature(this.GetNormalizedArgs());
             this.label = string.Format("FStarVerify {0}", string.Join(" ", args));
             this.abstractId = new AbstractId(this.GetType().Name, Version, this.signature);
             this.outputObj = new BuildObject(string.Format("{0}/{1}.fst.v", BuildEngine.theEngine.getVirtualRoot(), this.signature));
@@ -98,12 +98,7 @@ namespace NuBuild
 
         public override IVerbWorker getWorker(WorkingDirectory workingDirectory)
         {
-            List<string> arguments = new List<string>();
-            if (!this.optParser.ExplicitDeps)
-            {
-                arguments.Add("--explicit_deps");
-            }
-            arguments.AddRange(this.optParser.GetAdjustedArgs());
+            var arguments = this.GetNormalizedArgs().ToArray();
             var exePath = FStarEnvironment.PathToFStarExe.ToString();
 
             Logger.WriteLine(string.Format("{0} invokes `{1} {2}` from `{3}`", this, exePath, string.Join(" ", arguments), workingDirectory.Prefix));
@@ -111,7 +106,7 @@ namespace NuBuild
                 workingDirectory,
                 this,
                 exePath,
-                arguments.ToArray(),
+                arguments,
                 ProcessExitCodeHandling.NonzeroIsOkay,
                 getDiagnosticsBase(),
                 returnStandardOut: true,
@@ -141,5 +136,17 @@ namespace NuBuild
             this.setWasRejectableFailure(!vr.pass);
             return disposition;
         }
+
+        private IEnumerable<string> GetNormalizedArgs()
+        {
+            if (!this.optParser.ExplicitDeps)
+            {
+                yield return "--explicit_deps";
+            }
+            foreach (var arg in this.optParser.GetNormalizedArgs())
+            {
+                yield return arg;
+            }
+        } 
     }
 }

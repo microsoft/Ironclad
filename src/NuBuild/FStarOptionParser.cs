@@ -69,7 +69,7 @@ namespace NuBuild
             return paths;
         }
 
-        public IEnumerable<string> GetAdjustedArgs()
+        public IEnumerable<string> GetNormalizedArgs()
         {
             yield return "--no_default_includes";
             if (this.ExplicitDeps)
