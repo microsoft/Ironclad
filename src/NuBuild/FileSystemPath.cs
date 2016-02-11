@@ -4,6 +4,7 @@
     using System.Collections.Generic;
     using System.IO;
     using System.Linq;
+    using System.Net.Configuration;
     using System.Threading;
 
     using Microsoft.Data.Edm;
@@ -25,6 +26,24 @@
         public override string ToString()
         {
             return this.normalized;
+        }
+
+        public string ToString(string option)
+        {
+            option = option.ToLower().Trim();
+            if (option.Equals("i"))
+            {
+                return this.normalized.Substring(2);
+            }
+            else if (option.Contains("x"))
+            {
+                return this.ToString();
+            }
+            else
+            {
+                var msg = string.Format("Unrecognized formatting option `{0}`.", option);
+                throw new ArgumentException(msg, "option");
+            }
         }
 
         public string FileExtension
@@ -315,6 +334,13 @@
                 var msg = string.Format("Attempt to create an AbsoluteFileSystemPath with an absolute path (`{0}`).", pathStr);
                 throw new ArgumentException(msg, "pathStr");
             }
+
+            // the normalization technique used below doesn't work for the path `.`.
+            if (pathStr == "." || pathStr == "." + Path.DirectorySeparatorChar || pathStr == "." + Path.AltDirectorySeparatorChar)
+            {
+                return ".";
+            }
+
             var dummyPrefix = @"C:\";
             var s0 = Path.GetFullPath(Path.Combine(dummyPrefix, pathStr));
             var s1 = s0.Substring(dummyPrefix.Length, s0.Length - dummyPrefix.Length);

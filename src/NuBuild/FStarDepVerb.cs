@@ -8,27 +8,27 @@ namespace NuBuild
 {
     using System;
     using System.Collections.Generic;
+    using System.IO;
     using System.Linq;
 
     internal class FStarDepVerb: Verb, IProcessInvokeAsyncVerb
     {
-        private const string DepsObjExtension = ".fstdeps.vob";
-        private const int Version = 1;
-        // todo: i made this a BuildObject based on what's in TransitiveDepsVerb. i don't understand why it's not a SourcePath, however.
-        private BuildObject sourcePath;
-        private BuildObject depsObj;
+        private const string DepsObjExtension = ".fstardep.vob";
+        private const int Version = 2;
 
-        private AbstractId abstractId;
-
-        private readonly string[] fstArgs;
-
-        public FStarDepVerb(SourcePath sourcePath, IEnumerable<string> fstArgs)
+        private readonly IEnumerable<string> args;
+        private readonly string signature;
+        private readonly AbstractId abstractId;
+        private BuildObject fstardepObj;
+        
+        public FStarDepVerb(IEnumerable<string> args)
         {
-            this.sourcePath = sourcePath;
-            this.depsObj = sourcePath.makeVirtualObject(BeatExtensions.whichPart(sourcePath).ExtnStr() + DepsObjExtension);
-            var concrete = string.Join(" ", fstArgs);
-            this.abstractId = new AbstractId(this.GetType().Name, Version, sourcePath.ToString(), concrete: concrete);
-            this.fstArgs = fstArgs.ToArray();
+            this.args = args;
+            this.signature = MakeArgumentSignature(args);
+            this.abstractId = new AbstractId(this.GetType().Name, Version, this.signature);
+
+            var vobName = Path.Combine(BuildEngine.theEngine.getVirtualRoot(), this.signature + DepsObjExtension);
+            this.fstardepObj = new VirtualBuildObject(vobName);
         }
 
         public override AbstractId getAbstractIdentifier()
@@ -38,30 +38,25 @@ namespace NuBuild
 
         public override IEnumerable<BuildObject> getDependencies(out DependencyDisposition ddisp)
         {
-            var result = new HashSet<BuildObject>();
-            result.UnionWith(FStarEnvironment.getStandardDependencies());
-            result.Add(this.sourcePath);
             ddisp = DependencyDisposition.Complete;
-            return result;
+            return new HashSet<BuildObject>(FStarEnvironment.GetStandardDependencies());
         }
 
         public override IEnumerable<IVerb> getVerbs()
         {
-            return new IVerb[0];    // All inputs are sources.
+            return new IVerb[0];
         }
 
         public override IEnumerable<BuildObject> getOutputs()
         {
-            return new[] { this.depsObj };
+            return new[] { this.fstardepObj };
         }
 
         public override IVerbWorker getWorker(WorkingDirectory workingDirectory)
         {
             List<string> arguments = new List<string>();
-            arguments.Add("--dep");
-            arguments.Add("nubuild");
-            arguments.AddRange(this.fstArgs);
-            arguments.Add(this.sourcePath.getRelativePath());
+            arguments.AddRange(MakeArgumentPrelude());
+            arguments.AddRange(this.args);
             var exePath = FStarEnvironment.PathToFStarExe.ToString();
 
             Logger.WriteLine(string.Format("{0} invokes `{1} {2}`", this, exePath, string.Join(" ", arguments)));
@@ -92,15 +87,15 @@ namespace NuBuild
             FStarDepOutput contents;
             try
             {
-                contents = new FStarDepOutput(stdout, this.sourcePath, workingDirectory);
+                contents = new FStarDepOutput(stdout, workingDirectory);
             }
             catch (Exception e)
             {
-                var msg = string.Format("failed to process output of `{0} --find_deps` (unhandled {1}). Details follow:\n{2}", FStarEnvironment.PathToFStarExe, e.GetType().Name, e.Message);
+                var msg = string.Format("failed to process output of `{0} --dep make` (unhandled {1}). Details follow:\n{2}", FStarEnvironment.PathToFStarExe, e.GetType().Name, e.Message);
                 Logger.WriteLine(msg, new []{"error", "fstar"});
                 return new Failed();
             }
-            BuildEngine.theEngine.Repository.StoreVirtual(this.depsObj, new Fresh(), contents);
+            BuildEngine.theEngine.Repository.StoreVirtual(this.fstardepObj, new Fresh(), contents);
             return new Fresh();
         }
 
@@ -109,7 +104,7 @@ namespace NuBuild
             ddisp = DependencyDisposition.Failed;
             try
             {
-                var result = (FStarDepOutput)BuildEngine.theEngine.Repository.FetchVirtual(this.depsObj);
+                var result = (FStarDepOutput)BuildEngine.theEngine.Repository.FetchVirtual(this.fstardepObj);
                 ddisp = DependencyDisposition.Complete;
                 return result;
 
@@ -118,6 +113,18 @@ namespace NuBuild
             {
                 ddisp = DependencyDisposition.Incomplete;
                 return null;
+            }
+        }
+
+        public static IEnumerable<string> MakeArgumentPrelude()
+        {
+            yield return "--dep";
+            yield return "make";
+            yield return "--no_default_includes";
+            foreach (var relPath in FStarEnvironment.DefaultModuleSearchPaths.Reverse())
+            {
+                var s = string.Format("--include {0}", relPath);
+                yield return s;
             }
         }
     }

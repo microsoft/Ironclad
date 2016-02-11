@@ -60,8 +60,6 @@ namespace NuBuild
             return this.wasRejectableFailure;
         }
 
-        protected abstract BuildObject getSource();
-
         protected void setWasRejectableFailure(bool value)
         {
             this.dbgWasVerificationTimeoutRecorded = true;

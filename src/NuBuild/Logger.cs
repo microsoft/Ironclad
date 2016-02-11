@@ -130,8 +130,9 @@ namespace NuBuild
                 else
                 {
                     Log.WriteLine(formatted);
+                    // todo: i haven't figured out how to flush the log if an exception is thrown (a high-level finally doesn't work), so i need to flush regularly for now.
+                    Flush();
                 }
-
             }
 
         }

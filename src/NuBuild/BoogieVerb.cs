@@ -132,11 +132,6 @@ using System.IO;
             return disposition;
         }
 
-        protected override BuildObject getSource()
-        {
-            return bplInput;
-        }
-
         private static SourcePath getBoogieExecutable()
         {
             // TODO this should eventually be a BuildObject from *building* the executable.

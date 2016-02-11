@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 
 namespace NuBuild
 {
+    using System.Data.Common;
     using System.Diagnostics;
     using System.IO;
     using System.Text.RegularExpressions;
@@ -17,9 +18,24 @@ namespace NuBuild
         private const string DefaultPathToFStarExe = ".\\.fstar\\bin\\fstar.exe";
 
         private static readonly AbsoluteFileSystemPath AbsolutePathToFStarExe;
+        private static readonly IEnumerable<string> ImplicitDependencies = new[] { "./lib/prims.fst" };
 
-        private static readonly List<SourcePath> Binaries;
-        private static readonly List<SourcePath> StandardLibrary;
+        public static readonly IEnumerable<SourcePath> Binaries;
+        public static readonly IEnumerable<SourcePath> StandardLibrary;
+
+
+        // the following list of default module search paths must match what's listed in `fstar/src/options.fs`.
+        // don't include the current directory, however.
+        // todo: it would be nice to be able to query F* for this list so that it does not need to be manually synchronized.
+        private static readonly List<RelativeFileSystemPath> StandardLibrarySearchPaths = 
+            (new[]
+             {
+                "./lib",
+                "./lib/fstar",
+                "./stdlib",
+                "./stdlib/fstar",
+             })
+            .Select(s => RelativeFileSystemPath.Parse(s)).ToList();
 
         static FStarEnvironment()
         {
@@ -27,6 +43,7 @@ namespace NuBuild
             Binaries = findBinaries(pathToFStarExe);
             StandardLibrary = findStandardLibrary(pathToFStarExe);
             AbsolutePathToFStarExe = pathToFStarExe;
+
         }
 
         public static RelativeFileSystemPath PathToFStarExe
@@ -37,9 +54,17 @@ namespace NuBuild
             }
         }
 
-        public static IEnumerable<SourcePath> getStandardDependencies()
+        public static RelativeFileSystemPath HomeDirectoryPath
         {
-            return Binaries.Concat(StandardLibrary);
+            get
+            {
+                return PathToFStarExe.ParentDirectoryPath.ParentDirectoryPath;
+            }
+        }
+
+        public static IEnumerable<SourcePath> GetStandardDependencies()
+        {
+            return Binaries.Concat(ImplicitDependencies.Select(s => new SourcePath(s)));
         }
 
         private static List<SourcePath> findBinaries(AbsoluteFileSystemPath pathToFStarExe)
@@ -119,6 +144,17 @@ namespace NuBuild
             {
                 var s = absFilePath.ToString();
                 throw new FileNotFoundException(string.Format("A needed file (`{0}`) is missing. Please verify that the `paths.fstar` entry in your `{1}` file is accurate.", s, NuBuildEnvironment.ConfigFileRelativePath));
+            }
+        }
+
+        public static IEnumerable<RelativeFileSystemPath> DefaultModuleSearchPaths
+        {
+            get
+            {
+                foreach (var relPath in StandardLibrarySearchPaths)
+                {
+                    yield return FileSystemPath.Join(HomeDirectoryPath, relPath);
+                }
             }
         }
     }

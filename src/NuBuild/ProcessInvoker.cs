@@ -134,7 +134,7 @@ namespace NuBuild
                         // to run away and never come back.
                         BuildObject failureBatObj = failureBase.makeOutputObject(".bat");
                         workingDirectory.CreateDirectoryFor(failureBatObj);
-                        File.WriteAllText(workingDirectory.PathTo(failureBatObj), commandLine);
+                        File.WriteAllText(workingDirectory.PathTo(Path.Combine(failureBase.getDirPath(), "pre_boogie.bat")), commandLine);
                     }
 
                     proc.Start();

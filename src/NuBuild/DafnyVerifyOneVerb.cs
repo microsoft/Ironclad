@@ -112,12 +112,7 @@ namespace NuBuild
             // are complete. So all of these lookups should succeed.
             // (wait, does that follow?)
             return this.getTransitiveDepsVerb().getShallowIncludes();
-        }
-
-        protected override BuildObject getSource()
-        {
-            return this.dfysource;
-        }        
+        }  
 
         private TransitiveDepsVerb getTransitiveDepsVerb()
         {

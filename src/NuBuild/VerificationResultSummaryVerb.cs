@@ -230,11 +230,6 @@ using System.Threading.Tasks;
             return vr.presentation;
         }
 
-        protected override BuildObject getSource()
-        {
-            return this.producer.getObligationSet();
-        }
-
         private int ByCpuTimeDecreasing(VerificationResult va, VerificationResult vb)
         {
             return -(va.cpuTime.CompareTo(vb.cpuTime));

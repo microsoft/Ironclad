@@ -10,55 +10,34 @@ namespace NuBuild
     using System.Collections.Generic;
     using System.IO;
     using System.Linq;
+    using System.Runtime.CompilerServices;
+    using System.Runtime.Remoting.Metadata.W3cXsd2001;
+    using System.Security.Cryptography;
+    using System.Text;
 
     using Microsoft.Data.OData.Query.SemanticAst;
 
     internal class FStarVerifyVerb
         : VerificationResultVerb, IProcessInvokeAsyncVerb
     {
-        public const string SourceFileExtension = ".fst";
-        private const int Version = 1;
+        private const int Version = 2;
 
-        private SourcePath fstSource;
-        private AbstractId abstractId;
+        private readonly string signature;
+        private readonly AbstractId abstractId;
+        private readonly FStarDepVerb depsVerb;
 
-        private FStarDepVerb depsVerb;
-        private readonly List<string> fstArgs;
+        private readonly BuildObject outputObj;
+        private readonly string label;
 
-        private List<SourcePath> secondarySources;
+        private readonly FStarOptionParser optParser;
 
-        public FStarVerifyVerb(IEnumerable<string> fstArgs, bool rewritePaths = false)
+        public FStarVerifyVerb(IEnumerable<string> args)
         {
-            if (rewritePaths)
-            {
-                this.fstArgs = rewritePathArgs(fstArgs, out this.secondarySources);
-            }
-            else
-            {
-                this.fstArgs = fstArgs.ToList();
-            }
-
-            // the final argument is assumed to be our NuBuild source.
-            var last = this.fstArgs.Count - 1;
-            this.fstSource = new SourcePath(this.fstArgs[last]);
-            var ext = this.fstSource.getExtension();
-            if (ext == null || !ext.EndsWith(SourceFileExtension, StringComparison.InvariantCultureIgnoreCase))
-            {
-                throw new ArgumentException(string.Format("The final argument to `VerifyFst` ({0}) was not an F* module source (`.fst` file); please considering rearranging the arguments to `fstar.exe` so that options preceed file names.", fstArgs.Last()));
-            }
-            this.fstArgs.RemoveAt(last);
-
-            var concrete = string.Join(" ", this.fstArgs);
-            this.abstractId = new AbstractId(this.GetType().Name, Version, fstSource.ToString(), concrete: concrete);
-            if (extractAutoDep(this.fstArgs))
-            {
-                // note that what we pass into FStarDepVerb's constructor is not necessarily the same as what wasa passed into ours.
-                this.depsVerb = new FStarDepVerb(this.fstSource, this.fstArgs);
-            }
-            else
-            {
-                this.depsVerb = null;
-            }
+            this.optParser = new FStarOptionParser(args);
+            this.signature = MakeArgumentSignature(args);
+            this.label = string.Format("FStarVerify {0}", string.Join(" ", args));
+            this.abstractId = new AbstractId(this.GetType().Name, Version, this.signature);
+            this.outputObj = new BuildObject(string.Format("{0}/{1}.fst.v", BuildEngine.theEngine.getVirtualRoot(), this.signature));
         }
 
         public override AbstractId getAbstractIdentifier()
@@ -69,27 +48,33 @@ namespace NuBuild
         public override IEnumerable<BuildObject> getDependencies(out DependencyDisposition ddisp)
         {
             // note: order of the returned IEnumerable object doesn't appear to matter.
-            var result = new HashSet<BuildObject> { this.getSource() };
-            result.UnionWith(FStarEnvironment.getStandardDependencies());
-            result.UnionWith(this.secondarySources);
+            var result = new HashSet<BuildObject>(FStarEnvironment.GetStandardDependencies());
+            var searchPaths = this.optParser.GetModuleSearchPaths();
+            foreach (var filePath in this.optParser.SourceFilePaths)
+            {
+                var found = NuBuildEnvironment.FindFile(filePath, searchPaths);
+                if (found == null)
+                {
+                    var msg = string.Format("Unable to find file (`{0}`) in module search path (`{1}`).", filePath, string.Join(";", searchPaths.Select(p => p.ToString())));
+                    throw new FileNotFoundException(msg);
+                }
+                result.Add(new SourcePath(found.ToString()));
+            }
             if (this.depsVerb == null)
             {
                 ddisp = DependencyDisposition.Complete;
                 return result;
             }
-            else
-            {
-                var depOut = this.depsVerb.getOutputs();
-                result.UnionWith(depOut);
+            var depOut = this.depsVerb.getOutputs();
+            result.UnionWith(depOut);
 
-                var depsFound = this.depsVerb.getDependenciesFound(out ddisp);
-                if (ddisp != DependencyDisposition.Complete)
-                {
-                    return result;
-                }
-                result.UnionWith(depsFound.Value);
+            var depsFound = this.depsVerb.getDependenciesFound(out ddisp);
+            if (ddisp != DependencyDisposition.Complete)
+            {
                 return result;
             }
+            result.UnionWith(depsFound.Value);
+            return result;
         }
 
         public override IEnumerable<IVerb> getVerbs()
@@ -98,15 +83,12 @@ namespace NuBuild
             {
                 return new IVerb[0];
             }
-            else
-            {
-                return new IVerb[] { this.depsVerb };
-            }
+            return new IVerb[] { this.depsVerb };
         }
 
         public override BuildObject getOutputFile()
         {
-            return this.fstSource.makeOutputObject(".fst.v");
+            return this.outputObj;
         }
 
         public override IEnumerable<BuildObject> getOutputs()
@@ -117,8 +99,11 @@ namespace NuBuild
         public override IVerbWorker getWorker(WorkingDirectory workingDirectory)
         {
             List<string> arguments = new List<string>();
-            arguments.AddRange(this.fstArgs);
-            arguments.Add(this.fstSource.getRelativePath());
+            if (!this.optParser.ExplicitDeps)
+            {
+                arguments.Add("--explicit_deps");
+            }
+            arguments.AddRange(this.optParser.GetAdjustedArgs());
             var exePath = FStarEnvironment.PathToFStarExe.ToString();
 
             Logger.WriteLine(string.Format("{0} invokes `{1} {2}` from `{3}`", this, exePath, string.Join(" ", arguments), workingDirectory.Prefix));
@@ -146,7 +131,7 @@ namespace NuBuild
             }
 
             VerificationResult vr = new VerificationResult(
-                this.fstSource.getRelativePath(),
+                this.label,
                 cpuTimeSeconds,
                 stdout,
                 stderr,
@@ -155,74 +140,6 @@ namespace NuBuild
             vr.toXmlFile(workingDirectory.PathTo(this.getOutputFile()));
             this.setWasRejectableFailure(!vr.pass);
             return disposition;
-        }
-
-        protected override BuildObject getSource()
-        {
-            return this.fstSource;
-        }
-
-        private static string attemptToRewritePath(string path)
-        {
-            RelativeFileSystemPath relFilePath;
-            try
-            {
-                relFilePath = RelativeFileSystemPath.Parse(path, permitImplicit: true);
-            }
-            catch (Exception)
-            {
-                return null;
-            }
-            var ext = relFilePath.FileExtension;
-            if (!ext.Equals(".fst", StringComparison.InvariantCultureIgnoreCase) && !ext.Equals(".fsi", StringComparison.InvariantCultureIgnoreCase) && !ext.Equals(".fsti", StringComparison.InvariantCultureIgnoreCase))
-            {
-                return null;
-            }
-            var absFilePath = AbsoluteFileSystemPath.FromRelative(relFilePath, NuBuildEnvironment.InvocationPath);
-            if (!absFilePath.IsExistingFile && !absFilePath.IsExistingDirectory)
-            {
-                return null;
-            }
-            var buildObjPath = absFilePath.ExtractRelative(NuBuildEnvironment.RootDirectoryPath);
-            return buildObjPath.ToString("i");
-        }
-
-        private static List<string> rewritePathArgs(IEnumerable<string> args, out List<SourcePath> secondarySources)
-        {
-            secondarySources = new List<SourcePath>();
-            var result = new List<string>();
-            foreach (var a in args)
-            {
-                if (!a.StartsWith("--"))
-                {
-                    var s = attemptToRewritePath(a);
-                    if (s != null)
-                    {
-                        result.Add(s);
-                        secondarySources.Add(new SourcePath(s));
-                        continue;
-                    }
-                }
-
-                result.Add(a);
-            }
-
-            return result;
-        }
-
-        private static bool extractAutoDep(IList<string> args)
-        {
-            for (var i = 0; i < args.Count; ++i)
-            {
-                // todo: this isn't implemented yet in F*.
-                if (args[i].Equals("--auto_dep", StringComparison.InvariantCulture))
-                {
-                    Logger.WriteLine("Dependency search option detected.", "verbose");
-                    args.RemoveAt(i);
-                    return true;
-                }
-            }
-            return false;
         }
     }
 }

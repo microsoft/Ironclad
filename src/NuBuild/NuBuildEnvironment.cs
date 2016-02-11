@@ -136,5 +136,21 @@ namespace NuBuild
                 return new Dictionary<string, object>();
             }
         }
+
+        public static RelativeFileSystemPath FindFile(RelativeFileSystemPath file, IEnumerable<RelativeFileSystemPath> searchPaths)
+        {
+            foreach (var dir in searchPaths)
+            {
+                var relPath = FileSystemPath.Join(dir, file);
+                var absPath = AbsoluteFileSystemPath.FromRelative(relPath, RootDirectoryPath);
+                if (absPath.ExistsAsFile)
+                {
+                    return relPath;
+                }
+            }
+
+            return null;
+        }
+
     }
 }

@@ -11,14 +11,14 @@ namespace NuBuild
     {
         public readonly OrderPreservingSet<BuildObject> Value;
 
-        public FStarDepOutput(string output, BuildObject fstSource, WorkingDirectory workDir)
+        public FStarDepOutput(string output, WorkingDirectory workDir)
         {
-            this.Value = this.ParseOutput(output, fstSource, workDir);
+            this.Value = this.ParseOutput(output,  workDir);
         }
 
-        private OrderPreservingSet<BuildObject> ParseOutput(string output, BuildObject fstSource, WorkingDirectory workDir)
+        private OrderPreservingSet<BuildObject> ParseOutput(string output, WorkingDirectory workDir)
         {
-            var stdDeps = FStarEnvironment.getStandardDependencies();
+            var stdDeps = FStarEnvironment.GetStandardDependencies();
             var set = new OrderPreservingSet<BuildObject>();
             var entries = output.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries).ToList();
 

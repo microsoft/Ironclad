@@ -201,7 +201,7 @@ namespace NuBuild
                         {
                             throw new UserError("The FStarVerify verb requires at least one argument, specifying the NuBuild source file path.");
                         }
-                        verbs.Add(new FStarVerifyVerb(remainingArgs, rewritePaths: true));
+                        verbs.Add(new FStarVerifyVerb(remainingArgs));
                     }
                     else
                     {
