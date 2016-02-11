@@ -3,53 +3,81 @@ namespace NuBuild
 {
     using System;
     using System.Collections.Generic;
-    using System.IO;
-    using System.Linq;
 
-   
     class FStarDepOutput : VirtualContents
     {
-        public readonly OrderPreservingSet<BuildObject> Value;
+        public readonly Dictionary<RelativeFileSystemPath, IEnumerable<RelativeFileSystemPath>> ByTarget;
 
-        public FStarDepOutput(string output, WorkingDirectory workDir)
+        private readonly IDictionary<string, RelativeFileSystemPath> foundSources;
+
+        public FStarDepOutput(string output, FStarOptionParser optParser, WorkingDirectory workDir)
         {
-            this.Value = this.ParseOutput(output,  workDir);
+            this.foundSources = optParser.FindSourceFiles();
+            this.ByTarget = this.Parse(output, workDir);
         }
 
-        private OrderPreservingSet<BuildObject> ParseOutput(string output, WorkingDirectory workDir)
+        public IEnumerable<RelativeFileSystemPath> GetAll()
         {
-            var stdDeps = FStarEnvironment.GetStandardDependencies();
-            var set = new OrderPreservingSet<BuildObject>();
-            var entries = output.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries).ToList();
-
-            // todo: verify that the final file is actually the source file.
-            /*var lastFile = entries[entries.Count - 1].ToAbsoluteFilePath();
-            var workSource = workDir.GetAbsoluteFilePath(FileSystemPath.ImplicitPathStringToRelativeFilePath(workDir.PathTo(fstSource)));
-            if (workSource.NotEquals(lastFile))
+            var set = new HashSet<RelativeFileSystemPath>();
+            foreach (var target in this.ByTarget.Keys)
             {
-                throw new InvalidOperationException("`fstar.exe --find_deps` did not return the top-level source file in its output");
-            }*/
-            entries.RemoveAt(entries.Count - 1);
-
-            // we need to search for dependencies that refer to files that come with the F* distribution to ensure that NuBuild handles those dependencies properly.
-            foreach (var entry in entries)
-            {
-                var absFilePath = AbsoluteFileSystemPath.Parse(entry);
-                var relFilePath = absFilePath.MapToBuildObjectPath(workDir);
-                BuildObject foundStdDep = null;
-                foreach (var stdDep in stdDeps)
+                set.Add(target);
+                foreach (var depend in this.ByTarget[target])
                 {
-                    var s0 = stdDep.toRelativeFilePath().ToString();
-                    var s1 = relFilePath.ToString();
-                    if (s0.Equals(s1, StringComparison.InvariantCultureIgnoreCase))
-                    {
-                        foundStdDep = stdDep;
-                        break;
-                    }
+                    set.Add(target);
                 }
-                set.Add(foundStdDep ?? new SourcePath(relFilePath.ToString(), SourcePath.SourceType.Tools));
             }
             return set;
+        }
+
+        private Dictionary<RelativeFileSystemPath, IEnumerable<RelativeFileSystemPath>> Parse(string output, WorkingDirectory workDir)
+        {
+            //var stdLib = FStarEnvironment.StandardLibrary;
+            var lines = output.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+            var result = new Dictionary<RelativeFileSystemPath, IEnumerable<RelativeFileSystemPath>>();
+
+            // output is a makefile-like language. 
+            // - each line is "target: depend depend depend"
+            // - all filenames appear to be absolute paths.
+            // - backslashes are not escaped.
+            // todo: are spaces escaped?
+
+            for (var i = 0; i < lines.Length; ++i)
+            {
+                var line = lines[i];
+                var sepByColon = line.Split(new[] { ": " }, StringSplitOptions.None);
+                if (sepByColon.Length != 2)
+                {
+                    var msg = string.Format("Expected line {0} of `fstar --dep make` output to contain a `:`.", i);
+                    throw new InvalidOperationException(msg);
+                }
+                var sepBySpaces = sepByColon[1].Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+
+                var target = this.ParsePath(sepByColon[0], workDir);
+                var depends = new List<RelativeFileSystemPath>();
+                foreach (var depend in sepBySpaces)
+                {
+                    depends.Add(ParsePath(depend, workDir));
+                }
+                result.Add(target, depends);
+            }
+            return result;
+        }
+
+        private RelativeFileSystemPath ParsePath(string s, WorkingDirectory workDir)
+        {
+            if (FileSystemPath.IsAbsolutePath(s))
+            {
+                return AbsoluteFileSystemPath.Parse(s).MapToBuildObjectPath(workDir);
+            }
+            else if (foundSources.ContainsKey(s))
+            {
+                return foundSources[s];
+            }
+            else
+            {
+                return RelativeFileSystemPath.Parse(s, permitImplicit: true);
+            }
         }
     }
 }

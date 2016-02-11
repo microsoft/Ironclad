@@ -27,7 +27,7 @@ namespace NuBuild
         public const string RED = "red";
         public const string GREEN = "green";
 
-        public const string _xml_ColorValue_attr = "Value";
+        public const string _xml_ColorValue_attr = "ByTarget";
 
         public Presentation(string xmls)
         {

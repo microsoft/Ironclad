@@ -1,5 +1,5 @@
 ﻿//--
-// <copyright file="FStarDepVerb.cs" company="Microsoft Corporation">
+// <copyright file="FStarFindDepsVerb.cs" company="Microsoft Corporation">
 //     Copyright (c) Microsoft Corporation.  All rights reserved.
 // </copyright>
 //--
@@ -11,7 +11,7 @@ namespace NuBuild
     using System.IO;
     using System.Linq;
 
-    internal class FStarDepVerb: Verb, IProcessInvokeAsyncVerb
+    internal class FStarFindDepsVerb: Verb, IProcessInvokeAsyncVerb
     {
         private const string DepsObjExtension = ".fstardep.vob";
         private const int Version = 2;
@@ -19,16 +19,19 @@ namespace NuBuild
         private readonly IEnumerable<string> args;
         private readonly string signature;
         private readonly AbstractId abstractId;
-        private BuildObject fstardepObj;
+        private BuildObject outputObj;
+
+        private readonly FStarOptionParser optParser;
         
-        public FStarDepVerb(IEnumerable<string> args)
+        public FStarFindDepsVerb(IEnumerable<string> args)
         {
             this.args = args;
-            this.signature = MakeArgumentSignature(args);
+            this.optParser = new FStarOptionParser(args);
+            this.signature = MakeArgumentSignature(this.optParser.GetNormalizedArgs());
             this.abstractId = new AbstractId(this.GetType().Name, Version, this.signature);
 
             var vobName = Path.Combine(BuildEngine.theEngine.getVirtualRoot(), this.signature + DepsObjExtension);
-            this.fstardepObj = new VirtualBuildObject(vobName);
+            this.outputObj = new VirtualBuildObject(vobName);
         }
 
         public override AbstractId getAbstractIdentifier()
@@ -39,7 +42,9 @@ namespace NuBuild
         public override IEnumerable<BuildObject> getDependencies(out DependencyDisposition ddisp)
         {
             ddisp = DependencyDisposition.Complete;
-            return new HashSet<BuildObject>(FStarEnvironment.GetStandardDependencies());
+            var result = new HashSet<BuildObject>(FStarEnvironment.GetStandardDependencies());
+            result.UnionWith(this.optParser.FindSourceFiles().Values.Select(p => new SourcePath(p.ToString())));
+            return result;
         }
 
         public override IEnumerable<IVerb> getVerbs()
@@ -49,14 +54,12 @@ namespace NuBuild
 
         public override IEnumerable<BuildObject> getOutputs()
         {
-            return new[] { this.fstardepObj };
+            return new[] { this.outputObj };
         }
 
         public override IVerbWorker getWorker(WorkingDirectory workingDirectory)
         {
-            List<string> arguments = new List<string>();
-            arguments.AddRange(MakeArgumentPrelude());
-            arguments.AddRange(this.args);
+            var arguments = this.GetNormalizedArgs().ToArray();
             var exePath = FStarEnvironment.PathToFStarExe.ToString();
 
             Logger.WriteLine(string.Format("{0} invokes `{1} {2}`", this, exePath, string.Join(" ", arguments)));
@@ -87,7 +90,7 @@ namespace NuBuild
             FStarDepOutput contents;
             try
             {
-                contents = new FStarDepOutput(stdout, workingDirectory);
+                contents = new FStarDepOutput(stdout, this.optParser, workingDirectory);
             }
             catch (Exception e)
             {
@@ -95,7 +98,7 @@ namespace NuBuild
                 Logger.WriteLine(msg, new []{"error", "fstar"});
                 return new Failed();
             }
-            BuildEngine.theEngine.Repository.StoreVirtual(this.fstardepObj, new Fresh(), contents);
+            BuildEngine.theEngine.Repository.StoreVirtual(this.outputObj, new Fresh(), contents);
             return new Fresh();
         }
 
@@ -104,7 +107,7 @@ namespace NuBuild
             ddisp = DependencyDisposition.Failed;
             try
             {
-                var result = (FStarDepOutput)BuildEngine.theEngine.Repository.FetchVirtual(this.fstardepObj);
+                var result = (FStarDepOutput)BuildEngine.theEngine.Repository.FetchVirtual(this.outputObj);
                 ddisp = DependencyDisposition.Complete;
                 return result;
 
@@ -116,15 +119,13 @@ namespace NuBuild
             }
         }
 
-        public static IEnumerable<string> MakeArgumentPrelude()
+        private IEnumerable<string> GetNormalizedArgs()
         {
             yield return "--dep";
             yield return "make";
-            yield return "--no_default_includes";
-            foreach (var relPath in FStarEnvironment.DefaultModuleSearchPaths.Reverse())
+            foreach (var arg in this.optParser.GetNormalizedArgs())
             {
-                var s = string.Format("--include {0}", relPath);
-                yield return s;
+                yield return arg;
             }
         }
     }

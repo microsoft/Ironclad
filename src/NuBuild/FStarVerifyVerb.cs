@@ -24,11 +24,10 @@ namespace NuBuild
 
         private readonly string signature;
         private readonly AbstractId abstractId;
-        private readonly FStarDepVerb depsVerb;
-
         private readonly BuildObject outputObj;
         private readonly string label;
 
+        private readonly FStarFindDepsVerb findDepsVerb;
         private readonly FStarOptionParser optParser;
 
         public FStarVerifyVerb(IEnumerable<string> args)
@@ -37,7 +36,15 @@ namespace NuBuild
             this.signature = MakeArgumentSignature(this.GetNormalizedArgs());
             this.label = string.Format("FStarVerify {0}", string.Join(" ", args));
             this.abstractId = new AbstractId(this.GetType().Name, Version, this.signature);
-            this.outputObj = new BuildObject(string.Format("{0}/{1}.fst.v", BuildEngine.theEngine.getVirtualRoot(), this.signature));
+            var vobName = Path.Combine(BuildEngine.theEngine.getVirtualRoot(), string.Format("{0}.fst.v", this.signature));
+            this.outputObj = new BuildObject(vobName);
+            if (this.optParser.ExplicitDeps)
+            {
+                this.findDepsVerb = null;
+            }
+            {
+                this.findDepsVerb = new FStarFindDepsVerb(args);
+            }
         }
 
         public override AbstractId getAbstractIdentifier()
@@ -49,41 +56,32 @@ namespace NuBuild
         {
             // note: order of the returned IEnumerable object doesn't appear to matter.
             var result = new HashSet<BuildObject>(FStarEnvironment.GetStandardDependencies());
-            var searchPaths = this.optParser.GetModuleSearchPaths();
-            foreach (var filePath in this.optParser.SourceFilePaths)
-            {
-                var found = NuBuildEnvironment.FindFile(filePath, searchPaths);
-                if (found == null)
-                {
-                    var msg = string.Format("Unable to find file (`{0}`) in module search path (`{1}`).", filePath, string.Join(";", searchPaths.Select(p => p.ToString())));
-                    throw new FileNotFoundException(msg);
-                }
-                result.Add(new SourcePath(found.ToString()));
-            }
-            if (this.depsVerb == null)
+            result.UnionWith(this.optParser.FindSourceFiles().Values.Select(p => new SourcePath(p.ToString())));
+            if (this.findDepsVerb == null)
             {
                 ddisp = DependencyDisposition.Complete;
                 return result;
             }
-            var depOut = this.depsVerb.getOutputs();
+            var depOut = this.findDepsVerb.getOutputs();
             result.UnionWith(depOut);
 
-            var depsFound = this.depsVerb.getDependenciesFound(out ddisp);
+            var depOutput = this.findDepsVerb.getDependenciesFound(out ddisp);
             if (ddisp != DependencyDisposition.Complete)
             {
                 return result;
             }
-            result.UnionWith(depsFound.Value);
+            var allDeps = depOutput.GetAll().Select(s => new SourcePath(s.ToString()));
+            result.UnionWith(allDeps);
             return result;
         }
 
         public override IEnumerable<IVerb> getVerbs()
         {
-            if (this.depsVerb == null)
+            if (this.findDepsVerb == null)
             {
                 return new IVerb[0];
             }
-            return new IVerb[] { this.depsVerb };
+            return new IVerb[] { this.findDepsVerb };
         }
 
         public override BuildObject getOutputFile()

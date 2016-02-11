@@ -117,7 +117,7 @@ namespace NuBuild
 
         /// <summary>
         /// Whether to reject cached failures, apparently.
-        /// Value comes from a command-line argument.
+        /// ByTarget comes from a command-line argument.
         /// </summary>
         private bool rejectCachedFailures;
 

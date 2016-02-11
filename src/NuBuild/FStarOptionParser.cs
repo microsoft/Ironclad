@@ -1,8 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace NuBuild
 {
@@ -10,14 +9,14 @@ namespace NuBuild
     {
         private readonly string[] args;
         private readonly List<RelativeFileSystemPath> includePaths;
-        private readonly List<RelativeFileSystemPath> sourceFilePaths;
+        private readonly List<string> sourceFileArgs;
         private readonly List<string> ignored; 
 
         public FStarOptionParser(IEnumerable<string> args)
         {
             this.args = args.ToArray();
             this.includePaths = new List<RelativeFileSystemPath>();
-            this.sourceFilePaths = new List<RelativeFileSystemPath>();
+            this.sourceFileArgs = new List<string>();
             this.ignored = new List<string>();
             this.ParseArgs();
         }
@@ -49,13 +48,22 @@ namespace NuBuild
             }
         }
 
+        public IEnumerable<string> SourceFileArgs
+        {
+            get
+            {
+                return this.sourceFileArgs;
+            }
+        }
+
         public IEnumerable<RelativeFileSystemPath> SourceFilePaths
         {
             get
             {
-                return this.sourceFilePaths;
+                return this.sourceFileArgs.Select(s => RelativeFileSystemPath.Parse(s, permitImplicit: true));
             }
         }
+             
 
         public IEnumerable<RelativeFileSystemPath> GetModuleSearchPaths()
         {
@@ -143,8 +151,7 @@ namespace NuBuild
                 }
                 else if (arg.EndsWith(".fst") || arg.EndsWith(".fsi") || arg.EndsWith(".fsti"))
                 {
-                    var relPath = RelativeFileSystemPath.Parse(this.args[i], permitImplicit: true);
-                    this.sourceFilePaths.Add(relPath);
+                    this.sourceFileArgs.Add(this.args[i]);
                 }
                 else
                 {
@@ -152,6 +159,24 @@ namespace NuBuild
                 }
             }
         }
+
+        public IDictionary<string, RelativeFileSystemPath> FindSourceFiles()
+        {
+            var result = new Dictionary<string, RelativeFileSystemPath>();
+            var searchPaths = this.GetModuleSearchPaths();
+            foreach (var fileArg in this.SourceFileArgs)
+            {
+                var filePath = RelativeFileSystemPath.Parse(fileArg, permitImplicit: true);
+                var found = NuBuildEnvironment.FindFile(filePath, searchPaths);
+                if (found == null)
+                {
+                    var msg = string.Format("Unable to find file (`{0}`) in module search path (`{1}`).", fileArg, string.Join(";", searchPaths.Select(p => p.ToString())));
+                    throw new FileNotFoundException(msg);
+                }
+                result.Add(fileArg, found);
+            }
+            return result;
+        } 
 
         private void UnrecognizedArg(string arg)
         {
