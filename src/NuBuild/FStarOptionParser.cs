@@ -5,19 +5,25 @@ using System.Linq;
 
 namespace NuBuild
 {
+    using System.Runtime.Remoting.Metadata.W3cXsd2001;
+    using System.Security.Cryptography;
+    using System.Text;
+
     public class FStarOptionParser
     {
         private readonly string[] args;
         private readonly List<RelativeFileSystemPath> includePaths;
         private readonly List<string> sourceFileArgs;
-        private readonly List<string> ignored; 
+        private readonly List<string> ignored;
+        public readonly AbsoluteFileSystemPath InvocationPath;
 
-        public FStarOptionParser(IEnumerable<string> args)
+        public FStarOptionParser(IEnumerable<string> args, AbsoluteFileSystemPath invokedFrom = null)
         {
             this.args = args.ToArray();
             this.includePaths = new List<RelativeFileSystemPath>();
             this.sourceFileArgs = new List<string>();
             this.ignored = new List<string>();
+            this.InvocationPath = invokedFrom ?? NuBuildEnvironment.RootDirectoryPath;
             this.ParseArgs();
         }
 
@@ -63,6 +69,8 @@ namespace NuBuild
                 return this.sourceFileArgs.Select(s => RelativeFileSystemPath.Parse(s, permitImplicit: true));
             }
         }
+
+        public string VerifyModule { get; set; }
              
 
         public IEnumerable<RelativeFileSystemPath> GetModuleSearchPaths()
@@ -73,30 +81,47 @@ namespace NuBuild
                 paths.AddRange(FStarEnvironment.DefaultModuleSearchPaths.Reverse());
             }
             paths.AddRange(this.IncludePaths);
-            paths.Add(NuBuildEnvironment.InvocationPath.ExtractRelative(NuBuildEnvironment.RootDirectoryPath));
+            var relInvocationPath = this.InvocationPath.ExtractRelative(NuBuildEnvironment.RootDirectoryPath);
+            paths.Add(relInvocationPath);
             return paths;
         }
 
-        public IEnumerable<string> GetNormalizedArgs()
+        public IEnumerable<string> GetNormalizedArgs(AbsoluteFileSystemPath rootPath = null, bool forceExplicitDeps = false, bool emitSources = true)
         {
             yield return "--no_default_includes";
-            if (this.ExplicitDeps)
+            if (this.ExplicitDeps || forceExplicitDeps)
             {
                 yield return "--explicit_deps";
+            }
+            if (this.VerifyModule != null)
+            {
+                yield return "--verify_module";
+                yield return this.VerifyModule;
             }
             var paths = this.GetModuleSearchPaths();
             foreach (var path in paths)
             {
                 yield return "--include";
-                yield return path.ToString();
-            }
-            foreach (var path in this.SourceFilePaths)
-            {
-                yield return path.ToString("i");
+                if (rootPath == null)
+                {
+                    yield return path.ToString();
+                }
+                else
+                {
+                    var absPath = FileSystemPath.Join(rootPath, path);
+                    yield return absPath.ToString();
+                }
             }
             foreach (var arg in this.ignored)
             {
                 yield return arg;
+            }
+            if (emitSources)
+            {
+                foreach (var path in this.SourceFilePaths)
+                {
+                    yield return path.ToString("i");
+                }
             }
         }
 
@@ -114,8 +139,7 @@ namespace NuBuild
                 if (arg.StartsWith("--"))
                 {
                     if (arg.Equals("--admit_fsi", StringComparison.CurrentCultureIgnoreCase)
-                        || arg.Equals("--z3timeout", StringComparison.CurrentCulture)
-                        || arg.Equals("--verify_module", StringComparison.CurrentCulture))
+                        || arg.Equals("--z3timeout", StringComparison.CurrentCultureIgnoreCase))
                     {
                         // --admit_fsi requires a parameter.
                         if (i == last)
@@ -135,6 +159,25 @@ namespace NuBuild
                         }
                         var relPath = ParseIncludePath(this.args[++i]);
                         this.includePaths.Add(relPath);
+                    }
+                    else if (arg.Equals("--verify_module", StringComparison.CurrentCultureIgnoreCase))
+                    {
+                        if (this.VerifyModule != null)
+                        {
+                            throw new ArgumentException("Attempt to specify `--verify_module` twice.");
+                        }
+
+                        // --verify_module requires a parameter.
+                        if (i == last)
+                        {
+                            throw new ArgumentException("F* argument `--verify_module` requires a parameter.");
+                        }
+                        this.VerifyModule = this.args[++i];
+                    }
+
+                    else if (arg.Equals("--no_default_includes", StringComparison.CurrentCultureIgnoreCase))
+                    {
+                        continue;
                     }
                     else if (arg.Equals("--explicit_deps", StringComparison.CurrentCultureIgnoreCase))
                     {
@@ -176,7 +219,18 @@ namespace NuBuild
                 result.Add(fileArg, found);
             }
             return result;
-        } 
+        }
+
+        public string GetSignature()
+        {
+            var args = this.GetNormalizedArgs();
+            var module = this.VerifyModule ?? "_unspecified";
+            SHA256Managed sha256 = new SHA256Managed();
+            var argBytes = Encoding.UTF8.GetBytes(string.Join(" ", args));
+            var hashBytes = sha256.ComputeHash(argBytes);
+            // the signature has to contain valid path characters but invalid F* module characters.
+            return string.Format("{0}!{1}", module, new SoapHexBinary(hashBytes));
+        }
 
         private void UnrecognizedArg(string arg)
         {
@@ -185,7 +239,7 @@ namespace NuBuild
             this.ignored.Add(arg);
         }
 
-        private static RelativeFileSystemPath ParseIncludePath(string s)
+        private RelativeFileSystemPath ParseIncludePath(string s)
         {
             if (FileSystemPath.IsAbsolutePath(s))
             {
@@ -193,7 +247,7 @@ namespace NuBuild
                 throw new ArgumentException(msg);
             }
             var relPath = RelativeFileSystemPath.Parse(s, permitImplicit: true);
-            var absPath = AbsoluteFileSystemPath.FromRelative(relPath, NuBuildEnvironment.InvocationPath);
+            var absPath = AbsoluteFileSystemPath.FromRelative(relPath, this.InvocationPath);
             return absPath.ExtractRelative(NuBuildEnvironment.RootDirectoryPath);
         }
     }

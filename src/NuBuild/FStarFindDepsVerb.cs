@@ -19,15 +19,15 @@ namespace NuBuild
         private readonly IEnumerable<string> args;
         private readonly string signature;
         private readonly AbstractId abstractId;
-        private BuildObject outputObj;
+        private readonly BuildObject outputObj;
 
         private readonly FStarOptionParser optParser;
         
-        public FStarFindDepsVerb(IEnumerable<string> args)
+        public FStarFindDepsVerb(IEnumerable<string> args, AbsoluteFileSystemPath invokedFrom)
         {
             this.args = args;
-            this.optParser = new FStarOptionParser(args);
-            this.signature = MakeArgumentSignature(this.optParser.GetNormalizedArgs());
+            this.optParser = new FStarOptionParser(args, invokedFrom);
+            this.signature = this.optParser.GetSignature();
             this.abstractId = new AbstractId(this.GetType().Name, Version, this.signature);
 
             var vobName = Path.Combine(BuildEngine.theEngine.getVirtualRoot(), this.signature + DepsObjExtension);
@@ -41,10 +41,9 @@ namespace NuBuild
 
         public override IEnumerable<BuildObject> getDependencies(out DependencyDisposition ddisp)
         {
+            // this task runs locally, using an absolute path to the executable and all source files. there's no need, therefore, to let nubuild know about any dependencies to transfer to the working directory.
             ddisp = DependencyDisposition.Complete;
-            var result = new HashSet<BuildObject>(FStarEnvironment.GetStandardDependencies());
-            result.UnionWith(this.optParser.FindSourceFiles().Values.Select(p => new SourcePath(p.ToString())));
-            return result;
+            return new BuildObject[0];
         }
 
         public override IEnumerable<IVerb> getVerbs()
@@ -60,7 +59,7 @@ namespace NuBuild
         public override IVerbWorker getWorker(WorkingDirectory workingDirectory)
         {
             var arguments = this.GetNormalizedArgs().ToArray();
-            var exePath = FStarEnvironment.PathToFStarExe.ToString();
+            var exePath = FileSystemPath.Join(NuBuildEnvironment.RootDirectoryPath, FStarEnvironment.PathToFStarExe).ToString();
 
             Logger.WriteLine(string.Format("{0} invokes `{1} {2}`", this, exePath, string.Join(" ", arguments)));
             return new ProcessInvokeAsyncWorker(
@@ -73,7 +72,8 @@ namespace NuBuild
                 getDiagnosticsBase(),
                 returnStandardOut: true,
                 returnStandardError: true,
-                allowCloudExecution: true);
+                allowAbsoluteArgs: true,
+                allowAbsoluteExe: true);
         }
 
         public Disposition Complete(WorkingDirectory workingDirectory, double cpuTimeSeconds, string stdout, string stderr, Disposition disposition)
@@ -90,7 +90,7 @@ namespace NuBuild
             FStarDepOutput contents;
             try
             {
-                contents = new FStarDepOutput(stdout, this.optParser, workingDirectory);
+                contents = new FStarDepOutput(stdout, this.optParser);
             }
             catch (Exception e)
             {
@@ -123,7 +123,7 @@ namespace NuBuild
         {
             yield return "--dep";
             yield return "make";
-            foreach (var arg in this.optParser.GetNormalizedArgs())
+            foreach (var arg in this.optParser.GetNormalizedArgs(NuBuildEnvironment.RootDirectoryPath))
             {
                 yield return arg;
             }

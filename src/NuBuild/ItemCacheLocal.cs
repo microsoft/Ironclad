@@ -90,7 +90,7 @@ namespace NuBuild
 
                 var bytes = File.ReadAllBytes(itemPath);
                 var msg = string.Format("Retrieved local cache item {0}/{1}.", container, itemHash);
-                Logger.WriteLine(msg, new[] { "cache", "verbose" });
+                Logger.WriteLine(msg, new[] { "cache" });
                 return bytes;
             }
         }
@@ -124,7 +124,7 @@ namespace NuBuild
                     Directory.CreateDirectory(Path.GetDirectoryName(localFilesystemDestinationPath));
                     File.Copy(this.ItemPath(container, itemHash), localFilesystemDestinationPath, true);
                     var msg = string.Format("Retrieved item {0}/{1} from local cache and stored as `{2}`.", container, itemHash, localFilesystemDestinationPath);
-                    Logger.WriteLine(msg, new[] { "cache", "info" });
+                    Logger.WriteLine(msg, new[] { "cache" });
                 }
                 catch (FileNotFoundException)
                 {

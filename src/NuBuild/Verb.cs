@@ -6,12 +6,8 @@
 
 namespace NuBuild
 {
-    using System;
     using System.Collections.Generic;
     using System.IO;
-    using System.Runtime.Remoting.Metadata.W3cXsd2001;
-    using System.Security.Cryptography;
-    using System.Text;
     using System.Xml;
 
     internal abstract class Verb
@@ -59,12 +55,13 @@ namespace NuBuild
 
         public virtual IEnumerable<BuildObject> getFailureOutputs()
         {
-            return new BuildObject[]
-            {
-                this.getDiagnosticsBase().makeOutputObject(".bat"),
-                this.getDiagnosticsBase().makeOutputObject(".stdout"),
-                this.getDiagnosticsBase().makeOutputObject(".stderr"),
-            };
+            return
+                new []
+                {
+                    new BuildObject(Path.Combine(this.getDiagnosticsBase().getDirPath(), "failure.bat")),
+                    new BuildObject(Path.Combine(this.getDiagnosticsBase().getDirPath(), "failure.stdout")),
+                    new BuildObject(Path.Combine(this.getDiagnosticsBase().getDirPath(), "failure.stderr")),
+                };
         }
 
         public abstract IVerbWorker getWorker(WorkingDirectory workingDirectory);
@@ -169,14 +166,6 @@ namespace NuBuild
             }
 
             Util.Assert(ddisp == DependencyDisposition.Complete);
-        }
-
-        protected static string MakeArgumentSignature(IEnumerable<string> args)
-        {
-            SHA256Managed sha256 = new SHA256Managed();
-            var argBytes = Encoding.UTF8.GetBytes(string.Join(" ", args));
-            var hashBytes = sha256.ComputeHash(argBytes);
-            return new SoapHexBinary(hashBytes).ToString();
         }
     }
 }

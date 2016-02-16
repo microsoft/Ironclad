@@ -87,7 +87,7 @@ namespace NuBuild
                 cloudBlob.DownloadToStream(memoryStream);
                 var bytes = memoryStream.ToArray();
                 var msg = string.Format("Retrieved item {0}/{1} from cloud cache.", container, itemHash);
-                Logger.WriteLine(msg, new[] { "cache", "cloud", "verbose" });
+                Logger.WriteLine(msg, new[] { "cache", "cloud" });
                 return bytes;
             }
         }
@@ -115,7 +115,7 @@ namespace NuBuild
             {
                 cloudBlob.DownloadToFile(localFilesystemDestinationPath, FileMode.Create);
                 var msg = string.Format("Retrieved item {0}/{1} from cloud cache and stored as `{2}`.", container, itemHash, localFilesystemDestinationPath);
-                Logger.WriteLine(msg, new[] { "cache", "cloud", "info" });
+                Logger.WriteLine(msg, new[] { "cache", "cloud" });
             }
             catch (Microsoft.WindowsAzure.Storage.StorageException)
             {

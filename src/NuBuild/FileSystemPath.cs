@@ -4,10 +4,6 @@
     using System.Collections.Generic;
     using System.IO;
     using System.Linq;
-    using System.Net.Configuration;
-    using System.Threading;
-
-    using Microsoft.Data.Edm;
 
     public abstract class FileSystemPath
     {
@@ -54,6 +50,14 @@
             }
         }
 
+        public string FileName
+        {
+            get
+            {
+                return Path.GetFileName(this.ToString());
+            }
+        }
+
         public string FileNameWithoutExtension
         {
             get
@@ -97,6 +101,10 @@
         }
         protected static bool IsImplicitRelativePath(string s)
         {
+            if (s == ".")
+            {
+                return false;
+            }
             if (Path.IsPathRooted(s))
             {
                 throw new ArgumentException("Absolute paths are disallowed.");
@@ -122,7 +130,7 @@
         }
     }
 
-    public class AbsoluteFileSystemPath : FileSystemPath
+    public class AbsoluteFileSystemPath : FileSystemPath, IEquatable<AbsoluteFileSystemPath>
     {
         private AbsoluteFileSystemPath(string normalized) :
             base(normalized)
@@ -198,6 +206,22 @@
             }
         }
 
+        public bool Equals(AbsoluteFileSystemPath other)
+        {
+            return other.ToString() == this.ToString();
+        }
+
+        public override bool Equals(object obj)
+        {
+            var other = obj as AbsoluteFileSystemPath;
+            return other != null && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            return this.ToString().GetHashCode();
+        }
+
         public IEnumerable<AbsoluteFileSystemPath> ListFiles(bool recurse = false)
         {
             return Directory.EnumerateFiles(this.ToString(), "*", recurse ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly)
@@ -207,6 +231,11 @@
 
         public RelativeFileSystemPath ExtractRelative(AbsoluteFileSystemPath prefix)
         {
+            if (prefix.Equals(this))
+            {
+                return RelativeFileSystemPath.Parse(".");
+            }
+
             var prefixStr = prefix.ToString();
             var thisStr = this.ToString();
             if (!this.HasPrefix(prefix))
@@ -255,7 +284,7 @@
         }
     }
 
-    public class RelativeFileSystemPath : FileSystemPath
+    public class RelativeFileSystemPath : FileSystemPath, IEquatable<RelativeFileSystemPath>
     {
         private RelativeFileSystemPath(string normalized) :
             base(normalized)
@@ -265,6 +294,22 @@
         public static RelativeFileSystemPath Parse(string pathStr, bool permitImplicit = false)
         {
             return new RelativeFileSystemPath(NormalizeRelative(permitImplicit ? ImplicitToRelative(pathStr) : pathStr));
+        }
+
+        public bool Equals(RelativeFileSystemPath other)
+        {
+            return other.ToString() == this.ToString();
+        }
+
+        public override bool Equals(object obj)
+        {
+            var other = obj as RelativeFileSystemPath;
+            return other != null && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            return this.ToString().GetHashCode();
         }
 
         public string ToString(string fmt)
@@ -329,16 +374,16 @@
 
         private static string NormalizeRelative(string pathStr)
         {
-            if (Path.IsPathRooted(pathStr))
-            {
-                var msg = string.Format("Attempt to create an AbsoluteFileSystemPath with an absolute path (`{0}`).", pathStr);
-                throw new ArgumentException(msg, "pathStr");
-            }
-
             // the normalization technique used below doesn't work for the path `.`.
             if (pathStr == "." || pathStr == "." + Path.DirectorySeparatorChar || pathStr == "." + Path.AltDirectorySeparatorChar)
             {
                 return ".";
+            }
+
+            if (Path.IsPathRooted(pathStr))
+            {
+                var msg = string.Format("Attempt to create an AbsoluteFileSystemPath with an absolute path (`{0}`).", pathStr);
+                throw new ArgumentException(msg, "pathStr");
             }
 
             var dummyPrefix = @"C:\";

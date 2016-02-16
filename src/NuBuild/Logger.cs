@@ -8,6 +8,7 @@ namespace NuBuild
 {
     using System;
     using System.Collections.Generic;
+    using System.Diagnostics;
     using System.IO;
     using System.Linq;
     using System.Text;
@@ -28,7 +29,7 @@ namespace NuBuild
         static Logger()
         {
             StartupBuffer = new List<string>();
-            ActiveTags = new HashSet<string> { "error", "warning", "fatal", "info", "summary", "stderr" };
+            ActiveTags = new HashSet<string> { "error", "warning", "fatal", "info", "summary", "stderr", "progress" };
             DefaultMessageTags = new HashSet<string> { "info" };
             IsOutput = tags => tags.Contains("stdout");
             Lock = new object();
@@ -89,6 +90,7 @@ namespace NuBuild
                 ActiveTags.Clear();
                 LogTag("stderr");
                 LogTag("stdout");
+                LogTag("progress");
             }
         }
 
@@ -98,8 +100,8 @@ namespace NuBuild
             var s = string.Format("{0}{1}", prefix, msg);
             if (fixNewLines)
             {
-               s = s.Replace("\r\n", "\r");
-               s = s.Replace("\r", System.Environment.NewLine);
+                var lines = s.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
+                s = string.Join("\n", lines);
             }
             return s;
         }
@@ -111,6 +113,8 @@ namespace NuBuild
             bool isOutput = IsOutput(effective);
             lock (Lock)
             {
+                Trace.WriteLine(formatted);
+
                 if (effective.Count > 0 && !effective.Contains(QuietTag))
                 {
                     if (isOutput)
@@ -149,13 +153,7 @@ namespace NuBuild
             // todo: is colorization really necessary? it's a pain to support as implemented.
             var ascii = new ASCIIPresentater(colorize: false);
             pr.format(ascii);
-            var lines = ascii.ToString().Split('\n').ToList();
-
-            // trim last line if empty.
-            if (string.IsNullOrWhiteSpace(lines[lines.Count - 1]))
-            {
-                lines.RemoveAt(lines.Count - 1);
-            }
+            var lines = ascii.ToString().Split(new []{"\r\n", "\n"}, StringSplitOptions.None).ToList();
 
             foreach (var line in lines)
             {

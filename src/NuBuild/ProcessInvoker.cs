@@ -132,8 +132,7 @@ namespace NuBuild
                     {
                         // In diagnostic mode, we emit the command line twice, once ahead in case Boogie decides
                         // to run away and never come back.
-                        BuildObject failureBatObj = failureBase.makeOutputObject(".bat");
-                        workingDirectory.CreateDirectoryFor(failureBatObj);
+                        workingDirectory.CreateDirectoryFor(failureBase);
                         File.WriteAllText(workingDirectory.PathTo(Path.Combine(failureBase.getDirPath(), "pre_boogie.bat")), commandLine);
                     }
 

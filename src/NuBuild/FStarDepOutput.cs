@@ -10,10 +10,10 @@ namespace NuBuild
 
         private readonly IDictionary<string, RelativeFileSystemPath> foundSources;
 
-        public FStarDepOutput(string output, FStarOptionParser optParser, WorkingDirectory workDir)
+        public FStarDepOutput(string output, FStarOptionParser optParser)
         {
             this.foundSources = optParser.FindSourceFiles();
-            this.ByTarget = this.Parse(output, workDir);
+            this.ByTarget = this.Parse(output);
         }
 
         public IEnumerable<RelativeFileSystemPath> GetAll()
@@ -30,8 +30,12 @@ namespace NuBuild
             return set;
         }
 
-        private Dictionary<RelativeFileSystemPath, IEnumerable<RelativeFileSystemPath>> Parse(string output, WorkingDirectory workDir)
+        private Dictionary<RelativeFileSystemPath, IEnumerable<RelativeFileSystemPath>> Parse(string output)
         {
+            // we silently drop references to prims.fst, as that's hardcoded into F*.
+            // todo: this might be controlled with command-line arguments.
+            const string prims = "prims.fst";
+
             //var stdLib = FStarEnvironment.StandardLibrary;
             var lines = output.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
             var result = new Dictionary<RelativeFileSystemPath, IEnumerable<RelativeFileSystemPath>>();
@@ -53,22 +57,33 @@ namespace NuBuild
                 }
                 var sepBySpaces = sepByColon[1].Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
 
-                var target = this.ParsePath(sepByColon[0], workDir);
+                var target = this.ParsePath(sepByColon[0]);
+                if (target.FileName.Equals(prims, StringComparison.CurrentCultureIgnoreCase))
+                {
+                    continue;
+                }
+
                 var depends = new List<RelativeFileSystemPath>();
                 foreach (var depend in sepBySpaces)
                 {
-                    depends.Add(ParsePath(depend, workDir));
+                    var dependPath = this.ParsePath(depend);
+                    if (dependPath.FileName.Equals(prims, StringComparison.CurrentCultureIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    depends.Add(dependPath);
                 }
                 result.Add(target, depends);
             }
             return result;
         }
 
-        private RelativeFileSystemPath ParsePath(string s, WorkingDirectory workDir)
+        private RelativeFileSystemPath ParsePath(string s)
         {
             if (FileSystemPath.IsAbsolutePath(s))
             {
-                return AbsoluteFileSystemPath.Parse(s).MapToBuildObjectPath(workDir);
+                return AbsoluteFileSystemPath.Parse(s).MapToBuildObjectPath();
             }
             else if (foundSources.ContainsKey(s))
             {
