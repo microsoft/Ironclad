@@ -34,14 +34,6 @@ namespace NuBuild
                 return;
             }
 
-            match = dispositionNoTimeoutsRegex.Match(output);
-            if (match.Success)
-            {
-                ////int succeeding_methods = Int32.Parse(m.Groups[1].ToString());
-                verificationFailures = Int32.Parse(match.Groups[2].ToString());
-                return;
-            }
-
             match = dispositionParseErrorRegex.Match(output);
             if (match.Success)
             {
@@ -74,6 +66,14 @@ namespace NuBuild
             if (match.Success)
             {
                 parseFailures = 1;
+                return;
+            }
+
+            match = dispositionNoTimeoutsRegex.Match(output);
+            if (match.Success)
+            {
+                ////int succeeding_methods = Int32.Parse(m.Groups[1].ToString());
+                verificationFailures = Int32.Parse(match.Groups[2].ToString());
                 return;
             }
 
