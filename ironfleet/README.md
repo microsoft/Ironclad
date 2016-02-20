@@ -71,7 +71,7 @@ You can still use NuBuild without cloud support, however, by passing the `--no-c
 
 To verify an individual Dafny file (and all of its dependencies), run:
 
-  `./bin_tools/NuBuild/NuBuild.exe --no-cloudcache -j 3 DafnyVerifyTree src/Dafny/Distributed/Protocol/SHT/AppInterface.i.dfy`
+  `./bin_tools/NuBuild/NuBuild.exe --no-cloudcache -j 3 DafnyVerifyTree src/Dafny/Distributed/Impl/SHT/AppInterface.i.dfy`
 
 which uses the `-j` flag to add 3-way local parallelism.
 
@@ -104,7 +104,7 @@ to do this is to comment out the body of the RecordTimingSeq method in
 To build the unverified C# clients for IronRSL and IronKV, open and build (in Release mode):
 
   `./src/IronfleetClient/IronfleetClient.sln`
-  `./src/IronfleetShtClient/IronfleetShtClient.sln`
+  `./src/IronKVClient/IronfleetClient.sln`
 
 # Running
 
