@@ -414,7 +414,7 @@ namespace NuBuild
             }
 
             Util.Assert(ddisp == DependencyDisposition.Complete);
-            string rc = Util.hashString(sb.ToString());
+            string rc = Util.HashString(sb.ToString());
             return rc;
         }
 

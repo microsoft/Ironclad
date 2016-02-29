@@ -80,7 +80,7 @@ namespace NuBuild
         /// <returns>A BuildObjectValuePointer describing the object.</returns>
         public BuildObjectValuePointer Store(WorkingDirectory workingDirectory, BuildObject obj, Disposition disposition)
         {
-            string contentHash = Util.hashFilesystemPath(workingDirectory.PathTo(obj));
+            string contentHash = obj.HashContents(workingDirectory);
             this.itemCache.StoreItemFromFile(ItemCacheContainer.Objects, contentHash, workingDirectory.PathTo(obj));
             this.Add(obj, disposition, contentHash, null);
 
@@ -453,7 +453,7 @@ namespace NuBuild
                             }
                         }
 
-                        string hash = Util.hashFilesystemPath(IronRootDirectory.PathTo(obj));
+                        string hash = obj.HashContents();
                         this.itemCache.StoreItemFromFile(ItemCacheContainer.Sources, hash, IronRootDirectory.PathTo(obj));
                         this.Add(obj, new Fresh(), hash, null);
                     }

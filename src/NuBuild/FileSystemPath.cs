@@ -34,6 +34,13 @@
                 return Path.GetExtension(this.ToString());
             }
         }
+        public string FileName
+        {
+            get
+            {
+                return Path.GetFileName(this.ToString());
+            }
+        }
 
         public string FileNameWithoutExtension
         {

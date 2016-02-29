@@ -30,8 +30,8 @@ namespace NuBuild
         /// <param name="sourceType">
         /// The type of "source" this is.
         /// </param>
-        public SourcePath(string inpath, SourceType sourceType = SourceType.Src)
-            : base(inpath)
+        public SourcePath(string inpath, SourceType sourceType = SourceType.Src, Func<AbsoluteFileSystemPath, string> hashFunc = null)
+            : base(inpath, hashFunc: hashFunc)
         {
             // Sanity checks.
             this.checkPrefix(sourceType, SourceType.PrebakedObjExpediency, "obj");   // TODO remove.

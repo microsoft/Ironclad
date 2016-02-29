@@ -201,7 +201,7 @@ namespace CloudExecutionWorker
             {
                 if (File.Exists(workingDirectory.PathTo(outFile)))
                 {
-                    string fileHash = Util.hashFilesystemPath(workingDirectory.PathTo(outFile));
+                    string fileHash = Util.HashFileContents(workingDirectory.PathTo(outFile));
                     Util.Assert(!string.IsNullOrEmpty(fileHash));
 
                     // Note we explicitly write to the cloud cache here.
