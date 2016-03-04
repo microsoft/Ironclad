@@ -10,9 +10,12 @@
 
     public class Options
     {
+        const int DefaultParallelJobs = 1;
+
         private readonly JObject root;
         private bool? useCloudCache;
         private bool? enforceWhitespace;
+        private int? parallelJobs;
 
         private Options(JObject root)
         {
@@ -171,6 +174,49 @@
             {
                 this.enforceWhitespace = value;
             }
+        }
+
+        public int ParallelJobs
+        {
+            get
+            {
+                if (!this.parallelJobs.HasValue)
+                {
+                    this.parallelJobs = GetValue(d => (int)d["parallel_jobs"], DefaultParallelJobs);
+                }
+
+                return this.parallelJobs.Value;
+            }
+
+            set
+            {
+                if (value < 1)
+                {
+                    throw new ArgumentOutOfRangeException("Simultaneous job limit must be greater than 0.");
+                }
+
+                this.parallelJobs = value;
+            }
+        }
+
+        private T GetValue<T>(Func<JObject, T> access, T defaultValue = default(T))
+        {
+            T result;
+            try
+            {
+                result = (T)access(this.root);
+
+            }
+            catch (ArgumentNullException)
+            {
+                return defaultValue;
+            }
+            catch (NullReferenceException)
+            {
+                return defaultValue;
+            }
+
+            return result;
         }
     }
 }
