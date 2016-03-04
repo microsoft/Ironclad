@@ -52,7 +52,7 @@ namespace NuBuild
 
             result.Add(new SourcePath(pathToFStarExe.MapToBuildObjectPath().ToString(), SourcePath.SourceType.Tools, HashVersionInfo));
 
-            var regExprs = new[] { new Regex(@".*\.dll$", RegexOptions.IgnoreCase), new Regex(@".*\.pdb$", RegexOptions.IgnoreCase), new Regex(@".*\.config$", RegexOptions.IgnoreCase) };
+            var regExprs = new[] { @"FStar\..*\.dll$", @".msvc[pr]100\.dll$" }.Select(s => new Regex(s, RegexOptions.IgnoreCase));
             var paths = binPath.ListFiles(recurse: true);
             foreach (var path in paths)
             {
@@ -73,6 +73,8 @@ namespace NuBuild
         {
             var result = new List<SourcePath>();
 
+            var regExprs = new[] { @"\.fs(t|ti|i)$", @"\.ml$" }.Select(s => new Regex(s, RegexOptions.IgnoreCase));
+
             AbsoluteFileSystemPath libDir = pathToFStarExe.ParentDirectoryPath.CreateSiblingPath("lib");
             var libPaths = libDir.ListFiles(recurse: true);
             AbsoluteFileSystemPath contribDir = pathToFStarExe.ParentDirectoryPath.CreateSiblingPath("contrib");
@@ -81,9 +83,15 @@ namespace NuBuild
             var paths = libPaths.Concat(contribFiles);
             foreach (var path in paths)
             {
-                // todo: should these be added as sources?
-                var nbPath = path.MapToBuildObjectPath().ToString();
-                result.Add(new SourcePath(nbPath, SourcePath.SourceType.Tools));
+                foreach (var re in regExprs)
+                {
+                    if (re.IsMatch(path.ToString()))
+                    {
+                        var nbPath = path.MapToBuildObjectPath().ToString();
+                        result.Add(new SourcePath(nbPath, SourcePath.SourceType.Tools));
+                        break;
+                    }
+                }
             }
             return result;
         }
