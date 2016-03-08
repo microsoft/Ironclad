@@ -103,6 +103,7 @@
     <Compile Include="NuBuildEnvironment.cs" />
     <Compile Include="DafnyExecutableDependencies.cs" />
     <Compile Include="FStarEnvironment.cs" />
+    <Compile Include="SimpleProcessInvoker.cs" />
     <Compile Include="VerificationResultFStarParser.cs" />
     <Compile Include="FStarVerifyVerb.cs" />
     <Compile Include="IProcessInvoker.cs" />

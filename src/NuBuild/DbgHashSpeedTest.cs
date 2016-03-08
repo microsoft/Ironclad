@@ -14,7 +14,7 @@
 
             foreach (string file in theFiles)
             {
-                string s = Util.hashFilesystemPath(file);
+                string s = Util.HashFileContents(file);
                 Logger.WriteLine(s);
             }
         }

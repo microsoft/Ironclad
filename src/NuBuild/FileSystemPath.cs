@@ -49,7 +49,6 @@
                 return Path.GetExtension(this.ToString());
             }
         }
-
         public string FileName
         {
             get
@@ -312,7 +311,7 @@
             return this.ToString().GetHashCode();
         }
 
-        public string ToString(string fmt)
+        public new string ToString(string fmt)
         {
             if (string.Equals(fmt, "i", StringComparison.InvariantCultureIgnoreCase))
             {

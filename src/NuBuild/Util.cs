@@ -22,16 +22,17 @@ namespace NuBuild
         // Win32 MAX_PATH is 260 according to Internets.
         private const int MAX_MUNGED_LENGTH = 150;
 
-        public static string hashString(string input)
+        public static string HashString(string input, string ns = "string")
         {
-            byte[] buffer = new byte[input.Length * sizeof(char)];
-            System.Buffer.BlockCopy(input.ToCharArray(), 0, buffer, 0, buffer.Length);
+            var namespaced = string.Format("{0}:{1}", ns, input);
+            byte[] buffer = Encoding.UTF8.GetBytes(namespaced);
             SHA256Managed hasher = new SHA256Managed();
+
             byte[] rawHash = hasher.ComputeHash(buffer);
             return new SoapHexBinary(rawHash).ToString();
         }
 
-        public static string hashFilesystemPath(string filesystemPath)
+        public static string HashFileContents(string filesystemPath)
         {
             ////Logger.WriteLine("Hashing " + filesystemPath);
             using (FileStream stream = File.OpenRead(filesystemPath))
@@ -40,9 +41,11 @@ namespace NuBuild
                 byte[] rawHash = sha.ComputeHash(stream);
                 string rc = new SoapHexBinary(rawHash).ToString();
                 ////Logger.WriteLine("fresh hash of " + obj.getFilesystemPath() + " yields " + rc);
-                return rc;
+                return HashString(rc, "file");
             }
         }
+
+
 
         public static string mungeClean(string s)
         {
@@ -68,7 +71,7 @@ namespace NuBuild
 
             if (sb.Length > MAX_MUNGED_LENGTH)
             {
-                string originalPathHash = Util.hashString(sb.ToString());
+                string originalPathHash = Util.HashString(sb.ToString());
                 int additionsLength = originalPathHash.Length + 3;
                 sb.Remove(MAX_MUNGED_LENGTH - additionsLength, sb.Length - (MAX_MUNGED_LENGTH - additionsLength));
                 sb.Append("...");

@@ -37,11 +37,14 @@ namespace NuBuild
              })
             .Select(s => RelativeFileSystemPath.Parse(s)).ToList();
 
+        public static readonly IDictionary<string, string> VersionInfo; 
+
         static FStarEnvironment()
         {
             var pathToFStarExe = findFStarExecutable();
             Binaries = findBinaries(pathToFStarExe);
             StandardLibrary = findStandardLibrary(pathToFStarExe);
+            VersionInfo = GetVersionInfo(pathToFStarExe);
             AbsolutePathToFStarExe = pathToFStarExe;
 
         }
@@ -72,9 +75,9 @@ namespace NuBuild
             AbsoluteFileSystemPath binPath = pathToFStarExe.ParentDirectoryPath;
             var result = new List<SourcePath>();
 
-            result.Add(new SourcePath(pathToFStarExe.MapToBuildObjectPath().ToString(), SourcePath.SourceType.Tools));
+            result.Add(new SourcePath(pathToFStarExe.MapToBuildObjectPath().ToString(), SourcePath.SourceType.Tools, HashVersionInfo));
 
-            var regExprs = new[] { new Regex(@".*\.dll$", RegexOptions.IgnoreCase), new Regex(@".*\.pdb$", RegexOptions.IgnoreCase), new Regex(@".*\.config$", RegexOptions.IgnoreCase) };
+            var regExprs = new[] { @"FStar\..*\.dll$", @".msvc[pr]100\.dll$" }.Select(s => new Regex(s, RegexOptions.IgnoreCase));
             var paths = binPath.ListFiles(recurse: true);
             foreach (var path in paths)
             {
@@ -95,6 +98,8 @@ namespace NuBuild
         {
             var result = new List<SourcePath>();
 
+            var regExprs = new[] { @"\.fs(t|ti|i)$", @"\.ml$" }.Select(s => new Regex(s, RegexOptions.IgnoreCase));
+
             AbsoluteFileSystemPath libDir = pathToFStarExe.ParentDirectoryPath.CreateSiblingPath("lib");
             var libPaths = libDir.ListFiles(recurse: true);
             AbsoluteFileSystemPath contribDir = pathToFStarExe.ParentDirectoryPath.CreateSiblingPath("contrib");
@@ -103,9 +108,15 @@ namespace NuBuild
             var paths = libPaths.Concat(contribFiles);
             foreach (var path in paths)
             {
-                // todo: should these be added as sources?
+                foreach (var re in regExprs)
+                {
+                    if (re.IsMatch(path.ToString()))
+                    {
                 var nbPath = path.MapToBuildObjectPath().ToString();
                 result.Add(new SourcePath(nbPath, SourcePath.SourceType.Tools));
+                        break;
+                    }
+                }
             }
             return result;
         }
@@ -146,6 +157,65 @@ namespace NuBuild
                 throw new FileNotFoundException(string.Format("A needed file (`{0}`) is missing. Please verify that the `paths.fstar` entry in your `{1}` file is accurate.", s, NuBuildEnvironment.ConfigFileRelativePath));
             }
         }
+
+        private static IDictionary<string, string> GetVersionInfo(AbsoluteFileSystemPath exePath)
+        {
+            var invoker = SimpleProcessInvoker.Exec(exePath, "--version");
+            if (invoker.ExitCode != 0)
+            {
+                var msg = string.Format("Unable to obtain version information from F* (exit code is {0}).", invoker.ExitCode);
+                throw new Exception(msg);
+            }
+            var report = string.Format("`fstar.exe --version` reports:\n{0}\n", invoker.GetStdout());
+            Logger.WriteLine(report, new [] { "info", "fstar" });
+            var lines = invoker.GetStdout().Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+            var versionInfo = new Dictionary<string, string>();
+            foreach (var line in lines)
+            {
+                var s = line.Trim();
+                if (s.StartsWith("F* "))
+                {
+                    if (versionInfo.ContainsKey("version"))
+                    {
+                        var msg = string.Format("Ignoring duplicate field in F * version record: {0}", s);
+                        Logger.WriteLine(msg, new[] { "warning", "fstar" });
+                        continue;
+                    }
+                    versionInfo["version"] = s.Substring(3);
+                    continue;
+                }
+                var split = s.Split(new[] { '=' });
+                if (split.Length != 2)
+                {
+                    var msg = string.Format("Ignoring unrecognized output in F * version record: {0}", s);
+                    Logger.WriteLine(msg, new[] { "warning", "fstar" });
+                    continue;
+                }
+                var key = split[0];
+                var value = split[1];
+                if (versionInfo.ContainsKey(key))
+                {
+                    var msg = string.Format("Ignoring duplicate field in F * version record: {0}", s);
+                    Logger.WriteLine(msg, new[] { "warning", "fstar" });
+                    continue;
+                }
+                versionInfo[key] = value;
+            }
+            return versionInfo;
+        }
+
+        private static string HashVersionInfo(AbsoluteFileSystemPath path)
+        {
+            var commit = VersionInfo["commit"];
+            if (commit != "unknown commit" && commit.EndsWith(" (dirty)"))
+            {
+                return Util.HashFileContents(path.ToString());
+            }
+            else
+            {
+                return Util.HashString(commit);
+            }
+        } 
 
         public static IEnumerable<RelativeFileSystemPath> DefaultModuleSearchPaths
         {

@@ -46,7 +46,6 @@ namespace NuBuild
             throw new UserError("Invalid options");
         }
 
-        int jobParallelism = 1;
         List<IVerb> verbs = new List<IVerb>();
         string html_output = null;
         IroncladAppVerb.TARGET target_platform = IroncladAppVerb.TARGET.BARE_METAL;
@@ -108,7 +107,7 @@ namespace NuBuild
                     }
                     else if (next.Equals("-j") || next.Equals("--jobs"))
                     {
-                        this.jobParallelism = Int32.Parse(takeArg("value for jobs"));
+                        NuBuildEnvironment.Options.ParallelJobs = Int32.Parse(takeArg("value for jobs"));
                     }
                     else if (next.Equals("--localcache"))
                     {
@@ -365,7 +364,7 @@ namespace NuBuild
                 Logger.WriteLine("Using cloud report queue name: " + BuildEngine.theEngine.CloudReportQueueName);
             }
 
-            Scheduler scheduler = new Scheduler(jobParallelism);
+            Scheduler scheduler = new Scheduler(NuBuildEnvironment.Options.ParallelJobs);
 
             scheduler.addTargetVerbs(verbs);
 

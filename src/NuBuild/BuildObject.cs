@@ -55,6 +55,8 @@ namespace NuBuild
         /// </summary>
         private string filenameExtension;
 
+        private readonly Func<AbsoluteFileSystemPath, string> hashFunc; 
+
         /// <summary>
         /// Initializes a new instance of the BuildObject class.
         /// </summary>
@@ -65,23 +67,13 @@ namespace NuBuild
         /// Whether this object is considered "trusted" for verification
         /// purposes.
         /// </param>
-        public BuildObject(string path, bool isTrusted = false)
+        public BuildObject(string path, bool isTrusted = false, Func<AbsoluteFileSystemPath, string> hashFunc = null)
         {
             // ToDo: Fix VSSolutionVerb and/or IronfleetTestDriver.sln to work in "src" tree without hitting below Assert.  Then re-instate below Assert.
             ////Util.Assert(!path.StartsWith(BuildEngine.theEngine.getSrcRoot(), StringComparison.OrdinalIgnoreCase));
             this.path = BuildEngine.theEngine.normalizeIronPath(path);
             this.isTrusted = isTrusted;
-        }
-
-        /// <summary>
-        /// Initializes a new instance of the BuildObject class.
-        /// </summary>
-        /// <param name="path">
-        /// Relative path to this object in the local filesystem.
-        /// </param>
-        protected BuildObject(string path)
-        {
-            this.path = BuildEngine.theEngine.normalizeIronPath(path);
+            this.hashFunc = hashFunc;
         }
 
         /// <summary>
@@ -363,6 +355,27 @@ namespace NuBuild
         public AbsoluteFileSystemPath toAbsoluteFilePath()
         {
             return FileSystemPath.Join(NuBuildEnvironment.RootDirectoryPath, this.toRelativeFilePath());
+        }
+
+        public string HashContents(WorkingDirectory workDir = null)
+        {
+            AbsoluteFileSystemPath absPath;
+            if (workDir == null)
+            {
+                absPath = this.toAbsoluteFilePath();
+            }
+            else
+            {
+                absPath = workDir.MapToAbsolutePath(this.toRelativeFilePath());
+            }
+            if (null == this.hashFunc)
+            {
+                return Util.HashFileContents(absPath.ToString());
+            }
+            else
+            {
+                return this.hashFunc(absPath);
+            }
         }
     }
 }
