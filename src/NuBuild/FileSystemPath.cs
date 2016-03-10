@@ -98,6 +98,7 @@
             // todo: this is a candidate for relocating to BuildObject
             return AbsoluteFileSystemPath.Parse(pathStr).MapToBuildObjectPath(workDir);
         }
+
         protected static bool IsImplicitRelativePath(string s)
         {
             if (s == ".")
@@ -127,6 +128,23 @@
             s = s.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
             return s;
         }
+        protected static IEnumerable<string> Split(string pathStr)
+        {
+            var components = new List<string>();
+            var fileName = Path.GetFileName(pathStr);
+            // if the path has a trailing "/" then GetFileName() will return an empty string.
+            if (!string.IsNullOrWhiteSpace(fileName))
+            {
+                components.Add(fileName);
+            }
+            for (var s = Path.GetDirectoryName(pathStr); !string.IsNullOrWhiteSpace(s); s = Path.GetDirectoryName(s))
+            {
+                components.Add(Path.GetFileName(s));
+            }
+            components.Reverse();
+            return components;
+        }
+
     }
 
     public class AbsoluteFileSystemPath : FileSystemPath, IEquatable<AbsoluteFileSystemPath>
@@ -385,9 +403,40 @@
                 throw new ArgumentException(msg, "pathStr");
             }
 
+
+
             var dummyPrefix = @"C:\";
             var s0 = Path.GetFullPath(Path.Combine(dummyPrefix, pathStr));
             var s1 = s0.Substring(dummyPrefix.Length, s0.Length - dummyPrefix.Length);
+
+            // Path.GetFullPath() will slice off any leading ".." components needed. the following code is an attempt to address this issue 
+            var components = Split(pathStr);
+            var minLevel = 0;
+            var level = 0;
+            foreach (var s in components)
+            {
+                if (s == ".")
+                {
+                    continue;
+                }
+                else if (s == "..")
+                {
+                    --level;
+                    if (level < minLevel)
+                    {
+                        minLevel = level;
+                    }
+                }
+                else
+                {
+                    ++level;
+                }
+            }
+            for (var i = 0; i < Math.Abs(minLevel); ++i)
+            {
+                s1 = Path.Combine("..", s1);
+            }
+
             return Normalize(ImplicitToRelative(s1));
         }
     }

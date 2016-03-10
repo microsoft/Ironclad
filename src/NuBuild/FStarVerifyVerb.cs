@@ -23,7 +23,9 @@ namespace NuBuild
         private IEnumerable<IVerb> dependencyVerbCache; 
         private readonly FStarOptionParser optParser;
 
-        public FStarVerifyVerb(IEnumerable<string> args, AbsoluteFileSystemPath invokedFrom = null)
+        public readonly bool StrictMode;
+
+        public FStarVerifyVerb(IEnumerable<string> args, AbsoluteFileSystemPath invokedFrom = null, bool strict = true)
         {
             // todo: do i need to make this implement IObligationsProducer?
 
@@ -40,6 +42,7 @@ namespace NuBuild
             {
                 this.findDepsVerb = new FStarFindDepsVerb(args, invokedFrom);
             }
+            this.StrictMode = strict;
         }
 
         public override AbstractId getAbstractIdentifier()
@@ -55,6 +58,11 @@ namespace NuBuild
             ddisp = DependencyDisposition.Complete;
             if (this.findDepsVerb == null)
             {
+                if (!this.StrictMode)
+                {
+                    // if we're not in "strict" mode, it means we haven't identified all of our standard library dependencies. we must compensate by identifiying the entire standard library as dependencies.
+                    result.UnionWith(FStarEnvironment.StandardLibrary);
+                }
                 return result;
             }
 

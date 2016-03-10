@@ -67,7 +67,7 @@ namespace NuBuild
 
         public static IEnumerable<SourcePath> GetStandardDependencies()
         {
-            return Binaries.Concat(ImplicitDependencies.Select(s => new SourcePath(s, SourcePath.SourceType.Tools)));
+            return Binaries.Concat(ImplicitDependencies.Select(s => new SourcePath(Path.Combine(HomeDirectoryPath.ToString(), s), SourcePath.SourceType.Tools)));
         }
 
         private static List<SourcePath> findBinaries(AbsoluteFileSystemPath pathToFStarExe)
