@@ -229,7 +229,8 @@ namespace NuBuild
             var argBytes = Encoding.UTF8.GetBytes(string.Join(" ", args));
             var hashBytes = sha256.ComputeHash(argBytes);
             // the signature has to contain valid path characters but invalid F* module characters.
-            return string.Format("{0}!{1}", module, new SoapHexBinary(hashBytes));
+            var s = Uri.EscapeDataString(Convert.ToBase64String(hashBytes));
+            return string.Format("{0}!{1}", module, s);
         }
 
         private void UnrecognizedArg(string arg)
