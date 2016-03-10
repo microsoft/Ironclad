@@ -29,7 +29,7 @@ namespace NuBuild
         static Logger()
         {
             StartupBuffer = new List<string>();
-            ActiveTags = new HashSet<string> { "error", "warning", "fatal", "info", "summary", "stderr", "progress" };
+            ActiveTags = new HashSet<string> { "error", "warning", "fatal", "info", "summary", "stderr", "progress"};
             DefaultMessageTags = new HashSet<string> { "info" };
             IsOutput = tags => tags.Contains("stdout");
             Lock = new object();
@@ -90,7 +90,6 @@ namespace NuBuild
                 ActiveTags.Clear();
                 LogTag("stderr");
                 LogTag("stdout");
-                LogTag("progress");
             }
         }
 

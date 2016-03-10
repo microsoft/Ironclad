@@ -6,6 +6,7 @@
 
 namespace NuBuild
 {
+    using System;
     using System.Collections.Generic;
     using System.Linq;
 
@@ -131,13 +132,28 @@ namespace NuBuild
 
         public Disposition Complete(WorkingDirectory workingDirectory, double cpuTimeSeconds, string stdout, string stderr, Disposition disposition)
         {
+            Func<string, string> annotateModule =
+                s =>
+                {
+                    if (this.optParser.VerifyModule != null)
+                    {
+                        return string.Format("(while verifying F* module {0}...)\n{1}", this.optParser.VerifyModule, s);
+                    }
+                    else
+                    {
+                        return s;
+                    }
+                };
+
+            stdout = stdout.Trim();
             if (!string.IsNullOrWhiteSpace(stdout))
             {
-                Logger.WriteLine(stdout, new[] { "fstar", "stdout" });
+                Logger.WriteLine(annotateModule(stdout), new[] { "fstar", "stdout" });
             }
+            stderr = stderr.Trim();
             if (!string.IsNullOrWhiteSpace(stderr))
             {
-                Logger.WriteLine(stderr, new[] { "fstar", "stderr" });
+                Logger.WriteLine(annotateModule(stderr), new[] { "fstar", "stderr" });
             }
 
             VerificationResult vr = new VerificationResult(
