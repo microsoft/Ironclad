@@ -92,6 +92,7 @@
     <Compile Include="AnnotationScanner.cs" />
     <Compile Include="AsmRewriterVerb.cs" />
     <Compile Include="FStarOptionParser.cs" />
+    <Compile Include="FStarVerifyOneVerb.cs" />
     <Compile Include="Options.cs" />
     <Compile Include="FStarDepOutput.cs" />
     <Compile Include="FileSystemPath.cs" />

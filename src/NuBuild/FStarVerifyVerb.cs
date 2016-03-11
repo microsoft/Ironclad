@@ -10,21 +10,19 @@ namespace NuBuild
     using System.Collections.Generic;
     using System.Linq;
 
-    internal class FStarVerifyVerb
-        : VerificationResultVerb, IProcessInvokeAsyncVerb
+    internal class FStarVerifyVerb : Verb, IObligationsProducer
     {
-        private const int Version = 2;
+        private const int Version = 3;
 
         private readonly string signature;
         private readonly AbstractId abstractId;
-        private readonly BuildObject outputObj;
+        private readonly BuildObject obligations;
         private readonly string label;
 
         private readonly FStarFindDepsVerb findDepsVerb;
         private IEnumerable<IVerb> dependencyVerbCache; 
         private readonly FStarOptionParser optParser;
-
-        public readonly bool StrictMode;
+        private readonly bool StrictMode;
 
         public FStarVerifyVerb(IEnumerable<string> args, AbsoluteFileSystemPath invokedFrom = null, bool strict = true)
         {
@@ -34,7 +32,7 @@ namespace NuBuild
             this.signature = this.optParser.GetSignature();
             this.label = string.Format("FStarVerify {0}", string.Join(" ", args));
             this.abstractId = new AbstractId(this.GetType().Name, Version, this.signature);
-            this.outputObj = new BuildObject(string.Format("{0}.fst", this.signature)).makeOutputObject(".fst.v");
+            this.obligations = new BuildObject(string.Format("{0}.fst", this.signature)).makeOutputObject(".tree.txt");
             if (this.optParser.ExplicitDeps)
             {
                 this.findDepsVerb = null;
@@ -59,11 +57,6 @@ namespace NuBuild
             ddisp = DependencyDisposition.Complete;
             if (this.findDepsVerb == null)
             {
-                if (!this.StrictMode)
-                {
-                    // if we're not in "strict" mode, it means we haven't identified all of our standard library dependencies. we must compensate by identifiying the entire standard library as dependencies.
-                    result.UnionWith(FStarEnvironment.StandardLibrary);
-                }
                 return result;
             }
 
@@ -85,7 +78,6 @@ namespace NuBuild
                 result.UnionWith(verb.getOutputs());
             }
             return result;
-
         }
 
         public override IEnumerable<IVerb> getVerbs()
@@ -93,116 +85,78 @@ namespace NuBuild
             if (this.findDepsVerb != null)
             {
                 yield return this.findDepsVerb;
-                DependencyDisposition ddisp;
-                var deps = this.GetDependencyVerbs(out ddisp);
-                if (ddisp == DependencyDisposition.Complete)
+            }
+
+            DependencyDisposition ddisp;
+            var deps = this.GetDependencyVerbs(out ddisp);
+            if (ddisp == DependencyDisposition.Complete)
+            {
+                foreach (var dep in deps)
                 {
-                    foreach (var dep in deps)
-                    {
-                        yield return dep;
-                    }
+                    yield return dep;
                 }
             }
         }
-
-        public override BuildObject getOutputFile()
+        public BuildObject getObligationSet()
         {
-            return this.outputObj;
+            return this.obligations;
         }
 
         public override IEnumerable<BuildObject> getOutputs()
         {
-            return new[] { this.getOutputFile() };
+            return new[] { this.getObligationSet() };
         }
 
         public override IVerbWorker getWorker(WorkingDirectory workingDirectory)
         {
-            // if the --explicit_deps flag is specified, we invoke F* directly.
-            if (this.optParser.ExplicitDeps)
-            {
-                var arguments = this.GetNormalizedArgs().ToArray();
-                var exePath = FStarEnvironment.PathToFStarExe.ToString();
-
-                Logger.WriteLine(string.Format("{0} invokes `{1} {2}` from `{3}`", this, exePath, string.Join(" ", arguments), workingDirectory.Prefix));
-                return new ProcessInvokeAsyncWorker(workingDirectory, this, exePath, arguments, ProcessExitCodeHandling.NonzeroIsOkay, this.getDiagnosticsBase(), returnStandardOut: true, returnStandardError: true, allowCloudExecution: false);
-            }
-            // otherwise, we rely upon dependant verbs to do the work for us.
+            IEnumerable<BuildObject> verificationResults = 
+                this.getVerbs()
+                .Where(v => v is VerificationResultVerb)
+                .Select(v => ((VerificationResultVerb)v).getOutputFile());
+            VerificationObligationList vol = new VerificationObligationList(verificationResults);
+            vol.store(workingDirectory, this.obligations);
             return new VerbSyncWorker(workingDirectory, new Fresh());
-        }
-
-        public Disposition Complete(WorkingDirectory workingDirectory, double cpuTimeSeconds, string stdout, string stderr, Disposition disposition)
-        {
-            Func<string, string> annotateModule =
-                s =>
-                {
-                    if (this.optParser.VerifyModule != null)
-                    {
-                        return string.Format("(while verifying F* module {0}...)\n{1}", this.optParser.VerifyModule, s);
-                    }
-                    else
-                    {
-                        return s;
-                    }
-                };
-
-            stdout = stdout.Trim();
-            if (!string.IsNullOrWhiteSpace(stdout))
-            {
-                Logger.WriteLine(annotateModule(stdout), new[] { "fstar", "stdout" });
-            }
-            stderr = stderr.Trim();
-            if (!string.IsNullOrWhiteSpace(stderr))
-            {
-                Logger.WriteLine(annotateModule(stderr), new[] { "fstar", "stderr" });
-            }
-
-            VerificationResult vr = new VerificationResult(
-                this.label,
-                cpuTimeSeconds,
-                stdout,
-                stderr,
-                new VerificationResultFStarParser());
-            vr.addBasicPresentation();
-            vr.toXmlFile(workingDirectory.PathTo(this.getOutputFile()));
-            this.setWasRejectableFailure(!vr.pass);
-            return disposition;
-        }
-
-        private IEnumerable<string> GetNormalizedArgs()
-        {
-            return this.optParser.GetNormalizedArgs(forceExplicitDeps: true);
         }
 
         private IEnumerable<IVerb> GetDependencyVerbs(out DependencyDisposition ddisp)
         {
             if (this.dependencyVerbCache == null)
             {
-                var findDepsOutput = this.findDepsVerb.getDependenciesFound(out ddisp);
-                if (ddisp != DependencyDisposition.Complete)
-                {
-                    return null;
-                }
-
                 var deps = new List<IVerb>();
-                foreach (var target in findDepsOutput.ByTarget.Keys)
+
+                if (this.findDepsVerb == null)
                 {
-                    var args = new List<string>();
-                    var baseArgs = this.optParser.GetNormalizedArgs(forceExplicitDeps: true, emitSources: false).ToArray();
-                    var depArgs = findDepsOutput.ByTarget[target].Select(p => p.ToString()).ToArray();
-
-                    args.AddRange(baseArgs);
-                    args.Add("--verify_module");
-                    args.Add(target.FileNameWithoutExtension);
-                    args.AddRange(depArgs);
-                    args.Add(target.ToString());
-                    var verb = new FStarVerifyVerb(args);
-
+                    // if we don't need to search for dependencies, we only have one obligation.
+                    var verb = new FStarVerifyOneVerb(this.optParser.Args, this.optParser.InvocationPath, this.StrictMode);
                     deps.Add(verb);
                 }
+                else
+                {
+                    // otherwise, out obligations will depend upon the results of the findDepsVerb.
+                    var findDepsOutput = this.findDepsVerb.getDependenciesFound(out ddisp);
+                    if (ddisp != DependencyDisposition.Complete)
+                    {
+                        return null;
+                    }
 
-                ddisp = DependencyDisposition.Complete;
+                    foreach (var target in findDepsOutput.ByTarget.Keys)
+                    {
+                        var args = new List<string>();
+                        var baseArgs = this.optParser.GetNormalizedArgs(forceExplicitDeps: true, emitSources: false).ToArray();
+                        var depArgs = findDepsOutput.ByTarget[target].Select(p => p.ToString()).ToArray();
+
+                        args.AddRange(baseArgs);
+                        args.Add("--verify_module");
+                        args.Add(target.FileNameWithoutExtension);
+                        args.AddRange(depArgs);
+                        args.Add(target.ToString());
+                        var verb = new FStarVerifyOneVerb(args);
+
+                        deps.Add(verb);
+                    }
+                }
+
                 this.dependencyVerbCache = deps;
-                return this.dependencyVerbCache;
             }
 
             ddisp = DependencyDisposition.Complete;
