@@ -89,7 +89,7 @@ namespace NuBuild
                     if (this.optParser.VerifyModule.Count() == 1)
                     {
                         var moduleName = this.optParser.VerifyModule.Single();
-                        return string.Format("(while verifying F* module {0}...)\n{1}", this.optParser.VerifyModule, s);
+                        return string.Format("(while verifying F* module {0}...)\n{1}", moduleName, s);
                     }
                     else
                     {
