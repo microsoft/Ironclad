@@ -192,7 +192,8 @@ namespace NuBuild
                         rootDirInitState = Tuple.Create(rootDirInitState.Item1, true);
                     }
 
-                    if (verb.Equals("FStarVerifyTree", StringComparison.InvariantCultureIgnoreCase))
+                    if (verb.Equals("FStarVerifyTree", StringComparison.InvariantCultureIgnoreCase) ||
+                        verb.Equals("FStarVerify", StringComparison.InvariantCultureIgnoreCase))
                     {
                         // FStarVerifyTree can accept multiple arguments, hence the following complexity.
                         var remainingArgs = this.takeRemainingArgs().ToList();
