@@ -55,17 +55,15 @@ namespace NuBuild
             var result = new HashSet<BuildObject>(FStarEnvironment.GetStandardDependencies());
             result.UnionWith(this.optParser.FindSourceFiles().Values.Select(p => new SourcePath(p.ToString())));
             ddisp = DependencyDisposition.Complete;
-            if (this.findDepsVerb == null)
+            if (this.findDepsVerb != null)
             {
-                return result;
-            }
-
-            var depOut = this.findDepsVerb.getOutputs();
-            result.UnionWith(depOut);
-            this.findDepsVerb.getDependenciesFound(out ddisp);
-            if (ddisp != DependencyDisposition.Complete)
-            {
-                return result;
+                var depOut = this.findDepsVerb.getOutputs();
+                result.UnionWith(depOut);
+                this.findDepsVerb.getDependenciesFound(out ddisp);
+                if (ddisp != DependencyDisposition.Complete)
+                {
+                    return result;
+                }
             }
 
             var depVerbs = this.GetDependencyVerbs(out ddisp);
