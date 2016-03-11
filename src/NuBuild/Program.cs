@@ -202,6 +202,16 @@ namespace NuBuild
                         }
                         verbs.Add(new FStarVerifyTreeVerb(remainingArgs, NuBuildEnvironment.InvocationPath, strict: false));
                     }
+                    else if (verb.Equals("FStarVerifyOne", StringComparison.InvariantCultureIgnoreCase))
+                    {
+                        // FStarVerifyTree can accept multiple arguments, hence the following complexity.
+                        var remainingArgs = this.takeRemainingArgs().ToList();
+                        if (remainingArgs.Count < 1)
+                        {
+                            throw new UserError("The FStarVerifyOne verb requires at least one argument, specifying the NuBuild source file path.");
+                        }
+                        verbs.Add(new FStarVerifyOneVerb(remainingArgs, NuBuildEnvironment.InvocationPath, strict: false));
+                    }
                     else
                     {
                         string target = takeArg("verb-target");
