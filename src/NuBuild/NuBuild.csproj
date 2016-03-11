@@ -106,7 +106,7 @@
     <Compile Include="FStarEnvironment.cs" />
     <Compile Include="SimpleProcessInvoker.cs" />
     <Compile Include="VerificationResultFStarParser.cs" />
-    <Compile Include="FStarVerifyVerb.cs" />
+    <Compile Include="FStarVerifyTreeVerb.cs" />
     <Compile Include="IProcessInvoker.cs" />
     <Compile Include="VerbRunner.cs">
     </Compile>

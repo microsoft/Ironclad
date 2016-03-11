@@ -1,5 +1,5 @@
 ﻿//--
-// <copyright file="FStarVerifyVerb.cs" company="Microsoft Corporation">
+// <copyright file="FStarVerifyTreeVerb.cs" company="Microsoft Corporation">
 //     Copyright (c) Microsoft Corporation.  All rights reserved.
 // </copyright>
 //--
@@ -10,7 +10,7 @@ namespace NuBuild
     using System.Collections.Generic;
     using System.Linq;
 
-    internal class FStarVerifyVerb : Verb, IObligationsProducer
+    internal class FStarVerifyTreeVerb : Verb, IObligationsProducer
     {
         private const int Version = 3;
 
@@ -24,13 +24,13 @@ namespace NuBuild
         private readonly FStarOptionParser optParser;
         private readonly bool StrictMode;
 
-        public FStarVerifyVerb(IEnumerable<string> args, AbsoluteFileSystemPath invokedFrom = null, bool strict = true)
+        public FStarVerifyTreeVerb(IEnumerable<string> args, AbsoluteFileSystemPath invokedFrom = null, bool strict = true)
         {
             // todo: do i need to make this implement IObligationsProducer?
 
             this.optParser = new FStarOptionParser(args, invokedFrom);
             this.signature = this.optParser.GetSignature();
-            this.label = string.Format("FStarVerify {0}", string.Join(" ", args));
+            this.label = string.Format("FStarVerifyTree {0}", string.Join(" ", args));
             this.abstractId = new AbstractId(this.GetType().Name, Version, this.signature);
             this.obligations = new BuildObject(string.Format("{0}.fst", this.signature)).makeOutputObject(".tree.txt");
             if (this.optParser.ExplicitDeps)

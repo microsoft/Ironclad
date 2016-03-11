@@ -192,15 +192,15 @@ namespace NuBuild
                         rootDirInitState = Tuple.Create(rootDirInitState.Item1, true);
                     }
 
-                    if (verb.Equals("FStarVerify", StringComparison.InvariantCultureIgnoreCase))
+                    if (verb.Equals("FStarVerifyTree", StringComparison.InvariantCultureIgnoreCase))
                     {
-                        // VerifyFst can accept multiple arguments, hence the following complexity.
+                        // FStarVerifyTree can accept multiple arguments, hence the following complexity.
                         var remainingArgs = this.takeRemainingArgs().ToList();
                         if (remainingArgs.Count < 1)
                         {
-                            throw new UserError("The FStarVerify verb requires at least one argument, specifying the NuBuild source file path.");
+                            throw new UserError("The FStarVerifyTree verb requires at least one argument, specifying the NuBuild source file path.");
                         }
-                        verbs.Add(new FStarVerifyVerb(remainingArgs, NuBuildEnvironment.InvocationPath, strict: false));
+                        verbs.Add(new FStarVerifyTreeVerb(remainingArgs, NuBuildEnvironment.InvocationPath, strict: false));
                     }
                     else
                     {
