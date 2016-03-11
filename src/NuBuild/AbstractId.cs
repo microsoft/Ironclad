@@ -67,7 +67,8 @@ namespace NuBuild
                 // we generate a base64-encoded hash value for the string version of `this.concrete` to avoid having PathTooLongException thrown
                 // somewhere else in the code.
                 var bytes = Encoding.UTF8.GetBytes(this.concrete.GetHashCode().ToString(CultureInfo.InvariantCulture));
-                var concreteHash = Convert.ToBase64String(bytes);
+                // we escape the base64-encoded string in case the string is used for path names (which seems to happen).
+                var concreteHash = Uri.EscapeDataString(Convert.ToBase64String(bytes));
                 return string.Format("{0}(#{1},{2},{3},{4})", this.verbName, this.version, this.abstractOnly, this.poundDefines.getAbstractIdString(), concreteHash);
             }
         }
