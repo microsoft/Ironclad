@@ -78,13 +78,19 @@ namespace NuBuild
 
         public Disposition Complete(WorkingDirectory workingDirectory, double cpuTimeSeconds, string stdout, string stderr, Disposition disposition)
         {
+            Func<string, string> annotateOutput =
+                s =>
+                    string.Format("(while scanning for F* module dependencies...)\n{0}",  s);
+
+            stdout = stdout.Trim();
             if (!string.IsNullOrWhiteSpace(stdout))
             {
-                Logger.WriteLine(stdout, new[] { "fstar", "stdout", "*quiet" });
+                Logger.WriteLine(annotateOutput(stdout), new[] { "fstar", "stdout", "*quiet" });
             }
+            stderr = stderr.Trim();
             if (!string.IsNullOrWhiteSpace(stderr))
             {
-                Logger.WriteLine(stderr, new[] { "fstar", "stderr" });
+                Logger.WriteLine(annotateOutput(stderr), new[] { "fstar", "stderr" });
             }
 
             FStarDepOutput contents;
