@@ -9,6 +9,7 @@ namespace NuBuild
     using System;
     using System.Collections.Generic;
     using System.Linq;
+    using System.Net.Configuration;
 
     internal class FStarVerifyTreeVerb : Verb, IObligationsProducer
     {
@@ -139,13 +140,21 @@ namespace NuBuild
 
                     foreach (var target in findDepsOutput.ByTarget.Keys)
                     {
+                        var moduleName = target.FileNameWithoutExtension;
+                        if (!this.optParser.ShouldVerifyModule(moduleName))
+                        {
+                            var msg = string.Format("Skipping verification of module {0} because verification was excluded vial --verify-module options.", moduleName);
+                            Logger.WriteLine(msg);
+                            continue;
+                        }
+
                         var args = new List<string>();
                         var baseArgs = this.optParser.GetNormalizedArgs(forceExplicitDeps: true, emitSources: false).ToArray();
                         var depArgs = findDepsOutput.ByTarget[target].Select(p => p.ToString()).ToArray();
 
                         args.AddRange(baseArgs);
                         args.Add("--verify_module");
-                        args.Add(target.FileNameWithoutExtension);
+                        args.Add(moduleName);
                         args.AddRange(depArgs);
                         args.Add(target.ToString());
                         var verb = new FStarVerifyOneVerb(args);

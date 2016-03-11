@@ -15,6 +15,7 @@ namespace NuBuild
         private readonly List<RelativeFileSystemPath> includePaths;
         private readonly List<string> sourceFileArgs;
         private readonly List<string> ignored;
+        private readonly HashSet<string> verifyModule; 
         public readonly AbsoluteFileSystemPath InvocationPath;
 
         public FStarOptionParser(IEnumerable<string> args, AbsoluteFileSystemPath invokedFrom = null)
@@ -23,6 +24,7 @@ namespace NuBuild
             this.includePaths = new List<RelativeFileSystemPath>();
             this.sourceFileArgs = new List<string>();
             this.ignored = new List<string>();
+            this.verifyModule = new HashSet<string>();
             this.InvocationPath = invokedFrom ?? NuBuildEnvironment.RootDirectoryPath;
             this.ParseArgs();
         }
@@ -70,8 +72,18 @@ namespace NuBuild
             }
         }
 
-        public string VerifyModule { get; set; }
-             
+        public IEnumerable<string> VerifyModule
+        {
+            get
+            {
+                return this.verifyModule;
+            }
+        }
+
+        public bool ShouldVerifyModule(string moduleName)
+        {
+            return this.verifyModule.Count == 0 || this.verifyModule.Contains(moduleName);
+        }
 
         public IEnumerable<RelativeFileSystemPath> GetModuleSearchPaths()
         {
@@ -93,10 +105,10 @@ namespace NuBuild
             {
                 yield return "--explicit_deps";
             }
-            if (this.VerifyModule != null)
-            {
+            foreach (var module in this.verifyModule)
+            { 
                 yield return "--verify_module";
-                yield return this.VerifyModule;
+                yield return module;
             }
             var paths = this.GetModuleSearchPaths();
             foreach (var path in paths)
@@ -162,17 +174,12 @@ namespace NuBuild
                     }
                     else if (arg.Equals("--verify_module", StringComparison.CurrentCultureIgnoreCase))
                     {
-                        if (this.VerifyModule != null)
-                        {
-                            throw new ArgumentException("Attempt to specify `--verify_module` twice.");
-                        }
-
                         // --verify_module requires a parameter.
                         if (i == last)
                         {
                             throw new ArgumentException("F* argument `--verify_module` requires a parameter.");
                         }
-                        this.VerifyModule = this.args[++i];
+                        this.verifyModule.Add(this.args[++i]);
                     }
 
                     else if (arg.Equals("--no_default_includes", StringComparison.CurrentCultureIgnoreCase))
@@ -224,7 +231,15 @@ namespace NuBuild
         public string GetSignature()
         {
             var args = this.GetNormalizedArgs();
-            var module = this.VerifyModule ?? "_unspecified";
+            string module;
+            if (this.verifyModule.Count == 1)
+            {
+                module = this.verifyModule.Single();
+            }
+            else
+            {
+                module = "_multiple";
+            }
             SHA256Managed sha256 = new SHA256Managed();
             var argBytes = Encoding.UTF8.GetBytes(string.Join(" ", args));
             var hashBytes = sha256.ComputeHash(argBytes);
