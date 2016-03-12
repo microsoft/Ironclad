@@ -42,9 +42,9 @@ namespace NuBuild
         static FStarEnvironment()
         {
             var pathToFStarExe = findFStarExecutable();
-            Binaries = findBinaries(pathToFStarExe);
-            StandardLibrary = findStandardLibrary(pathToFStarExe);
             VersionInfo = GetVersionInfo(pathToFStarExe);
+            Binaries = findBinaries(pathToFStarExe, VersionInfo);
+            StandardLibrary = findStandardLibrary(pathToFStarExe);
             AbsolutePathToFStarExe = pathToFStarExe;
 
         }
@@ -70,14 +70,24 @@ namespace NuBuild
             return Binaries.Concat(ImplicitDependencies.Select(s => new SourcePath(Path.Combine(HomeDirectoryPath.ToString(), s), SourcePath.SourceType.Tools)));
         }
 
-        private static List<SourcePath> findBinaries(AbsoluteFileSystemPath pathToFStarExe)
+        private static List<SourcePath> findBinaries(AbsoluteFileSystemPath pathToFStarExe, IDictionary<string, string> versionInfo)
         {
             AbsoluteFileSystemPath binPath = pathToFStarExe.ParentDirectoryPath;
             var result = new List<SourcePath>();
 
             result.Add(new SourcePath(pathToFStarExe.MapToBuildObjectPath().ToString(), SourcePath.SourceType.Tools, HashVersionInfo));
 
-            var regExprs = new[] { @"FStar\..*\.dll$", @".msvc[pr]100\.dll$" }.Select(s => new Regex(s, RegexOptions.IgnoreCase));
+            string[] patterns;
+            if (versionInfo["compiler"].StartsWith("OCaml"))
+            {
+                patterns = new[] { @"FStar\..*\.dll$", @".msvc[pr]100\.dll$" };
+            }
+            else
+            {
+                // we'll be less choosy about the F# binaries we'd like to copy over.
+                patterns = new[] { @".*$" };
+            }
+            var regExprs = patterns.Select(s => new Regex(s, RegexOptions.IgnoreCase)).ToArray();
             var paths = binPath.ListFiles(recurse: true);
             foreach (var path in paths)
             {
