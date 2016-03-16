@@ -29,7 +29,7 @@ namespace NuBuild
         static Logger()
         {
             StartupBuffer = new List<string>();
-            ActiveTags = new HashSet<string> { "error", "warning", "fatal", "info", "summary", "stderr", "progress"};
+            ActiveTags = new HashSet<string> { "error", "warning", "fatal", "stdout", "stderr" };
             DefaultMessageTags = new HashSet<string> { "info" };
             IsOutput = tags => tags.Contains("stdout");
             Lock = new object();
@@ -80,6 +80,22 @@ namespace NuBuild
             lock (Lock)
             {
                 ActiveTags.Remove(tag.ToLowerInvariant());
+            }
+        }
+
+        public static void Verbose()
+        {
+            lock (Lock)
+            {
+                ActiveTags.Clear();
+                LogTag("stderr");
+                LogTag("stdout");
+                LogTag("error");
+                LogTag("warning");
+                LogTag("fatal");
+                LogTag("info");
+                LogTag("summary");
+                LogTag("progress");
             }
         }
 
