@@ -156,6 +156,10 @@ namespace NuBuild
                         || arg.Equals("--max_ifuel", StringComparison.CurrentCultureIgnoreCase)
                         || arg.Equals("--min_fuel", StringComparison.CurrentCultureIgnoreCase)
                         || arg.Equals("--initial_fuel", StringComparison.CurrentCultureIgnoreCase)
+                        || arg.Equals("--initial_ifuel", StringComparison.CurrentCultureIgnoreCase)
+                        || arg.Equals("--no_extract", StringComparison.CurrentCultureIgnoreCase)
+                        || arg.Equals("--codegen", StringComparison.CurrentCultureIgnoreCase)
+                        || arg.Equals("--codegen-lib", StringComparison.CurrentCultureIgnoreCase)
                         )
                     {
                         if (i == last)
