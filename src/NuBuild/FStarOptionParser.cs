@@ -151,9 +151,13 @@ namespace NuBuild
                 if (arg.StartsWith("--"))
                 {
                     if (arg.Equals("--admit_fsi", StringComparison.CurrentCultureIgnoreCase)
-                        || arg.Equals("--z3timeout", StringComparison.CurrentCultureIgnoreCase))
+                        || arg.Equals("--z3timeout", StringComparison.CurrentCultureIgnoreCase)
+                        || arg.Equals("--max_fuel", StringComparison.CurrentCultureIgnoreCase)
+                        || arg.Equals("--max_ifuel", StringComparison.CurrentCultureIgnoreCase)
+                        || arg.Equals("--min_fuel", StringComparison.CurrentCultureIgnoreCase)
+                        || arg.Equals("--initial_fuel", StringComparison.CurrentCultureIgnoreCase)
+                        )
                     {
-                        // --admit_fsi requires a parameter.
                         if (i == last)
                         {
                             var msg = string.Format("F* argument `{0}` requires a parameter.", arg);
@@ -162,7 +166,10 @@ namespace NuBuild
                         this.ignored.Add(this.args[i]);
                         this.ignored.Add(this.args[++i]);
                     }
-                    else if (arg.Equals("--lax", StringComparison.CurrentCultureIgnoreCase))
+                    else if (arg.Equals("--lax", StringComparison.CurrentCultureIgnoreCase)
+                            || arg.Equals("--universes", StringComparison.CurrentCultureIgnoreCase)
+                            || arg.Equals("--eager_inference", StringComparison.CurrentCultureIgnoreCase)
+                            )
                     {
                         this.ignored.Add(this.args[i]);
                     }
