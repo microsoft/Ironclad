@@ -162,6 +162,10 @@ namespace NuBuild
                         this.ignored.Add(this.args[i]);
                         this.ignored.Add(this.args[++i]);
                     }
+                    else if (arg.Equals("--lax", StringComparison.CurrentCultureIgnoreCase))
+                    {
+                        this.ignored.Add(this.args[i]);
+                    }
                     else if (arg.Equals("--include", StringComparison.CurrentCultureIgnoreCase))
                     {
                         // --include requires a parameter.
@@ -181,7 +185,6 @@ namespace NuBuild
                         }
                         this.verifyModule.Add(this.args[++i]);
                     }
-
                     else if (arg.Equals("--no_default_includes", StringComparison.CurrentCultureIgnoreCase))
                     {
                         continue;
