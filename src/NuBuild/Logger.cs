@@ -24,14 +24,11 @@ namespace NuBuild
         private static StreamWriter Log;
         private static AbsoluteFileSystemPath Path;
 
-        private static Func<IEnumerable<string>, bool> IsOutput { get; set; } 
-
         static Logger()
         {
             StartupBuffer = new List<string>();
             ActiveTags = new HashSet<string> { "error", "warning", "fatal", "stdout", "stderr" };
             DefaultMessageTags = new HashSet<string> { "info" };
-            IsOutput = tags => tags.Contains("stdout");
             Lock = new object();
             Path = null;
             Log = null;
@@ -125,21 +122,13 @@ namespace NuBuild
         {
             SortedSet<string> effective;
             var formatted = FormatMessage(msg, tags, out effective, fixNewLines);
-            bool isOutput = IsOutput(effective);
             lock (Lock)
             {
                 Trace.WriteLine(formatted);
 
                 if (effective.Count > 0 && !effective.Contains(QuietTag))
                 {
-                    if (isOutput)
-                    {
-                        Console.Out.WriteLine(msg);
-                    }
-                    else
-                    {
-                        Console.Error.WriteLine(formatted);
-                    }
+                    Console.Out.WriteLine(msg);
                 }
 
                 if (Log == null)
