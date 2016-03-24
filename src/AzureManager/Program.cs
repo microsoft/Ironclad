@@ -14,17 +14,13 @@ namespace AzureManager
     using Microsoft.WindowsAzure.Management.Compute.Models;
     using Microsoft.WindowsAzure.Storage;
     using Microsoft.WindowsAzure.Storage.Blob;
+    using NuBuild;
 
     /// <summary>
     /// Program to manage Azure cloud resources used by NuBuild.
     /// </summary>
     public class Program
     {
-        /// <summary>
-        /// Name of our service (hard-wired).
-        /// </summary>
-        private const string NuBuildServiceName = "NuBuildExecutionService";
-
         /// <summary>
         /// Name of the deployment package blob we use for the "start" and
         /// "upload" commands (hard-wired).
@@ -35,13 +31,13 @@ namespace AzureManager
         /// Default package file name used by "deploy" and "upload" commands.
         /// Can be overridden by command line argument.
         /// </summary>
-        private const string DefaultPackageFilename = "NuBuildExecutionService.cspkg";
+        private const string DefaultPackageFilename = ".nubuild/src/NuBuildExecutionService/bin/Debug/app.publish/NuBuildExecutionService.cspkg";
 
         /// <summary>
         /// Default configuration file name used by the "deploy" command
         /// Can be overridden by command line argument.
         /// </summary>
-        private const string DefaultConfigurationFilename = "ServiceConfiguration.Cloud.cscfg";
+        private const string DefaultConfigurationFilename = ".nubuild/src/NuBuildExecutionService/bin/Debug/app.publish/ServiceConfiguration.Cloud.cscfg";
 
         /// <summary>
         /// Default number of service instances to "start".
@@ -89,6 +85,8 @@ namespace AzureManager
                 }
             }
 
+            NuBuildEnvironment.initialize(Environment.CurrentDirectory);
+
             // Get our Azure account information.
             AzureAccount azureAccount = GetOurAzureAccount();
 
@@ -97,12 +95,13 @@ namespace AzureManager
             switch (command)
             {
                 case "create":
-                    azureAccount.CreateServiceSpecification(NuBuildServiceName, "West US");
+                    azureAccount.CreateServiceSpecification(NuBuildEnvironment.Options.CloudServiceName, "Central US");
                     break;
 
                 case "deploy":
                     // Upload our package (.cspkg file) to a blob.
                     // We name the blob after the package filename.
+                    Console.WriteLine("Uploading package...");
                     string blobName = Path.GetFileNameWithoutExtension(packageFilename);
                     packageBlob = GetPackageBlob(azureAccount, blobName);
                     packageBlob.UploadFromFile(packageFilename, System.IO.FileMode.Open);
@@ -111,28 +110,29 @@ namespace AzureManager
                     // TODO: Provide an unique name for each deployment?
                     // REVIEW: Upload to "Staging" slot instead?
                     string configuration = File.ReadAllText(configurationFilename);
-                    azureAccount.DeployService(NuBuildServiceName, "Production", DeploymentSlot.Production, configuration, packageBlob.Uri, startImmediately: true);
+                    Console.WriteLine("Issuing deployment request...");
+                    azureAccount.DeployService(NuBuildEnvironment.Options.CloudServiceName, "Production", DeploymentSlot.Production, configuration, packageBlob.Uri, startImmediately: true);
 
-                    Console.WriteLine("Issued deployment request");
+                    Console.WriteLine("Done.");
                     break;
 
                 case "start":
                     // Create a new deployment using a hard-coded configuration and a previously uploaded blob.
                     ServiceConfiguration config = new ServiceConfiguration(
-                        NuBuildServiceName,
+                        NuBuildEnvironment.Options.CloudServiceName,
                         "4",
                         "*",
                         "2014-06.2.4",
                         "CloudExecutionWorker",
                         instanceCount);
                     packageBlob = GetPackageBlob(azureAccount, NuBuildServicePackageName);
-                    azureAccount.DeployService(NuBuildServiceName, "Production", DeploymentSlot.Production, config.ToXml(), packageBlob.Uri, startImmediately: true);
+                    azureAccount.DeployService(NuBuildEnvironment.Options.CloudServiceName, "Production", DeploymentSlot.Production, config.ToXml(), packageBlob.Uri, startImmediately: true);
 
                     Console.WriteLine("Issued deployment request");
                     break;
 
                 case "status":
-                    HostedServiceGetDetailedResponse serviceInfo = azureAccount.GetServiceInformation(NuBuildServiceName);
+                    HostedServiceGetDetailedResponse serviceInfo = azureAccount.GetServiceInformation(NuBuildEnvironment.Options.CloudServiceName);
                     DisplayServiceInformation(serviceInfo);
                     break;
 
@@ -140,13 +140,13 @@ namespace AzureManager
                     // Delete the Azure deployment.
                     // This stops the currently running service, but leaves the
                     // configuration for this service in the Azure database.
-                    azureAccount.DeleteDeployment(NuBuildServiceName, DeploymentSlot.Production);
+                    azureAccount.DeleteDeployment(NuBuildEnvironment.Options.CloudServiceName, DeploymentSlot.Production);
                     break;
 
                 case "test":
                     ////azureAccount.TestSomething();
 
-                    ServiceConfiguration testConfig = new ServiceConfiguration(NuBuildServiceName, "4", "*", "2014-06.2.4", "CloudExecutionWorker", 42);
+                    ServiceConfiguration testConfig = new ServiceConfiguration(NuBuildEnvironment.Options.CloudServiceName, "4", "*", "2014-06.2.4", "CloudExecutionWorker", 42);
                     Console.WriteLine(testConfig.ToXml());
                     break;
 
@@ -206,8 +206,8 @@ namespace AzureManager
         /// <returns>An Azure account.</returns>
         private static AzureAccount GetOurAzureAccount()
         {
-            string subscriptionId = (string)NuBuild.NuBuildEnvironment.Options.SubscriptionId;
-            string certBase64Encoded = (string)NuBuild.NuBuildEnvironment.Options.Certificate;
+            string subscriptionId = (string)NuBuildEnvironment.Options.SubscriptionId;
+            string certBase64Encoded = (string)NuBuildEnvironment.Options.Certificate;
 
             byte[] cert = Convert.FromBase64String(certBase64Encoded);
             X509Certificate2 x509Cert = new X509Certificate2(cert);
@@ -269,15 +269,8 @@ namespace AzureManager
         /// <returns>A reference to the CloudBlockBlob.</returns>
         private static CloudBlockBlob GetPackageBlob(AzureAccount azureAccount, string blobName)
         {
-            // Get connection string for our storage account.
-            // TODO: Remove hard-coded storage account name.
-            const string StorageAccountName = "ironcladstoretest";
-            string connectionString = azureAccount.GetConnectionStringForStorageAccount(StorageAccountName);
-
-            ////Console.WriteLine("Using connection string " + connectionString);
-
             // Use our storage account connection string to get our CloudStorageAccount.
-            CloudStorageAccount storageAccount = CloudStorageAccount.Parse(connectionString);
+            CloudStorageAccount storageAccount = NuBuildEnvironment.Options.CloudStorageAccount;
 
             ////Console.WriteLine("Storage account URI = {0}", storageAccount.BlobEndpoint.AbsoluteUri);
 

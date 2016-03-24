@@ -7,8 +7,10 @@
 namespace AzureManager
 {
     using System;
+    using System.Collections.Generic;
     using System.Globalization;
     using System.Security.Cryptography.X509Certificates;
+    using System.Text;
 
     using Microsoft.Azure;
     using Microsoft.WindowsAzure.Management.Compute;
@@ -80,6 +82,7 @@ namespace AzureManager
             parameters.Label = serviceName;
             parameters.ServiceName = serviceName;
             parameters.Location = location;
+            parameters.ExtendedProperties = new Dictionary<string, string> { { "ResourceGroup", "nubuild.us" } };
 
             this.computeManager.HostedServices.Create(parameters);
         }

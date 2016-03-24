@@ -12,10 +12,12 @@ namespace NuBuild
     {
         private const int DefaultParallelJobs = 1;
         private const bool DefaultUseCloudExecution = false;
+        private const string DefaultCloudServiceName = "NuBuildExecutionService";
 
         private readonly JObject root;
         private bool? useCloudCache;
         private bool? useCloudExecution;
+        private string cloudServiceName;
         private bool? enforceWhitespace;
         private int? parallelJobs;
 
@@ -124,6 +126,24 @@ namespace NuBuild
             }
         }
 
+        public string CloudServiceName
+        {
+            get    
+            {
+                if (this.cloudServiceName == null)
+                {
+                    this.cloudServiceName = this.GetValue(d => (string)d["cloud_service_name"], DefaultCloudServiceName);
+                }
+
+                return this.cloudServiceName;
+            }
+
+            set
+            {
+                this.cloudServiceName = value;
+            }
+        }
+
         public string SubscriptionId
         {
             get
@@ -228,7 +248,6 @@ namespace NuBuild
             try
             {
                 result = (T)access(this.root);
-
             }
             catch (ArgumentNullException)
             {
