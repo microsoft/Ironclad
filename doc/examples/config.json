@@ -1,5 +1,6 @@
 { 
    "use_cloud_cache": false,
+   "use_cloud_execution": false,
    "parallel_jobs": 1,
    "paths": 
    {

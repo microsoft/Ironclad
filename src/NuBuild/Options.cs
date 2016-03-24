@@ -10,10 +10,12 @@ namespace NuBuild
 
     public class Options
     {
-        const int DefaultParallelJobs = 1;
+        private const int DefaultParallelJobs = 1;
+        private const bool DefaultUseCloudExecution = false;
 
         private readonly JObject root;
         private bool? useCloudCache;
+        private bool? useCloudExecution;
         private bool? enforceWhitespace;
         private int? parallelJobs;
 
@@ -53,6 +55,7 @@ namespace NuBuild
 
         public bool UseCloudCache
         {
+            // todo: port to use this.GetValue()
             get
             {
                 const bool defaultValue = false;
@@ -83,6 +86,24 @@ namespace NuBuild
             set
             {
                 this.useCloudCache = value;
+            }
+        }
+
+        public bool UseCloudExecution
+        {
+            get
+            {
+                if (!this.useCloudExecution.HasValue)
+                {
+                    this.useCloudExecution = this.GetValue(d => (bool)d["use_cloud_execution"], DefaultUseCloudExecution);
+                }
+
+                return this.useCloudExecution.Value;
+            }
+
+            set
+            {
+                this.useCloudExecution = value;
             }
         }
 
@@ -143,6 +164,7 @@ namespace NuBuild
 
         public bool EnforceWhitespace
         {
+            // todo: port to use this.GetValue()
             get
             {
                 const bool defaultValue = false;
@@ -182,7 +204,7 @@ namespace NuBuild
             {
                 if (!this.parallelJobs.HasValue)
                 {
-                    this.parallelJobs = GetValue(d => (int)d["parallel_jobs"], DefaultParallelJobs);
+                    this.parallelJobs = this.GetValue(d => (int)d["parallel_jobs"], DefaultParallelJobs);
                 }
 
                 return this.parallelJobs.Value;
@@ -198,6 +220,7 @@ namespace NuBuild
                 this.parallelJobs = value;
             }
         }
+
 
         private T GetValue<T>(Func<JObject, T> access, T defaultValue = default(T))
         {
