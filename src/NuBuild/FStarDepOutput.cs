@@ -3,13 +3,14 @@ namespace NuBuild
 {
     using System;
     using System.Collections.Generic;
+    using System.Linq;
 
     class FStarDepOutput : VirtualContents
     {
         public readonly Dictionary<RelativeFileSystemPath, IEnumerable<RelativeFileSystemPath>> ByTarget;
 
         private readonly IDictionary<string, RelativeFileSystemPath> foundSources;
-
+        
         public FStarDepOutput(string output, FStarOptionParser optParser)
         {
             this.foundSources = optParser.FindSourceFiles();
@@ -18,7 +19,7 @@ namespace NuBuild
 
         public IEnumerable<RelativeFileSystemPath> GetAll()
         {
-            var set = new HashSet<RelativeFileSystemPath>();
+            var set = new SortedSet<RelativeFileSystemPath>();
             foreach (var target in this.ByTarget.Keys)
             {
                 set.Add(target);
@@ -27,6 +28,13 @@ namespace NuBuild
                     set.Add(target);
                 }
             }
+            return set;
+        }
+
+        public IEnumerable<string> GetAllModules()
+        {
+            var set = new SortedSet<string>();
+            set.UnionWith(this.GetAll().Select(p => p.FileNameWithoutExtension));
             return set;
         }
 

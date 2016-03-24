@@ -18,7 +18,6 @@ namespace NuBuild
         private readonly string signature;
         private readonly AbstractId abstractId;
         private readonly BuildObject obligations;
-        private readonly string label;
 
         private readonly FStarFindDepsVerb findDepsVerb;
         private IEnumerable<IVerb> dependencyVerbCache; 
@@ -27,11 +26,8 @@ namespace NuBuild
 
         public FStarVerifyTreeVerb(IEnumerable<string> args, AbsoluteFileSystemPath invokedFrom = null, bool strict = true)
         {
-            // todo: do i need to make this implement IObligationsProducer?
-
             this.optParser = new FStarOptionParser(args, invokedFrom);
             this.signature = this.optParser.GetSignature();
-            this.label = string.Format("FStarVerifyTree {0}", string.Join(" ", args));
             this.abstractId = new AbstractId(this.GetType().Name, Version, this.signature);
             this.obligations = new BuildObject(string.Format("{0}.fst", this.signature)).makeOutputObject(".tree.txt");
             if (this.optParser.ExplicitDeps)
@@ -143,7 +139,7 @@ namespace NuBuild
                         var moduleName = target.FileNameWithoutExtension;
                         if (!this.optParser.ShouldVerifyModule(moduleName))
                         {
-                            var msg = string.Format("Skipping verification of module {0} because verification was excluded vial --verify-module options.", moduleName);
+                            var msg = string.Format("Skipping verification of module {0} because verification was excluded via --verify-module options.", moduleName);
                             Logger.WriteLine(msg);
                             continue;
                         }

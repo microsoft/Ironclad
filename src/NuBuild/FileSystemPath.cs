@@ -147,7 +147,7 @@
 
     }
 
-    public class AbsoluteFileSystemPath : FileSystemPath, IEquatable<AbsoluteFileSystemPath>
+    public class AbsoluteFileSystemPath : FileSystemPath, IEquatable<AbsoluteFileSystemPath>, IComparable<AbsoluteFileSystemPath>
     {
         private AbsoluteFileSystemPath(string normalized) :
             base(normalized)
@@ -228,6 +228,11 @@
             return other.ToString() == this.ToString();
         }
 
+        public int CompareTo(AbsoluteFileSystemPath other)
+        {
+            return String.Compare(this.ToString(), other.ToString(), StringComparison.OrdinalIgnoreCase);
+        }
+
         public override bool Equals(object obj)
         {
             var other = obj as AbsoluteFileSystemPath;
@@ -301,7 +306,7 @@
         }
     }
 
-    public class RelativeFileSystemPath : FileSystemPath, IEquatable<RelativeFileSystemPath>
+    public class RelativeFileSystemPath : FileSystemPath, IEquatable<RelativeFileSystemPath>, IComparable<RelativeFileSystemPath>
     {
         private RelativeFileSystemPath(string normalized) :
             base(normalized)
@@ -316,6 +321,11 @@
         public bool Equals(RelativeFileSystemPath other)
         {
             return other.ToString() == this.ToString();
+        }
+
+        public int CompareTo(RelativeFileSystemPath other)
+        {
+            return String.Compare(this.ToString(), other.ToString(), StringComparison.OrdinalIgnoreCase);
         }
 
         public override bool Equals(object obj)

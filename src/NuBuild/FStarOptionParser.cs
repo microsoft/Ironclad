@@ -15,7 +15,8 @@ namespace NuBuild
         private readonly List<RelativeFileSystemPath> includePaths;
         private readonly List<string> sourceFileArgs;
         private readonly List<string> ignored;
-        private readonly HashSet<string> verifyModule; 
+        private readonly SortedSet<string> verifyModule;
+
         public readonly AbsoluteFileSystemPath InvocationPath;
 
         public FStarOptionParser(IEnumerable<string> args, AbsoluteFileSystemPath invokedFrom = null)
@@ -24,7 +25,7 @@ namespace NuBuild
             this.includePaths = new List<RelativeFileSystemPath>();
             this.sourceFileArgs = new List<string>();
             this.ignored = new List<string>();
-            this.verifyModule = new HashSet<string>();
+            this.verifyModule = new SortedSet<string>();
             this.InvocationPath = invokedFrom ?? NuBuildEnvironment.RootDirectoryPath;
             this.ParseArgs();
         }
@@ -105,11 +106,11 @@ namespace NuBuild
             {
                 yield return "--explicit_deps";
             }
-            foreach (var module in this.verifyModule)
+                foreach (var module in this.verifyModule)
             { 
-                yield return "--verify_module";
-                yield return module;
-            }
+                    yield return "--verify_module";
+                    yield return module;
+                }
             var paths = this.GetModuleSearchPaths();
             foreach (var path in paths)
             {
@@ -157,9 +158,6 @@ namespace NuBuild
                         || arg.Equals("--min_fuel", StringComparison.CurrentCultureIgnoreCase)
                         || arg.Equals("--initial_fuel", StringComparison.CurrentCultureIgnoreCase)
                         || arg.Equals("--initial_ifuel", StringComparison.CurrentCultureIgnoreCase)
-                        || arg.Equals("--no_extract", StringComparison.CurrentCultureIgnoreCase)
-                        || arg.Equals("--codegen", StringComparison.CurrentCultureIgnoreCase)
-                        || arg.Equals("--codegen-lib", StringComparison.CurrentCultureIgnoreCase)
                         )
                     {
                         if (i == last)
@@ -170,9 +168,10 @@ namespace NuBuild
                         this.ignored.Add(this.args[i]);
                         this.ignored.Add(this.args[++i]);
                     }
-                    else if (arg.Equals("--lax", StringComparison.CurrentCultureIgnoreCase)
-                            || arg.Equals("--universes", StringComparison.CurrentCultureIgnoreCase)
+                    else if (arg.Equals("--universes", StringComparison.CurrentCultureIgnoreCase)
                             || arg.Equals("--eager_inference", StringComparison.CurrentCultureIgnoreCase)
+                            || arg.Equals("--use_native_int", StringComparison.CurrentCultureIgnoreCase)
+                            || arg.Equals("--lax", StringComparison.CurrentCultureIgnoreCase)
                             )
                     {
                         this.ignored.Add(this.args[i]);
@@ -204,9 +203,14 @@ namespace NuBuild
                     {
                         this.ExplicitDeps = true;
                     }
-                    else if (arg.Equals("--dep", StringComparison.CurrentCultureIgnoreCase))
+                    else if (arg.Equals("--dep", StringComparison.CurrentCultureIgnoreCase)
+                        || arg.Equals("--codegen", StringComparison.CurrentCultureIgnoreCase)
+                        || arg.Equals("--odir", StringComparison.CurrentCultureIgnoreCase)
+                        || arg.Equals("--no_extract", StringComparison.CurrentCultureIgnoreCase)
+                        || arg.Equals("--codegen-lib", StringComparison.CurrentCultureIgnoreCase))
                     {
-                        throw new ArgumentException("Use of F* option `--dep` is disallowed");
+                        var msg = string.Format("Use of F* option `{0}` is not supported", arg.ToLower());
+                        throw new ArgumentException(msg);
                     }
                     else
                     {
