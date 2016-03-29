@@ -518,9 +518,12 @@ namespace NuBuild
 
                 // Write the OutputFileMappings element.
                 xw.WriteStartElement(XmlOutputFileMappingsElement);
-                foreach (BuildObjectValuePointer outputFile in this.outputFileMappings)
+                if (this.outputFileMappings != null)
                 {
-                    outputFile.WriteXml(xw);
+                    foreach (BuildObjectValuePointer outputFile in this.outputFileMappings)
+                    {
+                        outputFile.WriteXml(xw);
+                    }
                 }
 
                 xw.WriteEndElement();

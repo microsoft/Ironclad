@@ -50,8 +50,15 @@
   </ItemGroup>
   <ItemGroup>
     <Folder Include="CloudExecutionWorkerContent\" />
+    <Folder Include="CloudExecutionWorkerContent\.nubuild" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="CloudExecutionWorkerContent\.nubuild\config.json">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="CloudExecutionWorkerContent\.nubuild\ignore_me.txt">
+      <SubType>Content</SubType>
+    </Content>
     <Content Include="CloudExecutionWorkerContent\diagnostics.wadcfg">
       <SubType>Content</SubType>
     </Content>
