@@ -34,6 +34,14 @@ namespace NuBuild
             return new Options((JObject)JsonConvert.DeserializeObject(s));
         }
 
+        public static Options Empty
+        {
+            get
+            {
+                return new Options(new JObject());
+            }
+        }
+
         public CloudStorageAccount CloudStorageAccount
         {
             get

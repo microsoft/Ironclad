@@ -50,6 +50,7 @@ namespace CloudExecutionWorker
             // Establish various infrastructure.
             // TODO: Clean this up.
             this.virtualIronRoot = Directory.GetCurrentDirectory();
+            NuBuildEnvironment.initialize(this.virtualIronRoot);
             string localCacheDirectory = Path.Combine(this.virtualIronRoot, "nucache");
             this.cloudCache = new ItemCacheCloud();
             this.multiplexedItemCache = new ItemCacheMultiplexer(

@@ -101,10 +101,6 @@ namespace NuBuild
         /// </remarks>
         public CloudExecutionQueue()
         {
-            // Work-around for running this code in CloudExecutionEngine.  TODO: Clean this up!
-            // The BuildEngine.theEngine.getIronRoot() call needs to work for BuildObject code to function properly.
-            NuBuildEnvironment.initialize(Environment.CurrentDirectory);
-
             this.queueEntryTtl = new TimeSpan(0, 30, 0);  // 30 minutes.
 
             var storageAccount = NuBuildEnvironment.Options.CloudStorageAccount;
@@ -330,12 +326,14 @@ namespace NuBuild
                                 break;
 
                             case CloudExecutionReport.StatusCode.InProgress:
-                                Console.WriteLine("Node '{0}' reports request '{1}' is in progress.", report.ProcessingNode, report.Identifier);
+                                var msg1 = string.Format("[Node '{0}' reports request '{1}' is in progress.]", report.ProcessingNode, report.Identifier);
+                                Logger.WriteLine(msg1, new [] {"cloud", "queue", "progress"});
                                 break;
 
                             default:
                                 // REVIEW: Or just Assert here?  This should never happen.
-                                Console.WriteLine("Node '{0}' reports strange status '{1}' for request '{2}'.", report.ProcessingNode, report.Status, report.Identifier);
+                                var msg2 = string.Format("[Node '{0}' reports strange status '{1}' for request '{2}'.]", report.ProcessingNode, report.Status, report.Identifier);
+                                Logger.WriteLine(msg2, new[] { "cloud", "queue", "progress", "error" });
                                 break;
                         }
                     }

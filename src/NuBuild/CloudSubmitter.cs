@@ -131,9 +131,11 @@ namespace NuBuild
 
             // Wait for remote execution to finish.
             int requestsOutstanding;
-            Console.WriteLine("Waiting on remote execution report for request '{0}'.", requestIdentifier);
+            var msg = string.Format("[Waiting on remote execution report for request '{0}'.]", requestIdentifier);
+            Logger.WriteLine(msg, new[] { "cloud", "queue", "progress" });
             CloudExecutionReport executionReport = BuildEngine.theEngine.CloudExecutionQueue.GetReport(requestIdentifier, out requestsOutstanding);
-            Console.WriteLine("Received remote execution report for request '{0}'.  {1} others still outstanding.", requestIdentifier, requestsOutstanding);
+            msg = string.Format("[Received remote execution report for request '{0}'.  {1} others still outstanding.]", requestIdentifier, requestsOutstanding);
+            Logger.WriteLine(msg, new[] { "cloud", "queue", "progress" });
 
             // Record what we got back.
             this.exitCode = executionReport.ExitCode;

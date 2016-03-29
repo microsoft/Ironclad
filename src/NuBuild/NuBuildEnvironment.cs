@@ -24,14 +24,14 @@ namespace NuBuild
         private static AbsoluteFileSystemPath rootDirectoryPath = null;
 
 
-        public static void initialize(string specifiedRootPath)
+        public static void initialize(string rootPathIfSpecified = null)
         {
             if (isInitialized())
             {
                 throw new InvalidOperationException("Attempt to initialize NuBuildEnvironment twice.");
             }
             InvocationPath = AbsoluteFileSystemPath.FromCurrentDirectory();
-            rootDirectoryPath = initNuBuildRoot(specifiedRootPath);
+            rootDirectoryPath = initNuBuildRoot(rootPathIfSpecified);
             Logger.Start(AbsoluteFileSystemPath.FromRelative(RelativeFileSystemPath.Parse(LogPath), rootDirectoryPath));
             Options = LoadConfig();
             // NuBuild seems flakey unless the current directory is the NuBuild root.
@@ -60,11 +60,11 @@ namespace NuBuild
             }
         }
 
-        private static AbsoluteFileSystemPath initNuBuildRoot(string specifiedRootPath)
+        private static AbsoluteFileSystemPath initNuBuildRoot(string rootPathIfSpecified)
         {
-            if (specifiedRootPath != null)
+            if (rootPathIfSpecified != null)
             {
-                AbsoluteFileSystemPath p = AbsoluteFileSystemPath.Parse(specifiedRootPath, permitImplicit: true);
+                AbsoluteFileSystemPath p = AbsoluteFileSystemPath.Parse(rootPathIfSpecified, permitImplicit: true);
                 if (p.IsExistingDirectory && p.CreateChildPath(DotNuBuild).IsExistingDirectory)
                 {
                     Logger.WriteLine(string.Format("Specified NuBuild root path found at `{0}`.", p));
@@ -72,7 +72,7 @@ namespace NuBuild
                 }
                 else
                 {
-                    throw new DirectoryNotFoundException(string.Format("Specified NuBuild root path (`{0}`) not found.", specifiedRootPath));
+                    throw new DirectoryNotFoundException(string.Format("Specified NuBuild root path (`{0}`) not found.", rootPathIfSpecified));
                 }
             }
             else
@@ -133,7 +133,7 @@ namespace NuBuild
             else
             {
                 Logger.WriteLine(string.Format("Unable to find {0}; assuming empty document.", pathStr), "warning");
-                return new Dictionary<string, object>();
+                return Options.Empty;
             }
         }
 

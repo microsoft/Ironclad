@@ -13,6 +13,8 @@ namespace CloudQueueTool
     using Microsoft.WindowsAzure.Storage;
     using Microsoft.WindowsAzure.Storage.Queue;
 
+    using NuBuild;
+
     /// <summary>
     /// Cloud queue management program.
     /// </summary>
@@ -24,6 +26,8 @@ namespace CloudQueueTool
         /// <param name="args">Command line arguments.</param>
         private static void Main(string[] args)
         {
+            NuBuildEnvironment.initialize();
+
             var storageAccount = NuBuild.NuBuildEnvironment.Options.CloudStorageAccount;
 
             CloudQueueClient queueClient = storageAccount.CreateCloudQueueClient();
