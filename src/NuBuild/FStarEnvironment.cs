@@ -15,7 +15,7 @@ namespace NuBuild
 
     public static class FStarEnvironment
     {
-        private const string DefaultPathToFStarExe = ".\\.fstar\\bin\\fstar.exe";
+        private static readonly IEnumerable<RelativeFileSystemPath> FStarExeSearchPaths = new [] { ".\\.fstar\\bin", ".\\bin" }.Select(s => RelativeFileSystemPath.Parse(s));
 
         private static readonly AbsoluteFileSystemPath AbsolutePathToFStarExe;
         private static readonly IEnumerable<string> ImplicitDependencies = new[] { "./lib/prims.fst" };
@@ -41,12 +41,11 @@ namespace NuBuild
 
         static FStarEnvironment()
         {
-            var pathToFStarExe = findFStarExecutable();
+            var pathToFStarExe = FindFStarExecutable();
             VersionInfo = GetVersionInfo(pathToFStarExe);
             Binaries = findBinaries(pathToFStarExe, VersionInfo);
             StandardLibrary = findStandardLibrary(pathToFStarExe);
             AbsolutePathToFStarExe = pathToFStarExe;
-
         }
 
         public static RelativeFileSystemPath PathToFStarExe
@@ -131,41 +130,19 @@ namespace NuBuild
             return result;
         }
 
-        private static AbsoluteFileSystemPath findFStarExecutable()
+        private static AbsoluteFileSystemPath FindFStarExecutable()
         {
-            RelativeFileSystemPath relFilePath;
-            string configStr;
+            var fileName = RelativeFileSystemPath.Parse("./fstar.exe");
+            var relFilePath = NuBuildEnvironment.FindFile(fileName, FStarExeSearchPaths);
 
-            try
+            if (null == relFilePath)
             {
-                configStr = NuBuildEnvironment.Options.LookupPath("fstar", DefaultPathToFStarExe);
+                var msg = string.Format("Unable to find F* executable in search path ({0})", string.Join(";", FStarExeSearchPaths.Select(p => p.ToString())));
+                throw new InvalidOperationException(msg);
             }
-            catch (RuntimeBinderException)
-            {
-                configStr = null;
-            }
-
-            if (configStr == null)
-            {
-                Logger.WriteLine(string.Format("`{0}` entry `paths.fstar` is unspecifed; assuming default path (`{1}`)", NuBuildEnvironment.ConfigFileRelativePath, DefaultPathToFStarExe));
-                relFilePath = RelativeFileSystemPath.Parse(DefaultPathToFStarExe);
-            }
-            else
-            {
-                relFilePath = RelativeFileSystemPath.Parse(configStr, permitImplicit: true);
-            }
-
             var absFilePath = AbsoluteFileSystemPath.FromRelative(relFilePath, NuBuildEnvironment.RootDirectoryPath);
-            if (absFilePath.IsExistingFile)
-            {
-                Logger.WriteLine(string.Format("F* found at `{0}`.", absFilePath));
-                return absFilePath;
-            }
-            else
-            {
-                var s = absFilePath.ToString();
-                throw new FileNotFoundException(string.Format("A needed file (`{0}`) is missing. Please verify that the `paths.fstar` entry in your `{1}` file is accurate.", s, NuBuildEnvironment.ConfigFileRelativePath));
-            }
+            Logger.WriteLine(string.Format("F* found at `{0}`.", absFilePath));
+            return absFilePath;
         }
 
         private static IDictionary<string, string> GetVersionInfo(AbsoluteFileSystemPath exePath)

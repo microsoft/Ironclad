@@ -117,23 +117,6 @@ namespace NuBuild
             }
         }
 
-        public string LookupPath(string name, string defaultValue = null)
-        {
-            try
-            {
-                return (string)this.root["paths"][name];
-
-            }
-            catch (ArgumentNullException)
-            {
-                return defaultValue;
-            }
-            catch (NullReferenceException)
-            {
-                return defaultValue;
-            }
-        }
-
         public string CloudServiceName
         {
             get    
