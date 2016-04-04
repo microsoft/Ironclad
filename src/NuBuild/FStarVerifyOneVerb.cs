@@ -74,7 +74,7 @@ namespace NuBuild
 
         public override IVerbWorker getWorker(WorkingDirectory workingDirectory)
         {
-            var arguments = this.optParser.GetNormalizedArgs().ToArray();
+            var arguments = this.optParser.GetNormalizedArgs(emitSmt: true).ToArray();
             var exePath = FStarEnvironment.PathToFStarExe.ToString();
 
             Logger.WriteLine(string.Format("{0} invokes `{1} {2}` from `{3}`", this, exePath, string.Join(" ", arguments), workingDirectory.Prefix));

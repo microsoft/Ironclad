@@ -18,11 +18,12 @@ namespace NuBuild
         public const string ConfigFileRelativePath = ".\\.nubuild\\config.json";
         public const string LogPath = ".\\.nubuild\\log.txt";
 
+        private static readonly List<RelativeFileSystemPath> executableSearchPaths = new List<RelativeFileSystemPath>();
+        private static AbsoluteFileSystemPath rootDirectoryPath = null;
+
         public static AbsoluteFileSystemPath InvocationPath { get; private set; }
 
         public static Options Options { get; private set; }
-        private static AbsoluteFileSystemPath rootDirectoryPath = null;
-
 
         public static void initialize(string rootPathIfSpecified = null)
         {
@@ -37,6 +38,7 @@ namespace NuBuild
             // NuBuild seems flakey unless the current directory is the NuBuild root.
             Directory.SetCurrentDirectory(rootDirectoryPath.ToString());
         }
+
 
         public static bool isInitialized()
         {
@@ -58,6 +60,31 @@ namespace NuBuild
                 throwIfNotInitialized();
                 return rootDirectoryPath;
             }
+        }
+
+        public static IEnumerable<RelativeFileSystemPath> ExecutableSearchPaths
+        {
+            get
+            {
+                return executableSearchPaths;
+            }
+        }
+
+        public static void AddExecutableSearchPaths(IEnumerable<RelativeFileSystemPath> paths)
+        {
+            foreach (var path in paths)
+            {
+                if (executableSearchPaths.Contains(path))
+                {
+                    continue;
+                }
+                executableSearchPaths.Insert(0, path);
+            }
+        }
+
+        public static RelativeFileSystemPath FindExecutable(RelativeFileSystemPath file)
+        {
+            return FindFile(file, ExecutableSearchPaths);
         }
 
         private static AbsoluteFileSystemPath initNuBuildRoot(string rootPathIfSpecified)

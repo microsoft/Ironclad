@@ -1,23 +1,18 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace NuBuild
 {
-    using System.Data.Common;
-    using System.Diagnostics;
     using System.IO;
     using System.Text.RegularExpressions;
 
-    using Microsoft.CSharp.RuntimeBinder;
-
     public static class FStarEnvironment
     {
-        private static readonly IEnumerable<RelativeFileSystemPath> FStarExeSearchPaths = new [] { ".\\.fstar\\bin", ".\\bin" }.Select(s => RelativeFileSystemPath.Parse(s));
+        private static readonly IEnumerable<string> ExecutableSearchPaths = new [] { ".\\.fstar\\bin", ".\\bin", ".\\.nubuild\\.z3\\build" };
 
         private static readonly AbsoluteFileSystemPath AbsolutePathToFStarExe;
+        private static readonly AbsoluteFileSystemPath AbsolutePathToZ3Exe;
         private static readonly IEnumerable<string> ImplicitDependencies = new[] { "./lib/prims.fst" };
 
         public static readonly IEnumerable<SourcePath> Binaries;
@@ -27,25 +22,33 @@ namespace NuBuild
         // the following list of default module search paths must match what's listed in `fstar/src/options.fs`.
         // don't include the current directory, however.
         // todo: it would be nice to be able to query F* for this list so that it does not need to be manually synchronized.
-        private static readonly List<RelativeFileSystemPath> StandardLibrarySearchPaths = 
-            (new[]
-             {
-                "./lib",
-                "./lib/fstar",
-                "./stdlib",
-                "./stdlib/fstar",
-             })
-            .Select(s => RelativeFileSystemPath.Parse(s)).ToList();
+        private static readonly IEnumerable<string> standardLibrarySearchPaths = new [] { "./lib", "./lib/fstar", "./stdlib", "./stdlib/fstar" };
+
+        private static readonly IEnumerable<RelativeFileSystemPath> StandardLibrarySearchPaths; 
 
         public static readonly IDictionary<string, string> VersionInfo; 
 
         static FStarEnvironment()
         {
-            var pathToFStarExe = FindFStarExecutable();
+            var pathToFStarExe = FindExecutable("fstar.exe");
+            var pathToZ3Exe = FindExecutable("z3.exe");
             VersionInfo = GetVersionInfo(pathToFStarExe);
-            Binaries = findBinaries(pathToFStarExe, VersionInfo);
+            Binaries = findBinaries(pathToFStarExe, VersionInfo, pathToZ3Exe);
             StandardLibrary = findStandardLibrary(pathToFStarExe);
             AbsolutePathToFStarExe = pathToFStarExe;
+            AbsolutePathToZ3Exe = pathToZ3Exe;
+
+            // F* defines more standard search paths than actually exist and rejects explicit specification of non-existent directories, so we need to filter out the paths that do not exist.
+            var paths = new List<RelativeFileSystemPath>();
+            foreach (var s in standardLibrarySearchPaths)
+            {
+                var path = RelativeFileSystemPath.Parse(s, permitImplicit: true);
+                if (Directory.Exists(path.ToString()))
+                {
+                    paths.Add(path);
+                }
+            }
+            StandardLibrarySearchPaths = paths;
         }
 
         public static RelativeFileSystemPath PathToFStarExe
@@ -53,6 +56,14 @@ namespace NuBuild
             get
             {
                 return AbsolutePathToFStarExe.MapToBuildObjectPath();
+            }
+        }
+
+        public static RelativeFileSystemPath PathToZ3Exe
+        {
+            get
+            {
+                return AbsolutePathToZ3Exe.MapToBuildObjectPath();
             }
         }
 
@@ -69,7 +80,7 @@ namespace NuBuild
             return Binaries.Concat(ImplicitDependencies.Select(s => new SourcePath(Path.Combine(HomeDirectoryPath.ToString(), s), SourcePath.SourceType.Tools)));
         }
 
-        private static List<SourcePath> findBinaries(AbsoluteFileSystemPath pathToFStarExe, IDictionary<string, string> versionInfo)
+        private static List<SourcePath> findBinaries(AbsoluteFileSystemPath pathToFStarExe, IDictionary<string, string> versionInfo, AbsoluteFileSystemPath pathToZ3Exe)
         {
             AbsoluteFileSystemPath binPath = pathToFStarExe.ParentDirectoryPath;
             var result = new List<SourcePath>();
@@ -100,6 +111,8 @@ namespace NuBuild
                     }
                 }
             }
+
+            result.Add(new SourcePath(pathToZ3Exe.MapToBuildObjectPath().ToString(), SourcePath.SourceType.Tools));
             return result;
         }
 
@@ -130,18 +143,20 @@ namespace NuBuild
             return result;
         }
 
-        private static AbsoluteFileSystemPath FindFStarExecutable()
+        private static AbsoluteFileSystemPath FindExecutable(string fileName)
         {
-            var fileName = RelativeFileSystemPath.Parse("./fstar.exe");
-            var relFilePath = NuBuildEnvironment.FindFile(fileName, FStarExeSearchPaths);
+            NuBuildEnvironment.AddExecutableSearchPaths(ExecutableSearchPaths.Select(s => RelativeFileSystemPath.Parse(s)));
+
+            var filePath = RelativeFileSystemPath.Parse(fileName, permitImplicit: true);
+            var relFilePath = NuBuildEnvironment.FindExecutable(filePath);
 
             if (null == relFilePath)
             {
-                var msg = string.Format("Unable to find F* executable in search path ({0})", string.Join(";", FStarExeSearchPaths.Select(p => p.ToString())));
+                var msg = string.Format("Unable to find `{0}` in search path ({1})", fileName, string.Join(";", NuBuildEnvironment.ExecutableSearchPaths.Select(p => p.ToString())));
                 throw new InvalidOperationException(msg);
             }
             var absFilePath = AbsoluteFileSystemPath.FromRelative(relFilePath, NuBuildEnvironment.RootDirectoryPath);
-            Logger.WriteLine(string.Format("F* found at `{0}`.", absFilePath));
+            Logger.WriteLine(string.Format("{0} found at `{1}`.", fileName, absFilePath));
             return absFilePath;
         }
 

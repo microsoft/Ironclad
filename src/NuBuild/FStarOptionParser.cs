@@ -99,18 +99,18 @@ namespace NuBuild
             return paths;
         }
 
-        public IEnumerable<string> GetNormalizedArgs(AbsoluteFileSystemPath rootPath = null, bool forceExplicitDeps = false, bool emitSources = true)
+        public IEnumerable<string> GetNormalizedArgs(AbsoluteFileSystemPath rootPath = null, bool forceExplicitDeps = false, bool emitSources = true, bool emitSmt = false)
         {
-            yield return "--no_default_includes";
+            foreach (var module in this.verifyModule)
+            {
+                yield return "--verify_module";
+                yield return module;
+            }
             if (this.ExplicitDeps || forceExplicitDeps)
             {
                 yield return "--explicit_deps";
             }
-                foreach (var module in this.verifyModule)
-            { 
-                    yield return "--verify_module";
-                    yield return module;
-                }
+            yield return "--no_default_includes";
             var paths = this.GetModuleSearchPaths();
             foreach (var path in paths)
             {
@@ -124,6 +124,11 @@ namespace NuBuild
                     var absPath = FileSystemPath.Join(rootPath, path);
                     yield return absPath.ToString();
                 }
+            }
+            if (emitSmt)
+            {
+                yield return "--smt";
+                yield return FStarEnvironment.PathToZ3Exe.ToString();
             }
             foreach (var arg in this.ignored)
             {
@@ -207,7 +212,8 @@ namespace NuBuild
                         || arg.Equals("--codegen", StringComparison.CurrentCultureIgnoreCase)
                         || arg.Equals("--odir", StringComparison.CurrentCultureIgnoreCase)
                         || arg.Equals("--no_extract", StringComparison.CurrentCultureIgnoreCase)
-                        || arg.Equals("--codegen-lib", StringComparison.CurrentCultureIgnoreCase))
+                        || arg.Equals("--codegen-lib", StringComparison.CurrentCultureIgnoreCase)
+                        || arg.Equals("--smt", StringComparison.CurrentCultureIgnoreCase))
                     {
                         var msg = string.Format("Use of F* option `{0}` is not supported", arg.ToLower());
                         throw new ArgumentException(msg);

@@ -129,7 +129,7 @@ namespace NuBuild
         {
             yield return "--dep";
             yield return "make";
-            foreach (var arg in this.optParser.GetNormalizedArgs(NuBuildEnvironment.RootDirectoryPath))
+            foreach (var arg in this.optParser.GetNormalizedArgs(NuBuildEnvironment.RootDirectoryPath, emitSmt: false))
             {
                 yield return arg;
             }
