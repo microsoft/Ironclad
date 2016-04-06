@@ -83,29 +83,29 @@ namespace NuBuild
 
         public Disposition Complete(WorkingDirectory workingDirectory, double cpuTimeSeconds, string stdout, string stderr, Disposition disposition)
         {
-            Func<string, string> annotateModule =
-                s =>
+            Func<string, string, string> annotateModule =
+                (source, content) =>
                 {
                     if (this.optParser.VerifyModule.Count() == 1)
                     {
                         var moduleName = this.optParser.VerifyModule.Single();
-                        return string.Format("(while verifying F* module {0}...)\n{1}", moduleName, s);
+                        return string.Format("({0} while verifying F* module {1}...)\n{2}", source, moduleName, content);
                     }
                     else
                     {
-                        return s;
+                        return content;
                     }
                 };
 
             stdout = stdout.Trim();
             if (!string.IsNullOrWhiteSpace(stdout))
             {
-                Logger.WriteLine(annotateModule(stdout), new[] { "fstar", "stdout" });
+                Logger.WriteLine(annotateModule("stdout", stdout), new[] { "fstar", "stdout" });
             }
             stderr = stderr.Trim();
             if (!string.IsNullOrWhiteSpace(stderr))
             {
-                Logger.WriteLine(annotateModule(stderr), new[] { "fstar", "stderr" });
+                Logger.WriteLine(annotateModule("stderr", stderr), new[] { "fstar", "stderr" });
             }
 
             VerificationResult vr = new VerificationResult(
