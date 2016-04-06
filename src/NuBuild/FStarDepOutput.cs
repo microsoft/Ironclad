@@ -57,10 +57,20 @@ namespace NuBuild
             for (var i = 0; i < lines.Length; ++i)
             {
                 var line = lines[i];
-                var sepByColon = line.Split(new[] { ": " }, StringSplitOptions.None);
+                string[] sepByColon;
+                if (line[line.Length - 1] == ':')
+                {
+                    // if the line ends with a ':' then we have a target with no dependencies.
+                    sepByColon = new[] { line.Substring(0, line.Length - 1), "" };
+                }
+                else
+                {
+                    // ": " is an important separator to distinguish from drive letters.
+                    sepByColon = line.Split(new[] { ": " }, StringSplitOptions.None);
+                }
                 if (sepByColon.Length != 2)
                 {
-                    var msg = string.Format("Expected line {0} of `fstar --dep make` output to contain a `:`.", i);
+                    var msg = string.Format("Expected line {0} of `fstar --dep make` output to contain a `:`; actual content is `{1}`.", i, line);
                     throw new InvalidOperationException(msg);
                 }
                 var sepBySpaces = sepByColon[1].Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
