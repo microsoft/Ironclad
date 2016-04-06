@@ -39,6 +39,8 @@ namespace NuBuild
                 this.findDepsVerb = new FStarFindDepsVerb(args, invokedFrom);
             }
             this.StrictMode = strict;
+
+            this.LogReproductionInstructions();
         }
 
         public override AbstractId getAbstractIdentifier()
@@ -165,6 +167,14 @@ namespace NuBuild
             ddisp = DependencyDisposition.Complete;
             return this.dependencyVerbCache;
 
-        } 
+        }
+
+        private void LogReproductionInstructions()
+        {
+            var exePath = RelativeFileSystemPath.Parse(String.Format("./{0}/bin/NuBuild.exe", NuBuildEnvironment.DotNuBuild));
+            var args = this.optParser.GetNormalizedArgs();
+            var msg = String.Format("{0} You can reproduce this verb's behavior by invoking the command `{1} FStarVerifyTree {2}` from `{3}`.", this, exePath, String.Join(" ", args), NuBuildEnvironment.RootDirectoryPath);
+            Logger.WriteLine(msg, "info");
+        }
     }
 }
