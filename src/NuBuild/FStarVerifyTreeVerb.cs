@@ -171,10 +171,8 @@ namespace NuBuild
 
         private void LogReproductionInstructions()
         {
-            var nuBuildExePath = RelativeFileSystemPath.Parse(String.Format("./{0}/bin/NuBuild.exe", NuBuildEnvironment.DotNuBuild));
             var fstarExePath = FileSystemPath.Join(NuBuildEnvironment.RootDirectoryPath, FStarEnvironment.PathToFStarExe);
-            var normalizedArgs = this.optParser.GetNormalizedArgs();
-            var msg = String.Format("{0} You can reproduce this verb's behavior by invoking the command `{1} FStarVerifyTree {2}` from `{3}`; this invocation of the FStarVerifyTree verb intends to emulate execution of `{4} {5}` from `{6}`.", this, nuBuildExePath, String.Join(" ", normalizedArgs), NuBuildEnvironment.RootDirectoryPath, fstarExePath, String.Join(" ", this.optParser.Args), this.optParser.InvocationPath);
+            var msg = String.Format("{0} You can reproduce this verb's behavior by invoking the command `{1}` from `{2}`; this invocation of the FStarVerifyTree verb intends to emulate execution of `{3} {4}` from the same directory.", this, NuBuildEnvironment.InvokedUsing, NuBuildEnvironment.InvocationPath, fstarExePath, String.Join(" ", this.optParser.Args));
             Logger.WriteLine(msg, new [] { "info", "tip" });
         }
     }

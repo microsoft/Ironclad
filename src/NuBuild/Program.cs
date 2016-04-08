@@ -190,7 +190,7 @@ namespace NuBuild
                     if (!rootDirInitState.Item2)
                     {
                         var p = rootDirInitState.Item1 == null ? null : rootDirInitState.Item1;
-                        NuBuildEnvironment.initialize(p);
+                        NuBuildEnvironment.Initialize(args, p);
                         rootDirInitState = Tuple.Create(rootDirInitState.Item1, true);
                     }
 
@@ -284,7 +284,7 @@ namespace NuBuild
             if (!rootDirInitState.Item2)
             {
                 var p = rootDirInitState.Item1 == null ? null : rootDirInitState.Item1;
-                NuBuildEnvironment.initialize(p);
+                NuBuildEnvironment.Initialize(args, p);
             }
         }
 
@@ -318,13 +318,6 @@ namespace NuBuild
             return new ItemCacheLocal(localCacheDirectory);
         }
 
-        void logNubuildInvocation(string[] args)
-        {
-            Logger.WriteLine(string.Format("invoked as: {0} {1}",
-                NuBuildEnvironment.getAssemblyPath(),
-                string.Join(" ", args)), "verbose");
-        }
-
         // NB this file is found in the default ironroot, since we
         // grab it before we parse your --ironroot argument.
         private const string NUBUILD_CONFIG = "nubuild.config";
@@ -353,7 +346,6 @@ namespace NuBuild
         void main(string[] cmdline_args)
         {
             string[] all_args = fetchConfigArgs().Concat(cmdline_args).ToArray();
-            logNubuildInvocation(all_args);
             try
             {
                 parseArgs(all_args);

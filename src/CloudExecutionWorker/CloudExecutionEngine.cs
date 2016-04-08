@@ -45,12 +45,12 @@ namespace CloudExecutionWorker
         /// <summary>
         /// Initializes a new instance of the CloudExecutionEngine class.
         /// </summary>
-        public CloudExecutionEngine()
+        public CloudExecutionEngine(IEnumerable<string> args = null)
         {
             // Establish various infrastructure.
             // TODO: Clean this up.
             this.virtualIronRoot = Directory.GetCurrentDirectory();
-            NuBuildEnvironment.initialize(this.virtualIronRoot);
+            NuBuildEnvironment.Initialize(args, this.virtualIronRoot);
             string localCacheDirectory = Path.Combine(this.virtualIronRoot, "nucache");
             this.cloudCache = new ItemCacheCloud();
             this.multiplexedItemCache = new ItemCacheMultiplexer(

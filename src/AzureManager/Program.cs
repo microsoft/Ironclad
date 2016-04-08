@@ -85,7 +85,7 @@ namespace AzureManager
                 }
             }
 
-            NuBuildEnvironment.initialize();
+            NuBuildEnvironment.Initialize(args);
 
             // Get our Azure account information.
             AzureAccount azureAccount = GetOurAzureAccount();

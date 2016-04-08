@@ -22,7 +22,7 @@ namespace CloudExecutionEngineStandalone
         /// <param name="args">The parameter is unused.</param>
         public static void Main(string[] args)
         {
-            CloudExecutionEngine engine = new CloudExecutionEngine();
+            CloudExecutionEngine engine = new CloudExecutionEngine(args);
             engine.Run();
         }
     }

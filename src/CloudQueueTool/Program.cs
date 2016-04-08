@@ -26,7 +26,7 @@ namespace CloudQueueTool
         /// <param name="args">Command line arguments.</param>
         private static void Main(string[] args)
         {
-            NuBuildEnvironment.initialize();
+            NuBuildEnvironment.Initialize(args);
 
             var storageAccount = NuBuild.NuBuildEnvironment.Options.CloudStorageAccount;
 

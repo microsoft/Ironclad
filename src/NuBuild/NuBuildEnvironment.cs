@@ -21,35 +21,49 @@ namespace NuBuild
         private static readonly List<RelativeFileSystemPath> executableSearchPaths = new List<RelativeFileSystemPath>();
         private static AbsoluteFileSystemPath rootDirectoryPath = null;
 
+        public static IEnumerable<string> Args { get; private set; }
+
         public static AbsoluteFileSystemPath InvocationPath { get; private set; }
 
         public static Options Options { get; private set; }
 
-        public static void initialize(string rootPathIfSpecified = null)
+        public static void Initialize(IEnumerable<string> args, string rootPathIfSpecified = null)
         {
-            if (isInitialized())
+            if (IsInitialized())
             {
-                throw new InvalidOperationException("Attempt to initialize NuBuildEnvironment twice.");
+                throw new InvalidOperationException("Attempt to Initialize NuBuildEnvironment twice.");
             }
+            Args = args == null ? new string[0] : args.ToArray();
             InvocationPath = AbsoluteFileSystemPath.FromCurrentDirectory();
             rootDirectoryPath = initNuBuildRoot(rootPathIfSpecified);
             Logger.Start(AbsoluteFileSystemPath.FromRelative(RelativeFileSystemPath.Parse(LogPath), rootDirectoryPath));
+            LogInvocation();
+
             Options = LoadConfig();
             // NuBuild seems flakey unless the current directory is the NuBuild root.
             Directory.SetCurrentDirectory(rootDirectoryPath.ToString());
         }
 
 
-        public static bool isInitialized()
+        public static bool IsInitialized()
         {
             return rootDirectoryPath != null;
         }
 
-        private static void throwIfNotInitialized()
+        private static void ThrowIfNotInitialized()
         {
-            if (!isInitialized())
+            if (!IsInitialized())
             {
                 throw new InvalidOperationException("NuBuildEnvironment is not yet intialized.");
+            }
+        }
+
+        public static string InvokedUsing
+        {
+            get
+            {
+                ThrowIfNotInitialized();
+                return string.Format("{0} {1}", GetAssemblyPath(), String.Join(" ", Args));
             }
         }
 
@@ -57,7 +71,7 @@ namespace NuBuild
         {
             get
             {
-                throwIfNotInitialized();
+                ThrowIfNotInitialized();
                 return rootDirectoryPath;
             }
         }
@@ -138,7 +152,7 @@ namespace NuBuild
         }
 
 
-        public static string getAssemblyPath()
+        public static string GetAssemblyPath()
         {
             string assyUri = Assembly.GetExecutingAssembly().CodeBase;
             string assyPath = new Uri(assyUri).LocalPath;
@@ -177,6 +191,12 @@ namespace NuBuild
             }
 
             return null;
+        }
+
+        private static void LogInvocation()
+        {
+            var msg = String.Format("Invoked using `{0}` from `{1}`.", InvokedUsing, InvocationPath);
+            Logger.WriteLine(msg, "verbose");
         }
 
     }
