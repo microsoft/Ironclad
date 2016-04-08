@@ -27,6 +27,11 @@ namespace NuBuild
         public FStarVerifyTreeVerb(IEnumerable<string> args, AbsoluteFileSystemPath invokedFrom = null, bool strict = true)
         {
             this.optParser = new FStarOptionParser(args, invokedFrom);
+            if (this.optParser.ExplicitDeps)
+            {
+                var msg = String.Format("NuBuild warning: Use of `fstar.exe --explicit_deps` can slow down verification considerably.");
+                Logger.WriteLine(msg, "warning");
+            }
             this.signature = this.optParser.GetSignature();
             this.abstractId = new AbstractId(this.GetType().Name, Version, this.signature);
             this.obligations = new BuildObject(string.Format("{0}.fst", this.signature)).makeOutputObject(".tree.txt");
