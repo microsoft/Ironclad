@@ -233,7 +233,7 @@ namespace NuBuild
                     }
                     else
                     {
-                        UnrecognizedArg(arg);
+                        this.UnrecognizedArg(arg);
                     }
                 }
                 else if (arg.EndsWith(".fst") || arg.EndsWith(".fsi") || arg.EndsWith(".fsti"))
@@ -242,7 +242,7 @@ namespace NuBuild
                 }
                 else
                 {
-                    UnrecognizedArg(arg);
+                    this.UnrecognizedArg(arg);
                 }
             }
         }
@@ -287,7 +287,7 @@ namespace NuBuild
 
         private void UnrecognizedArg(string arg)
         {
-            var msg = string.Format("Unrecognized F* option {0}", arg);
+            var msg = string.Format("NuBuild warning: Ignoring unrecognized `fstar.exe` option `{0}`; this isn't necessarily a problem but if you encounter behavior inconsistent with `fstar.exe`, this might be responsible.", arg);
             Logger.WriteLine(msg, new[] { "warning", "fstar" });
             this.ignored.Add(arg);
         }
