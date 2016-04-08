@@ -46,7 +46,7 @@ namespace NuBuild
         public override IEnumerable<BuildObject> getDependencies(out DependencyDisposition ddisp)
         {
             // note: order of the returned IEnumerable object doesn't appear to matter.
-            var result = new HashSet<BuildObject>(FStarEnvironment.GetStandardDependencies());
+            var result = new HashSet<BuildObject>(FStarEnvironment.GetStandardDependencies(this.optParser.Universes));
             result.UnionWith(this.optParser.FindSourceFiles().Values.Select(p => new SourcePath(p.ToString())));
             if (!this.StrictMode)
             {

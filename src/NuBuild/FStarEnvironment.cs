@@ -13,7 +13,7 @@ namespace NuBuild
 
         private static readonly AbsoluteFileSystemPath AbsolutePathToFStarExe;
         private static readonly AbsoluteFileSystemPath AbsolutePathToZ3Exe;
-        private static readonly IEnumerable<string> ImplicitDependencies = new[] { "./lib/prims.fst" };
+        private static readonly IEnumerable<string> ImplicitStandardLibraryDependencies = new[] { "prims.fst" };
 
         public static readonly IEnumerable<SourcePath> Binaries;
         public static readonly IEnumerable<SourcePath> StandardLibrary;
@@ -23,8 +23,10 @@ namespace NuBuild
         // don't include the current directory, however.
         // todo: it would be nice to be able to query F* for this list so that it does not need to be manually synchronized.
         private static readonly IEnumerable<string> standardLibrarySearchPaths = new [] { "./lib", "./lib/fstar", "./stdlib", "./stdlib/fstar" };
+        private static readonly IEnumerable<string> universesStandardLibrarySearchPaths = new[] { "./ulib" };
 
-        private static readonly IEnumerable<RelativeFileSystemPath> StandardLibrarySearchPaths; 
+        private static readonly IEnumerable<RelativeFileSystemPath> StandardLibrarySearchPaths;
+        private static readonly IEnumerable<RelativeFileSystemPath> UniversesStandardLibrarySearchPaths;
 
         public static readonly IDictionary<string, string> VersionInfo; 
 
@@ -34,7 +36,6 @@ namespace NuBuild
             var pathToZ3Exe = FindExecutable("z3.exe");
             VersionInfo = GetVersionInfo(pathToFStarExe);
             Binaries = findBinaries(pathToFStarExe, VersionInfo, pathToZ3Exe);
-            StandardLibrary = findStandardLibrary(pathToFStarExe);
             AbsolutePathToFStarExe = pathToFStarExe;
             AbsolutePathToZ3Exe = pathToZ3Exe;
 
@@ -48,7 +49,9 @@ namespace NuBuild
                     paths.Add(path);
                 }
             }
-            StandardLibrarySearchPaths = paths;
+            StandardLibrarySearchPaths = SelectExistingDirectoryPaths(standardLibrarySearchPaths);
+            UniversesStandardLibrarySearchPaths = SelectExistingDirectoryPaths(universesStandardLibrarySearchPaths);
+            StandardLibrary = FindStandardLibrary();
         }
 
         public static RelativeFileSystemPath PathToFStarExe
@@ -75,9 +78,11 @@ namespace NuBuild
             }
         }
 
-        public static IEnumerable<SourcePath> GetStandardDependencies()
+        public static IEnumerable<SourcePath> GetStandardDependencies(bool universes)
         {
-            return Binaries.Concat(ImplicitDependencies.Select(s => new SourcePath(Path.Combine(HomeDirectoryPath.ToString(), s), SourcePath.SourceType.Tools)));
+            var searchPaths = universes ? UniversesStandardLibrarySearchPaths : StandardLibrarySearchPaths;
+            var implicitDeps = ImplicitStandardLibraryDependencies.Select(s => NuBuildEnvironment.FindFile(RelativeFileSystemPath.Parse(s, permitImplicit: true), searchPaths));
+            return Binaries.Concat(implicitDeps.Select(p => new SourcePath(p.ToString(), SourcePath.SourceType.Tools)));
         }
 
         private static List<SourcePath> findBinaries(AbsoluteFileSystemPath pathToFStarExe, IDictionary<string, string> versionInfo, AbsoluteFileSystemPath pathToZ3Exe)
@@ -116,15 +121,36 @@ namespace NuBuild
             return result;
         }
 
-        private static List<SourcePath> findStandardLibrary(AbsoluteFileSystemPath pathToFStarExe)
+        private static List<SourcePath> FindStandardLibrary()
         {
+            if (AbsolutePathToFStarExe == null)
+            {
+                throw new InvalidOperationException("AbsolutePathToZ3Exe must be set before calling FindStandardLibrary");
+            }
+
+            if (StandardLibrarySearchPaths == null)
+            {
+                throw new InvalidOperationException("StandardLibrarySearchPaths must be set before calling FindStandardLibrary");
+            }
+
+            if (UniversesStandardLibrarySearchPaths == null)
+            {
+                throw new InvalidOperationException("UniversesStandardLibrarySearchPaths must be set before calling FindStandardLibrary");
+            }
+
             var result = new List<SourcePath>();
 
             var regExprs = new[] { @"\.fs(t|ti|i)$", @"\.ml$" }.Select(s => new Regex(s, RegexOptions.IgnoreCase));
 
-            AbsoluteFileSystemPath libDir = pathToFStarExe.ParentDirectoryPath.CreateSiblingPath("lib");
-            var libPaths = libDir.ListFiles(recurse: true);
-            AbsoluteFileSystemPath contribDir = pathToFStarExe.ParentDirectoryPath.CreateSiblingPath("contrib");
+            var libPaths = new List<AbsoluteFileSystemPath>();
+            foreach (var relPath in StandardLibrarySearchPaths.Concat(UniversesStandardLibrarySearchPaths))
+            {
+                var absPath = AbsoluteFileSystemPath.FromRelative(relPath, NuBuildEnvironment.RootDirectoryPath);
+                libPaths.AddRange(absPath.ListFiles(recurse: true));
+            }
+
+            // some F* sources treat the contrib directory as the standard library, even though it really isn't.
+            AbsoluteFileSystemPath contribDir = AbsolutePathToFStarExe.ParentDirectoryPath.CreateSiblingPath("contrib");
             var contribFiles = contribDir.ListFiles(recurse: true);
 
             var paths = libPaths.Concat(contribFiles);
@@ -219,15 +245,28 @@ namespace NuBuild
             }
         } 
 
-        public static IEnumerable<RelativeFileSystemPath> DefaultModuleSearchPaths
+        public static IEnumerable<RelativeFileSystemPath> DefaultModuleSearchPaths(bool universes)
         {
-            get
+            var pathSet = universes ? UniversesStandardLibrarySearchPaths : StandardLibrarySearchPaths;
+            foreach (var relPath in pathSet)
             {
-                foreach (var relPath in StandardLibrarySearchPaths)
+                yield return FileSystemPath.Join(HomeDirectoryPath, relPath);
+            }
+        }
+
+        private static IEnumerable<RelativeFileSystemPath> SelectExistingDirectoryPaths(IEnumerable<string> paths)
+        {
+            // F* defines more standard search paths than actually exist and rejects explicit specification of non-existent directories, so we need to filter out the paths that do not exist.
+            var result = new List<RelativeFileSystemPath>();
+            foreach (var s in paths)
+            {
+                var path = RelativeFileSystemPath.Parse(s, permitImplicit: true);
+                if (Directory.Exists(path.ToString()))
                 {
-                    yield return FileSystemPath.Join(HomeDirectoryPath, relPath);
+                    result.Add(path);
                 }
             }
+            return result;
         }
     }
 }

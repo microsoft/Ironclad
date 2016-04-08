@@ -40,6 +40,8 @@ namespace NuBuild
 
         public bool ExplicitDeps { get; private set; }
 
+        public bool Universes { get; private set; }
+
         private bool NoDefaultIncludes
         {
             get
@@ -91,11 +93,15 @@ namespace NuBuild
             var paths = new List<RelativeFileSystemPath>();
             if (!this.NoDefaultIncludes)
             {
-                paths.AddRange(FStarEnvironment.DefaultModuleSearchPaths.Reverse());
+                paths.AddRange(FStarEnvironment.DefaultModuleSearchPaths(this.Universes).Reverse());
             }
             paths.AddRange(this.IncludePaths);
             var relInvocationPath = this.InvocationPath.ExtractRelative(NuBuildEnvironment.RootDirectoryPath);
-            paths.Add(relInvocationPath);
+            // sometimes, F* is invoked from its standard library directory. no need to duplicate --include options.
+            if (!paths.Contains(relInvocationPath))
+            {
+                paths.Add(relInvocationPath);
+            }
             return paths;
         }
 
@@ -109,6 +115,10 @@ namespace NuBuild
             if (this.ExplicitDeps || forceExplicitDeps)
             {
                 yield return "--explicit_deps";
+            }
+            if (this.Universes)
+            {
+                yield return "--universes";
             }
             yield return "--no_default_includes";
             var paths = this.GetModuleSearchPaths();
@@ -173,8 +183,7 @@ namespace NuBuild
                         this.ignored.Add(this.args[i]);
                         this.ignored.Add(this.args[++i]);
                     }
-                    else if (arg.Equals("--universes", StringComparison.CurrentCultureIgnoreCase)
-                            || arg.Equals("--eager_inference", StringComparison.CurrentCultureIgnoreCase)
+                    else if (arg.Equals("--eager_inference", StringComparison.CurrentCultureIgnoreCase)
                             || arg.Equals("--use_native_int", StringComparison.CurrentCultureIgnoreCase)
                             || arg.Equals("--lax", StringComparison.CurrentCultureIgnoreCase)
                             )
@@ -207,6 +216,10 @@ namespace NuBuild
                     else if (arg.Equals("--explicit_deps", StringComparison.CurrentCultureIgnoreCase))
                     {
                         this.ExplicitDeps = true;
+                    }
+                    else if (arg.Equals("--universes", StringComparison.CurrentCultureIgnoreCase))
+                    {
+                        this.Universes = true;
                     }
                     else if (arg.Equals("--dep", StringComparison.CurrentCultureIgnoreCase)
                         || arg.Equals("--codegen", StringComparison.CurrentCultureIgnoreCase)
