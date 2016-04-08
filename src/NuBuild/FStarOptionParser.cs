@@ -163,7 +163,7 @@ namespace NuBuild
             var last = this.args.Length - 1;
             for (var i = 0; i < this.args.Length; ++i)
             {
-                var arg = this.args[i].ToLower();
+                var arg = this.args[i];
                 if (arg.StartsWith("--"))
                 {
                     if (arg.Equals("--admit_fsi", StringComparison.CurrentCultureIgnoreCase)
@@ -182,6 +182,16 @@ namespace NuBuild
                         }
                         this.ignored.Add(this.args[i]);
                         this.ignored.Add(this.args[++i]);
+                    }
+                    else if (arg.Equals("--__temp_no_proj", StringComparison.CurrentCultureIgnoreCase))
+                    {
+                        if (i == last)
+                        {
+                            var msg = string.Format("F* argument `{0}` requires a parameter.", arg);
+                            throw new ArgumentException(msg);
+                        }
+                        var pair = new[] { this.args[i], this.args[++i] };
+                        this.ignored.AddRange(pair);
                     }
                     else if (arg.Equals("--eager_inference", StringComparison.CurrentCultureIgnoreCase)
                             || arg.Equals("--use_native_int", StringComparison.CurrentCultureIgnoreCase)
