@@ -85,14 +85,14 @@ namespace NuBuild
             lock (Lock)
             {
                 ActiveTags.Clear();
-                LogTag("stderr");
-                LogTag("stdout");
                 LogTag("error");
                 LogTag("warning");
                 LogTag("fatal");
+                LogTag("stdout");
+                LogTag("stderr");
                 LogTag("queue");
-                LogTag("info");
                 LogTag("summary");
+                LogTag("info");
                 LogTag("progress");
             }
         }
