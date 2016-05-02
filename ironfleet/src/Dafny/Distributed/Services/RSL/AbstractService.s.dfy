@@ -7,10 +7,6 @@
 // was submitted by the client and before the service sent its response.
 //
 // Note that the specification does not require exactly-once semantics.
-// After all, the network is assumed to be able to duplicate messages, so
-// we cannot distinguish a command duplicated in the network from one sent
-// multiple times by a client.
-//
 // If one needs exactly-once semantics, one should enforce that in the
 // application state machine.  For instance, the state machine could keep
 // track of the highest request sequence number seen from each client, and
