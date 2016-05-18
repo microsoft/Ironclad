@@ -247,11 +247,7 @@ namespace NuBuild
 
         public static IEnumerable<RelativeFileSystemPath> DefaultModuleSearchPaths(bool universes)
         {
-            var pathSet = universes ? UniversesStandardLibrarySearchPaths : StandardLibrarySearchPaths;
-            foreach (var relPath in pathSet)
-            {
-                yield return FileSystemPath.Join(HomeDirectoryPath, relPath);
-            }
+            return universes ? UniversesStandardLibrarySearchPaths : StandardLibrarySearchPaths;
         }
 
         private static IEnumerable<RelativeFileSystemPath> SelectExistingDirectoryPaths(IEnumerable<string> paths)
@@ -260,7 +256,7 @@ namespace NuBuild
             var result = new List<RelativeFileSystemPath>();
             foreach (var s in paths)
             {
-                var path = RelativeFileSystemPath.Parse(s, permitImplicit: true);
+                var path = FileSystemPath.Join(HomeDirectoryPath, RelativeFileSystemPath.Parse(s, permitImplicit: true));
                 if (Directory.Exists(path.ToString()))
                 {
                     result.Add(path);
