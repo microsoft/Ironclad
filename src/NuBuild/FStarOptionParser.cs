@@ -105,12 +105,15 @@ namespace NuBuild
             return paths;
         }
 
-        public IEnumerable<string> GetNormalizedArgs(AbsoluteFileSystemPath rootPath = null, bool forceExplicitDeps = false, bool emitSources = true, bool emitSmt = false)
+        public IEnumerable<string> GetNormalizedArgs(AbsoluteFileSystemPath rootPath = null, bool forceExplicitDeps = false, bool emitSources = true, bool emitSmt = false, bool emitVerifyModule = true)
         {
-            foreach (var module in this.verifyModule)
+            if (emitVerifyModule)
             {
-                yield return "--verify_module";
-                yield return module;
+                foreach (var module in this.verifyModule)
+                {
+                    yield return "--verify_module";
+                    yield return module;
+                }
             }
             if (this.ExplicitDeps || forceExplicitDeps)
             {

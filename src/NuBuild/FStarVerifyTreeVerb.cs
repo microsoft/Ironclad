@@ -152,7 +152,7 @@ namespace NuBuild
                         }
 
                         var args = new List<string>();
-                        var baseArgs = this.optParser.GetNormalizedArgs(forceExplicitDeps: true, emitSources: false).ToArray();
+                        var baseArgs = this.optParser.GetNormalizedArgs(forceExplicitDeps: true, emitSources: false, emitVerifyModule: false).ToArray();
                         var depArgs = findDepsOutput.ByTarget[target].Select(p => p.ToString()).ToArray();
 
                         args.AddRange(baseArgs);
