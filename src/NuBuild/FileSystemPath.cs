@@ -118,7 +118,7 @@
             // remove trailing directory separator.
             if (pathStr.EndsWith(new string(Path.DirectorySeparatorChar, 1)) || pathStr.EndsWith(new string(Path.AltDirectorySeparatorChar, 1)))
             {
-                s = pathStr.Substring(pathStr.Length - 1);
+                s = pathStr.Substring(0, pathStr.Length - 1);
             }
             else
             {

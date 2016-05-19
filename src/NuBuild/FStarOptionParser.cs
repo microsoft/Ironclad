@@ -312,6 +312,7 @@ namespace NuBuild
                 var msg = string.Format("Passing absolute paths to F* (i.e. `{0}`) is disallowed.", s);
                 throw new ArgumentException(msg);
             }
+
             var relPath = RelativeFileSystemPath.Parse(s, permitImplicit: true);
             var absPath = AbsoluteFileSystemPath.FromRelative(relPath, this.InvocationPath);
             return absPath.ExtractRelative(NuBuildEnvironment.RootDirectoryPath);
