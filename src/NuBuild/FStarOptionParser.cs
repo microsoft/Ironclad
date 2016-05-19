@@ -16,6 +16,7 @@ namespace NuBuild
         private readonly List<string> sourceFileArgs;
         private readonly List<string> ignored;
         private readonly SortedSet<string> verifyModule;
+        private int? z3Timeout;
 
         public readonly AbsoluteFileSystemPath InvocationPath;
 
@@ -83,6 +84,14 @@ namespace NuBuild
             }
         }
 
+        public int? Z3Timeout
+        {
+            get
+            {
+                return this.z3Timeout;
+            }
+        }
+
         public bool ShouldVerifyModule(string moduleName)
         {
             return this.verifyModule.Count == 0 || this.verifyModule.Contains(moduleName);
@@ -124,6 +133,16 @@ namespace NuBuild
                 yield return "--universes";
             }
             yield return "--no_default_includes";
+            if (this.Z3Timeout.HasValue)
+            {
+                yield return "--z3timeout";
+                int timeout = this.Z3Timeout.Value;
+                if ((this.ExplicitDeps || forceExplicitDeps) && NuBuildEnvironment.Options.UseCloudExecution)
+                {
+                    timeout = timeout * NuBuildEnvironment.Options.CloudTimeoutMultiplier;
+                }
+                yield return timeout.ToString();
+            }
             var paths = this.GetModuleSearchPaths();
             foreach (var path in paths)
             {
@@ -170,7 +189,6 @@ namespace NuBuild
                 if (arg.StartsWith("--"))
                 {
                     if (arg.Equals("--admit_fsi", StringComparison.CurrentCultureIgnoreCase)
-                        || arg.Equals("--z3timeout", StringComparison.CurrentCultureIgnoreCase)
                         || arg.Equals("--max_fuel", StringComparison.CurrentCultureIgnoreCase)
                         || arg.Equals("--max_ifuel", StringComparison.CurrentCultureIgnoreCase)
                         || arg.Equals("--min_fuel", StringComparison.CurrentCultureIgnoreCase)
@@ -202,6 +220,16 @@ namespace NuBuild
                             )
                     {
                         this.ignored.Add(this.args[i]);
+                    }
+                    else if (arg.Equals("--z3timeout", StringComparison.CurrentCultureIgnoreCase))
+                    {
+                        // --z3timeout requires a parameter.
+                        if (i == last)
+                        {
+                            throw new ArgumentException("F* argument `--z3timeout` requires a parameter.");
+                        }
+                        var timeout = int.Parse(this.args[++i]);
+                        this.z3Timeout = timeout;
                     }
                     else if (arg.Equals("--include", StringComparison.CurrentCultureIgnoreCase))
                     {

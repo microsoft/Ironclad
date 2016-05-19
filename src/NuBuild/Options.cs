@@ -13,6 +13,7 @@ namespace NuBuild
         private const int DefaultParallelJobs = 1;
         private const bool DefaultUseCloudExecution = false;
         private const string DefaultCloudServiceName = "NuBuildExecutionService";
+        private const int DefaultCloudTimeoutMultiplier = 1;
 
         private readonly JObject root;
         private bool? useCloudCache;
@@ -20,6 +21,7 @@ namespace NuBuild
         private string cloudServiceName;
         private bool? enforceWhitespace;
         private int? parallelJobs;
+        private int? cloudTimeoutMultiplier;
 
         private Options(JObject root)
         {
@@ -225,10 +227,33 @@ namespace NuBuild
             {
                 if (value < 1)
                 {
-                    throw new ArgumentOutOfRangeException("Simultaneous job limit must be greater than 0.");
+                    throw new ArgumentOutOfRangeException("value", "Simultaneous job limit must be greater than 0.");
                 }
 
                 this.parallelJobs = value;
+            }
+        }
+
+        public int CloudTimeoutMultiplier
+        {
+            get
+            {
+                if (!this.cloudTimeoutMultiplier.HasValue)
+                {
+                    this.cloudTimeoutMultiplier = this.GetValue(d => (int)d["cloud_timeout_multiplier"], DefaultCloudTimeoutMultiplier);
+                }
+
+                return this.cloudTimeoutMultiplier.Value;
+            }
+
+            set
+            {
+                if (value < 1)
+                {
+                    throw new ArgumentOutOfRangeException("value", "Cloud timeout multiplier must be greater than 0.");
+                }
+
+                this.cloudTimeoutMultiplier = value;
             }
         }
 
