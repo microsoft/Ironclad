@@ -27,7 +27,7 @@ namespace NuBuild
         static Logger()
         {
             StartupBuffer = new List<string>();
-            ActiveTags = new HashSet<string> { "error", "warning", "fatal", "stdout", "stderr", "queue" };
+            ActiveTags = new HashSet<string> { "error", "warning", "fatal", "stdout", "stderr" };
             DefaultMessageTags = new HashSet<string> { "info" };
             Lock = new object();
             Path = null;
