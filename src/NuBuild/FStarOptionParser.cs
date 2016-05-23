@@ -116,6 +116,9 @@ namespace NuBuild
 
         public IEnumerable<string> GetNormalizedArgs(AbsoluteFileSystemPath rootPath = null, bool forceExplicitDeps = false, bool emitSources = true, bool emitSmt = false, bool emitVerifyModule = true)
         {
+            yield return "--fstar_home";
+            yield return FStarEnvironment.HomeDirectoryPath.ToString();
+
             if (emitVerifyModule)
             {
                 foreach (var module in this.verifyModule)
@@ -249,6 +252,21 @@ namespace NuBuild
                             throw new ArgumentException("F* argument `--verify_module` requires a parameter.");
                         }
                         this.verifyModule.Add(this.args[++i]);
+                    }
+                    else if (arg.Equals("--fstar_home", StringComparison.CurrentCultureIgnoreCase))
+                    {
+                        // --fstar_home requires a parameter.
+                        if (i == last)
+                        {
+                            throw new ArgumentException("F* argument `--fstar_home` requires a parameter.");
+                        }
+                        var path = this.args[++i];
+                        var absPath = FileSystemPath.IsAbsolutePath(path) ? AbsoluteFileSystemPath.Parse(path) : AbsoluteFileSystemPath.FromRelative(RelativeFileSystemPath.Parse(path), this.InvocationPath);
+                        var expectedHome = FileSystemPath.Join(NuBuildEnvironment.RootDirectoryPath, FStarEnvironment.HomeDirectoryPath);
+                        if (!absPath.Equals(expectedHome))
+                        {
+                            throw new ArgumentException("F* argument `--fstar_home` is unsupported unless specifying submodule build.");
+                        }
                     }
                     else if (arg.Equals("--no_default_includes", StringComparison.CurrentCultureIgnoreCase))
                     {
