@@ -13,6 +13,9 @@ sign, scan, and email it back to [cla@microsoft.com](mailto:cla@microsoft.com). 
 your github user name along with the agreement. Once we have received the signed CLA,
 we'll review the request.
 
+# Code of Conduct
+This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/). For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
+
 # Housekeeping
 Your pull request should:
 
