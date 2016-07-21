@@ -49,7 +49,7 @@ Each has a plugin:
 These instructions assume you're running on Windows.  However, Dafny, and all of its
 dependencies, also run on Linux.  You can obtain Dafny sources from:
 
-  http://dafny.codeplex.com/
+  https://github.com/Microsoft/dafny/
 
 Dafny's INSTALL file contains instructions for building on Linux with Mono.  Note that we have
 not yet tested building our build tool, NuBuild, on Linux, so your mileage may vary.
