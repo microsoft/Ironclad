@@ -10,7 +10,7 @@ as described in:
 
 As a brief summary, an Ironclad App lets a user securely transmit her data to a remote
 machine with the guarantee that every instruction executed on that machine adheres to a
-formal abstract specification of the app’s behavior. This does more than eliminate
+formal abstract specification of the appâ€™s behavior. This does more than eliminate
 implementation vulnerabilities such as buffer overflows, parsing errors, or data leaks; it
 tells the user exactly how the app will behave at all times. We provide these guarantees
 via complete, low-level software verification. We then use cryptography and secure
@@ -54,7 +54,7 @@ Each has a plugin:
 These instructions assume you're running on Windows.  However, Dafny, and all of its
 dependencies, also run on Linux.  You can obtain Dafny sources from:
 
-  http://dafny.codeplex.com/
+  https://github.com/Microsoft/Dafny/
 
 Dafny's INSTALL file contains instructions for building on Linux with Mono.  Note that we have
 not yet tested building our build tool, NuBuild, on Linux, so your mileage may vary.
