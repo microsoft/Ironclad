@@ -1,6 +1,6 @@
 include "../../Common/Framework/AbstractService.s.dfy"
 
-module AbstractServiceLock_s exclusively refines AbstractService_s {
+module AbstractServiceLock_s refines AbstractService_s {
     
 datatype ServiceState' = ServiceState'(
     hosts:set<EndPoint>,
@@ -53,7 +53,7 @@ predicate Service_Correspondence(concretePkts:set<LPacket<EndPoint, seq<byte>>>,
      && p.msg == MarshallLockMsg(epoch) 
      ==>
         1 <= epoch <= |serviceState.history|
-     && p.src == serviceState.history[epoch-1]               
+     && p.src == serviceState.history[epoch-1]
 }
 
 }

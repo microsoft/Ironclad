@@ -43,7 +43,7 @@ lemma ThingsIKnowAboutASingletonSet<T>(foo:set<T>, x:T, y:T)
     }
 }
 
-predicate Injective<X, Y>(f:X->Y)
+predicate Injective<X(!new), Y>(f:X->Y)
   reads f.reads;
   requires forall x :: f.requires(x);
 {
@@ -143,7 +143,7 @@ lemma lemma_MapSubseqCardinalityOver<X, Y>(xs:seq<X>, ys:set<Y>, f:X->Y)
   }
 }
 
-function/*TODO:{:opaque}*/ MapSetToSet<X, Y>(xs:set<X>, f:X->Y):set<Y>
+function/*TODO:{:opaque}*/ MapSetToSet<X(!new), Y>(xs:set<X>, f:X->Y):set<Y>
   reads f.reads;
   requires forall x :: f.requires(x);
   requires Injective(f);
@@ -167,7 +167,7 @@ function/*TODO:{:opaque}*/ MapSetToSetOver<X, Y>(xs:set<X>, f:X->Y):set<Y>
   ys
 }
 
-function/*TODO:{:opaque}*/ MapSeqToSet<X, Y>(xs:seq<X>, f:X->Y):set<Y>
+function/*TODO:{:opaque}*/ MapSeqToSet<X(!new), Y>(xs:seq<X>, f:X->Y):set<Y>
   reads f.reads;
   requires forall x :: f.requires(x);
   requires Injective(f);
@@ -190,7 +190,7 @@ lemma lemma_SubsetCardinality<X>(xs:set<X>, ys:set<X>, f:X->bool)
   }
 }
 
-function/*TODO:{:opaque}*/ MakeSubset<X>(xs:set<X>, f:X->bool):set<X>
+function/*TODO:{:opaque}*/ MakeSubset<X(!new)>(xs:set<X>, f:X->bool):set<X>
   reads f.reads;
   requires forall x :: x in xs ==> f.requires(x);
   ensures  forall x :: x in MakeSubset(xs, f) <==> x in xs && f(x);

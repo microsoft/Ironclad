@@ -240,7 +240,7 @@ lemma lemma_RequestIn2aMessageHasCorrespondingRequestMessage(
         assert LProposerNominateOldValueAndSend2a(s, s', log_truncation_point, sent_packets);
         var opn := s.next_operation_number_to_propose;
         var v := p_2a.msg.val_2a;
-        var earlier_ballot :| LValIsHighestNumberedProposalAtBallot(v, earlier_ballot, s.received_1b_packets, opn);
+        // var earlier_ballot :| LValIsHighestNumberedProposalAtBallot(v, earlier_ballot, s.received_1b_packets, opn);
         var p_1b :| p_1b in s.received_1b_packets && opn in p_1b.msg.votes && p_1b.msg.votes[opn].max_val == v;
         lemma_PacketInReceived1bWasSent(b, c, i-1, idx, p_1b);
         p_req := lemma_RequestIn1bMessageHasCorrespondingRequestMessage(b, c, i-1, p_1b, opn, req_num);

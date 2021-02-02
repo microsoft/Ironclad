@@ -156,6 +156,7 @@ method BoundCRequestHeaders(s:seq<CRequest>, ghost headers:set<CRequestHeader>, 
 //////////////////////
 
 function {:fuel 5,6} RemoveAllSatisfiedCRequestsInSequence(s:seq<CRequest>, r:CRequest):seq<CRequest>
+    ensures  forall r' :: r' in RemoveAllSatisfiedCRequestsInSequence(s, r) ==> r' in s;
 {
     if |s| == 0 then
         []
@@ -213,7 +214,7 @@ lemma lemma_HeadersFromPrefixIncrease(s:seq<CRequest>, i:int)
 
 lemma lemma_EmptyHeadersMatch(
     s:seq<CRequest>,
-    ghost headers:set<CRequestHeader>
+    headers:set<CRequestHeader>
     )
     requires s == [];
     requires headers == {};
@@ -223,7 +224,7 @@ lemma lemma_EmptyHeadersMatch(
 
 lemma lemma_HeadersMatchImpliesEveryHeaderHasACorrespondingEntry(
     requests:seq<CRequest>,
-    ghost headers:set<CRequestHeader>,
+    headers:set<CRequestHeader>,
     header:CRequestHeader
     )
     returns
@@ -264,10 +265,10 @@ lemma lemma_HeadersMatchImpliesEveryHeaderHasACorrespondingEntry(
 
 lemma lemma_AddingOneHeaderPreservesMatch(
     s:seq<CRequest>,
-    ghost headers:set<CRequestHeader>,
+    headers:set<CRequestHeader>,
     r:CRequest,
     s':seq<CRequest>,
-    ghost headers':set<CRequestHeader>
+    headers':set<CRequestHeader>
     )
     requires s' == s + [r];
     requires headers' == headers + { CRequestHeader(r.client, r.seqno) };
@@ -604,8 +605,8 @@ method {:timeLimitMultiplier 3} ElectionProcessHeartbeat(ces:CElectionState, cp:
                     epoch_end_time := cnewEpochEndTime,
                     requests_received_prev_epochs := bounded_seq,
                     requests_received_this_epoch := [],
-                    cur_req_set := {})
-                    [prev_req_set := new_set];
+                    cur_req_set := {},
+                    prev_req_set := new_set);
 
                 lemma_AbstractifyCRequestsSeqToRequestsSeq_concat(ces.requests_received_prev_epochs, ces.requests_received_this_epoch);
                 lemma_BoundCRequestSequence(ces.requests_received_prev_epochs + ces.requests_received_this_epoch, ces.constants.all.params.max_integer_val);
@@ -667,8 +668,8 @@ method {:timeLimitMultiplier 3} ElectionCheckForViewTimeout(ces:CElectionState, 
                      epoch_end_time := cnewEpochEndTime,
                      requests_received_prev_epochs := ces.requests_received_this_epoch,
                      requests_received_this_epoch := [],
-                     cur_req_set := {})
-                     [prev_req_set := ces.cur_req_set];
+                     cur_req_set := {},
+                     prev_req_set := ces.cur_req_set);
         prev_req_set.TransferSet(cur_req_set);
         assert Eq_ElectionState(es', AbstractifyCElectionStateToElectionState(ces'));
         var end_time := Time.GetDebugTimeTicks();
@@ -696,8 +697,8 @@ method {:timeLimitMultiplier 3} ElectionCheckForViewTimeout(ces:CElectionState, 
                      epoch_end_time := cnewEpochEndTime,
                      requests_received_prev_epochs := bounded_seq,
                      requests_received_this_epoch := [],
-                     cur_req_set := {})
-                     [prev_req_set := new_set];
+                     cur_req_set := {},
+                     prev_req_set := new_set);
 
         lemma_AbstractifyCRequestsSeqToRequestsSeq_concat(ces.requests_received_prev_epochs, ces.requests_received_this_epoch);
         lemma_BoundCRequestSequence(ces.requests_received_prev_epochs + ces.requests_received_this_epoch, ces.constants.all.params.max_integer_val);
@@ -768,8 +769,8 @@ method {:timeLimitMultiplier 3} ElectionCheckForQuorumOfViewSuspicions(ces:CElec
             epoch_end_time := cnewEpochEndTime,
             requests_received_prev_epochs := bounded_seq,
             requests_received_this_epoch := [],
-            cur_req_set := {})
-            [prev_req_set := new_set];
+            cur_req_set := {},
+            prev_req_set := new_set);
         lemma_AbstractifyCRequestsSeqToRequestsSeq_concat(ces.requests_received_prev_epochs, ces.requests_received_this_epoch);
         lemma_BoundCRequestSequence(ces.requests_received_prev_epochs + ces.requests_received_this_epoch, ces.constants.all.params.max_integer_val);
     }
@@ -911,6 +912,25 @@ lemma lemma_AddNewReqPreservesHeaderMatches(s1:seq<CRequest>,  headers1:set<CReq
         } else {
             assert i < |s1'| && j >= |s1'|;
             assert total_s[i] in s1 && total_s[j] in s2;
+            var tot_s := s1 + s2;
+            assert total_s[i] in tot_s && total_s[j] in tot_s;
+            var i' :| 0 <= i' < |tot_s| && total_s[i] == tot_s[i'];
+            var j' :| 0 <= j' < |tot_s| && total_s[j] == tot_s[j'];
+            assert HeadersMatch(tot_s, headers1 + headers2);
+            if (i' < j') {
+                assert CRequestsMatch(tot_s[i'], tot_s[j']);
+            } else if (i' > j') {
+                assert CRequestsMatch(tot_s[j'], tot_s[i']);
+            }
+            assert i' == j';
+            assert total_s[i] == total_s[j];
+            if (total_s[j] in s1) {
+                i' :| 0 <= i' < |s1| && total_s[j] == s1[i'];
+                j' :| 0 <= j' < |s2| && total_s[j] == s2[j'];
+                assert total_s[j] == tot_s[i'];
+                assert total_s[j] == tot_s[|s1| + j'];
+            }
+            assert total_s[j] !in s1;
             assert i == j;
         }
     }
@@ -1015,7 +1035,7 @@ method {:timeLimitMultiplier 10} ElectionReflectReceivedRequest(ces:CElectionSta
         if bounded { // Should never happen
             new_set := BoundCRequestHeaders(new_seq, new_set, ces.constants.all.params.max_integer_val, cur_req_set);
         }
-        ces' := ces.(requests_received_this_epoch := bounded_seq)[cur_req_set := new_set];
+        ces' := ces.(requests_received_this_epoch := bounded_seq, cur_req_set := new_set);
 
         lemma_AddNewReqPreservesHeaderMatches(ces.requests_received_prev_epochs, ces.prev_req_set,
                                                 ces.requests_received_this_epoch,  ces.cur_req_set,
@@ -1102,9 +1122,9 @@ method {:timeLimitMultiplier 3} ElectionReflectExecutedRequestBatch(ces:CElectio
                                                           creq);
 
         tempces' := tempces'.(requests_received_prev_epochs := prevEpoch,
-                              requests_received_this_epoch := thisEpoch)
-                              [cur_req_set := thisEpochSet]
-                              [prev_req_set := prevEpochSet];
+                              requests_received_this_epoch := thisEpoch,
+                              cur_req_set := thisEpochSet,
+                              prev_req_set := prevEpochSet);
         assert {:split_here} true;
         assert AbstractifyCRequestBatchToRequestBatch(creqb[..i]) == AbstractifyCRequestBatchToRequestBatch(creqb)[..i];
         assert AbstractifyCRequestBatchToRequestBatch(creqb[..i+1]) == AbstractifyCRequestBatchToRequestBatch(creqb)[..i+1];

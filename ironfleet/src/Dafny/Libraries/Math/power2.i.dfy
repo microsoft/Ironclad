@@ -72,21 +72,21 @@ lemma lemma_power2_increases(e1: int, e2: int)
     lemma_mul_auto_induction(e2 - e1, imap e :: 0 <= e ==> power2(e1) <= power2(e1 + e));
 }
 
-lemma lemma_power2_positive()
-    ensures forall e:nat :: 0 < power2(e);
-{
-    lemma_power2_auto();
-    lemma_mul_auto_induction_forall(imap e :: 0 <= e ==> 0 < power2(e));
-}
+// lemma lemma_power2_positive()
+//     ensures forall e:nat :: 0 < power2(e);
+// {
+//     lemma_power2_auto();
+//     lemma_mul_auto_induction_forall(imap e :: 0 <= e ==> 0 < power2(e));
+// }
 
-lemma lemma_power2_nonzero_bigger_than_one()
-    ensures forall e:nat :: 0<e ==> 1 < power2(e);
-{
-    lemma_power2_auto();
-    var f := imap e :: (0 < e ==> 1 < power2(e));
-    lemma_mul_auto_induction_forall(f);
-    assert forall e :: f[e] <==> (0 < e ==> 1 < power2(e)); // REVIEW: why isn't this obvious to Dafny?
-}
+// lemma lemma_power2_nonzero_bigger_than_one()
+//     ensures forall e:nat :: 0<e ==> 1 < power2(e);
+// {
+//     lemma_power2_auto();
+//     var f := imap e :: (0 < e ==> 1 < power2(e));
+//     lemma_mul_auto_induction_forall(f);
+//     assert forall e :: f[e] <==> (0 < e ==> 1 < power2(e)); // REVIEW: why isn't this obvious to Dafny?
+// }
 
 lemma lemma_power2_strictly_increases_converse(e1: int, e2: int)
     requires 0 <= e1;

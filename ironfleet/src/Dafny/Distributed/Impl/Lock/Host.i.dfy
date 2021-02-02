@@ -3,7 +3,7 @@ include "../../Common/Collections/Sets.i.dfy"
 include "NodeImpl.i.dfy"
 include "CmdLineParser.i.dfy"
 
-module Host_i exclusively refines Host_s {
+module Host_i refines Host_s {
     import opened Collections__Sets_i
     import opened NodeImpl_i
     import opened LockCmdLineParser_i
@@ -67,7 +67,7 @@ module Host_i exclusively refines Host_s {
         if !ok { return; }
         id := config[my_index];
         
-        var node_impl := new NodeImpl;
+        var node_impl := new NodeImpl();
         ok := node_impl.InitNode(config, my_index, env);
         
         if !ok { return; }

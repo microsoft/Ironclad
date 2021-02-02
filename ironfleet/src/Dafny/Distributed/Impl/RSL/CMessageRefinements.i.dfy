@@ -68,9 +68,11 @@ predicate CPacketsIsAbstractable(cps:set<CPacket>)
 }
 
 function AbstractifyCPacketToRslPacket(cp: CPacket): RslPacket
-    requires CPacketIsAbstractable(cp)
+    ensures CPacketIsAbstractable(cp) ==> AbstractifyCPacketToRslPacket(cp) == LPacket(AbstractifyEndPointToNodeIdentity(cp.dst), AbstractifyEndPointToNodeIdentity(cp.src), AbstractifyCMessageToRslMessage(cp.msg));
 {
+    if (CPacketIsAbstractable(cp)) then
     LPacket(AbstractifyEndPointToNodeIdentity(cp.dst), AbstractifyEndPointToNodeIdentity(cp.src), AbstractifyCMessageToRslMessage(cp.msg))
+    else var x:RslPacket :| (true); x
 }
 
 function AbstractifySetOfCPacketsToSetOfRslPackets_transparent(cps:set<CPacket>) : set<RslPacket>

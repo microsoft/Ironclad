@@ -77,9 +77,11 @@ import opened LiveRSL__CClockReading_i
         returns (ok:bool, ghost udp_event_log:seq<UdpEvent>, ghost ios:seq<RslIo>)
         requires r != null;
         requires r.Valid();
+        requires CPaxosConfigurationIsValid(r.replica.constants.all.config)
         requires r.ReceivedPacketProperties(cpacket, receive_event, receive_io);
         requires r.Env().udp.history() == old_udp_history + [receive_event];
         requires cpacket.msg.CMessage_Heartbeat?;
+        requires Replica_Next_Process_Heartbeat_Preconditions(r.replica, cpacket);
         modifies r.Repr, r.cur_req_set, r.prev_req_set;
         ensures r.Repr==old(r.Repr);
         ensures ok == UdpClientOk(r.udpClient);

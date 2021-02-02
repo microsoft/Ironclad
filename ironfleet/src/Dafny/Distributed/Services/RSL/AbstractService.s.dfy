@@ -16,10 +16,10 @@
 
 include "../../Common/Framework/AbstractService.s.dfy"
 include "../../Common/Collections/Seqs.s.dfy"
-include "AppStateMachine.s.dfy"
+include "AppStateMachine.i.dfy"
 
-module AbstractServiceRSL_s exclusively refines AbstractService_s {
-import opened AppStateMachine_s
+module AbstractServiceRSL_s refines AbstractService_s {
+import opened AppStateMachine_i
 import opened Collections__Seqs_s
     
 datatype AppRequest = AppRequest(client:EndPoint, seqno:int, request:AppMessage)

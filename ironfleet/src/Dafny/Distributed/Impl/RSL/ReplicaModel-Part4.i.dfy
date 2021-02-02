@@ -68,8 +68,8 @@ method Replica_Next_Process_Heartbeat(
     assert OutboundPacketsIsValid(packets_sent);
     var newProposer := ProposerProcessHeartbeat(replica.proposer, inp, clock, cur_req_set, prev_req_set);
     var newAcceptor := NextAcceptorState_ProcessHeartbeat(replica.acceptor, inp.msg, inp.src);
-    replica' := replica[proposer := newProposer]
-                       [acceptor := newAcceptor];
+    replica' := replica.(proposer := newProposer,
+                        acceptor := newAcceptor);
 
     var end_time := Time.GetDebugTimeTicks();
     RecordTimingSeq("Replica_Next_Process_Heartbeat", start_time, end_time);

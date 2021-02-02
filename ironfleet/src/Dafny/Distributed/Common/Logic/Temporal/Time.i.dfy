@@ -10,6 +10,10 @@ import opened Temporal__Heuristics_i
 import opened Temporal__Rules_i
 import opened Temporal__Monotonicity_i
 import opened Math__mul_i
+import opened Temporal__Temporal_s
+import opened Collections__Maps2_s
+import opened Collections__Maps2_i
+import opened Math__mul_auto_i
 
 /////////////////////////
 // DEFINITIONS

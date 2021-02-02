@@ -30,6 +30,16 @@ class ReplicaImpl
 
     ghost var Repr : set<object>;
 
+    constructor() {
+        var empty_Udp:UdpClient := new UdpClient();
+        udpClient := empty_Udp;
+        var empty_MutableMap:MutableMap<EndPoint, CReply> := MutableMap.EmptyMap();
+        reply_cache_mutable := empty_MutableMap;
+        var empty_MutableSet:MutableSet<CRequestHeader> := MutableSet.EmptySet();
+        cur_req_set := empty_MutableSet;
+        prev_req_set := empty_MutableSet;
+    }
+
     predicate Valid()
         reads this;
         reads this.cur_req_set;
@@ -88,6 +98,7 @@ class ReplicaImpl
         seqIntoArrayOpt(my_ep.addr, ip_byte_array);
         var ip_endpoint;
         ok, ip_endpoint := IPEndPoint.Construct(ip_byte_array, my_ep.port, env_);
+        client := new UdpClient();
         if !ok { return; }
         ok, client := UdpClient.Construct(ip_endpoint, env_);
         if ok {

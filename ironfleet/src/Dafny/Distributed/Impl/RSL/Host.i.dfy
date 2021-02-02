@@ -3,7 +3,7 @@ include "ReplicaImplMain.i.dfy"
 include "CmdLineParser.i.dfy"
 include "Unsendable.i.dfy"
 
-module Host_i exclusively refines Host_s {
+module Host_i refines Host_s {
     import opened LiveRSL__ReplicaImplMain_i
     import opened PaxosCmdLineParser_i 
     import opened LiveRSL__Unsendable_i
@@ -68,11 +68,16 @@ module Host_i exclusively refines Host_s {
     {
         var pconfig:CPaxosConfiguration, my_index;
         ok, pconfig, my_index := parse_cmd_line(env);
+
+        var lschedule:LScheduler;
+        var repImpl:ReplicaImpl := new ReplicaImpl(); 
+        host_state := CScheduler(lschedule,repImpl);
+
         if !ok { return; }
         assert env.constants == old(env.constants);
         id := pconfig.replica_ids[my_index];
 
-        var scheduler := new ReplicaImpl;
+        var scheduler := new ReplicaImpl();
         var constants := InitReplicaConstantsState(id, pconfig); //SystemConfiguration(me_ep);
         assert constants.all.config == pconfig;
         assert constants.all.config.replica_ids[constants.my_index] == id;
@@ -115,6 +120,7 @@ module Host_i exclusively refines Host_s {
         ensures forall e :: e in recvs ==> e.LIoOpReceive?;
         ensures events == recvs + rest;
         ensures rest != [] ==> !rest[0].LIoOpReceive?;
+        ensures UdpEventsReductionCompatible(events) ==> UdpEventsReductionCompatible(rest); 
     {
         recvs := [];
         rest := [];
@@ -162,6 +168,7 @@ module Host_i exclusively refines Host_s {
     {
         var rest;
         recvs, rest := RemoveRecvs(events);
+        assert UdpEventsReductionCompatible(rest);
         if |rest| > 0 && (rest[0].LIoOpReadClock? || rest[0].LIoOpTimeoutReceive?) {
             clocks := [rest[0]];
             sends := rest[1..];
@@ -201,6 +208,10 @@ module Host_i exclusively refines Host_s {
                  ghost recvs:seq<UdpEvent>, ghost clocks:seq<UdpEvent>, ghost sends:seq<UdpEvent>, 
                  ghost ios:seq<LIoOp<EndPoint, seq<byte>>>)
     {
+        var lschedule:LScheduler;
+        var repImpl:ReplicaImpl := new ReplicaImpl(); 
+        host_state' := CScheduler(lschedule,repImpl);
+
         var okay, udpEventLog, abstract_ios := Replica_Next_main(host_state.replica_impl);
         if okay {
             calc { 

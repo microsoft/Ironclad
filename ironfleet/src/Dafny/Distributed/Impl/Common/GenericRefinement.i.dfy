@@ -1,16 +1,18 @@
 include "../../Common/Native/NativeTypes.s.dfy"
 include "../../Common/Collections/Maps.i.dfy"
+include "../../Common/Collections/Sets.i.dfy"
 
 module GenericRefinement_i {
 import opened Native__NativeTypes_s
 import opened Collections__Maps_i
+import opened Collections__Sets_i
 
 // Useful to give this cast a name, so it can be used as a higher-order function
 function uint64_to_int(u:uint64) : int { int(u) }
 
 //////////////////////////////////////////////////////////////////////////////
 //  Generic seq-to-seq refinement
-function {:opaque} MapSeqToSeq<T,U>(s:seq<T>, refine_func:T->U) : seq<U>
+function {:opaque} MapSeqToSeq<T(!new),U>(s:seq<T>, refine_func:T->U) : seq<U>
     reads refine_func.reads;
     requires forall i :: refine_func.reads(i) == {};
     requires forall i :: 0 <= i < |s| ==> refine_func.requires(s[i]);
@@ -35,9 +37,12 @@ function {:opaque} AbstractifyMap<CKT,CVT,KT,VT>(m:map<CKT,CVT>, RefineKey:CKT->
     reads RefineKey.reads, RefineValue.reads, ReverseKey.reads;
     requires forall ck :: ck in m ==> RefineKey.requires(ck) && RefineValue.requires(m[ck]);
     requires forall ck :: ck in m ==> ReverseKey.requires(RefineKey(ck)) && ReverseKey(RefineKey(ck)) == ck;
+    ensures  var rm  := AbstractifyMap(m,RefineKey,RefineValue,ReverseKey);
+        forall k :: k in rm ==> (exists ck :: ck in m && RefineKey(ck) == k); 
 {
-    var new_domain := set ck | ck in m :: RefineKey(ck);
-    map k | k in new_domain :: RefineValue(m[ReverseKey(k)])
+    // var new_domain := set ck | ck in m :: RefineKey(ck);
+    // map k | k in new_domain :: RefineValue(m[ReverseKey(k)])
+    map k | k in (set ck | ck in m :: RefineKey(ck)) :: RefineValue(m[ReverseKey(k)])
 }
 
 lemma Lemma_AbstractifyMap_basic_properties<CKT,CVT,KT,VT>(m:map<CKT,CVT>, RefineKey:CKT->KT, RefineValue:CVT->VT, ReverseKey:KT->CKT)
@@ -91,8 +96,8 @@ lemma Lemma_AbstractifyMap_append<KT,VT,CKT,CVT>(cm:map<CKT,CVT>,
     {
         Lemma_AbstractifyMap_basic_properties(cm', RefineKey, RefineValue, ReverseKey);
         Lemma_AbstractifyMap_preimage(cm', RefineKey, RefineValue, ReverseKey);
-        var preimage :| preimage in cm' && RefineKey(preimage) == rk;
-
+         if (exists p :: p in cm' && RefineKey(p) == rk){
+            var preimage :| preimage in cm' && RefineKey(preimage) == rk;
         if preimage in cm {
             Lemma_AbstractifyMap_basic_properties(cm, RefineKey, RefineValue, ReverseKey);
             calc ==> {
@@ -106,6 +111,7 @@ lemma Lemma_AbstractifyMap_append<KT,VT,CKT,CVT>(cm:map<CKT,CVT>,
             assert preimage == ck;
             assert RefineKey(preimage) in r_cm';
         }
+         }
         reveal_AbstractifyMap();
     }
 
@@ -116,11 +122,14 @@ lemma Lemma_AbstractifyMap_append<KT,VT,CKT,CVT>(cm:map<CKT,CVT>,
         Lemma_AbstractifyMap_preimage(cm, RefineKey, RefineValue, ReverseKey);
         Lemma_AbstractifyMap_basic_properties(cm', RefineKey, RefineValue, ReverseKey);
         if rk in rm {
-            var preimage :| preimage in cm && RefineKey(preimage) == rk;
-            assert rk in rm';
+             if(exists p :: p in cm && RefineKey(p) == rk){
+                var preimage :| preimage in cm && RefineKey(preimage) == rk;
+                assert rk in rm';
+            }
         } else {
             assert rk == RefineKey(ck);
         }
+        reveal_AbstractifyMap();
     }
 
     assert r_cm' == rm';
@@ -152,17 +161,20 @@ lemma Lemma_AbstractifyMap_remove<KT,VT,CKT,CVT>(cm:map<CKT,CVT>,
     forall o | o in rm'
         ensures o in smaller_rm && rm'[o] == smaller_rm[o];
     {
-        Lemma_AbstractifyMap_preimage(smaller_cm, RefineKey, RefineValue, ReverseKey);
-        var co :| co in smaller_cm && RefineKey(co) == o;
-        assert co != ck;
-        assert RefineKey(co) != RefineKey(ck);
+       if (exists c :: c in smaller_cm && RefineKey(c) == o){
+            var co :| co in smaller_cm && RefineKey(co) == o;
+            assert co != ck;
+            assert RefineKey(co) != RefineKey(ck);
+        }
+        reveal_AbstractifyMap();
     }
 
     forall o | o in smaller_rm
         ensures o in rm' && rm'[o] == smaller_rm[o];
     {
         Lemma_AbstractifyMap_preimage(cm, RefineKey, RefineValue, ReverseKey);
-        var co :| co in cm && co != ck && RefineKey(co) == o;
+        // var co :| co in cm && co != ck && RefineKey(co) == o;
+        reveal_AbstractifyMap();
     }
 
     assert forall o :: (o in rm' <==> o in smaller_rm) && (o in rm' ==> rm'[o] == smaller_rm[o]);

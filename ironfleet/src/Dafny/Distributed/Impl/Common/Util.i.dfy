@@ -8,7 +8,7 @@ import opened Native__Io_s
 import opened Math__power2_i
 
 // Uses BigIntegers.  If you can, consider using the Opt versions below
-method seqToArray_slow<A>(s:seq<A>) returns(a:array<A>)
+method seqToArray_slow<A(0)>(s:seq<A>) returns(a:array<A>)
     ensures  a != null;
     ensures  a[..] == s;
 {
@@ -63,7 +63,7 @@ method seqIntoArrayOpt<A>(s:seq<A>, a:array<A>)
     }
 }
 
-method seqToArrayOpt<A>(s:seq<A>) returns(a:array<A>)
+method seqToArrayOpt<A(0)>(s:seq<A>) returns(a:array<A>)
     requires |s| < 0x1_0000_0000_0000_0000;
     ensures  a != null;
     ensures  a[..] == s;

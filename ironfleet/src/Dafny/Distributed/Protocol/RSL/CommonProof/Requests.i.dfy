@@ -18,6 +18,7 @@ import opened CommonProof__Chosen_i
 
 lemma lemma_RemoveAllSatisfiedRequestsInSequenceProducesSubsequence(s':seq<Request>, s:seq<Request>, r:Request)
     requires s' == RemoveAllSatisfiedRequestsInSequence(s, r);
+    decreases s, 1;
     ensures  forall x :: x in s' ==> x in s;
 {
     if |s| > 0 && !RequestsMatch(s[0], r)

@@ -2,6 +2,7 @@ include "Temporal.s.dfy"
 
 module Temporal__Time_s {
 import opened Temporal__Temporal_s
+import opened Collections__Maps2_s
 
     function{:opaque} eventuallywithin(x:temporal, span:int, timefun:imap<int, int>):temporal
         requires imaptotal(timefun);

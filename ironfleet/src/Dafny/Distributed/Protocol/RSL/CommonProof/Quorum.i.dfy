@@ -54,7 +54,12 @@ lemma lemma_GetIndicesFromNodes(nodes:set<NodeIdentity>, config:LConfiguration) 
     ensures  |indices| == |nodes|;
 {
     indices := set idx | 0 <= idx < |config.replica_ids| && config.replica_ids[idx] in nodes;
-    var f := (idx requires 0 <= idx < |config.replica_ids| => config.replica_ids[idx]);
+    // var f := (idx requires 0 <= idx < |config.replica_ids| => config.replica_ids[idx]);
+    var f := (idx => 
+        if (idx >= 0  && idx < |config.replica_ids|)  then
+            config.replica_ids[idx]
+         else
+           var end:NodeIdentity :| (true);end );
     forall idx1, idx2 | idx1 in indices && idx2 in indices && f(idx1) in nodes && f(idx2) in nodes && f(idx1) == f(idx2)
         ensures idx1 == idx2;
     {

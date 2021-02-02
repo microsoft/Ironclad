@@ -1,8 +1,8 @@
 include "AppStateMachine.s.dfy"
-include "AbstractService.s.dfy"
+// include "AbstractService.s.dfy"
 
-module AppStateMachine_i exclusively refines AppStateMachine_s {
-    import opened AbstractServiceRSL_s 
+module AppStateMachine_i refines AppStateMachine_s {
+//     import opened AbstractServiceRSL_s 
 
     type AppState = uint64
 
@@ -35,4 +35,20 @@ module AppStateMachine_i exclusively refines AppStateMachine_s {
             case AppInvalidReply =>             [0, 0, 0, 0, 0, 0, 0, 2] 
         }
     }
+
+
+
+    
+    function Uint64ToBytes(u:uint64) : seq<byte>
+    {
+        [byte( u/0x1000000_00000000),
+         byte((u/  0x10000_00000000)%0x100),
+         byte((u/    0x100_00000000)%0x100),
+         byte((u/      0x1_00000000)%0x100),
+         byte((u/         0x1000000)%0x100),
+         byte((u/           0x10000)%0x100),
+         byte((u/             0x100)%0x100),
+         byte( u                    %0x100)]
+    }
+
 }

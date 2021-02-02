@@ -1,6 +1,6 @@
 
 module Collections__Multisets_s {
-function RestrictMultiset<S>(m:multiset<S>, f:S->bool):multiset<S>
+function RestrictMultiset<S(!new)>(m:multiset<S>, f:S->bool):multiset<S>
     reads f.reads;
     requires forall x :: f.requires(x);
     ensures RestrictMultiset(m, f) <= m;

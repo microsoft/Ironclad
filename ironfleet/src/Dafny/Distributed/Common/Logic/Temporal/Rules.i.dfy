@@ -2,6 +2,8 @@ include "Heuristics.i.dfy"
 
 module Temporal__Rules_i {
 import opened Temporal__Heuristics_i
+import opened Temporal__Temporal_s
+import opened Collections__Maps2_i
 
 ///////////////////
 // DEFINITIONS
