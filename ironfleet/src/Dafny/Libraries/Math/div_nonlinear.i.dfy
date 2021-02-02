@@ -38,9 +38,9 @@ lemma lemma_0_mod_anything()
     ensures forall m:int {:trigger 0 % m} :: m > 0 ==> 0 % m == 0;
 { }
 
-lemma lemma_mod_yourself(m:int)
-    ensures m > 0 ==> m % m == 0;
-{ }
+// lemma lemma_mod_yourself(m:int)
+//     ensures m > 0 ==> m % m == 0;
+// { }
 
 lemma lemma_small_mod(x:nat, m:nat)
     requires x<m;

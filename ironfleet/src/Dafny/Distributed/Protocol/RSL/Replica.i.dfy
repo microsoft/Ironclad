@@ -25,8 +25,7 @@ datatype LReplica = LReplica(
     proposer:LProposer,
     acceptor:LAcceptor,
     learner:LLearner,
-    executor:LExecutor
-    )
+    executor:LExecutor)
 
 predicate LReplicaInit(r:LReplica, c:LReplicaConstants)
     requires WellFormedLConfiguration(c.all.config);

@@ -2,6 +2,9 @@ include "Heuristics.i.dfy"
 
 module Temporal__Monotonicity_i {
 import opened Temporal__Heuristics_i
+import opened Temporal__Temporal_s
+import opened Collections__Maps2_s
+import opened Collections__Maps2_i
 
 //////////////////
 // DEFINITIONS

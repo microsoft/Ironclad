@@ -164,7 +164,7 @@ module MarshallProof_i {
         var u, rest := lemma_ParseValCorrectVUint64(rest0, seqnoVal, GUint64);
         assert msg.seqno_req == int(u);
         assert SeqByteToUint64(rest0[0..8]) == u;
-        assert Uint64ToSeqByte(u) == Uint64ToBytes(u);
+        assert Uint64ToSeqByte(u) == AbstractServiceRSL_s.Uint64ToBytes(u);
         lemma_BEByteSeqToInt_BEUintToSeqByte_invertability();
         assert rest0[0..8] == Uint64ToSeqByte(uint64(msg.seqno_req));
         assert data[8..16] == rest0[0..8];
@@ -198,7 +198,7 @@ module MarshallProof_i {
             ByteArrayOf8(rest1[0..8], 1);
             assert msg.val.response == u_app;
             assert SeqByteToUint64(rest2[..8]) == u_app;
-            assert Uint64ToSeqByte(u_app) == Uint64ToBytes(u_app);
+            assert Uint64ToSeqByte(u_app) == AbstractServiceRSL_s.Uint64ToBytes(u_app);
             lemma_BEByteSeqToInt_BEUintToSeqByte_invertability();
             assert rest2[..8] == Uint64ToSeqByte(uint64(msg.val.response));
             assert data[16..24] == rest0[8..16];
@@ -267,7 +267,7 @@ module MarshallProof_i {
         var marshalled_bytes := MarshallServiceReply(seqno, reply);
         var g := CMessage_grammar();
         if 0 <= seqno < 0x1_0000_0000_0000_0000 {
-            assert marshalled_bytes == [ 0, 0, 0, 0, 0, 0, 0, 6] + Uint64ToBytes(uint64(seqno)) + MarshallAppMessage(reply);
+            assert marshalled_bytes == [ 0, 0, 0, 0, 0, 0, 0, 6] + AbstractServiceRSL_s.Uint64ToBytes(uint64(seqno)) + MarshallAppMessage(reply);
             var cmsg := PaxosDemarshallData(bytes);
             var data := bytes;
             var v := DemarshallFunc(data, g);
@@ -283,14 +283,14 @@ module MarshallProof_i {
             assert cmsg.CMessage_Reply?;
 
             // Prove the seqno is parsed correctly
-            assert rest0 == Uint64ToBytes(uint64(seqno)) + MarshallAppMessage(reply);
+            assert rest0 == AbstractServiceRSL_s.Uint64ToBytes(uint64(seqno)) + MarshallAppMessage(reply);
             var u, rest := lemma_ParseValCorrectVUint64(rest0, seqnoVal, GUint64);
             lemma_2toX();
             calc {
                 u;
                 parse_Uint64(rest0).0.v.u;
                 SeqByteToUint64(rest0[..8]);
-                SeqByteToUint64(Uint64ToBytes(uint64(seqno)));
+                SeqByteToUint64(AbstractServiceRSL_s.Uint64ToBytes(uint64(seqno)));
                 SeqByteToUint64(Uint64ToSeqByte(uint64(seqno)));
                 SeqByteToUint64(BEUintToSeqByte(int(uint64(seqno)), 8));
                     { lemma_BEByteSeqToInt_BEUintToSeqByte_invertability(); }
@@ -317,7 +317,7 @@ module MarshallProof_i {
                     u_app;
                     parse_Uint64(rest2).0.v.u;
                     SeqByteToUint64(rest2[..8]);
-                    SeqByteToUint64(Uint64ToBytes(uint64(reply.response)));
+                    SeqByteToUint64(AbstractServiceRSL_s.Uint64ToBytes(uint64(reply.response)));
                     SeqByteToUint64(Uint64ToSeqByte(uint64(reply.response)));
                     SeqByteToUint64(BEUintToSeqByte(int(uint64(reply.response)), 8));
                         { lemma_BEByteSeqToInt_BEUintToSeqByte_invertability(); }

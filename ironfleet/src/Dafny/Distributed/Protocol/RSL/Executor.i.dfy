@@ -2,7 +2,7 @@ include "Configuration.i.dfy"
 include "Environment.i.dfy"
 include "Types.i.dfy"
 include "Constants.i.dfy"
-include "../../Services/RSL/AppStateMachine.s.dfy"
+include "../../Services/RSL/AppStateMachine.i.dfy"
 include "StateMachine.i.dfy"
 include "Broadcast.i.dfy"
 include "../../Common/Collections/Maps.i.dfy"
@@ -12,7 +12,7 @@ import opened LiveRSL__Configuration_i
 import opened LiveRSL__Environment_i
 import opened LiveRSL__Types_i
 import opened LiveRSL__Constants_i
-import opened AppStateMachine_s
+import opened AppStateMachine_i
 import opened LiveRSL__StateMachine_i
 import opened LiveRSL__Broadcast_i
 import opened Collections__Maps_i

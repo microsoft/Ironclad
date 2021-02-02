@@ -4,6 +4,7 @@ module Math__power_s {
 // TODO_MODULE: module Math__power_s {
 function {:opaque} power(b:int, e:nat) : int
     decreases e;
+    // ensures b > 0 ==> 0<power(b,e);
 {
     if (e==0) then
         1

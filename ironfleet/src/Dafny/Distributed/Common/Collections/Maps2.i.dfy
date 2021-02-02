@@ -11,7 +11,7 @@ function maprange<KT,VT>(m:map<KT,VT>) : set<VT>
 
 type imap2<K1, K2, V> = imap<K1, imap<K2, V>>
 
-predicate imap2total<K1, K2, V>(m:imap2<K1, K2, V>)
+predicate imap2total<K1(!new), K2, V>(m:imap2<K1, K2, V>)
 {
     imaptotal(m) && forall k1 :: imaptotal(m[k1])
 }

@@ -25,6 +25,7 @@ function {:opaque} AbstractifySeqOfUint64sToSeqOfInts(s:seq<uint64>) : seq<int>
 
 function {:opaque} AbstractifySeqOfUint64sToSetOfInts(s:seq<uint64>) : set<int>
     requires SeqIsUnique(s);
+    ensures forall x :: x in s ==> (int(x) in AbstractifySeqOfUint64sToSetOfInts(s));
 {
     var unique_set := UniqueSeqToSet(s);
     set i | i in unique_set :: int(i)
@@ -54,6 +55,10 @@ lemma lemma_AbstractifySeqOfUint64sToSetOfInts_append(original_seq:seq<uint64>, 
     var r_set := AbstractifySeqOfUint64sToSetOfInts(appended_seq);
     var r_original_set := AbstractifySeqOfUint64sToSetOfInts(original_seq);
     var new_set := r_original_set + {int(new_index)};
+    assert new_index in appended_seq;
+    assert int(new_index) in r_set;
+    assert forall x :: x in original_seq ==> int(x) in r_original_set;
+    assert forall x :: x in original_seq ==> x in appended_seq;
 
     forall rId | rId in r_set
         ensures rId in new_set;
@@ -366,11 +371,15 @@ predicate NodeIdentityIsRefinable(id:NodeIdentity)
 
 // Give Dafny a symbol handle for this choose (:|) expression
 function{:opaque} RefineNodeIdentityToEndPoint(id:NodeIdentity) : EndPoint
-    requires NodeIdentityIsRefinable(id);
-    ensures  EndPointIsValidIPV4(RefineNodeIdentityToEndPoint(id));
-    ensures  AbstractifyEndPointToNodeIdentity(RefineNodeIdentityToEndPoint(id)) == id;
+    // requires NodeIdentityIsRefinable(id);
+    ensures  NodeIdentityIsRefinable(id) ==> EndPointIsValidIPV4(RefineNodeIdentityToEndPoint(id));
+    ensures  NodeIdentityIsRefinable(id) ==> AbstractifyEndPointToNodeIdentity(RefineNodeIdentityToEndPoint(id)) == id;
 {
-    var ep :| EndPointIsValidIPV4(ep) && AbstractifyEndPointToNodeIdentity(ep) == id; ep
+    if(NodeIdentityIsRefinable(id)) then 
+    (var ep :| EndPointIsValidIPV4(ep) && AbstractifyEndPointToNodeIdentity(ep) == id; ep)
+    else    
+    var e:EndPoint :| (true); e
 }
+
 
 } 

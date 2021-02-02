@@ -7,11 +7,12 @@ import opened Native__NativeTypes_i
 
 function UniqueSeqToSet<X>(xs:seq<X>) : set<X>
     requires SeqIsUnique(xs);
+    ensures forall x :: x in xs ==> x in UniqueSeqToSet(xs);
 {
     set x | x in xs
 }
 
-function{:timeLimitMultiplier 3}{:opaque} SetToUniqueSeq<X>(s:set<X>):seq<X>
+function{:timeLimitMultiplier 3}{:opaque} SetToUniqueSeq<X(!new)>(s:set<X>):seq<X>
     ensures  forall x :: x in SetToUniqueSeq(s) <==> x in s;
     ensures  SeqIsUnique(SetToUniqueSeq(s));
     ensures  |SetToUniqueSeq(s)| == |s|;
@@ -32,7 +33,7 @@ function{:timeLimitMultiplier 3}{:opaque} SetToUniqueSeq<X>(s:set<X>):seq<X>
     )
 }
 
-function/*TODO:{:opaque}*/ Subsequence<X>(xs:seq<X>, f:X->bool):seq<X>
+function/*TODO:{:opaque}*/ Subsequence<X(!new)>(xs:seq<X>, f:X->bool):seq<X>
     reads f.reads;
     requires forall x :: x in xs ==> f.requires(x);
     ensures  forall x :: x in Subsequence(xs, f) <==> x in xs && f(x);
@@ -59,7 +60,7 @@ method SeqToSetConstruct<X>(xs:seq<X>) returns(s:set<X>)
     }
 }
 
-method{:timeLimitMultiplier 5} SetToUniqueSeqConstruct<X>(s:set<X>) returns (xs:seq<X>)
+method{:timeLimitMultiplier 5} SetToUniqueSeqConstruct<X(0)>(s:set<X>) returns (xs:seq<X>)
     ensures SeqIsUnique(xs);
     ensures UniqueSeqToSet(xs) == s;
     ensures forall x :: x in xs <==> x in s;
@@ -94,7 +95,7 @@ method{:timeLimitMultiplier 5} SetToUniqueSeqConstruct<X>(s:set<X>) returns (xs:
     assert xs == arr[..i];
 }
 
-method SubsequenceConstruct<X>(xs:seq<X>, f:X->bool) returns(xs':seq<X>)
+method SubsequenceConstruct<X(0,==)>(xs:seq<X>, f:X->bool) returns(xs':seq<X>)
     requires forall x :: x in xs ==> f.requires(x);
     ensures  forall x {:trigger x in xs}{:trigger x in xs'} :: x in xs' <==> x in xs && f(x);
     ensures  SeqIsUnique(xs) ==> SeqIsUnique(xs');
@@ -131,7 +132,7 @@ method SubsequenceConstruct<X>(xs:seq<X>, f:X->bool) returns(xs':seq<X>)
     xs' := arr[..j];
 }
 
-method UniqueSubsequenceConstruct<X(==)>(xs:seq<X>, f:X->bool) returns(xs':seq<X>)
+method UniqueSubsequenceConstruct<X(0,==)>(xs:seq<X>, f:X->bool) returns(xs':seq<X>)
     requires forall x :: x in xs ==> f.requires(x);
     ensures  forall x {:trigger x in xs}{:trigger x in xs'} :: x in xs' <==> x in xs && f(x);
     ensures  SeqIsUnique(xs');
@@ -182,10 +183,14 @@ function method AppendToUniqueSeqMaybe<X(==)>(xs:seq<X>, x:X):seq<X>
 lemma lemma_UniqueSeq_SubSeqsUnique<X>(whole:seq<X>, left:seq<X>, right:seq<X>)
     requires SeqIsUnique(whole);
     requires whole == left + right;
+    requires |left| > 0;
+    requires |right| > 0;
+    requires |whole| > 0;
     ensures  SeqIsUnique(left);
     ensures  SeqIsUnique(right);
 {
     reveal_SeqIsUnique();
+    assert SeqIsUnique(whole[..|left|]); 
 }
 
 lemma lemma_seqs_set_cardinality<T>(Q:seq<T>, S:set<T>)

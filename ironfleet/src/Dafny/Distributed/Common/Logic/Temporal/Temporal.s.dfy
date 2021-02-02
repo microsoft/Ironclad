@@ -9,13 +9,16 @@ import opened Collections__Maps2_s
 //// TODO_MODULE: module TemporalLogic
 //{
 
-    type temporal
+    type temporal = imap<int, bool>
     type Behavior<S> = imap<int, S>
     
     function{:axiom} stepmap(f:imap<int, bool>):temporal
         ensures  forall i:int :: i in f ==> sat(i, stepmap(f)) == f[i];
 
     predicate{:axiom} sat(s:int, t:temporal)
+    {
+        s in t && t[s]
+    }
 
     function{:opaque} and(x:temporal, y:temporal):temporal
         ensures  forall i:int :: sat(i, and(x, y)) == (sat(i, x) && sat(i, y));

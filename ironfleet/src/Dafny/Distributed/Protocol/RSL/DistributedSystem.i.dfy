@@ -28,14 +28,14 @@ predicate RslConstantsUnchanged(ps:RslState, ps':RslState)
     && ps'.constants == ps.constants
 }
 
-predicate RslInit(const:LConstants, ps:RslState)
+predicate RslInit(con:LConstants, ps:RslState)
 {
-       WellFormedLConfiguration(const.config)
-    && WFLParameters(const.params)
-    && ps.constants == const
+       WellFormedLConfiguration(con.config)
+    && WFLParameters(con.params)
+    && ps.constants == con
     && LEnvironment_Init(ps.environment)
     && RslMapsComplete(ps)
-    && (forall i :: 0 <= i < |const.config.replica_ids| ==> LSchedulerInit(ps.replicas[i], LReplicaConstants(i, const)))
+    && (forall i :: 0 <= i < |con.config.replica_ids| ==> LSchedulerInit(ps.replicas[i], LReplicaConstants(i, con)))
 }
 
 predicate RslNextCommon(ps:RslState, ps':RslState)

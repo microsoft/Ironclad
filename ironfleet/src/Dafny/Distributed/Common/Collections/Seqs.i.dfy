@@ -67,6 +67,7 @@ lemma lemma_SeqCat_adds<T>(A:seq<seq<T>>, B:seq<seq<T>>)
     ensures SeqCat(A + B) == SeqCat(A) + SeqCat(B);
 {
     if |A| == 0 {
+        assert A+B == B;
     } else {
         calc {
             SeqCat(A + B);

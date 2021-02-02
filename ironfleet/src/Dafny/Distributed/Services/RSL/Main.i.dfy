@@ -2,14 +2,16 @@ include "../../Common/Framework/Main.s.dfy"
 include "../../Impl/RSL/Host.i.dfy"
 include "../../Protocol/RSL/RefinementProof/Refinement.i.dfy"
 include "../../Protocol/Common/NodeIdentity.i.dfy"
+include "RSLDistributedSystem.i.dfy"
 include "AbstractService.s.dfy"
 include "Marshall.i.dfy"
 
-module Main_i exclusively refines Main_s {
+module Main_i refines Main_s {
     import opened Host = Host_i
+    import opened DS_s = RSL_DistributedSystem_i
     import opened DirectRefinement__Refinement_i
     import opened Concrete_NodeIdentity_i
-    import opened AbstractServiceRSL_s 
+    import opened AS_s = AbstractServiceRSL_s
     import opened MarshallProof_i
 
     predicate IsValidBehavior(config:ConcreteConfiguration, db:seq<DS_State>)
@@ -18,7 +20,7 @@ module Main_i exclusively refines Main_s {
            |db| > 0
         && DS_Init(db[0], config)
         && forall i {:trigger DS_Next(db[i], db[i+1])} :: 0 <= i < |db| - 1 ==> DS_Next(db[i], db[i+1])
-    }
+    }   
 
     predicate LPacketIsAbstractable(cp:LPacket<EndPoint,seq<byte>>)
     {
@@ -37,7 +39,7 @@ module Main_i exclusively refines Main_s {
             case LEnvStepHostIos(actor, ios) => UdpEventLogIsAbstractable(ios)
             case LEnvStepDeliverPacket(p) => LPacketIsAbstractable(p)
             case LEnvStepAdvanceTime => true
-            case LEnvStepStutter => true 
+            case LEnvStepStutter => true
         }
     }
 
@@ -48,7 +50,7 @@ module Main_i exclusively refines Main_s {
             case LEnvStepHostIos(actor, ios) => LEnvStepHostIos(actor, AbstractifyRawLogToIos(ios))
             case LEnvStepDeliverPacket(p) => LEnvStepDeliverPacket(AbstractifyConcretePacket(p))
             case LEnvStepAdvanceTime => LEnvStepAdvanceTime()
-            case LEnvStepStutter => LEnvStepStutter() 
+            case LEnvStepStutter => LEnvStepStutter()
         }
 
     }
@@ -77,7 +79,7 @@ module Main_i exclusively refines Main_s {
     function AbstractifyConcreteReplicas(replicas:map<EndPoint,HostState>, replica_order:seq<EndPoint>) : seq<LScheduler>
         requires forall r :: r in replica_order ==> r in replicas;
         ensures  |AbstractifyConcreteReplicas(replicas, replica_order)| == |replica_order|;
-        ensures  forall i :: 0 <= i < |replica_order| ==> 
+        ensures  forall i :: 0 <= i < |replica_order| ==>
                  AbstractifyConcreteReplicas(replicas, replica_order)[i] == replicas[replica_order[i]].sched;
     {
         if replica_order == [] then []
@@ -90,7 +92,7 @@ module Main_i exclusively refines Main_s {
         set e | e in clients :: e
     }
 
-    predicate DsStateIsAbstractable(ds:DS_State) 
+    predicate DsStateIsAbstractable(ds:DS_State)
     {
            ConstantsStateIsAbstractable(ds.config)
         && ConcreteEnvironmentIsAbstractable(ds.environment)
@@ -116,7 +118,7 @@ module Main_i exclusively refines Main_s {
         ensures  DS_Next(db[i], db[i+1]);
     {
     }
-    
+
     lemma lemma_DsNextOffset(db:seq<DS_State>, index:int)
         requires |db| > 0;
         requires 0 < index < |db|;
@@ -171,7 +173,7 @@ module Main_i exclusively refines Main_s {
         ensures  s.replica.executor.constants == s.replica.executor.constants;
     {
     }
-    
+
     lemma {:timeLimitMultiplier 2} lemma_DsConstantsAllConsistent(config:ConcreteConfiguration, db:seq<DS_State>, i:int, id:EndPoint)
         requires IsValidBehavior(config, db);
         requires 0 <= i < |db|;
@@ -194,7 +196,7 @@ module Main_i exclusively refines Main_s {
         lemma_DeduceTransitionFromDsBehavior(config, db, i-1);
 
         assert mapdomain(db[i].servers) == mapdomain(db[0].servers) == mapdomain(db[i-1].servers);
-        
+
         lemma_DsConstantsAllConsistent(config, db, i-1, id);
 
         var s := db[i-1].servers[id].sched;
@@ -217,7 +219,7 @@ module Main_i exclusively refines Main_s {
             assert s'.replica == s.replica;
         }
     }
-    
+
     lemma lemma_PacketSentByServerIsMarshallable(
         config:ConcreteConfiguration,
         db:seq<DS_State>,
@@ -254,7 +256,7 @@ module Main_i exclusively refines Main_s {
         assert UdpPacketBound(io.s.msg);
         assert Marshallable(PaxosDemarshallData(io.s.msg));
     }
-    
+
     lemma lemma_SentPacketIsValidPhysicalPacket(
         config:ConcreteConfiguration,
         db:seq<DS_State>,
@@ -282,7 +284,7 @@ module Main_i exclusively refines Main_s {
         assert io in db[i-1].environment.nextStep.ios;
         assert ValidPhysicalEnvironmentStep(db[i-1].environment.nextStep);
     }
-    
+
     lemma lemma_UdpEventIsAbstractable(
         config:ConcreteConfiguration,
         db:seq<DS_State>,
@@ -341,7 +343,7 @@ module Main_i exclusively refines Main_s {
     }
 
     lemma lemma_IosRelations(ios:seq<LIoOp<EndPoint, seq<byte>>>, r_ios:seq<LIoOp<NodeIdentity, RslMessage>>)
-        returns (sends:set<LPacket<EndPoint, seq<byte>>>, r_sends:set<LPacket<NodeIdentity, RslMessage>>) 
+        returns (sends:set<LPacket<EndPoint, seq<byte>>>, r_sends:set<LPacket<NodeIdentity, RslMessage>>)
         requires UdpEventLogIsAbstractable(ios);
         requires forall io :: io in ios && io.LIoOpSend? ==> LPacketIsAbstractable(io.s);
         requires r_ios == AbstractifyRawLogToIos(ios);
@@ -365,7 +367,7 @@ module Main_i exclusively refines Main_s {
         forall r | r in r_sends
             ensures r in refined_sends;
         {
-            var r_io :| r_io in r_ios && r_io.LIoOpSend? && r_io.s == r; 
+            var r_io :| r_io in r_ios && r_io.LIoOpSend? && r_io.s == r;
             var j :| 0 <= j < |r_ios| && r_ios[j] == r_io;
             assert AbstractifyUdpEventToRslIo(ios[j]) == r_io;
             assert ios[j] in ios;
@@ -385,7 +387,7 @@ module Main_i exclusively refines Main_s {
         var r_ios := le.nextStep.ios;
 
         assert LIoOpSeqCompatibleWithReduction(r_ios);
-            
+
         forall io | io in r_ios
             ensures IsValidLIoOp(io, id, le);
         {
@@ -635,7 +637,7 @@ module Main_i exclusively refines Main_s {
         ensures |protocol_behavior| == |db|;
         ensures protocol_behavior[0].constants == AbstractifyConstantsStateToLConstants(config);
         ensures RslInit(c, protocol_behavior[0]);
-        ensures forall i :: 0 <= i < |db| ==> DsStateIsAbstractable(db[i]) 
+        ensures forall i :: 0 <= i < |db| ==> DsStateIsAbstractable(db[i])
                                            && protocol_behavior[i] == AbstractifyDsState(db[i]);
         ensures forall i {:trigger RslNext(protocol_behavior[i], protocol_behavior[i+1])} :: 0 <= i < |protocol_behavior| - 1 ==> RslNext(protocol_behavior[i], protocol_behavior[i+1]);
     {
@@ -678,7 +680,7 @@ module Main_i exclusively refines Main_s {
             protocol_behavior := rest + [ls'];
 
             // Help with sequence indexing
-            forall i | 0 <= i < |db| 
+            forall i | 0 <= i < |db|
                 ensures DsStateIsAbstractable(db[i]);
                 ensures protocol_behavior[i] == AbstractifyDsState(db[i]);
             {
@@ -696,7 +698,7 @@ module Main_i exclusively refines Main_s {
             }
 
             // Prove the crucial ensures
-            forall i | 0 <= i < |protocol_behavior| - 1 
+            forall i | 0 <= i < |protocol_behavior| - 1
                 ensures RslNext(protocol_behavior[i], protocol_behavior[i+1]);
             {
                 if i < |protocol_behavior| - 2 {
@@ -772,7 +774,7 @@ module Main_i exclusively refines Main_s {
             return;
         }
 
-        var intermediate_states, batch :| StateSequenceReflectsBatchExecution(s, s', intermediate_states, batch);
+        var intermediate_states:seq<ServiceState>, batch :| StateSequenceReflectsBatchExecution(s, s', intermediate_states, batch);
         var i := 0;
         while i < |batch|
             invariant 0 <= i <= |batch|;
@@ -843,7 +845,7 @@ module Main_i exclusively refines Main_s {
         {
             lemma_RslSystemNextImpliesServiceNext(rs[i], rs[i+1], sb[i], sb[i+1]);
         }
-          
+
         forall i | 0 <= i < |db|
             ensures Service_Correspondence(db[i].environment.sentPackets, sb[i]);
         {
@@ -855,7 +857,7 @@ module Main_i exclusively refines Main_s {
             assert RslSystemRefinement(ps, rsl);
             assert RenameToServiceState(rsl) == serviceState;
 
-            forall p, seqno, reply | p in concretePkts && p.src in serviceState.serverAddresses 
+            forall p, seqno, reply | p in concretePkts && p.src in serviceState.serverAddresses
                                   && p.msg == MarshallServiceReply(seqno, reply)
                 ensures AppReply(p.dst, seqno, reply) in serviceState.replies;
             {
@@ -867,23 +869,23 @@ module Main_i exclusively refines Main_s {
                 lemma_ParseMarshallReply(p.msg, seqno, reply, abstract_p.msg);
 
                 assert abstract_p in ps.environment.sentPackets && abstract_p.src in rsl.server_addresses && abstract_p.msg.RslMessage_Reply?;
-                var r := Reply(abstract_p.dst, abstract_p.msg.seqno_reply, abstract_p.msg.reply); 
+                var r := Reply(abstract_p.dst, abstract_p.msg.seqno_reply, abstract_p.msg.reply);
                 assert r in rsl.replies;
                 var service_reply := RenameToAppReply(r);
                 assert service_reply == AppReply(p.dst, seqno, reply);
                 assert service_reply in serviceState.replies;
             }
 
-            forall req | req in serviceState.requests 
-                ensures exists p :: p in concretePkts && p.dst in serviceState.serverAddresses 
+            forall req | req in serviceState.requests
+                ensures exists p :: p in concretePkts && p.dst in serviceState.serverAddresses
                                  && p.msg == MarshallServiceRequest(req.seqno, req.request)
                                  && p.src == req.client
             {
                 var r_req :| r_req in rsl.requests && RenameToAppRequest(r_req) == req;
-                var abstract_p :| abstract_p in ps.environment.sentPackets 
+                var abstract_p :| abstract_p in ps.environment.sentPackets
                                && abstract_p.dst in rsl.server_addresses && abstract_p.msg.RslMessage_Request?
                                && r_req == Request(abstract_p.src, abstract_p.msg.seqno_req, abstract_p.msg.val);
-                
+
                 assert ps.environment.sentPackets == AbstractifyConcreteSentPackets(concretePkts);
                 var concrete_p :| concrete_p in concretePkts && AbstractifyConcretePacket(concrete_p) == abstract_p;
                 assert concrete_p.dst in serviceState.serverAddresses;

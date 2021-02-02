@@ -108,8 +108,8 @@ predicate COperationNumberIsAbstractable(opn:COperationNumber)
 }
 
 function AbstractifyCOperationNumberToOperationNumber(opn:COperationNumber) : OperationNumber
-    requires COperationNumberIsAbstractable(opn)
-    ensures 0 <= AbstractifyCOperationNumberToOperationNumber(opn) <= 0xffff_ffff_ffff_ffff;
+    // requires COperationNumberIsAbstractable(opn)
+    ensures COperationNumberIsAbstractable(opn) ==> (0 <= AbstractifyCOperationNumberToOperationNumber(opn) <= 0xffff_ffff_ffff_ffff);
 {
     int(opn.n)
 }
@@ -296,7 +296,7 @@ predicate CReplyIsAbstractable(c:CReply)
 }
 
 function AbstractifyCReplyToReply(c:CReply) : Reply
-    requires CReplyIsAbstractable(c);
+    // requires CReplyIsAbstractable(c);
 {
     Reply(AbstractifyEndPointToNodeIdentity(c.client), int(c.seqno), AbstractifyCAppMessageToAppMessage(c.reply))  
 }
@@ -348,6 +348,7 @@ function {:opaque} AbstractifyCReplyCacheToReplyCache(m:CReplyCache) : ReplyCach
 {
     assert forall e :: e in m ==> EndPointIsValidIPV4(e);
     lemma_AbstractifyEndPointToNodeIdentity_injective_forall();
+    // var test:CReply->Reply := (AbstractifyCReplyToReply as CReply->Reply);
     AbstractifyMap(m, AbstractifyEndPointToNodeIdentity, AbstractifyCReplyToReply, RefineNodeIdentityToEndPoint)
 }
 
@@ -464,9 +465,10 @@ lemma lemma_AbstractifyMapOfThings<T>(m:map<COperationNumber,T>, newDomain:set<O
 function {:opaque} AbstractifyCVotesToVotes(votes:CVotes) : Votes
     requires CVotesIsAbstractable(votes);
 {
-    var newDomain := set i | i in votes.v :: AbstractifyCOperationNumberToOperationNumber(i);
-    lemma_AbstractifyMapOfThings(votes.v, newDomain);
-    map i | i in newDomain :: AbstractifyCVoteToVote(votes.v[COperationNumber(uint64(i))])
+    // var newDomain := set i | i in votes.v :: AbstractifyCOperationNumberToOperationNumber(i);
+    lemma_AbstractifyMapOfThings(votes.v, set i | i in votes.v :: AbstractifyCOperationNumberToOperationNumber(i));
+    // map i | i in newDomain :: AbstractifyCVoteToVote(votes.v[COperationNumber(uint64(i))])
+    map j | j in (set i | i in votes.v :: AbstractifyCOperationNumberToOperationNumber(i)) :: AbstractifyCVoteToVote(votes.v[COperationNumber(uint64(j))])
 }
 
 lemma lemma_VotesInjective(v1:CVotes, v2:CVotes)

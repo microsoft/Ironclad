@@ -42,8 +42,7 @@ function AbstractifyReplicaStateToLReplica(replica:ReplicaState) : LReplica
         AbstractifyProposerStateToLProposer(replica.proposer),
         AbstractifyAcceptorStateToAcceptor(replica.acceptor),
         AbstractifyLearnerStateToLLearner(replica.learner),
-        AbstractifyExecutorStateToLExecutor(replica.executor)
-        )
+        AbstractifyExecutorStateToLExecutor(replica.executor))
 }
 
 //////////////////////////////////////////////////////////////////////////////

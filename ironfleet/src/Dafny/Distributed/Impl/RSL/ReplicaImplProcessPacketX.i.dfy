@@ -130,6 +130,8 @@ import opened LiveRSL__Unsendable_i
         requires receive_event.LIoOpReceive?;
         requires !rr.cpacket.msg.CMessage_Heartbeat?;
         requires UdpPacketIsAbstractable(receive_event.r);
+         requires CPaxosConfigurationIsValid(r.replica.constants.all.config);
+        //  requires Replica_Next_Process_AppStateSupply_Preconditions(r.replica,rr.cpacket);
         requires CPacketIsSendable(rr.cpacket);
         requires AbstractifyCPacketToRslPacket(rr.cpacket) == AbstractifyUdpPacketToRslPacket(receive_event.r);
         requires PaxosEndPointIsValid(rr.cpacket.src, r.replica.constants.all.config);
@@ -167,6 +169,8 @@ import opened LiveRSL__Unsendable_i
         returns (ok:bool, ghost udpEventLog:seq<UdpEvent>, ghost ios:seq<RslIo>)
         requires r != null;
         requires r.Valid();
+        requires CPaxosConfigurationIsValid(r.replica.constants.all.config);
+        //  requires Replica_Next_Process_AppStateSupply_Preconditions(r.replica,r.cpacket);
         modifies r.Repr, r.cur_req_set, r.prev_req_set, r.reply_cache_mutable;
         ensures r.Repr == old(r.Repr);
         ensures ok == UdpClientOk(r.udpClient);

@@ -6,8 +6,8 @@ include "../Collections/Seqs.s.dfy"
 
 abstract module Main_s {
     //import opened Host as Host_s
-    import opened DistributedSystem_s
-    import opened AbstractService_s
+    import opened DS_s : DistributedSystem_s
+    import opened AS_s : AbstractService_s
     import opened Collections__Seqs_s
 
     method Main(ghost env:HostEnvironment) returns (exitCode:int)

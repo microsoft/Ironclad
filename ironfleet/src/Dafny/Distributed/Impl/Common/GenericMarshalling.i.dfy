@@ -1070,18 +1070,21 @@ lemma lemma_parse_Val_view_Union(data:seq<byte>, v:V, grammar:G, index:int, boun
     var bound_tuple := parse_Case(data[index..bound], grammar.cases);
     var narrow_caseID_tuple := parse_Uint64(data[index..index+SizeOfV(v)]);
     var bound_caseID_tuple := parse_Uint64(data[index..bound]);
-    assert narrow_caseID_tuple.0.v == bound_caseID_tuple.0.v;
+    // assert narrow_caseID_tuple.0.v == bound_caseID_tuple.0.v;
 
     if parse_Case(data[index..bound], grammar.cases).0 == Some(v) {
         var narrow_val_tuple := parse_Val(narrow_caseID_tuple.1, grammar.cases[narrow_caseID_tuple.0.v.u]);
         var bound_val_tuple := parse_Val(bound_caseID_tuple.1, grammar.cases[bound_caseID_tuple.0.v.u]);
 
+        // assert ValInGrammar(v.val, grammar.cases[narrow_caseID_tuple.0.v.u]);
+        if (ValInGrammar(v.val, grammar.cases[narrow_caseID_tuple.0.v.u])){
         lemma_parse_Val_view(data, v.val, grammar.cases[narrow_caseID_tuple.0.v.u], index + 8);
         assert index+SizeOfV(v.val) <= bound <= |data|;
         assert (parse_Val(data[index+8..bound], grammar.cases[narrow_caseID_tuple.0.v.u]).0 == Some(v.val)) <==> (parse_Val(data[index+8..index+8+SizeOfV(v.val)], grammar.cases[narrow_caseID_tuple.0.v.u]).0 == Some(v.val));
+        }
     } else if parse_Case(data[index..index+SizeOfV(v)], grammar.cases).0 == Some(v) {
         var narrow_val_tuple := parse_Val(narrow_caseID_tuple.1, grammar.cases[narrow_caseID_tuple.0.v.u]);
-        var bound_val_tuple := parse_Val(bound_caseID_tuple.1, grammar.cases[bound_caseID_tuple.0.v.u]);
+        // var bound_val_tuple := parse_Val(bound_caseID_tuple.1, grammar.cases[bound_caseID_tuple.0.v.u]);
 
         lemma_parse_Val_view(data, v.val, grammar.cases[narrow_caseID_tuple.0.v.u], index + 8);
         assert (parse_Val(data[index+8..bound], grammar.cases[narrow_caseID_tuple.0.v.u]).0 == Some(v.val)) <==> (parse_Val(data[index+8..index+8+SizeOfV(v.val)], grammar.cases[narrow_caseID_tuple.0.v.u]).0 == Some(v.val));
@@ -1202,6 +1205,7 @@ method MarshallUint64(n:uint64, data:array<byte>, index:uint64)
     ensures  forall i :: 0 <= i < index ==> data[i] == old(data[i]);
     ensures  forall i :: int(index) + int(Uint64Size()) <= i < data.Length ==> data[i] == old(data[i]);
 {
+    var tuple := parse_Uint64(data[index .. ]);
     MarshallUint64_guts(n, data, index);
 }
 
@@ -1716,7 +1720,8 @@ method MarshallByteArray(val:V, grammar:G, data:array<byte>, index:uint64) retur
     ghost var tuple := parse_Uint64(data_seq);
     ghost var len := tuple.0;
     ghost var rest := tuple.1;
-    assert{:split_here} true;assert len.v.u == uint64(|val.b|);
+    assert{:split_here} true;
+    // assert len.v.u == uint64(|val.b|);
     
     assert rest == data[index + 8..int(index) + SizeOfV(val)] == val.b;
     assert !len.None? && int(len.v.u) <= |rest|;

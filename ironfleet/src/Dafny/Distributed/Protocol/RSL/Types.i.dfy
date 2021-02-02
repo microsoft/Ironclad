@@ -1,10 +1,10 @@
-include "../../Services/RSL/AppStateMachine.s.dfy"
-include "../Common/NodeIdentity.s.dfy"
+include "../../Services/RSL/AppStateMachine.i.dfy"
+include "../Common/NodeIdentity.i.dfy"
 
 module LiveRSL__Types_i {
 
-import opened AppStateMachine_s
-import opened Common__NodeIdentity_s
+import opened AppStateMachine_i
+import opened Concrete_NodeIdentity_i
 
 type OperationNumber = int
 datatype Ballot = Ballot(seqno:int, proposer_id:int)

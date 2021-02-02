@@ -95,6 +95,7 @@ import opened LiveRSL__CClockReading_i
         requires r != null;
         requires r.Valid();
         requires old_udp_history + [receive_event] == r.Env().udp.history();
+        requires CPaxosConfigurationIsValid(r.replica.constants.all.config);
         requires r.ReceivedPacketProperties(cpacket, receive_event, receive_io);
         requires cpacket.msg.CMessage_Invalid?;
         requires LReplica_Next_ProcessPacketWithoutReadingClock_preconditions([receive_io]);
@@ -152,9 +153,11 @@ import opened LiveRSL__CClockReading_i
         requires r != null;
         requires r.Valid();
         requires old_udp_history + [receive_event] == r.Env().udp.history();
+        requires CPaxosConfigurationIsValid(r.replica.constants.all.config);
         requires r.ReceivedPacketProperties(cpacket, receive_event, receive_io);
         requires cpacket.msg.CMessage_Request?;
         requires LReplica_Next_ProcessPacketWithoutReadingClock_preconditions([receive_io]);
+        requires Replica_Next_Process_Request_Preconditions(r.replica, cpacket);
         modifies r.Repr, r.cur_req_set, r.prev_req_set, r.reply_cache_mutable;
         ensures r.Repr==old(r.Repr);
         ensures ok == UdpClientOk(r.udpClient);
@@ -231,9 +234,11 @@ import opened LiveRSL__CClockReading_i
         requires r != null;
         requires r.Valid();
         requires old_udp_history + [receive_event] == r.Env().udp.history();
+        requires CPaxosConfigurationIsValid(r.replica.constants.all.config)
         requires r.ReceivedPacketProperties(cpacket, receive_event, receive_io);
         requires cpacket.msg.CMessage_1a?;
         requires LReplica_Next_ProcessPacketWithoutReadingClock_preconditions([receive_io]);
+        requires Replica_Next_Process_1a_Preconditions(r.replica, cpacket);
         modifies r.Repr;
         ensures r.Repr==old(r.Repr);
         ensures ok == UdpClientOk(r.udpClient);
@@ -310,9 +315,11 @@ import opened LiveRSL__CClockReading_i
         requires r != null;
         requires r.Valid();
         requires old_udp_history + [receive_event] == r.Env().udp.history();
+        requires CPaxosConfigurationIsValid(r.replica.constants.all.config);
         requires r.ReceivedPacketProperties(cpacket, receive_event, receive_io);
         requires cpacket.msg.CMessage_1b?;
         requires LReplica_Next_ProcessPacketWithoutReadingClock_preconditions([receive_io]);
+        requires Replica_Next_Process_1b_Preconditions(r.replica,cpacket);
         modifies r.Repr;
         ensures r.Repr==old(r.Repr);
         ensures ok == UdpClientOk(r.udpClient);
@@ -389,6 +396,7 @@ import opened LiveRSL__CClockReading_i
         requires r != null;
         requires r.Valid();
         requires old_udp_history + [receive_event] == r.Env().udp.history();
+        requires CPaxosConfigurationIsValid(r.replica.constants.all.config);
         requires r.ReceivedPacketProperties(cpacket, receive_event, receive_io);
         requires cpacket.msg.CMessage_StartingPhase2?;
         requires LReplica_Next_ProcessPacketWithoutReadingClock_preconditions([receive_io]);
@@ -468,9 +476,11 @@ import opened LiveRSL__CClockReading_i
         requires r != null;
         requires r.Valid();
         requires old_udp_history + [receive_event] == r.Env().udp.history();
+        requires CPaxosConfigurationIsValid(r.replica.constants.all.config);
         requires r.ReceivedPacketProperties(cpacket, receive_event, receive_io);
         requires cpacket.msg.CMessage_2a?;
         requires LReplica_Next_ProcessPacketWithoutReadingClock_preconditions([receive_io]);
+        requires Replica_Next_Process_2a_Preconditions(r.replica,cpacket);
         modifies r.Repr;
         ensures r.Repr==old(r.Repr);
         ensures ok == UdpClientOk(r.udpClient);
@@ -547,9 +557,11 @@ import opened LiveRSL__CClockReading_i
         requires r != null;
         requires r.Valid();
         requires old_udp_history + [receive_event] == r.Env().udp.history();
+        requires CPaxosConfigurationIsValid(r.replica.constants.all.config);
         requires r.ReceivedPacketProperties(cpacket, receive_event, receive_io);
         requires cpacket.msg.CMessage_2b?;
         requires LReplica_Next_ProcessPacketWithoutReadingClock_preconditions([receive_io]);
+        requires Replica_Next_Process_2b_Preconditions(r.replica,cpacket);
         modifies r.Repr;
         ensures r.Repr==old(r.Repr);
         ensures ok == UdpClientOk(r.udpClient);
@@ -612,6 +624,7 @@ import opened LiveRSL__CClockReading_i
         requires r != null;
         requires r.Valid();
         requires old_udp_history + [receive_event] == r.Env().udp.history();
+        requires CPaxosConfigurationIsValid(r.replica.constants.all.config);
         requires r.ReceivedPacketProperties(cpacket, receive_event, receive_io);
         requires cpacket.msg.CMessage_Reply?;
         requires LReplica_Next_ProcessPacketWithoutReadingClock_preconditions([receive_io]);
@@ -675,6 +688,7 @@ import opened LiveRSL__CClockReading_i
         requires r != null;
         requires r.Valid();
         requires old_udp_history + [receive_event] == r.Env().udp.history();
+        requires CPaxosConfigurationIsValid(r.replica.constants.all.config);
         requires r.ReceivedPacketProperties(cpacket, receive_event, receive_io);
         requires cpacket.msg.CMessage_AppStateRequest?;
         requires LReplica_Next_ProcessPacketWithoutReadingClock_preconditions([receive_io]);
@@ -754,9 +768,11 @@ import opened LiveRSL__CClockReading_i
         requires r != null;
         requires r.Valid();
         requires old_udp_history + [receive_event] == r.Env().udp.history();
+        requires CPaxosConfigurationIsValid(r.replica.constants.all.config);
         requires r.ReceivedPacketProperties(cpacket, receive_event, receive_io);
         requires cpacket.msg.CMessage_AppStateSupply?;
         requires LReplica_Next_ProcessPacketWithoutReadingClock_preconditions([receive_io]);
+        requires Replica_Next_Process_AppStateSupply_Preconditions(r.replica,cpacket);
         modifies r.Repr;
         ensures r.Repr==old(r.Repr);
         ensures ok == UdpClientOk(r.udpClient);
@@ -823,9 +839,17 @@ import opened LiveRSL__CClockReading_i
         requires r != null;
         requires r.Valid();
         requires old_udp_history + [receive_event] == r.Env().udp.history();
+        requires CPaxosConfigurationIsValid(r.replica.constants.all.config);
         requires r.ReceivedPacketProperties(cpacket, receive_event, receive_io);
         requires NoClockMessage(cpacket.msg);
         requires LReplica_Next_ProcessPacketWithoutReadingClock_preconditions([receive_io]);
+        requires cpacket.msg.CMessage_AppStateSupply? ==> Replica_Next_Process_AppStateSupply_Preconditions(r.replica,cpacket);
+        requires cpacket.msg.CMessage_2b? ==> Replica_Next_Process_2b_Preconditions(r.replica,cpacket);
+        requires cpacket.msg.CMessage_2a? ==> Replica_Next_Process_2a_Preconditions(r.replica,cpacket);
+        requires cpacket.msg.CMessage_1a? ==> Replica_Next_Process_1a_Preconditions(r.replica,cpacket);
+        requires cpacket.msg.CMessage_1b? ==> Replica_Next_Process_1b_Preconditions(r.replica,cpacket);
+        requires cpacket.msg.CMessage_Request? ==> Replica_Next_Process_Request_Preconditions(r.replica,cpacket);
+        // requires Replica_Next_Process_AppStateSupply_Preconditions(r.replica,cpacket);
         modifies r.Repr, r.cur_req_set, r.prev_req_set, r.reply_cache_mutable;
         ensures r.Repr==old(r.Repr);
         ensures ok == UdpClientOk(r.udpClient);

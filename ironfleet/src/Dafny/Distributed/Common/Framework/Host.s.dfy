@@ -4,7 +4,8 @@ include "Environment.s.dfy"
 abstract module Host_s {
     import opened Native__Io_s
     import opened Environment_s 
-
+    import opened Native__NativeTypes_s
+    
     type HostState
     type ConcreteConfiguration
 

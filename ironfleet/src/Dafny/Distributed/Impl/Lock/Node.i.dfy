@@ -66,7 +66,8 @@ method NodeGrantImpl(s:CNode) returns (s':CNode, packet:Option<CLockPacket>, gho
     ensures  CNodeValid(s');
 {
     if s.held && s.epoch < 0xFFFF_FFFF_FFFF_FFFF {
-        s' := s[held := false];
+        var ssss := CNode(false, s.epoch, s.my_index, s.config);
+        s' := ssss;
         var dst_index := (s.my_index + 1) % uint64(|s.config|);
         packet := Some(LPacket(s.config[dst_index], s.config[s.my_index], CTransfer(s.epoch + 1)));
         ios := [LIoOpSend(AbstractifyCLockPacket(packet.v))];
@@ -99,7 +100,8 @@ method NodeAcceptImpl(s:CNode, transfer_packet:CLockPacket)
        && transfer_packet.src in s.config
        && transfer_packet.msg.CTransfer? 
        && transfer_packet.msg.transfer_epoch > s.epoch {
-        s' := s[held := true][epoch := transfer_packet.msg.transfer_epoch];
+        var ssss := CNode(true, transfer_packet.msg.transfer_epoch, s.my_index, s.config);
+        s' := ssss;
         locked_packet := Some(LPacket(transfer_packet.src, 
                                       s.config[s.my_index],
                                       CLocked(transfer_packet.msg.transfer_epoch)));

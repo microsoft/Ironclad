@@ -61,6 +61,8 @@ method Replica_Next_Process_AppStateSupply(replica:ReplicaState, inp:CPacket)
     ensures  replicaChanged ==> replica'.executor.reply_cache == MutableMap.MapOf(reply_cache_mutable);
     ensures  !replicaChanged ==> replica' == replica;
 {
+    var empty_Mutable_Map:MutableMap<EndPoint, CReply> := MutableMap.EmptyMap();
+    reply_cache_mutable := empty_Mutable_Map;
     var start_time := Time.GetDebugTimeTicks();
 //    lemma_AbstractifyEndPointsToNodeIdentities_properties(replica.executor.constants.all.config.replica_ids);
     if (    inp.src in replica.executor.constants.all.config.replica_ids
@@ -291,7 +293,7 @@ method ReplicaNextSpontaneousMaybeMakeDecisionActual(replica:ReplicaState) retur
     assert ValidRequestBatch(replica.learner.unexecuted_ops[opn].candidate_learned_value);
     var newExecutor := ExecutorGetDecision(replica.executor, replica.learner.max_ballot_seen, opn, candValue);
 
-    replica' := replica[executor := newExecutor];
+    replica' := replica.(executor := newExecutor);
 
     packets_sent := Broadcast(CBroadcastNop);
     lemma_AbstractifyCRequestToRequest_isInjective();

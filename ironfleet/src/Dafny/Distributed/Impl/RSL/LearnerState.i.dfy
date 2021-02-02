@@ -43,11 +43,14 @@ predicate LearnerTupleIsAbstractable(tuple:CLearnerTuple)
 }
 
 function AbstractifyCLearnerTupleToLearnerTuple(tuple:CLearnerTuple) : LearnerTuple
-    requires LearnerTupleIsAbstractable(tuple);
+            ensures LearnerTupleIsAbstractable(tuple) ==> AbstractifyCLearnerTupleToLearnerTuple(tuple) == LearnerTuple(MapSeqToSet(AbstractifyEndPointsToNodeIdentities(tuple.received_2b_message_senders), x=>x), AbstractifyCRequestBatchToRequestBatch(tuple.candidate_learned_value));
 {
-    var pkts := AbstractifyEndPointsToNodeIdentities(tuple.received_2b_message_senders);
-    var value := AbstractifyCRequestBatchToRequestBatch(tuple.candidate_learned_value);
-    LearnerTuple(MapSeqToSet(pkts, x=>x), value)
+    if (LearnerTupleIsAbstractable(tuple)) then 
+        var pkts := AbstractifyEndPointsToNodeIdentities(tuple.received_2b_message_senders);
+        var value := AbstractifyCRequestBatchToRequestBatch(tuple.candidate_learned_value);
+        LearnerTuple(MapSeqToSet(pkts, x=>x), value)
+    else 
+        var lt:LearnerTuple :| (true); lt
 }
 
 predicate CLearnerTuplesAreAbstractable(tuples:map<COperationNumber,CLearnerTuple>)
@@ -57,13 +60,19 @@ predicate CLearnerTuplesAreAbstractable(tuples:map<COperationNumber,CLearnerTupl
 }
 
 function RefineOperationNumberToCOperationNumber(o:OperationNumber) : COperationNumber 
-    requires 0 <= o < 0x1_0000_0000_0000_0000;
+    // requires 0 <= o < 0x1_0000_0000_0000_0000;
+    ensures (0 <= o < 0x1_0000_0000_0000_0000) ==> RefineOperationNumberToCOperationNumber(o) == COperationNumber(uint64(o));
 {
-    COperationNumber(uint64(o))
+    if (0 <= o  && o < 0x1_0000_0000_0000_0000) then
+        COperationNumber(uint64(o))
+    else
+        var co:COperationNumber :| (true); co
 }
 
 function {:opaque} AbstractifyCLearnerTuplesToLearnerTuples(m:map<COperationNumber,CLearnerTuple>) : map<OperationNumber,LearnerTuple>
     requires CLearnerTuplesAreAbstractable(m);
+    ensures  var rm  := AbstractifyCLearnerTuplesToLearnerTuples(m);
+             forall k :: k in rm ==> (exists ck :: ck in m && AbstractifyCOperationNumberToOperationNumber(ck) == k);
 {
     AbstractifyMap(m, AbstractifyCOperationNumberToOperationNumber, AbstractifyCLearnerTupleToLearnerTuple, RefineOperationNumberToCOperationNumber)
 }
@@ -85,6 +94,7 @@ lemma lemma_AbstractifyCLearnerTuplesToLearnerTuples_properties(m:map<COperation
                 var rm' := AbstractifyCLearnerTuplesToLearnerTuples(RemoveElt(m, o));
                 rm' == RemoveElt(AbstractifyCLearnerTuplesToLearnerTuples(m), AbstractifyCOperationNumberToOperationNumber(o));
 {
+    var rm  := AbstractifyCLearnerTuplesToLearnerTuples(m);
     reveal_AbstractifyCLearnerTuplesToLearnerTuples();
 
     lemma_AbstractifyMap_properties(m, AbstractifyCOperationNumberToOperationNumber, AbstractifyCLearnerTupleToLearnerTuple, RefineOperationNumberToCOperationNumber);

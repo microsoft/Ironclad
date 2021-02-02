@@ -3,20 +3,20 @@ module Collections__Maps_i {
 
 // TODO_MODULE: module Collections__Maps_i {
 
-predicate eq_map<A, B>(x:map<A, B>, y:map<A, B>)
+predicate eq_map<A(!new), B>(x:map<A, B>, y:map<A, B>)
     ensures eq_map(x, y) ==> x == y;
 {
     (forall a :: a in x <==> a in y)
  && (forall a :: a in x ==> x[a] == y[a])
 }
 
-function method domain<U, V>(m: map<U,V>): set<U>
+function method domain<U(!new), V>(m: map<U,V>): set<U>
    ensures forall i :: i in domain(m) <==> i in m;
 {
    set s | s in m
 }
 
-function union<U, V>(m: map<U,V>, m': map<U,V>): map<U,V>
+function union<U(!new), V>(m: map<U,V>, m': map<U,V>): map<U,V>
    requires m !! m';
    ensures forall i :: i in union(m, m') <==> i in m || i in m';
    ensures forall i :: i in m ==> union(m, m')[i] == m[i];
@@ -25,7 +25,7 @@ function union<U, V>(m: map<U,V>, m': map<U,V>): map<U,V>
    map i{:auto_trigger} | i in (domain(m) + domain(m')) :: if i in m then m[i] else m'[i]
 }
 
-function method RemoveElt<U,V>(m:map<U,V>, elt:U) : map<U,V>
+function method RemoveElt<U(!new),V>(m:map<U,V>, elt:U) : map<U,V>
     requires elt in m;
     decreases |m|;
     ensures |RemoveElt(m, elt)| == |m| - 1;

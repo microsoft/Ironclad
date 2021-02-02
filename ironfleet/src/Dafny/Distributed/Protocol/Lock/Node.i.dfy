@@ -2,6 +2,7 @@ include "Types.i.dfy"
 
 module Protocol_Node_i {
 import opened Types_i
+import opened Native__Io_s
 
 type Config = seq<EndPoint>
 
@@ -11,13 +12,15 @@ predicate NodeInit(s:Node, my_index:int, config:Config)
 {
     s.epoch == (if my_index == 0 then 1 else 0)
  && 0 <= my_index < |config|
+ && s.my_index == my_index // change
  && s.held == (my_index == 0)
  && s.config == config
 }
 
 predicate NodeGrant(s:Node, s':Node, ios:seq<LockIo>)
 {
-    if s.held && s.epoch < 0xFFFF_FFFF_FFFF_FFFF then 
+    s.my_index == s'.my_index // change
+ && if s.held && s.epoch < 0xFFFF_FFFF_FFFF_FFFF then 
         !s'.held 
      && |ios| == 1 && ios[0].LIoOpSend?
      && |s.config| > 0
@@ -33,7 +36,8 @@ predicate NodeGrant(s:Node, s':Node, ios:seq<LockIo>)
 
 predicate NodeAccept(s:Node, s':Node, ios:seq<LockIo>)
 {
-    |ios| >= 1
+    s.my_index == s'.my_index // change
+ && |ios| >= 1
  && if ios[0].LIoOpTimeoutReceive? then 
         s == s' && |ios| == 1
     else

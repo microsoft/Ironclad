@@ -1270,6 +1270,7 @@ lemma lemma_CRequestBatchBound(c:CRequestBatch, val:V)
     requires ValInGrammar(val, CRequestBatch_grammar());
     requires ValidRequestBatch(c);
     requires parse_RequestBatch(val) == c;
+    decreases |c|;
     ensures  SeqSum(val.a) <= (16 + max_val_len())*|val.a|;
 {
     //ghost var gtuple := GTuple([EndPoint_grammar(), GUint64, CAppMessage_grammar()]);

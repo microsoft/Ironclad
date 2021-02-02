@@ -37,7 +37,7 @@ function {:opaque} AbstractifyCLastCheckpointedMapToOperationNumberSequence(s:CL
 // Finding the nth highest operation number
 //////////////////////////////////////////////////////////////////////////
 
-method SeqToArray<T>(s:seq<T>) returns (a:array<T>)
+method SeqToArray<T(0)>(s:seq<T>) returns (a:array<T>)
     ensures fresh(a);
     ensures a != null;
     ensures a.Length == |s|;
