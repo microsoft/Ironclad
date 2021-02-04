@@ -1,7 +1,4 @@
-include "../bases.i.dfy"
-
 module Math__power2_s {
-import opened Libraries__base_s
 
 // TODO_MODULE: module Math__power2_s {
 // TODO_MODULE: import opened Libraries__base_s
@@ -23,7 +20,6 @@ lemma lemma_power2_32()
   ensures power2(32) == 0x100000000
 {
   reveal power2();
-  assert unroll(1) && unroll(2) && unroll(3) && unroll(4) && unroll(5) && unroll(6) && unroll(7) && unroll(8);
   assert power2(0) == 0x1;
   assert power2(2) == 0x4;
   assert power2(4) == 0x10;
