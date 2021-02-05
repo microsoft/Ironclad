@@ -30,3 +30,4 @@ flycheck_*
 nohup.out
 *.vdfy
 *.tmp
+.sconsign.dblite
