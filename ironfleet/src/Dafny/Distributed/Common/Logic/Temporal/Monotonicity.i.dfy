@@ -40,7 +40,7 @@ function{:opaque} nextOrDecrease(goal:temporal, d:imap<int, int>):temporal
 // If d decreases unless A, then <>A.
 lemma TemporalInductionOfEventuallyFromDecreasingFunction(i:int, x:temporal, d:imap<int, int>)
   requires imaptotal(d)
-  requires forall j {:trigger sat(j, x)} :: i <= j ==> sat(j, x) || d[j+1] < d[j]
+  requires forall j {:trigger sat(j, x)} :: i <= j ==> sat(j, x) || d[nextstep(j)] < d[j]
   requires forall j :: d[j] >= 0
   ensures  sat(i, eventual(x))
   decreases d[i]
@@ -54,7 +54,7 @@ lemma TemporalInductionOfEventuallyFromDecreasingFunction(i:int, x:temporal, d:i
 
 lemma Lemma_MonotonicStepsLeadToMonotonicBehaviorPartial(i:int, f:imap<int, int>, j:int, k:int)
   requires imaptotal(f)
-  requires sat(i, always(stepmap(imap u :: f[u] <= f[u+1])))
+  requires sat(i, always(stepmap(imap u :: f[u] <= f[nextstep(u)])))
   requires i <= j <= k
   ensures  f[j] <= f[k]
   decreases k - j
@@ -64,7 +64,7 @@ lemma Lemma_MonotonicStepsLeadToMonotonicBehaviorPartial(i:int, f:imap<int, int>
   {
     Lemma_MonotonicStepsLeadToMonotonicBehaviorPartial(i, f, j, k-1);
     assert TLe(i, k-1);
-    assert sat(k-1, stepmap(imap a :: f[a] <= f[a+1]));
+    assert sat(k-1, stepmap(imap a :: f[a] <= f[nextstep(a)]));
   }
 }
 
@@ -72,7 +72,7 @@ lemma Lemma_MonotonicStepsLeadToMonotonicBehaviorPartial(i:int, f:imap<int, int>
 // across any pair of steps
 lemma Lemma_MonotonicStepsLeadToMonotonicBehavior(i:int, f:imap<int, int>)
   requires imaptotal(f)
-  requires sat(i, always(stepmap(imap j :: f[j] <= f[j+1])))
+  requires sat(i, always(stepmap(imap j :: f[j] <= f[nextstep(j)])))
   ensures  forall j, k :: i <= j <= k ==> f[j] <= f[k]
 {
   forall j, k | i <= j <= k

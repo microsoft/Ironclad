@@ -49,7 +49,18 @@ lemma TransitivityOfLeadsTo(i:int, x:temporal, y:temporal, z:temporal)
   requires sat(i, leadsto(y, z))
   ensures  sat(i, leadsto(x, z))
 {
-  TemporalAssist();
+  forall j | TLe(i, j)
+    ensures sat(j, imply(x, eventual(z)))
+  {
+    if sat(j, x) {
+      TemporalDeduceFromAlways(i, j, imply(x, eventual(y)));
+      var k := TemporalDeduceFromEventual(j, y);
+      TemporalDeduceFromAlways(i, k, imply(y, eventual(z)));
+      var m := TemporalDeduceFromEventual(k, z);
+      TemporalEventually(j, m, z);
+    }
+  }
+  TemporalAlways(i, imply(x, eventual(z)));
 }
 
 lemma TransitivityOfLeadsToGeneral()
@@ -153,7 +164,7 @@ lemma Lemma_LeadsToNextWithinNextImpliesLeadsToOtherNextWithinNext(
   forall j | TLe(i, j) && sat(j, x)
     ensures sat(j, next(eventuallynextwithin(action2, t, timefun)));
   {
-    var k :| TLe(j, k) && sat(k, nextbefore(action1, timefun[j+1] + t, timefun));
+    var k :| TLe(nextstep(j), k) && sat(k, nextbefore(action1, timefun[nextstep(j)] + t, timefun));
     assert TLe(i, k);
   }
 }
@@ -242,10 +253,14 @@ lemma Lemma_LeadsToTwoPossibilitiesWithinWithFirstStepAnAction(i:int, w:temporal
   {
     if sat(j, w)
     {
+      TemporalDeduceFromAlways(i, j, imply(w, or(eventuallynextwithin(x, t1, timefun), eventuallywithin(z, t1, timefun))));
+      assert sat(j, imply(w, or(eventuallynextwithin(x, t1, timefun), eventuallywithin(z, t1, timefun))));
       if sat(j, eventuallynextwithin(x, t1, timefun))
       {
         var k :| TLe(j, k) && sat(k, nextbefore(x, timefun[j] + t1, timefun));
-        var m :| TLe(k+1, m) && sat(m, beforeabsolutetime(or(y, z), timefun[k+1] + t2, timefun));
+        TemporalDeduceFromAlways(i, k, imply(x, next(eventuallywithin(or(y, z), t2, timefun))));
+        assert sat(nextstep(k), eventuallywithin(or(y, z), t2, timefun));
+        var m :| TLe(nextstep(k), m) && sat(m, beforeabsolutetime(or(y, z), timefun[k+1] + t2, timefun));
         assert TLe(j, m);
         assert sat(j, eventuallywithin(or(y, z), t1 + t2, timefun));
       }
@@ -273,11 +288,16 @@ lemma Lemma_LeadsToWithinLeadsToTransition(i:int, x:temporal, y:temporal, t:int,
   {
     if sat(j, x)
     {
-      var k :| j <= k && sat(k, beforeabsolutetime(y, timefun[j] + t, timefun));
+      TemporalDeduceFromAlways(i, j, imply(x, eventuallywithin(y, t, timefun)));
+      var k := TemporalDeduceFromEventual(j, beforeabsolutetime(y, timefun[j] + t, timefun));
       var m := earliestStep(j, y);
+      TemporalDeduceFromAlways(i, j, imply(x, not(y)));
+      assert j != m;
       var prev := m-1;
+      assert j <= prev < m;
       assert !sat(prev, y);
       assert sat(prev, and(not(y), next(y)));
+      TemporalEventually(j, prev, nextbefore(and(not(y), next(y)), timefun[j] + t, timefun));
     }
   }
 }
@@ -296,6 +316,7 @@ lemma Lemma_LeadsToWithinOrSomethingLeadsToTransitionOrSomething(i:int, x:tempor
   {
     if sat(j, x)
     {
+      TemporalDeduceFromAlways(i, j, imply(x, eventuallywithin(or(y, z), t, timefun)));
       var k :| j <= k && sat(k, beforeabsolutetime(or(y, z), timefun[j] + t, timefun));
       if sat(k, z)
       {
@@ -306,8 +327,10 @@ lemma Lemma_LeadsToWithinOrSomethingLeadsToTransitionOrSomething(i:int, x:tempor
       {
         var m := earliestStep(j, y);
         var prev := m-1;
+        TemporalDeduceFromAlways(i, j, imply(x, not(y)));
         assert !sat(prev, y);
         assert sat(prev, and(not(y), next(y)));
+        TemporalEventually(j, prev, nextbefore(and(not(y), next(y)), timefun[j] + t, timefun));
         assert sat(j, eventuallynextwithin(and(not(y), next(y)), t, timefun));
       }
     }

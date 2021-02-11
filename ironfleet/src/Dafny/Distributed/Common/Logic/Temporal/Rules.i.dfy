@@ -9,34 +9,34 @@ import opened Collections__Maps2_i
 // DEFINITIONS
 ///////////////////
     
-function{:opaque} eventualStep(start:int, x:temporal):int
+function{:opaque} eventualStep(start:int, x:temporal):(step:int)
   requires sat(start, eventual(x))
-  ensures  sat(eventualStep(start, x), x)
-  ensures  TLe(start, eventualStep(start, x))
+  ensures  sat(step, x)
+  ensures  TLe(start, step)
 {
   TemporalAssist();
   var end :| TLe(start, end) && sat(end, x);
   end
 }
 
-function{:opaque} earliestStepBetween(start:int, end:int, x:temporal):int
+function{:opaque} earliestStepBetween(start:int, end:int, x:temporal):(pos:int)
   requires sat(end, x)
   requires TLe(start, end)
-  ensures  sat(earliestStepBetween(start, end, x), x)
-  ensures  TLe(start, earliestStepBetween(start, end, x))
-  ensures  TLe(earliestStepBetween(start, end, x), end)
-  ensures  forall i :: start <= i < earliestStepBetween(start, end, x) ==> !sat(i, x)
+  ensures  sat(pos, x)
+  ensures  TLe(start, pos)
+  ensures  TLe(pos, end)
+  ensures  forall i :: start <= i < pos ==> !sat(i, x)
   decreases end - start
 {
   if (sat(start, x)) then start
   else earliestStepBetween(start + 1, end, x)
 }
 
-function{:opaque} earliestStep(start:int, x:temporal):int
+function{:opaque} earliestStep(start:int, x:temporal):(step:int)
   requires sat(start, eventual(x))
-  ensures  sat(earliestStep(start, x), x)
-  ensures  TLe(start, earliestStep(start, x))
-  ensures  forall i :: start <= i < earliestStep(start, x) ==> !sat(i, x)
+  ensures  sat(step, x)
+  ensures  TLe(start, step)
+  ensures  forall i :: start <= i < step ==> !sat(i, x)
 {
   earliestStepBetween(start, eventualStep(start, x), x)
 }

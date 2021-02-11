@@ -18,7 +18,7 @@ lemma TemporalInductionNextPartial(i1:int, i2:int, x:temporal)
   {
     assert sat(i1, always(imply(x, next(x))));
     assert sat(i1, imply(x, next(x)));
-    TemporalInductionNextPartial(i1 + 1, i2, x);
+    TemporalInductionNextPartial(nextstep(i1), i2, x);
   }
 }
 
@@ -40,25 +40,25 @@ lemma TemporalInductionNext(i:int, x:temporal)
 
 lemma TemporalInductionPartial(i1:int, i2:int, x:temporal)
   requires sat(i1, x)
-  requires sat(i1, always(stepmap(imap j :: sat(j, x) ==> sat(j + 1, x))))
+  requires sat(i1, always(stepmap(imap j :: sat(j, x) ==> sat(nextstep(j), x))))
   ensures  forall j :: i1 <= j <= i2 ==> sat(j, x)
   decreases i2 - i1
 {
   TemporalAssist();
   if (i1 < i2)
   {
-    assert sat(i1, stepmap(imap j :: sat(j, x) ==> sat(j + 1, x)));
-    TemporalInductionPartial(i1 + 1, i2, x);
+    assert sat(i1, stepmap(imap j :: sat(j, x) ==> sat(nextstep(j), x)));
+    TemporalInductionPartial(nextstep(i1), i2, x);
   }
 }
     
 // A && [](A ==> ()A) ==> []A
 lemma TemporalInduction(i:int, x:temporal)
   requires sat(i, x)
-  requires sat(i, always(stepmap(imap j :: sat(j, x) ==> sat(j + 1, x))))
+  requires sat(i, always(stepmap(imap j :: sat(j, x) ==> sat(nextstep(j), x))))
   ensures  sat(i, always(x))
 {
-  assert sat(i, always(stepmap(imap j :: sat(j, x) ==> sat(j + 1, x))));
+  assert sat(i, always(stepmap(imap j :: sat(j, x) ==> sat(nextstep(j), x))));
   TemporalAssist();
   forall j | i <= j
     ensures sat(j, x)
@@ -80,7 +80,7 @@ lemma TemporalInductionNextWithInvariantPartial(i1:int, i2:int, x:temporal, inv:
     assert sat(i1, always(imply(and(x, inv), next(x))));
     assert sat(i1, imply(and(x, inv), next(x)));
     assert sat(i1, imply(x, next(x)));
-    TemporalInductionNextPartial(i1 + 1, i2, x);
+    TemporalInductionNextWithInvariantPartial(nextstep(i1), i2, x, inv);
   }
 }
 

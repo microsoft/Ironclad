@@ -9,8 +9,10 @@ import opened LiveRSL__DistributedSystem_i
 import opened LiveRSL__Environment_i
 import opened Temporal__Temporal_s
 import opened Temporal__Heuristics_i
+import opened Temporal__Rules_i
 import opened CommonProof__Assumptions_i
 import opened CommonProof__Constants_i
+import opened Environment_s
 
 lemma lemma_PacketStaysInSentPackets(
   b:Behavior<RslState>,

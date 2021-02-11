@@ -76,9 +76,9 @@ function{:opaque} HostQueuesNextTemporal<IdType, MessageType>(
   b:Behavior<LEnvironment<IdType, MessageType>>
   ):temporal
   requires imaptotal(b)
-  ensures  forall i{:trigger sat(i, HostQueuesNextTemporal(b))} :: sat(i, HostQueuesNextTemporal(b)) == HostQueues_Next(b[i], b[i+1])
+  ensures  forall i{:trigger sat(i, HostQueuesNextTemporal(b))} :: sat(i, HostQueuesNextTemporal(b)) == HostQueues_Next(b[i], b[nextstep(i)])
 {
-  stepmap(imap i :: HostQueues_Next(b[i], b[i+1]))
+  stepmap(imap i :: HostQueues_Next(b[i], b[nextstep(i)]))
 }
 
 predicate HostQueuesLive<IdType, MessageType>(

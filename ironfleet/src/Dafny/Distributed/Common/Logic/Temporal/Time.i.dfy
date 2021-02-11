@@ -106,6 +106,12 @@ function stepattimeboundary(i:int, j:int, t:int, timefun:imap<int, int>):int
   if i == j then i else if timefun[j-1] <= t then j-1 else stepattimeboundary(i, j-1, t, timefun)
 }
 
+predicate TimeNotZeno(timefun:imap<int, int>)
+  requires imaptotal(timefun)
+{
+  forall t :: sat(0, eventual(after(t, timefun)))
+}
+
 /////////////////////////
 // LEMMAS
 /////////////////////////
@@ -126,7 +132,7 @@ lemma TemporalEventuallyNextWithin(i:int, j:int, x:temporal, span:int, timefun:i
   requires sat(j+1, before(timefun[i] + span, timefun))
   ensures  sat(i, eventuallynextwithin(x, span, timefun))
 {
-  TemporalAssist();
+  TemporalEventually(i, j, nextbefore(x, timefun[i] + span, timefun));
 }
 
 lemma Lemma_EventuallyWithinSpansHelper(start:int, start':int, d:imap<int, int>, goal:temporal, span:int, timefun:imap<int, int>)
@@ -304,7 +310,7 @@ lemma Lemma_AlwaysEventuallyWithinMeansAlwaysEventuallyWithinAfter(i:int, action
   requires monotonic_from(0, timefun)
   requires wait >= 0
   requires span >= 0
-  requires forall rt :: sat(0, eventual(after(rt, timefun)))
+  requires TimeNotZeno(timefun)
   requires sat(i, always(eventuallynextwithin(action, span, timefun)))
   requires 0 <= i
   ensures  i <= step
@@ -329,7 +335,7 @@ lemma Lemma_AlwaysEventuallyWithinImpliesAfter(i:int, j:int, action:temporal, sp
   requires imaptotal(timefun)
   requires monotonic_from(0, timefun)
   requires span >= 0
-  requires forall t :: sat(0, eventual(after(t, timefun)))
+  requires TimeNotZeno(timefun)
   requires sat(i, always(eventuallynextwithin(action, span, timefun)))
   requires 0 <= i <= j
   ensures  j <= step
@@ -397,7 +403,7 @@ lemma TemporalDeduceFromAlwaysWithin(i:int, j:int, x:temporal, span:int, timefun
 
 predicate{:opaque} monotonic_from_opaque(start:int, f:imap<int, int>)
 {
-  forall i1, i2 :: i1 in f && i2 in f && start <= i1 <= i2 ==> f[i1] <= f[i2]
+  forall i1, i2 {:trigger f[i1], f[i2]} :: i1 in f && i2 in f && start <= i1 <= i2 ==> f[i1] <= f[i2]
 }
 
 function{:opaque} actionGoalDecrease(i1:int, goal:temporal, d:imap<int, int>):temporal
@@ -505,7 +511,7 @@ lemma Lemma_CountWithinLeMultiple(start:int, n:nat, count:int, x:temporal, span:
   decreases n
 {
   TemporalAssist();
-  reveal_monotonic_from_opaque();
+  reveal monotonic_from_opaque();
   forall i1 | TLe(start, i1)
     ensures sat(i1, countWithinLe(count * n, x, span * n, timefun))
   {
@@ -571,7 +577,7 @@ lemma Lemma_CountWithinGeMultiple(start:int, n:nat, count:int, x:temporal, span:
   decreases n
 {
   TemporalAssist();
-  reveal_monotonic_from_opaque();
+  reveal monotonic_from_opaque();
   forall i1 | TLe(start, i1)
     ensures sat(i1, countWithinGe(count * n, x, span * n, timefun))
   {
@@ -679,7 +685,7 @@ lemma Lemma_CountIncrDecr(i1:int, d:imap<int, int>, nIncr:int, nDecr:int, incr:t
   ensures  nDecr > 0 ==> i2 > i1
 {
   TemporalAssist();
-  reveal_monotonic_from_opaque();
+  reveal monotonic_from_opaque();
   i2 :| TLe(i1, i2) && timefun[i2] <= timefun[i1] + span && countWithin(i1, i2, decr) >= nDecr;
   assert TLe(i1, i2) && timefun[i2] <= timefun[i1] + span ==> countWithin(i1, i2, incr) <= nIncr;
 
@@ -740,7 +746,7 @@ lemma Lemma_CountIncr(i1:int, d:imap<int, int>, nIncr:int, incr:temporal, span:i
   ensures  sat(i1, alwayswithin(stepmap(imap i :: d[i] <= d[i1] + nIncr), span, timefun))
 {
   TemporalAssist();
-  reveal_monotonic_from_opaque();
+  reveal monotonic_from_opaque();
 
   var f2 := imap i :: d[i] <= d[i1] + nIncr;
   forall i | TLe(i1, i) && timefun[i] <= timefun[i1] + span

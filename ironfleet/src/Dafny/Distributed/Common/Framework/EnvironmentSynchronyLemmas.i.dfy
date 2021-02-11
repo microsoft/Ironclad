@@ -627,6 +627,9 @@ lemma Lemma_ReceiveAttemptNoDecr<IdType, MessageType>(
     }
 
     assert d[i3] == d[i3 + 1];
+    var k := TemporalDeduceFromEventual(i3, nextbefore(ReceiveAttemptedTemporal(b, p.dst), timefun[i3] + r, timefun));
+    assert k != i3;
+    TemporalEventually(i3 + 1, k, nextbefore(ReceiveAttemptedTemporal(b, p.dst), timefun[i3] + r, timefun));
     Lemma_ReceiveAttemptNoDecr(i2, i3 + 1, i4, b, p, d, r, timefun);
   }
 }
@@ -1046,10 +1049,17 @@ lemma Lemma_EventuallyAllPacketsAlwaysReceivedInTimeHelper3<IdType, MessageType>
       }
       forall ensures sat(i1, next(eventuallynextwithin(goal, lb + bs * r, timefun)))
       {
-        TemporalAssist();
-        var i3 :| TLe(i2 + 1, i3) && sat(i3, goal) && timefun[i3 + 1] <= timefun[i2 + 1] + r * bs;
-        assert TLe(i1, i3);
-        forall ensures bs * r == r * bs { lemma_mul_auto(); }
+        var i3 := TemporalDeduceFromEventual(i2 + 1, nextbefore(goal, timefun[i2 + 1] + (r * bs), timefun));
+        calc {
+          timefun[i3 + 1];
+          <= timefun[i2 + 1] + (r * bs);
+          == { lemma_mul_auto(); }
+             timefun[i2 + 1] + (bs * r);
+          <= { assert timefun[i2 + 1] <= timefun[i1 + 1] + lb; }
+            (timefun[i1 + 1] + lb) + (bs * r);
+          == timefun[i1 + 1] + (lb + (bs * r));
+        }
+        TemporalEventually(i1 + 1, i3, nextbefore(goal, timefun[i1 + 1] + (lb + bs * r), timefun));
       }
     }
   }

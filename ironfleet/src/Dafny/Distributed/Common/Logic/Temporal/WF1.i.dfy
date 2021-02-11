@@ -52,12 +52,31 @@ lemma TemporalWF1(i:int, P:temporal, Q:temporal, Action:temporal)
   requires sat(i, always(eventual(Action)))
   ensures  sat(i, leadsto(P, Q))
 {
-  TemporalAssist();
-        
   if !sat(i, leadsto(P, Q)) {
-    assert sat(i, eventual(and(P, not(eventual(Q)))));
-    var j :| TLe(i, j) && sat(j, and(P, not(eventual(Q))));
-    TemporalInductionNext(j, P);
+    TemporalDeduceFromAlways(i, i, imply(P, or(Q, next(or(P, Q)))));
+    TemporalNot(i, imply(P, eventual(Q)));
+    var j := TemporalDeduceFromEventual(i, not(imply(P, eventual(Q))));
+    assert TLe(i, j) && sat(j, and(P, not(eventual(Q))));
+    TemporalNot(j, Q);
+    assert sat(j, always(not(Q)));
+    TemporalDeduceFromAlways(i, j, eventual(Action));
+    var k := TemporalDeduceFromEventual(j, Action);
+    var m := j;
+    while m < k
+      invariant j <= m <= k
+      invariant sat(m, P)
+    {
+      TemporalDeduceFromAlways(i, m, imply(P, or(Q, next(or(P, Q)))));
+      TemporalDeduceFromAlways(j, m, not(Q));
+      assert sat(m, next(or(P, Q)));
+      TemporalDeduceFromAlways(j, m + 1, not(Q));
+      m := m + 1;
+    }
+    assert sat(k, P);
+    TemporalDeduceFromAlways(i, k, imply(and(P, Action), or(Q, next(Q))));
+    TemporalDeduceFromAlways(j, k, not(Q));
+    TemporalDeduceFromAlways(j, k + 1, not(Q));
+    assert false;
   }
 }
 
@@ -71,14 +90,24 @@ lemma TemporalWF1Specific(i:int, action_step:int, P:temporal, Q:temporal) return
 {
   if sat(action_step, P)
   {
+    assert sat(i, TemporalWF1Req1(P, Q));
     q_step := if sat(action_step, Q) then action_step else action_step + 1;
     return;
   }
-  
-  var transition_step := earliestStepBetween(i, action_step, not(P)) - 1;
-  assert i <= transition_step < action_step;
+
+  var first_non_p_step := earliestStepBetween(i, action_step, not(P));
+  assert sat(first_non_p_step, not(P));
+  var transition_step := first_non_p_step - 1;
+  assert first_non_p_step != i;
   assert sat(transition_step, TemporalWF1Req1(P, Q));
-  q_step := if sat(transition_step, Q) then transition_step else transition_step + 1;
+  assert !sat(transition_step, not(P));
+  if sat(transition_step, Q) {
+    q_step := transition_step;
+  }
+  else {
+    assert sat(transition_step, next(or(P, Q)));
+    q_step := first_non_p_step;
+  }
 }
 
 lemma TemporalWF1RealTime(i:int, P:temporal, Q:temporal, action:temporal, span:int, timefun:imap<int, int>)
@@ -89,34 +118,47 @@ lemma TemporalWF1RealTime(i:int, P:temporal, Q:temporal, action:temporal, span:i
   requires sat(i, always(eventuallynextwithin(action, span, timefun)))
   ensures  sat(i, leadstowithin(P, Q, span, timefun))
 {
-  TemporalAssist();
   forall j | TLe(i, j) && sat(j, P)
     ensures sat(j, eventuallywithin(Q, span, timefun));
   {
-    var k :| TLe(j, k) && sat(k, nextbefore(action, timefun[j] + span, timefun));
+    TemporalDeduceFromAlways(i, j, eventuallynextwithin(action, span, timefun));
+    var k := TemporalDeduceFromEventual(j, nextbefore(action, timefun[j] + span, timefun));
+    assert TLe(j, k) && sat(k, nextbefore(action, timefun[j] + span, timefun));
+    assert timefun[nextstep(k)] <= timefun[j] + span;
     if !sat(j, eventuallywithin(Q, span, timefun))
     {
-      assert TLe(j, k+1);
-      assert !sat(k+1, Q);
-      var m := imap b :: b > k;
-      var x := or(P, stepmap(m));
-      forall a | TLe(j, a)
-        ensures sat(a, x) ==> sat(a+1, x);
+      assert !sat(j, eventual(beforeabsolutetime(Q, timefun[j] + span, timefun)));
+      TemporalNot(j, beforeabsolutetime(Q, timefun[j] + span, timefun));
+      assert sat(j, always(not(beforeabsolutetime(Q, timefun[j] + span, timefun))));
+      TemporalDeduceFromAlways(j, nextstep(k), not(beforeabsolutetime(Q, timefun[j] + span, timefun)));
+      assert !sat(nextstep(k), Q);
+      var a := j;
+      while a < k
+        invariant j <= a <= k
+        invariant sat(a, P)
       {
-        if a < k
-        {
-          assert timefun[a] <= timefun[a+1] <= timefun[k] <= timefun[j] + span;
-          assert TLe(j, a);
-          assert !sat(a, Q);
-          assert TLe(j, a+1);
-          assert !sat(a+1, Q);
-        }
+        assert timefun[a] <= timefun[nextstep(a)] <= timefun[k] <= timefun[j] + span;
+        TemporalDeduceFromAlways(j, a, not(beforeabsolutetime(Q, timefun[j] + span, timefun)));
+        TemporalDeduceFromAlways(i, a, imply(P, or(Q, next(or(P, Q)))));
+        TemporalDeduceFromAlways(j, nextstep(a), not(beforeabsolutetime(Q, timefun[j] + span, timefun)));
+        a := a + 1;
       }
-      TemporalInductionNext(j, x);
-      assert sat(k, x);
-      assert false;
+      assert sat(k, P);
+      TemporalDeduceFromAlways(i, k, imply(and(P, action), or(Q, next(Q))));
+      assert sat(k, or(Q, next(Q)));
+      if sat(k, Q) {
+        assert i <= k <= k + 0 + 1; // saying "k + 1" triggers too many facts
+        assert timefun[k] <= timefun[nextstep(k)];
+        assert sat(k, beforeabsolutetime(Q, timefun[j] + span, timefun));
+        TemporalDeduceFromAlways(j, k, not(beforeabsolutetime(Q, timefun[j] + span, timefun)));
+      }
+      else {
+        assert sat(k, next(Q));
+        assert false;
+      }
     }
   }
+  TemporalAlways(i, imply(P, eventuallywithin(Q, span, timefun)));
   assert sat(i, leadstowithin(P, Q, span, timefun));
 }
 
@@ -124,7 +166,7 @@ lemma TemporalWF1RealTimeDelayed(i:int, P:temporal, Q:temporal, action:temporal,
   returns (step:int)
   requires imaptotal(timefun)
   requires monotonic_from(0, timefun)
-  requires forall t :: sat(0, eventual(after(t, timefun)))
+  requires TimeNotZeno(timefun)
   requires 0 <= span
   requires 0 <= i
   requires sat(i, P)
@@ -149,7 +191,8 @@ lemma TemporalWF1RealTimeDelayed(i:int, P:temporal, Q:temporal, action:temporal,
   {
     TemporalNot(i, P);
     var k := earliestStep(i, not(P));
-    assert sat(k-1, P);
+    assert k != i;
+    assert sat(k-1, not(not(P)));
     assert sat(k, not(P));
     if k > j + 1
     {
@@ -178,7 +221,7 @@ lemma TemporalWF1RealTimeDelayedImmediateQ(i:int, P:temporal, Q:temporal, action
   returns (step:int)
   requires imaptotal(timefun)
   requires monotonic_from(0, timefun)
-  requires forall t :: sat(0, eventual(after(t, timefun)))
+  requires TimeNotZeno(timefun)
   requires 0 <= span
   requires 0 <= i
   requires sat(i, P)
@@ -203,7 +246,8 @@ lemma TemporalWF1RealTimeDelayedImmediateQ(i:int, P:temporal, Q:temporal, action
   {
     TemporalNot(i, P);
     var k := earliestStep(i, not(P));
-    assert sat(k-1, P);
+    assert k != i;
+    assert sat(k-1, not(not(P)));
     assert sat(k, not(P));
     if k > j + 1
     {

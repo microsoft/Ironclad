@@ -113,9 +113,9 @@ predicate LEnvironment_Next<IdType, MessageType>(
 function{:opaque} EnvironmentNextTemporal<IdType,MessageType>(b:Behavior<LEnvironment<IdType, MessageType>>):temporal
   requires imaptotal(b)
   ensures forall i {:trigger sat(i, EnvironmentNextTemporal(b))} ::
-              sat(i, EnvironmentNextTemporal(b)) <==> LEnvironment_Next(b[i], b[i+1])
+              sat(i, EnvironmentNextTemporal(b)) <==> LEnvironment_Next(b[i], b[nextstep(i)])
 {
-  stepmap(imap i :: LEnvironment_Next(b[i], b[i+1]))
+  stepmap(imap i :: LEnvironment_Next(b[i], b[nextstep(i)]))
 }
 
 predicate LEnvironment_BehaviorSatisfiesSpec<IdType, MessageType>(

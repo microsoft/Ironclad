@@ -1,6 +1,6 @@
 module Collections__CountMatches_i {
 
-function CountMatchesInSeq<T(!new)>(s:seq<T>, f:T->bool):int
+function CountMatchesInSeq<T(!new)>(s:seq<T>, f:T-->bool):int
   reads f.reads
   requires forall x :: f.requires(x)
 {
@@ -10,7 +10,7 @@ function CountMatchesInSeq<T(!new)>(s:seq<T>, f:T->bool):int
     CountMatchesInSeq(s[1..], f) + if f(s[0]) then 1 else 0
 }
 
-function CountMatchesInMultiset<T(!new)>(m:multiset<T>, f:T->bool):int
+function CountMatchesInMultiset<T(!new)>(m:multiset<T>, f:T-->bool):int
   reads f.reads
   requires forall x :: f.requires(x)
 {
@@ -21,7 +21,7 @@ function CountMatchesInMultiset<T(!new)>(m:multiset<T>, f:T->bool):int
     CountMatchesInMultiset(m - multiset{x}, f) + if f(x) then 1 else 0
 }
 
-lemma Lemma_RemovingElementAffectsCount<T>(m:multiset<T>, f:T->bool, x:T)
+lemma Lemma_RemovingElementAffectsCount<T>(m:multiset<T>, f:T-->bool, x:T)
   requires forall u :: f.requires(u)
   requires x in m
   ensures  CountMatchesInMultiset(m, f) - CountMatchesInMultiset(m - multiset{x}, f) == if f(x) then 1 else 0
@@ -38,7 +38,7 @@ lemma Lemma_RemovingElementAffectsCount<T>(m:multiset<T>, f:T->bool, x:T)
   }
 }
 
-lemma Lemma_MatchCountInSeqIsMatchCountInMultiset<T>(s:seq<T>, m:multiset<T>, f:T->bool)
+lemma Lemma_MatchCountInSeqIsMatchCountInMultiset<T>(s:seq<T>, m:multiset<T>, f:T-->bool)
   requires forall x :: f.requires(x)
   requires m == multiset(s)
   ensures  CountMatchesInSeq(s, f) == CountMatchesInMultiset(m, f)
@@ -77,7 +77,7 @@ lemma Lemma_SequenceToMultisetPreservesIsNthHighestValue(v:int, s:seq<int>, m:mu
   Lemma_MatchCountInSeqIsMatchCountInMultiset(s, m, x => x >= v);
 }
 
-lemma Lemma_CountMatchesInSeqSameForSameFunctions<T>(s:seq<T>, f1:T->bool, f2:T->bool)
+lemma Lemma_CountMatchesInSeqSameForSameFunctions<T>(s:seq<T>, f1:T-->bool, f2:T-->bool)
   requires forall x :: f1.requires(x)
   requires forall x :: f2.requires(x)
   requires forall x :: f1(x) == f2(x)
@@ -85,20 +85,20 @@ lemma Lemma_CountMatchesInSeqSameForSameFunctions<T>(s:seq<T>, f1:T->bool, f2:T-
 {
 }
 
-lemma Lemma_CountMatchesInSeqBounds<T>(s:seq<T>, f:T->bool)
+lemma Lemma_CountMatchesInSeqBounds<T>(s:seq<T>, f:T-->bool)
   requires forall x :: f.requires(x)
   ensures  0 <= CountMatchesInSeq(s, f) <= |s|
 {
 }
 
-lemma Lemma_CountMatchesInSeqAll<T>(s:seq<T>, f:T->bool)
+lemma Lemma_CountMatchesInSeqAll<T>(s:seq<T>, f:T-->bool)
   requires forall x :: f.requires(x)
   requires forall x :: x in s ==> f(x)
   ensures  CountMatchesInSeq(s, f) == |s|
 {
 }
 
-lemma Lemma_CountMatchesInSeqCorrespondence<T1, T2>(s1:seq<T1>, f1:T1->bool, s2:seq<T2>, f2:T2->bool)
+lemma Lemma_CountMatchesInSeqCorrespondence<T1, T2>(s1:seq<T1>, f1:T1-->bool, s2:seq<T2>, f2:T2-->bool)
   requires forall x :: f1.requires(x)
   requires forall x :: f2.requires(x)
   requires |s1| == |s2|
@@ -107,7 +107,7 @@ lemma Lemma_CountMatchesInSeqCorrespondence<T1, T2>(s1:seq<T1>, f1:T1->bool, s2:
 {
 }
 
-function{:opaque} EnumerateMatchesInSeq<T(!new)>(s:seq<T>, f:T->bool):seq<T>
+function{:opaque} EnumerateMatchesInSeq<T(!new)>(s:seq<T>, f:T-->bool):seq<T>
   reads f.reads
   requires forall x :: f.requires(x)
   ensures  forall x :: (x in s && f(x)) <==> x in EnumerateMatchesInSeq(s, f)
@@ -121,7 +121,7 @@ function{:opaque} EnumerateMatchesInSeq<T(!new)>(s:seq<T>, f:T->bool):seq<T>
     EnumerateMatchesInSeq(s[1..], f)
 }
 
-function EnumerateIndicesOfMatchesInSeq_Helper<T(!new)>(s:seq<T>, f:T->bool, offset:int):seq<int>
+function EnumerateIndicesOfMatchesInSeq_Helper<T(!new)>(s:seq<T>, f:T-->bool, offset:int):seq<int>
   reads f.reads
   requires forall x :: f.requires(x)
   ensures  forall i :: i in EnumerateIndicesOfMatchesInSeq_Helper(s, f, offset) ==> offset <= i < offset + |s|
@@ -137,7 +137,7 @@ function EnumerateIndicesOfMatchesInSeq_Helper<T(!new)>(s:seq<T>, f:T->bool, off
     EnumerateIndicesOfMatchesInSeq_Helper(s[1..], f, offset + 1)
 }
 
-function{:opaque} EnumerateIndicesOfMatchesInSeq<T(!new)>(s:seq<T>, f:T->bool):seq<int>
+function{:opaque} EnumerateIndicesOfMatchesInSeq<T(!new)>(s:seq<T>, f:T-->bool):seq<int>
   reads f.reads
   requires forall x :: f.requires(x)
   ensures  forall i :: (0 <= i < |s| && f(s[i])) <==> i in EnumerateIndicesOfMatchesInSeq(s, f)
@@ -146,7 +146,7 @@ function{:opaque} EnumerateIndicesOfMatchesInSeq<T(!new)>(s:seq<T>, f:T->bool):s
   EnumerateIndicesOfMatchesInSeq_Helper(s, f, 0)
 }
 
-function SetOfIndicesOfMatchesInSeq_Helper<T(!new)>(s:seq<T>, f:T->bool, offset:int):set<int>
+function SetOfIndicesOfMatchesInSeq_Helper<T(!new)>(s:seq<T>, f:T-->bool, offset:int):set<int>
   reads f.reads
   requires forall x :: f.requires(x)
   ensures  forall i :: i in SetOfIndicesOfMatchesInSeq_Helper(s, f, offset) ==> offset <= i < offset + |s|
@@ -162,7 +162,7 @@ function SetOfIndicesOfMatchesInSeq_Helper<T(!new)>(s:seq<T>, f:T->bool, offset:
     SetOfIndicesOfMatchesInSeq_Helper(s[1..], f, offset + 1)
 }
 
-function{:opaque} SetOfIndicesOfMatchesInSeq<T(!new)>(s:seq<T>, f:T->bool):set<int>
+function{:opaque} SetOfIndicesOfMatchesInSeq<T(!new)>(s:seq<T>, f:T-->bool):set<int>
   reads f.reads
   requires forall x :: f.requires(x)
   ensures  forall i :: (0 <= i < |s| && f(s[i])) <==> i in SetOfIndicesOfMatchesInSeq(s, f)
