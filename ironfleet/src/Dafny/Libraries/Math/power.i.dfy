@@ -204,13 +204,10 @@ lemma lemma_power_auto()
 
 lemma lemma_power_positive(b:int, e:nat)
   requires 0<b
-  ensures (forall i :: i in imap u :: 0 <= u ==> 0 < power(b, u) )==> 0<power(b,e)
+  ensures  0<power(b,e)
 {
   lemma_power_auto();
-  if (forall i :: i in imap u :: 0 <= u ==> 0 < power(b, u))
-  {
-    lemma_mul_auto_induction(e, imap u:int :: 0 <= u ==> 0 < power(b, u));
-  }
+  lemma_mul_auto_induction(e, imap u:int :: 0 <= u ==> 0 < power(b, u));
 }
 
 lemma lemma_power_increases(b:nat,e1:nat,e2:nat)
