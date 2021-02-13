@@ -5,11 +5,21 @@ include "CClockReading.i.dfy"
 include "Broadcast.i.dfy"
 
 module LiveRSL__UdpRSL_i {
+import opened Native__Io_s
+import opened Native__NativeTypes_s
+import opened Common__GenericMarshalling_i
+import opened Common__NodeIdentity_i
 import opened Common__UdpClient_i
-import opened LiveRSL__PacketParsing_i
-import opened LiveRSL__CPaxosConfiguration_i
+import opened Common__Util_i
 import opened LiveRSL__CClockReading_i
+import opened LiveRSL__CMessage_i
+import opened LiveRSL__CMessageRefinements_i
+import opened LiveRSL__CPaxosConfiguration_i
+import opened LiveRSL__Environment_i
+import opened LiveRSL__PacketParsing_i
 import opened Impl__LiveRSL__Broadcast_i 
+import opened Logic__Option_i
+import opened Environment_s
 
 //////////////////////////////////////////////////////////////////////////////
 // These functions relate UdpEvent to LiveRSL's LIoOps.
@@ -17,11 +27,11 @@ import opened Impl__LiveRSL__Broadcast_i
 
 predicate UdpEventIsAbstractable(evt:UdpEvent)
 {
-    match evt
-        case LIoOpSend(s) => UdpPacketIsAbstractable(s)
-        case LIoOpReceive(r) => UdpPacketIsAbstractable(r)
-        case LIoOpTimeoutReceive => true
-        case LIoOpReadClock(t) => true
+  match evt
+    case LIoOpSend(s) => UdpPacketIsAbstractable(s)
+    case LIoOpReceive(r) => UdpPacketIsAbstractable(r)
+    case LIoOpTimeoutReceive => true
+    case LIoOpReadClock(t) => true
 }
 
 function AbstractifyUdpEventToRslIo(evt:UdpEvent) : RslIo
@@ -31,7 +41,7 @@ function AbstractifyUdpEventToRslIo(evt:UdpEvent) : RslIo
         case LIoOpSend(s) => LIoOpSend(AbstractifyUdpPacketToRslPacket(s))
         case LIoOpReceive(r) => LIoOpReceive(AbstractifyUdpPacketToRslPacket(r))
         case LIoOpTimeoutReceive => LIoOpTimeoutReceive()
-        case LIoOpReadClock(t) => LIoOpReadClock(int(t))
+        case LIoOpReadClock(t) => LIoOpReadClock(t as int)
 }
 
 predicate UdpEventLogIsAbstractable(rawlog:seq<UdpEvent>)
@@ -74,7 +84,6 @@ predicate OnlySentMarshallableData(rawlog:seq<UdpEvent>)
 datatype ReceiveResult = RRFail() | RRTimeout() | RRPacket(cpacket:CPacket)
 
 method GetEndPoint(ipe:IPEndPoint) returns (ep:EndPoint)
-    requires ipe!=null;
     ensures ep == ipe.EP();
     ensures EndPointIsValidIPV4(ep);
 {
@@ -125,7 +134,6 @@ method{:timeLimitMultiplier 2} Receive(udpClient:UdpClient, localAddr:EndPoint, 
 
     udpEvent := LIoOpReceive(LPacket(udpClient.LocalEndPoint(), remote.EP(), buffer[..]));
     assert udpClient.env.udp.history() == old_udp_history + [udpEvent];
-    assert remote!=null;
     var start_time := Time.GetDebugTimeTicks();
     lemma_CMessageGrammarValid();
     var cmessage := PaxosDemarshallDataMethod(buffer, msg_grammar);
@@ -185,14 +193,14 @@ method ReadClock(udpClient:UdpClient) returns (clock:CClockReading, ghost clockE
     ensures udpClient.env == old(udpClient.env);
     ensures old(udpClient.env.udp.history()) + [clockEvent] == udpClient.env.udp.history();
     ensures clockEvent.LIoOpReadClock?;
-    ensures int(clock.t) == clockEvent.t;
+    ensures clock.t as int == clockEvent.t;
     ensures UdpClientIsValid(udpClient);
     ensures UdpEventIsAbstractable(clockEvent);
     ensures udpClient.LocalEndPoint() == old(udpClient.LocalEndPoint());
     // TODO we're going to call GetTime, which returns a single value.
 {
     var t := Time.GetTime(udpClient.env);
-    clockEvent := LIoOpReadClock(int(t));
+    clockEvent := LIoOpReadClock(t as int);
     clock := CClockReading(t);
 }
 
@@ -339,9 +347,9 @@ method SendBroadcast(udpClient:UdpClient, broadcast:CBroadcast, ghost localAddr_
         }
 
         var i:uint64 := 0;
-        while i < uint64(|broadcast.dsts|) 
-            invariant 0 <= int(i) <= |broadcast.dsts|;
-            invariant |udpEventLog| == int(i);
+        while i < |broadcast.dsts| as uint64
+            invariant 0 <= i as int <= |broadcast.dsts|;
+            invariant |udpEventLog| == i as int;
             invariant UdpClientRepr(udpClient) == old(UdpClientRepr(udpClient));
             invariant udpClient.env == old(udpClient.env);
             invariant udpClient.LocalEndPoint() == old(udpClient.LocalEndPoint());
@@ -476,7 +484,7 @@ method{:timeLimitMultiplier 2} SendPacketSequence(udpClient:UdpClient, packets:O
     ghost var udpClientEnvHistory_old := old(udpClient.env.udp.history());
     var i:uint64 := 0;
 
-    while i < uint64(|cpackets|)
+    while i < |cpackets| as uint64
         invariant old(UdpClientRepr(udpClient)) == UdpClientRepr(udpClient);
         invariant udpClient.env == old(udpClient.env);
         invariant udpClient.LocalEndPoint() == old(udpClient.LocalEndPoint());
@@ -484,9 +492,9 @@ method{:timeLimitMultiplier 2} SendPacketSequence(udpClient:UdpClient, packets:O
         invariant ok ==> ( UdpClientIsValid(udpClient) && udpClient.IsOpen());
         invariant ok ==> udpClientEnvHistory_old + udpEventLog == udpClient.env.udp.history();
         invariant (i == 0) ==> |udpEventLog| == 0;
-        invariant (0 < int(i) < |cpackets|) ==> |udpEventLog| == |cpackets[0..i]|;
-        invariant (0 < int(i) < |cpackets|) ==> SendLogReflectsPacketSeq(udpEventLog, cpackets[0..i]); 
-        invariant (int(i) >= |cpackets|) ==> SendLogReflectsPacketSeq(udpEventLog, cpackets); 
+        invariant (0 < i as int < |cpackets|) ==> |udpEventLog| == |cpackets[0..i]|;
+        invariant (0 < i as int < |cpackets|) ==> SendLogReflectsPacketSeq(udpEventLog, cpackets[0..i]); 
+        invariant (i as int >= |cpackets|) ==> SendLogReflectsPacketSeq(udpEventLog, cpackets); 
         invariant OnlySentMarshallableData(udpEventLog);
     {
         var cpacket := cpackets[i];
@@ -527,8 +535,8 @@ method{:timeLimitMultiplier 2} SendPacketSequence(udpClient:UdpClient, packets:O
         assert SendLogEntryReflectsPacket(udpEvent, cpacket);
         
         udpEventLog := udpEventLog + [udpEvent];
-        assert cpackets[0..(int(i)+1)] == cpackets[0..int(i)] + [cpacket];
-        assert SendLogReflectsPacketSeq(udpEventLog, cpackets[0..(int(i)+1)]);
+        assert cpackets[0..(i as int+1)] == cpackets[0..i as int] + [cpacket];
+        assert SendLogReflectsPacketSeq(udpEventLog, cpackets[0..(i as int+1)]);
         i := i + 1;
     
     }
