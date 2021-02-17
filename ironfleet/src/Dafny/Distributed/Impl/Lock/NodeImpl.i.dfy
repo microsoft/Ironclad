@@ -2,8 +2,16 @@ include "Node.i.dfy"
 include "UdpLock.i.dfy"
 
 module NodeImpl_i {
+import opened Native__NativeTypes_s
+import opened Native__Io_s
+import opened Environment_s
+import opened Types_i
+import opened Message_i
 import opened Impl_Node_i
 import opened UdpLock_i
+import opened Protocol_Node_i
+import opened Common__Util_i
+import opened Common__UdpClient_i
 
 class NodeImpl
 {
@@ -14,7 +22,7 @@ class NodeImpl
     ghost var Repr : set<object>;
 
     constructor () {
-        udpClient := null;
+        udpClient := new UdpClient();
     }
 
     predicate Valid()
@@ -43,6 +51,7 @@ class NodeImpl
                     && client.LocalEndPoint() == me
                     && client.env == env_;
     {
+        client := new UdpClient();
         var my_ep := me;
         var ip_byte_array := new byte[|my_ep.addr|];
         seqIntoArrayOpt(my_ep.addr, ip_byte_array);
@@ -69,7 +78,7 @@ class NodeImpl
         ensures ok ==>
                Valid()
             && Env() == env_
-            && NodeInit(AbstractifyCNode(node), int(my_index), config)
+            && NodeInit(AbstractifyCNode(node), my_index as int, config)
             && node.config == config 
             && node.my_index == my_index;
     {

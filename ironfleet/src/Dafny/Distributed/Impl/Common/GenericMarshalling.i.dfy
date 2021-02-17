@@ -1083,6 +1083,7 @@ lemma lemma_parse_Val_view_Union(data:seq<byte>, v:V, grammar:G, index:int, boun
 
     lemma_parse_Val_view(data, v.val, grammar.cases[narrow_caseID_tuple.0.v.u], index + 8);
     assert (parse_Val(data[index+8..bound], grammar.cases[narrow_caseID_tuple.0.v.u]).0 == Some(v.val)) <==> (parse_Val(data[index+8..index+8+SizeOfV(v.val)], grammar.cases[narrow_caseID_tuple.0.v.u]).0 == Some(v.val));
+    assert index + SizeOfV(v) == bound;
   } else {
     // Doesn't matter
   }

@@ -308,6 +308,7 @@ lemma lemma_BEByteSeqToInt_invertability(bytes:seq<byte>, val:int, width:nat)
       BEUintToSeqByte(val/0x100, width - 1) + [ (val % 0x100) as byte ];
         { lemma_BEByteSeqToInt_invertability(bytes[..|bytes|-1], val / 0x100, width - 1); }
       bytes[..|bytes|-1] + [ (val % 0x100) as byte ];
+      bytes[..|bytes|-1] + [ bytes[|bytes|-1] ];
       bytes;
     }
   }

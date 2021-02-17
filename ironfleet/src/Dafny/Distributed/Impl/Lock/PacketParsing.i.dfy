@@ -3,9 +3,14 @@ include "../Common/UdpClient.i.dfy"
 include "Message.i.dfy"
 
 module PacketParsing_i {
+import opened Native__NativeTypes_s
+import opened Native__Io_s
+import opened Logic__Option_i
+import opened Environment_s
 import opened Common__GenericMarshalling_i
-import opened Message_i
 import opened Common__UdpClient_i
+import opened Types_i
+import opened Message_i
 
 predicate UdpPacketBound(data:seq<byte>) 
 {

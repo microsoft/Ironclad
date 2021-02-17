@@ -5,8 +5,12 @@ include "CmdLineParser.i.dfy"
 
 module Host_i refines Host_s {
     import opened Collections__Sets_i
+    import opened Protocol_Node_i
     import opened NodeImpl_i
     import opened LockCmdLineParser_i
+    import opened Types_i
+    import opened Impl_Node_i
+    import opened UdpLock_i
 
     datatype CScheduler = CScheduler(ghost node:Node, node_impl:NodeImpl)
 
@@ -32,7 +36,7 @@ module Host_i refines Host_s {
      && host_state.node_impl.node.config == config
      && host_state.node_impl.node.config[host_state.node_impl.node.my_index] == id
      && NodeInit(host_state.node, 
-                 int(host_state.node_impl.node.my_index),
+                 host_state.node_impl.node.my_index as int,
                  config)
     }
 
@@ -63,11 +67,13 @@ module Host_i refines Host_s {
     method HostInitImpl(ghost env:HostEnvironment) returns (ok:bool, host_state:HostState, config:ConcreteConfiguration, ghost servers:set<EndPoint>, ghost clients:set<EndPoint>, id:EndPoint)
     {
         var my_index;
+        var node_impl := new NodeImpl();
+        host_state := CScheduler(AbstractifyCNode(node_impl.node), node_impl);
+
         ok, config, my_index := ParseCmdLine(env);
         if !ok { return; }
         id := config[my_index];
         
-        var node_impl := new NodeImpl();
         ok := node_impl.InitNode(config, my_index, env);
         
         if !ok { return; }
@@ -132,6 +138,7 @@ module Host_i refines Host_s {
     {
         var rest;
         recvs, rest := RemoveRecvs(events);
+        assert events[|recvs|..] == rest;
         if |rest| > 0 && (rest[0].LIoOpReadClock? || rest[0].LIoOpTimeoutReceive?) {
             clocks := [rest[0]];
             sends := rest[1..];
@@ -176,6 +183,7 @@ module Host_i refines Host_s {
             recvs := [];
             clocks := [];
             sends := [];
+            host_state' := host_state;
         }
         ok := okay;
     }
