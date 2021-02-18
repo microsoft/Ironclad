@@ -3,10 +3,17 @@ include "../../Protocol/RSL/Message.i.dfy"
 include "../../Impl/RSL/PacketParsing.i.dfy"
 
 module MarshallProof_i {
-
+import opened Native__NativeTypes_s
+import opened AppStateMachine_i
 import opened AbstractServiceRSL_s 
+import opened LiveRSL__AppInterface_i
+import opened LiveRSL__CMessage_i
+import opened LiveRSL__CMessageRefinements_i
 import opened LiveRSL__Message_i
 import opened LiveRSL__PacketParsing_i
+import opened Common__GenericMarshalling_i
+import opened Common__Util_i
+import opened Math__power2_i
 
 lemma lemma_ParseValCorrectVCase(data:seq<byte>, v:V, g:G) returns (caseId:uint64, val:V, rest:seq<byte>)
   requires ValInGrammar(v, g)
@@ -199,7 +206,7 @@ lemma {:timeLimitMultiplier 5} {:fuel ValInGrammar,3} lemma_ParseMarshallRequest
     assert SeqByteToUint64(rest2[..8]) == u_app;
     assert Uint64ToSeqByte(u_app) == AbstractServiceRSL_s.Uint64ToBytes(u_app);
     lemma_BEByteSeqToInt_BEUintToSeqByte_invertability();
-    assert rest2[..8] == Uint64ToSeqByte(uint64(msg.val.response));
+    assert rest2[..8] == Uint64ToSeqByte(msg.val.response as uint64);
     assert data[16..24] == rest0[8..16];
     calc {
       data[16..24];
@@ -217,9 +224,9 @@ lemma {:timeLimitMultiplier 5} {:fuel ValInGrammar,3} lemma_ParseMarshallRequest
       data[0..32];
         { assert |data| >= 32; ByteConcat32(data); }
       data[0..8] + data[8..16] + data[16..24] + data[24..32];
-      [ 0, 0, 0, 0, 0, 0, 0, 0] + Uint64ToSeqByte(uint64(msg.seqno_req)) + [ 0, 0, 0, 0, 0, 0, 0, 1] + Uint64ToSeqByte(uint64(msg.val.response)); 
+      [ 0, 0, 0, 0, 0, 0, 0, 0] + Uint64ToSeqByte(msg.seqno_req as uint64) + [ 0, 0, 0, 0, 0, 0, 0, 1] + Uint64ToSeqByte(msg.val.response as uint64); 
     }
-    //assert data[0..32] == [ 0, 0, 0, 0, 0, 0, 0, 0] + Uint64ToSeqByte(uint64(msg.seqno_req)) + [ 0, 0, 0, 0, 0, 0, 0, 1] + Uint64ToSeqByte(uint64(msg.val.response));
+    //assert data[0..32] == [ 0, 0, 0, 0, 0, 0, 0, 0] + Uint64ToSeqByte(msg.seqno_req as uint64) + [ 0, 0, 0, 0, 0, 0, 0, 1] + Uint64ToSeqByte(msg.val.response as uint64);
     lemma_SizeOfCMessageRequest1(v);
     if |data| > 32 {
       assert data[0..|data|] == data[..];
@@ -239,9 +246,9 @@ lemma {:timeLimitMultiplier 5} {:fuel ValInGrammar,3} lemma_ParseMarshallRequest
       data[0..24];
         { assert |data| >= 24; ByteConcat24(data); }
       data[0..8] + data[8..16] + data[16..24];
-      [ 0, 0, 0, 0, 0, 0, 0, 0] + Uint64ToSeqByte(uint64(msg.seqno_req)) + [ 0, 0, 0, 0, 0, 0, 0, 2]; 
+      [ 0, 0, 0, 0, 0, 0, 0, 0] + Uint64ToSeqByte(msg.seqno_req as uint64) + [ 0, 0, 0, 0, 0, 0, 0, 2]; 
     }
-    assert data[0..24] == [ 0, 0, 0, 0, 0, 0, 0, 0] + Uint64ToSeqByte(uint64(msg.seqno_req)) + [ 0, 0, 0, 0, 0, 0, 0, 2]; 
+    assert data[0..24] == [ 0, 0, 0, 0, 0, 0, 0, 0] + Uint64ToSeqByte(msg.seqno_req as uint64) + [ 0, 0, 0, 0, 0, 0, 0, 2]; 
     lemma_SizeOfCMessageRequest(v);
     assert SizeOfV(v) == 24;
     if |data| > 24 {
@@ -266,7 +273,7 @@ lemma {:timeLimitMultiplier 5} {:fuel ValInGrammar,3} lemma_ParseMarshallReply(b
   var marshalled_bytes := MarshallServiceReply(seqno, reply);
   var g := CMessage_grammar();
   if 0 <= seqno < 0x1_0000_0000_0000_0000 {
-    assert marshalled_bytes == [ 0, 0, 0, 0, 0, 0, 0, 6] + AbstractServiceRSL_s.Uint64ToBytes(uint64(seqno)) + MarshallAppMessage(reply);
+    assert marshalled_bytes == [ 0, 0, 0, 0, 0, 0, 0, 6] + AbstractServiceRSL_s.Uint64ToBytes(seqno as uint64) + MarshallAppMessage(reply);
     var cmsg := PaxosDemarshallData(bytes);
     var data := bytes;
     var v := DemarshallFunc(data, g);
@@ -282,7 +289,7 @@ lemma {:timeLimitMultiplier 5} {:fuel ValInGrammar,3} lemma_ParseMarshallReply(b
     assert cmsg.CMessage_Reply?;
 
     // Prove the seqno is parsed correctly
-    assert rest0 == AbstractServiceRSL_s.Uint64ToBytes(uint64(seqno)) + MarshallAppMessage(reply);
+    assert rest0 == AbstractServiceRSL_s.Uint64ToBytes(seqno as uint64) + MarshallAppMessage(reply);
     var u, rest := lemma_ParseValCorrectVUint64(rest0, seqnoVal, GUint64);
     lemma_2toX();
     calc {
@@ -293,7 +300,7 @@ lemma {:timeLimitMultiplier 5} {:fuel ValInGrammar,3} lemma_ParseMarshallReply(b
       SeqByteToUint64(Uint64ToSeqByte(seqno as uint64));
       SeqByteToUint64(BEUintToSeqByte(seqno as uint64 as int, 8));
         { lemma_BEByteSeqToInt_BEUintToSeqByte_invertability(); }
-      uint64(seqno);
+      seqno as uint64;
     }
     assert cmsg.seqno_reply as int == msg.seqno_reply;
 
@@ -316,7 +323,7 @@ lemma {:timeLimitMultiplier 5} {:fuel ValInGrammar,3} lemma_ParseMarshallReply(b
         u_app;
         parse_Uint64(rest2).0.v.u;
         SeqByteToUint64(rest2[..8]);
-        SeqByteToUint64(AbstractServiceRSL_s.Uint64ToBytes(uint64(reply.response)));
+        SeqByteToUint64(AbstractServiceRSL_s.Uint64ToBytes(reply.response as uint64));
         SeqByteToUint64(Uint64ToSeqByte(reply.response as uint64));
         SeqByteToUint64(BEUintToSeqByte(reply.response as uint64 as int, 8));
           { lemma_BEByteSeqToInt_BEUintToSeqByte_invertability(); }
