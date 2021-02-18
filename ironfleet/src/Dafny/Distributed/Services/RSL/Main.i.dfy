@@ -8,12 +8,34 @@ include "Marshall.i.dfy"
 
 module Main_i refines Main_s {
 
+import opened Native__NativeTypes_s
 import opened Host = Host_i
 import opened DS_s = RSL_DistributedSystem_i
 import opened DirectRefinement__Refinement_i
 import opened Concrete_NodeIdentity_i
 import opened AS_s = AbstractServiceRSL_s
 import opened MarshallProof_i
+import opened LiveRSL__CMessageRefinements_i
+import opened LiveRSL__Configuration_i
+import opened LiveRSL__Constants_i
+import opened LiveRSL__ConstantsState_i
+import opened LiveRSL__CTypes_i
+import opened LiveRSL__DistributedSystem_i
+import opened LiveRSL__Environment_i
+import opened LiveRSL__Message_i
+import opened LiveRSL__PacketParsing_i
+import opened LiveRSL__Replica_i
+import opened LiveRSL__Types_i
+import opened LiveRSL__UdpRSL_i
+import opened LiveRSL__Unsendable_i
+import opened Collections__Maps2_s
+import opened Collections__Sets_i
+import opened Common__GenericMarshalling_i
+import opened Common__NodeIdentity_i
+import opened Common__SeqIsUniqueDef_i
+import opened DirectRefinement__StateMachine_i
+import opened Environment_s
+import opened Math__mod_auto_i
 
 predicate IsValidBehavior(config:ConcreteConfiguration, db:seq<DS_State>)
   reads *
@@ -433,7 +455,7 @@ lemma lemma_RefinementOfUnsendablePacketHasLimitedPossibilities(
   requires !Demarshallable(p.msg, g) || !Marshallable(parse_Message(DemarshallFunc(p.msg, g)))
   requires UdpPacketIsAbstractable(p)
   requires rp == AbstractifyUdpPacketToRslPacket(p)
-  ensures  || rp.msg.RslMessage_Invalid
+  ensures  || rp.msg.RslMessage_Invalid?
            || rp.msg.RslMessage_1b?
            || rp.msg.RslMessage_2a?
            || rp.msg.RslMessage_2b?
@@ -446,7 +468,7 @@ lemma lemma_IgnoringUnsendableGivesEmptySentPackets(ios:seq<RslIo>)
   requires ios[0].LIoOpReceive?
   ensures  ExtractSentPacketsFromIos(ios) == []
 {
-  reveal_ExtractSentPacketsFromIos();
+  reveal ExtractSentPacketsFromIos();
 }
 
 lemma lemma_IgnoringInvalidMessageIsLSchedulerNext(
@@ -619,7 +641,7 @@ lemma {:timeLimitMultiplier 2} lemma_RslNext(
   lemma_LEnvironmentNextHost(ds.environment, ls.environment, ds'.environment, ls'.environment);
   assert LEnvironment_Next(ls.environment, ls'.environment);
 
-  reveal_SeqIsUnique();
+  reveal SeqIsUnique();
   forall other_idx | other_idx != index && 0 <= other_idx < |replicas|
     ensures replicas[other_idx] != replicas[index]
   {
@@ -667,7 +689,7 @@ lemma lemma_GetImplBehaviorRefinement(config:ConcreteConfiguration, db:seq<DS_St
     forall i | 0 <= i < |c.config.replica_ids|
       ensures LSchedulerInit(ls.replicas[i], LReplicaConstants(i, c))
     {
-      reveal_SeqIsUnique();
+      reveal SeqIsUnique();
     }
   } else {
     lemma_DsConsistency(config, db, |db|-1);
@@ -919,7 +941,7 @@ lemma lemma_FixFinalEnvStep(config:ConcreteConfiguration, db:seq<DS_State>) retu
   }
 }
 
-lemma RefinementProof(config:ConcreteConfiguration, db:seq<DS_State>) returns (sb:seq<ServiceState>)
+lemma RefinementProof(config:DS_s.H_s.ConcreteConfiguration, db:seq<DS_State>) returns (sb:seq<ServiceState>)
 {
   var db' := lemma_FixFinalEnvStep(config, db);
   sb := lemma_RefinementProofForFixedBehavior(config, db');
