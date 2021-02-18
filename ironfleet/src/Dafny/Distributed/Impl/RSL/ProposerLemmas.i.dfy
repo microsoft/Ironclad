@@ -38,14 +38,10 @@ lemma lemma_AbstractifySetOfCPacketsToSetOfRslPackets_propertiesProposer(cps:set
   ensures  AbstractifySetOfCPacketsToSetOfRslPackets({}) == {}
   ensures  SetOfMessage1b(cps) ==> LSetOfMessage1b(AbstractifySetOfCPacketsToSetOfRslPackets(cps))
   ensures  forall bal :: CBallotIsAbstractable(bal) ==> SetOfMessage1bAboutBallot(cps, bal) ==> LSetOfMessage1bAboutBallot(AbstractifySetOfCPacketsToSetOfRslPackets(cps), AbstractifyCBallotToBallot(bal))
-  ensures  forall opn :: COperationNumberIsAbstractable(opn) ==> IsAfterLogTruncationPoint(opn, cps) ==> LIsAfterLogTruncationPoint(AbstractifyCOperationNumberToOperationNumber(opn), AbstractifySetOfCPacketsToSetOfRslPackets(cps))
-  ensures  forall opn :: COperationNumberIsAbstractable(opn) ==> !IsAfterLogTruncationPoint(opn, cps) ==> !LIsAfterLogTruncationPoint(AbstractifyCOperationNumberToOperationNumber(opn), AbstractifySetOfCPacketsToSetOfRslPackets(cps))
+  ensures  forall opn {:trigger LIsAfterLogTruncationPoint(AbstractifyCOperationNumberToOperationNumber(opn), AbstractifySetOfCPacketsToSetOfRslPackets(cps))}{:trigger IsAfterLogTruncationPoint(opn, cps)} :: COperationNumberIsAbstractable(opn) ==> IsAfterLogTruncationPoint(opn, cps) == LIsAfterLogTruncationPoint(AbstractifyCOperationNumberToOperationNumber(opn), AbstractifySetOfCPacketsToSetOfRslPackets(cps))
   ensures  SetOfMessage1b(cps) ==>
-             (forall opn :: COperationNumberIsAbstractable(opn) ==> 
-              AllAcceptorsHadNoProposal(cps, opn) ==> LAllAcceptorsHadNoProposal(AbstractifySetOfCPacketsToSetOfRslPackets(cps), AbstractifyCOperationNumberToOperationNumber(opn)))
-  ensures  SetOfMessage1b(cps) ==>
-             (forall opn :: COperationNumberIsAbstractable(opn) ==> 
-              !AllAcceptorsHadNoProposal(cps, opn) ==> !LAllAcceptorsHadNoProposal(AbstractifySetOfCPacketsToSetOfRslPackets(cps), AbstractifyCOperationNumberToOperationNumber(opn)))
+  (forall opn {:trigger LAllAcceptorsHadNoProposal(AbstractifySetOfCPacketsToSetOfRslPackets(cps), AbstractifyCOperationNumberToOperationNumber(opn))}{:trigger AllAcceptorsHadNoProposal(cps, opn)} :: COperationNumberIsAbstractable(opn) ==> 
+              AllAcceptorsHadNoProposal(cps, opn) == LAllAcceptorsHadNoProposal(AbstractifySetOfCPacketsToSetOfRslPackets(cps), AbstractifyCOperationNumberToOperationNumber(opn)))
 {
   lemma_AbstractifySetOfCPacketsToSetOfRslPackets_properties(cps);
   if SetOfInjectiveTypeCPackets(cps) {

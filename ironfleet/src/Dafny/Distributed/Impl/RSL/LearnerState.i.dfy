@@ -98,14 +98,15 @@ lemma lemma_AbstractifyCLearnerTuplesToLearnerTuples_properties(m:map<COperation
   ensures  forall o :: o in m ==> AbstractifyCLearnerTuplesToLearnerTuples(m)[AbstractifyCOperationNumberToOperationNumber(o)] == AbstractifyCLearnerTupleToLearnerTuple(m[o])
   ensures  var rm  := AbstractifyCLearnerTuplesToLearnerTuples(m);
            forall k :: k in rm ==> (exists ck :: ck in m && AbstractifyCOperationNumberToOperationNumber(ck) == k)
-  ensures  forall o, t :: LearnerTupleIsAbstractable(t) ==>
-              var rm  := AbstractifyCLearnerTuplesToLearnerTuples(m);
-              var rm' := AbstractifyCLearnerTuplesToLearnerTuples(m[o := t]);
-              rm' == AbstractifyCLearnerTuplesToLearnerTuples(m)[AbstractifyCOperationNumberToOperationNumber(o) := AbstractifyCLearnerTupleToLearnerTuple(t)]
+  ensures  forall o, t {:trigger AbstractifyCOperationNumberToOperationNumber(o), AbstractifyCLearnerTupleToLearnerTuple(t)}
+                      {:trigger m[o := t]} :: LearnerTupleIsAbstractable(t) ==>
+             var rm  := AbstractifyCLearnerTuplesToLearnerTuples(m);
+             var rm' := AbstractifyCLearnerTuplesToLearnerTuples(m[o := t]);
+             rm' == AbstractifyCLearnerTuplesToLearnerTuples(m)[AbstractifyCOperationNumberToOperationNumber(o) := AbstractifyCLearnerTupleToLearnerTuple(t)]
   ensures  forall o {:trigger RemoveElt(m,o)} :: o in m ==>
-              var rm  := AbstractifyCLearnerTuplesToLearnerTuples(m);
-              var rm' := AbstractifyCLearnerTuplesToLearnerTuples(RemoveElt(m, o));
-              rm' == RemoveElt(AbstractifyCLearnerTuplesToLearnerTuples(m), AbstractifyCOperationNumberToOperationNumber(o))
+             var rm  := AbstractifyCLearnerTuplesToLearnerTuples(m);
+             var rm' := AbstractifyCLearnerTuplesToLearnerTuples(RemoveElt(m, o));
+             rm' == RemoveElt(AbstractifyCLearnerTuplesToLearnerTuples(m), AbstractifyCOperationNumberToOperationNumber(o))
 {
   var rm  := AbstractifyCLearnerTuplesToLearnerTuples(m);
   reveal AbstractifyCLearnerTuplesToLearnerTuples();

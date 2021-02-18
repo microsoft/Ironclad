@@ -262,7 +262,7 @@ function {:opaque} AbstractifyCRequestBatchToRequestBatch(cvals:CRequestBatch) :
   requires CRequestsSeqIsAbstractable(cvals)
   ensures |cvals| == |AbstractifyCRequestBatchToRequestBatch(cvals)|
   ensures forall i :: 0 <= i < |cvals| ==> AbstractifyCRequestToRequest(cvals[i]) == AbstractifyCRequestBatchToRequestBatch(cvals)[i]
-  ensures  forall c :: CRequestIsAbstractable(c) ==> (c in cvals <==> AbstractifyCRequestToRequest(c) in AbstractifyCRequestBatchToRequestBatch(cvals))
+  ensures forall c :: CRequestIsAbstractable(c) ==> (c in cvals <==> AbstractifyCRequestToRequest(c) in AbstractifyCRequestBatchToRequestBatch(cvals))
 {
   AbstractifyCRequestsSeqToRequestsSeq(cvals)
 }
@@ -362,10 +362,10 @@ lemma lemma_AbstractifyCReplyCacheToReplyCache_properties(m:CReplyCache)
   requires CReplyCacheIsAbstractable(m)
   ensures  m == map [] ==> AbstractifyCReplyCacheToReplyCache(m) == map []
   ensures  forall e {:trigger e in m}{:trigger e in AbstractifyCReplyCacheToReplyCache(m)} :: (e in m <==> EndPointIsValidIPV4(e) && e in AbstractifyCReplyCacheToReplyCache(m))
-  ensures  forall e :: (e !in m && EndPointIsValidIPV4(e) ==> e !in AbstractifyCReplyCacheToReplyCache(m))
+  ensures  forall e {:trigger e in m, EndPointIsValidIPV4(e)}{:trigger e in AbstractifyCReplyCacheToReplyCache(m)} :: (e !in m && EndPointIsValidIPV4(e) ==> e !in AbstractifyCReplyCacheToReplyCache(m))
   ensures  forall e {:trigger AbstractifyCReplyToReply(m[e])}{:trigger AbstractifyCReplyCacheToReplyCache(m)[e]} :: e in m ==> AbstractifyCReplyCacheToReplyCache(m)[e] == AbstractifyCReplyToReply(m[e])
   ensures  forall re :: re in AbstractifyCReplyCacheToReplyCache(m) ==> re in m
-  ensures  forall e, r :: EndPointIsValidIPV4(e) && ValidReply(r) ==> 
+  ensures  forall e, r {:trigger EndPointIsValidIPV4(e), ValidReply(r)} :: EndPointIsValidIPV4(e) && ValidReply(r) ==> 
               var rm  := AbstractifyCReplyCacheToReplyCache(m);
               var rm' := AbstractifyCReplyCacheToReplyCache(m[e := r]);
               rm' == AbstractifyCReplyCacheToReplyCache(m)[AbstractifyEndPointToNodeIdentity(e) := AbstractifyCReplyToReply(r)]
