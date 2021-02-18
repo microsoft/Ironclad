@@ -183,9 +183,6 @@ function method AppendToUniqueSeqMaybe<X(==)>(xs:seq<X>, x:X):seq<X>
 lemma lemma_UniqueSeq_SubSeqsUnique<X>(whole:seq<X>, left:seq<X>, right:seq<X>)
   requires SeqIsUnique(whole)
   requires whole == left + right
-  requires |left| > 0
-  requires |right| > 0
-  requires |whole| > 0
   ensures  SeqIsUnique(left)
   ensures  SeqIsUnique(right)
 {

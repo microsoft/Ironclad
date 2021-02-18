@@ -5,8 +5,6 @@ include "../Collections/Seqs.s.dfy"
 
 abstract module Main_s
 {
-//import opened Host as Host_s
-import opened Host_s
 import opened Native__Io_s
 import opened DS_s : DistributedSystem_s
 import opened AS_s : AbstractService_s
@@ -19,11 +17,11 @@ method Main(ghost env:HostEnvironment) returns (exitCode:int)
   modifies set x:object | true     // Everything!
   decreases *
 {
-  var ok, host_state, config, servers, clients, id := HostInitImpl(env);
-  assert ok ==> HostInit(host_state, config, id);
+  var ok, host_state, config, servers, clients, id := DS_s.H_s.HostInitImpl(env);
+  assert ok ==> DS_s.H_s.HostInit(host_state, config, id);
 
   while (ok) 
-    invariant ok ==> HostStateInvariants(host_state, env)
+    invariant ok ==> DS_s.H_s.HostStateInvariants(host_state, env)
     invariant ok ==> env.Valid() && env.ok.ok()
     decreases *
   {
@@ -31,11 +29,11 @@ method Main(ghost env:HostEnvironment) returns (exitCode:int)
     ghost var old_state := host_state;
 
     ghost var recvs, clocks, sends, ios;
-    ok, host_state, recvs, clocks, sends, ios := HostNextImpl(env, host_state);
+    ok, host_state, recvs, clocks, sends, ios := DS_s.H_s.HostNextImpl(env, host_state);
 
     if ok {
       // Correctly executed one action
-      assert HostNext(old_state, host_state, ios);
+      assert DS_s.H_s.HostNext(old_state, host_state, ios);
 
       // Connect the low-level IO events to the spec-level IO events
       assert recvs + clocks + sends == ios;
@@ -50,7 +48,7 @@ method Main(ghost env:HostEnvironment) returns (exitCode:int)
   }
 }
 
-lemma RefinementProof(config:ConcreteConfiguration, db:seq<DS_State>) returns (sb:seq<ServiceState>)
+lemma RefinementProof(config:DS_s.H_s.ConcreteConfiguration, db:seq<DS_State>) returns (sb:seq<ServiceState>)
   requires |db| > 0
   requires DS_Init(db[0], config)
   requires forall i {:trigger DS_Next(db[i], db[i+1])} :: 0 <= i < |db| - 1 ==> DS_Next(db[i], db[i+1])

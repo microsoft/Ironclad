@@ -3,7 +3,7 @@ include "../Collections/Maps2.s.dfy"
 
 abstract module DistributedSystem_s {
 
-import opened Host_s
+import H_s : Host_s
 import opened Collections__Maps2_s
 import opened Native__Io_s
 import opened Environment_s
@@ -45,19 +45,19 @@ predicate ValidPhysicalEnvironmentStep(step:LEnvStep<EndPoint, seq<byte>>)
 /////////////////////////////////////////
 
 datatype DS_State = DS_State(
-  config:ConcreteConfiguration,
+  config:H_s.ConcreteConfiguration,
   environment:LEnvironment<EndPoint,seq<byte>>,
-  servers:map<EndPoint,HostState>,
+  servers:map<EndPoint,H_s.HostState>,
   clients:set<EndPoint>
   )
 
-predicate DS_Init(s:DS_State, config:ConcreteConfiguration)
+predicate DS_Init(s:DS_State, config:H_s.ConcreteConfiguration)
   reads *
 {
   && s.config == config
-  && ConcreteConfigInit(s.config, mapdomain(s.servers), s.clients)
+  && H_s.ConcreteConfigInit(s.config, mapdomain(s.servers), s.clients)
   && LEnvironment_Init(s.environment)
-  && (forall id :: id in s.servers ==> HostInit(s.servers[id], config, id))
+  && (forall id :: id in s.servers ==> H_s.HostInit(s.servers[id], config, id))
 }
   
 predicate DS_NextOneServer(s:DS_State, s':DS_State, id:EndPoint, ios:seq<LIoOp<EndPoint,seq<byte>>>)
@@ -65,7 +65,7 @@ predicate DS_NextOneServer(s:DS_State, s':DS_State, id:EndPoint, ios:seq<LIoOp<E
   reads *
 {
   && id in s'.servers
-  && HostNext(s.servers[id], s'.servers[id], ios)
+  && H_s.HostNext(s.servers[id], s'.servers[id], ios)
   && s'.servers == s.servers[id := s'.servers[id]]
 }
 
