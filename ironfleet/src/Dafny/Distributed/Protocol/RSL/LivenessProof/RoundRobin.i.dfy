@@ -58,7 +58,7 @@ function{:opaque} MakeRslActionTemporalFromReplicaFunction(
                sat(i, MakeRslActionTemporalFromReplicaFunction(b, action_fun, replica_index)) <==>
                SpecificRslActionOccurs(b[i], b[i+1], action_fun, replica_index)
 {
-  stepmap(imap i :: SpecificRslActionOccurs(b[i], b[i+1], action_fun, replica_index))
+  stepmap(imap i :: SpecificRslActionOccurs(b[i], b[nextstep(i)], action_fun, replica_index))
 }
 
 predicate SpecificSpontaneousRslActionOccurs(
@@ -89,7 +89,7 @@ function{:opaque} MakeRslActionTemporalFromSpontaneousReplicaFunction(
                sat(i, MakeRslActionTemporalFromSpontaneousReplicaFunction(b, action_fun, replica_index)) <==>
                SpecificSpontaneousRslActionOccurs(b[i], b[i+1], action_fun, replica_index)
 {
-  stepmap(imap i :: SpecificSpontaneousRslActionOccurs(b[i], b[i+1], action_fun, replica_index))
+  stepmap(imap i :: SpecificSpontaneousRslActionOccurs(b[i], b[nextstep(i)], action_fun, replica_index))
 }
 
 predicate SpecificClockReadingRslActionOccurs(
@@ -118,9 +118,9 @@ function{:opaque} MakeRslActionTemporalFromReadClockReplicaFunction(
   requires imaptotal(b)
   ensures  forall i {:trigger sat(i, MakeRslActionTemporalFromReadClockReplicaFunction(b, action_fun, replica_index))} ::
                sat(i, MakeRslActionTemporalFromReadClockReplicaFunction(b, action_fun, replica_index)) <==>
-               SpecificClockReadingRslActionOccurs(b[i], b[i+1], action_fun, replica_index)
+               SpecificClockReadingRslActionOccurs(b[i], b[nextstep(i)], action_fun, replica_index)
 {
-  stepmap(imap i :: SpecificClockReadingRslActionOccurs(b[i], b[i+1], action_fun, replica_index))
+  stepmap(imap i :: SpecificClockReadingRslActionOccurs(b[i], b[nextstep(i)], action_fun, replica_index))
 }
 
 function ReplicaSchedule(b:Behavior<RslState>, replica_index:int):seq<temporal>

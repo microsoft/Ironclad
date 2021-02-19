@@ -63,9 +63,9 @@ function{:opaque} MakeRslActionTemporalFromSchedulerFunction(
   requires imaptotal(b)
   ensures  forall i {:trigger sat(i, MakeRslActionTemporalFromSchedulerFunction(b, replica_index))} ::
                sat(i, MakeRslActionTemporalFromSchedulerFunction(b, replica_index)) <==>
-               RslSchedulerActionOccursForReplica(b[i], b[i+1], replica_index)
+               RslSchedulerActionOccursForReplica(b[i], b[nextstep(i)], replica_index)
 {
-  stepmap(imap i :: RslSchedulerActionOccursForReplica(b[i], b[i+1], replica_index))
+  stepmap(imap i :: RslSchedulerActionOccursForReplica(b[i], b[nextstep(i)], replica_index))
 }
 
 function{:opaque} PaxosTimeMap(b:Behavior<RslState>):imap<int, int>
