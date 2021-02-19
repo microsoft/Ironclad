@@ -510,8 +510,6 @@ lemma lemma_SequenceNumberStateInvHolds(b:Behavior<RslState>, asp:AssumptionPara
   requires 0 <= i
   ensures  SequenceNumberStateInv(b[i], asp.persistent_request)
 {
-  TemporalAssist();
-
   lemma_LEnvironmentInvariantHolds(b, asp, i);
   lemma_ConstantsAllConsistent(b, asp.c, i);
 
@@ -528,6 +526,7 @@ lemma lemma_SequenceNumberStateInvHolds(b:Behavior<RslState>, asp:AssumptionPara
     forall idx | 0 <= idx < |ps'.replicas|
       ensures SequenceNumberReplicaInv(ps'.replicas[idx].replica, asp.persistent_request)
     {
+      TemporalDeduceFromAlways(0, i-1, ClientNeverSentHigherSequenceNumberRequestTemporal(b, asp));
       assert sat(i-1, ClientNeverSentHigherSequenceNumberRequestTemporal(b, asp));
       assert ClientNeverSentHigherSequenceNumberRequest(ps, asp.persistent_request);
       lemma_PaxosNextPreservesSequenceNumberReplicaInv(ps, ps', idx, asp.persistent_request);
