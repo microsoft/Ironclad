@@ -183,6 +183,7 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
   requires Replica_Next_Process_Request_Preconditions(r.replica, cpacket)
   modifies r.Repr, r.cur_req_set, r.prev_req_set, r.reply_cache_mutable
   ensures r.Repr==old(r.Repr)
+  ensures r.udpClient != null
   ensures ok == UdpClientOk(r.udpClient)
   ensures r.Env() == old(r.Env());
   ensures ok ==>
@@ -266,6 +267,7 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
   requires Replica_Next_Process_1a_Preconditions(r.replica, cpacket)
   modifies r.Repr
   ensures r.Repr==old(r.Repr)
+  ensures r.udpClient != null
   ensures ok == UdpClientOk(r.udpClient)
   ensures r.Env() == old(r.Env());
   ensures ok ==>
@@ -349,6 +351,7 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
   requires Replica_Next_Process_1b_Preconditions(r.replica,cpacket)
   modifies r.Repr
   ensures r.Repr==old(r.Repr)
+  ensures r.udpClient != null
   ensures ok == UdpClientOk(r.udpClient)
   ensures r.Env() == old(r.Env());
   ensures ok ==>
@@ -431,6 +434,7 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
   requires LReplica_Next_ProcessPacketWithoutReadingClock_preconditions([receive_io])
   modifies r.Repr
   ensures r.Repr==old(r.Repr)
+  ensures r.udpClient != null
   ensures ok == UdpClientOk(r.udpClient)
   ensures r.Env() == old(r.Env());
   ensures ok ==>
@@ -514,6 +518,7 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
   requires Replica_Next_Process_2a_Preconditions(r.replica,cpacket)
   modifies r.Repr
   ensures r.Repr==old(r.Repr)
+  ensures r.udpClient != null
   ensures ok == UdpClientOk(r.udpClient)
   ensures r.Env() == old(r.Env());
   ensures ok ==>
@@ -597,6 +602,7 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
   requires Replica_Next_Process_2b_Preconditions(r.replica,cpacket)
   modifies r.Repr
   ensures r.Repr==old(r.Repr)
+  ensures r.udpClient != null
   ensures ok == UdpClientOk(r.udpClient)
   ensures r.Env() == old(r.Env());
   ensures ok ==>
@@ -730,6 +736,7 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
   requires LReplica_Next_ProcessPacketWithoutReadingClock_preconditions([receive_io])
   modifies r.Repr, r.reply_cache_mutable
   ensures r.Repr==old(r.Repr)
+  ensures r.udpClient != null
   ensures ok == UdpClientOk(r.udpClient)
   ensures r.Env() == old(r.Env());
   ensures ok ==>
@@ -813,6 +820,7 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
   requires Replica_Next_Process_AppStateSupply_Preconditions(r.replica,cpacket)
   modifies r.Repr
   ensures r.Repr==old(r.Repr)
+  ensures r.udpClient != null
   ensures ok == UdpClientOk(r.udpClient)
   ensures r.Env() == old(r.Env());
   ensures ok ==>
@@ -892,6 +900,7 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
   // requires Replica_Next_Process_AppStateSupply_Preconditions(r.replica,cpacket)
   modifies r.Repr, r.cur_req_set, r.prev_req_set, r.reply_cache_mutable
   ensures r.Repr==old(r.Repr)
+  ensures r.udpClient != null
   ensures ok == UdpClientOk(r.udpClient)
   ensures r.Env() == old(r.Env());
   ensures ok ==>

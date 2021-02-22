@@ -100,6 +100,7 @@ method {:fuel ReplicaStateIsValid,0,0} {:timeLimitMultiplier 3} Replica_Next_Rea
   requires Replica_Next_Process_Heartbeat_Preconditions(r.replica, cpacket)
   modifies r.Repr, r.cur_req_set, r.prev_req_set
   ensures r.Repr==old(r.Repr)
+  ensures r.udpClient != null
   ensures ok == UdpClientOk(r.udpClient)
   ensures r.Env() == old(r.Env());
   ensures ok ==>
@@ -112,6 +113,7 @@ method {:fuel ReplicaStateIsValid,0,0} {:timeLimitMultiplier 3} Replica_Next_Rea
             && OnlySentMarshallableData(udp_event_log)
             && old_udp_history + udp_event_log == r.Env().udp.history()
 {
+  var old_r_AbstractifyToLReplica := old(r.AbstractifyToLReplica());
   var clock, clock_event := ReadClock(r.udpClient);
   ghost var clock_io := LIoOpReadClock(clock.t as int);
   assert clock.t as int == clock_event.t; // OBSERVE uint64
@@ -136,7 +138,9 @@ method {:fuel ReplicaStateIsValid,0,0} {:timeLimitMultiplier 3} Replica_Next_Rea
 
   assert LReplicaNextReadClockAndProcessPacket(old(r.AbstractifyToLReplica()), r.AbstractifyToLReplica(), ios);
   assert LReplicaNextProcessPacket(old(r.AbstractifyToLReplica()), r.AbstractifyToLReplica(), ios);
-  reveal Q_LReplica_Next_ProcessPacket();
+  assert Q_LReplica_Next_ProcessPacket(old_r_AbstractifyToLReplica, r.AbstractifyToLReplica(), ios) by {
+    reveal Q_LReplica_Next_ProcessPacket();
+  }
 }
 
 }

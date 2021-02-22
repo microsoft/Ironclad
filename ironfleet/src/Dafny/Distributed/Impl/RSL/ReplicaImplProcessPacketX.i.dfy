@@ -101,6 +101,7 @@ method ReplicaNextProcessPacketHeartbeat(
   requires PaxosEndPointIsValid(rr.cpacket.src, r.replica.constants.all.config)
   modifies r.Repr, r.cur_req_set, r.prev_req_set, r.reply_cache_mutable
   ensures  r.Repr == old(r.Repr)
+  ensures  r.udpClient != null
   ensures  ok == UdpClientOk(r.udpClient)
   ensures  r.Env().Valid() && r.Env().ok.ok() ==> ok
   ensures  r.Env() == old(r.Env());
@@ -153,6 +154,7 @@ method ReplicaNextProcessPacketNonHeartbeat(
   requires PaxosEndPointIsValid(rr.cpacket.src, r.replica.constants.all.config)
   modifies r.Repr, r.cur_req_set, r.prev_req_set, r.reply_cache_mutable
   ensures  r.Repr == old(r.Repr)
+  ensures  r.udpClient != null
   ensures  ok == UdpClientOk(r.udpClient)
   ensures  r.Env().Valid() && r.Env().ok.ok() ==> ok
   ensures  r.Env() == old(r.Env());
@@ -188,6 +190,7 @@ method Replica_Next_ProcessPacketX(r:ReplicaImpl)
   //  requires Replica_Next_Process_AppStateSupply_Preconditions(r.replica,r.cpacket)
   modifies r.Repr, r.cur_req_set, r.prev_req_set, r.reply_cache_mutable
   ensures r.Repr == old(r.Repr)
+  ensures r.udpClient != null
   ensures ok == UdpClientOk(r.udpClient)
   ensures r.Env().Valid() && r.Env().ok.ok() ==> ok
   ensures r.Env() == old(r.Env());

@@ -4,13 +4,12 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using System.Web.UI.DataVisualization.Charting;
+using MathNet.Numerics.Distributions;
 
 namespace Common
 {
     public class Aggregator
     {
-        private static Chart chart;
         private string name;
         private bool times;
         private long total;
@@ -19,7 +18,6 @@ namespace Common
 
         public static void Initialize()
         {
-            chart = new Chart();
         }
 
         public Aggregator(string i_name, bool i_times)
@@ -60,7 +58,7 @@ namespace Common
                 double sumsq_sec = sumsq / Stopwatch.Frequency / Stopwatch.Frequency;
                 double variance = (sumsq_sec - total_sec * total_sec / count) / (count - 1);
                 double stdev = Math.Sqrt(variance);
-                double conf95 = stdev * chart.DataManipulator.Statistics.InverseTDistribution(0.05, count-1) / Math.Sqrt(count);
+                double conf95 = StudentT.InvCDF(0, stdev, count-1, 0.975) / Math.Sqrt(count);
                 return string.Format("Aggregate {0}: avg_usec {1} conf95plusorminus {2} stdev {3} count {4} sum {5}", name, average_sec * Math.Pow(10, 6), conf95, stdev * Math.Pow(10, 6), count, total_sec);
             }
             else
@@ -69,7 +67,7 @@ namespace Common
                 double average = total * 1.0 / count;
                 double variance = (sumsq - (total * 1.0 * total) / count) / (count - 1);
                 double stdev = Math.Sqrt(variance);
-                double conf95 = stdev * chart.DataManipulator.Statistics.InverseTDistribution(0.05, count-1) / Math.Sqrt(count);
+                double conf95 = StudentT.InvCDF(0, stdev, count - 1, 0.975) / Math.Sqrt(count);
                 return string.Format("Aggregate {0}: avg_usec {1} conf95plusorminus {2} stdev {3} count {4} sum {5}", name, average * Math.Pow(10, 6), conf95, stdev * Math.Pow(10, 6), count, total);
             }
         }

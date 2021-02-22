@@ -9,18 +9,18 @@ using UClient = System.Net.Sockets.UdpClient;
 using IEndPoint = System.Net.IPEndPoint;
 
 
-namespace @_Native____Io__s {
+namespace Native____Io__s_Compile {
 
 public partial class HostConstants
 {
-    public static void NumCommandLineArgs(out uint n)
+    public static uint NumCommandLineArgs()
     {
-        n = (uint)System.Environment.GetCommandLineArgs().Length;
+        return (uint)System.Environment.GetCommandLineArgs().Length;
     }
 
-    public static void GetCommandLineArg(ulong i, out ushort[] arg)
+    public static ushort[] GetCommandLineArg(ulong i)
     {
-        arg = Array.ConvertAll(System.Environment.GetCommandLineArgs()[i].ToCharArray(), c => (ushort)c);
+        return Array.ConvertAll(System.Environment.GetCommandLineArgs()[i].ToCharArray(), c => (ushort)c);
     }
 }
 
@@ -29,10 +29,10 @@ public partial class IPEndPoint
     internal IEndPoint endpoint;
     internal IPEndPoint(IEndPoint endpoint) { this.endpoint = endpoint; }
 
-    public void GetAddress(out byte[] addr)
+    public byte[] GetAddress()
     {
         // no exceptions thrown:
-        addr = (byte[])(endpoint.Address.GetAddressBytes().Clone());
+        return (byte[])(endpoint.Address.GetAddressBytes().Clone());
     }
 
     public ushort GetPort()
@@ -198,14 +198,14 @@ public partial class UdpClient
         }
     }
 
-    public void Send(IPEndPoint remote, byte[] buffer, out bool ok)
+    public bool Send(IPEndPoint remote, byte[] buffer)
     {
         Packet p = new Packet();
         p.ep = remote.endpoint;
         p.buffer = new byte[buffer.Length];
         Array.Copy(buffer, p.buffer, buffer.Length);
         this.send_queue.Enqueue(p);
-        ok = true;
+        return true; // ok
     }
 
 }
@@ -299,14 +299,14 @@ public partial class Time
         watch.Start();
     }
 
-    public static void GetTime(out ulong time)
+    public static ulong GetTime()
     {
-        time = (ulong) DateTime.Now.Ticks / 10000;
+        return (ulong) (DateTime.Now.Ticks / 10000);
     }
     
-    public static void GetDebugTimeTicks(out ulong time)
+    public static ulong GetDebugTimeTicks()
     {
-        time = (ulong) watch.ElapsedTicks;
+        return (ulong) watch.ElapsedTicks;
     }
     
     public static void RecordTiming(char[] name, ulong time)
@@ -325,13 +325,13 @@ public partial class MutableSet<T>
 
     public static Dafny.Set<T> SetOf(MutableSet<T> s) { return Dafny.Set<T>.FromCollection(s.setImpl); }
 
-    public static void EmptySet(out MutableSet<T> s) { s = new MutableSet<T>(); }
+    public static MutableSet<T> EmptySet(Dafny.TypeDescriptor<T> typeDescriptor) { return new MutableSet<T>(); }
 
     public BigInteger Size() { return new BigInteger(this.setImpl.Count); }
     
-    public void SizeModest(out ulong size) { size = (ulong)this.setImpl.Count; }
+    public ulong SizeModest() { return (ulong)this.setImpl.Count; }
 
-    public void Contains(T x, out bool b) { b = this.setImpl.Contains(x); }
+    public bool Contains(T x) { return this.setImpl.Contains(x); }
 
     public void Add(T x) { this.setImpl.Add(x); }
            
@@ -347,9 +347,6 @@ public partial class MutableSet<T>
 public partial class MutableMap<K,V>
 {
     private Dictionary<K,V> mapImpl;
-    public MutableMap() {
-        this.mapImpl = new Dictionary<K, V>();
-    }
 
     // TODO: This is pretty inefficient.  Should change Dafny's interface to allow us to 
     // pass in an enumerable or an ImmutableDictionary
@@ -361,22 +358,30 @@ public partial class MutableMap<K,V>
       return Dafny.Map<K,V>.FromCollection(pairs); 
     }
 
-    public static void EmptyMap(out MutableMap<K,V> m) { m = new MutableMap<K,V>(); }
+    public static MutableMap<K, V> EmptyMap()
+    {
+      var m = new MutableMap<K,V>();
+      m.mapImpl = new Dictionary<K, V>();
+      return m;
+    }
 
-    public static void FromMap(Dafny.Map<K, V> m, out MutableMap<K, V> new_m) {
-      new_m = new MutableMap<K,V>();
-      foreach (var key in m.Domain) {
-        new_m.mapImpl.Add(key, m.Select(key));
+    public static MutableMap<K, V> FromMap(Dafny.IMap<K, V> m) {
+      var new_m = new MutableMap<K,V>();
+      new_m.mapImpl = new Dictionary<K, V>();
+      foreach (var kv in m.ItemEnumerable) {
+        new_m.mapImpl.Add(kv.Car, kv.Cdr);
       }
+      return new_m;
     }
 
     public BigInteger Size() { return new BigInteger(this.mapImpl.Count); }
 
-    public void SizeModest(out ulong size) { size = (ulong)this.mapImpl.Count; }
+    public ulong SizeModest() { return (ulong)this.mapImpl.Count; }
 
     public bool Contains(K key) { return this.mapImpl.ContainsKey(key); }
 
-    public void TryGetValue(K key, out bool contains, out V val) {
+    public void TryGetValue(K key, out bool contains, out V val)
+    {
       contains = this.mapImpl.TryGetValue(key, out val);
     }
 
@@ -389,7 +394,7 @@ public partial class MutableMap<K,V>
 
 public partial class @Arrays
 {
-    public static void @CopySeqIntoArray<A>(Dafny.Sequence<A> src, ulong srcIndex, A[] dst, ulong dstIndex, ulong len) {
+    public static void @CopySeqIntoArray<A>(Dafny.ISequence<A> src, ulong srcIndex, A[] dst, ulong dstIndex, ulong len) {
         System.Array.Copy(src.Elements, (long)srcIndex, dst, (long)dstIndex, (long)len);
     }
 

@@ -49,6 +49,7 @@ method {:timeLimitMultiplier 2} ReplicaNextMainProcessPacketX(r:ReplicaImpl)
   requires r.nextActionIndex == 0
   modifies r.Repr, r.cur_req_set, r.prev_req_set, r.reply_cache_mutable
   ensures r.Repr == old(r.Repr)
+  ensures r.udpClient != null
   ensures r.Env().Valid() && r.Env().ok.ok() ==> ok
   ensures r.Env() == old(r.Env());
   ensures ok ==>
@@ -113,6 +114,7 @@ method ReplicaNextMainNoClock(r:ReplicaImpl)
   requires r.nextActionIndex == 1 || r.nextActionIndex == 2 || r.nextActionIndex == 4 || r.nextActionIndex == 5 || r.nextActionIndex == 6
   modifies r.Repr, r.cur_req_set, r.prev_req_set, r.reply_cache_mutable
   ensures r.Repr == old(r.Repr)
+  ensures r.udpClient != null
   ensures r.Env().Valid() && r.Env().ok.ok() ==> ok
   ensures r.Env() == old(r.Env());
   ensures ok ==>
@@ -169,6 +171,7 @@ method ReplicaNextMainReadClock(r:ReplicaImpl)
   requires r.nextActionIndex == 3 || r.nextActionIndex == 7 || r.nextActionIndex == 8 || r.nextActionIndex == 9
   modifies r.Repr, r.cur_req_set, r.prev_req_set, r.reply_cache_mutable
   ensures r.Repr == old(r.Repr)
+  ensures r.udpClient != null
   ensures r.Env().Valid() && r.Env().ok.ok() ==> ok
   ensures r.Env() == old(r.Env());
   ensures ok ==>
@@ -223,6 +226,7 @@ method Replica_Next_main(r:ReplicaImpl)
   requires r.Valid()
   modifies r.Repr, r.cur_req_set, r.prev_req_set, r.reply_cache_mutable
   ensures r.Repr == old(r.Repr)
+  ensures r.udpClient != null
   ensures r.Env().Valid() && r.Env().ok.ok() ==> ok
   ensures r.Env() == old(r.Env());
   ensures ok ==>

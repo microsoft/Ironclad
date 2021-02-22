@@ -77,6 +77,7 @@ method {:fuel ReplicaStateIsValid,0,0}{:timeLimitMultiplier 3} ReplicaNoReceiveR
   requires r.Valid()
   modifies r.Repr
   ensures r.Repr == old(r.Repr)
+  ensures r.udpClient != null
   ensures ok == UdpClientOk(r.udpClient)
   ensures r.Env() == old(r.Env());
   ensures ok ==> 
@@ -140,6 +141,7 @@ method {:fuel ReplicaStateIsValid,0,0}{:timeLimitMultiplier 3} ReplicaNoReceiveR
   requires r.Valid()
   modifies r.Repr, r.cur_req_set, r.prev_req_set  //, r.reply_cache_mutable;
   ensures r.Repr == old(r.Repr)
+  ensures r.udpClient != null
   ensures ok == UdpClientOk(r.udpClient)
   ensures r.Env() == old(r.Env())
   ensures ok ==>
@@ -203,6 +205,7 @@ method {:fuel ReplicaStateIsValid,0,0}{:timeLimitMultiplier 3} ReplicaNoReceiveR
   requires r.Valid()
   modifies r.Repr, r.cur_req_set, r.prev_req_set  //, r.reply_cache_mutable
   ensures r.Repr == old(r.Repr)
+  ensures r.udpClient != null
   ensures ok == UdpClientOk(r.udpClient)
   ensures r.Env() == old(r.Env())
   ensures ok ==>
@@ -266,6 +269,7 @@ method {:fuel ReplicaStateIsValid,0,0}{:timeLimitMultiplier 3} ReplicaNoReceiveR
   requires r.Valid()
   modifies r.Repr
   ensures r.Repr == old(r.Repr)
+  ensures r.udpClient != null
   ensures ok == UdpClientOk(r.udpClient)
   ensures r.Env() == old(r.Env())
   ensures ok ==>
@@ -315,6 +319,7 @@ method {:fuel ReplicaStateIsValid,0,0} Replica_NoReceive_ReadClock_Next(
   requires r.Valid()
   modifies r.Repr, r.cur_req_set, r.prev_req_set  //, r.reply_cache_mutable;
   ensures r.Repr == old(r.Repr)
+  ensures r.udpClient != null
   ensures ok == UdpClientOk(r.udpClient)
   ensures r.Env() == old(r.Env())
   ensures ok ==>

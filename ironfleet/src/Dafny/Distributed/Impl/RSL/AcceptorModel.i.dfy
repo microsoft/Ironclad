@@ -54,7 +54,7 @@ method DummyInitLastCheckpointedOperation(config:CPaxosConfiguration) returns (i
   reveal AbstractifyCLastCheckpointedMapToOperationNumberSequence();
 }
 
-method InitAcceptorState(rcs:ReplicaConstantsState) returns (acceptor:AcceptorState)
+method {:timeLimitMultiplier 2} InitAcceptorState(rcs:ReplicaConstantsState) returns (acceptor:AcceptorState)
   requires ReplicaConstantsState_IsValid(rcs)
   ensures NextAcceptorState_InitPostconditions(acceptor, rcs)
 {

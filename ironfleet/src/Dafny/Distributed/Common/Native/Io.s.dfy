@@ -129,10 +129,10 @@ class UdpClient
   ghost var env:HostEnvironment
   function{:axiom} LocalEndPoint():EndPoint reads this
   function{:axiom} IsOpen():bool reads this
-  constructor{:axiom} () // requires false
+  constructor{:axiom} () requires false
 
   static method{:axiom} Construct(localEP:IPEndPoint, ghost env:HostEnvironment)
-    returns(ok:bool, udp:UdpClient)
+    returns(ok:bool, udp:UdpClient?)
     requires env.Valid()
     requires env.ok.ok()
     modifies env.ok

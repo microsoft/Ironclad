@@ -10,7 +10,7 @@ import opened DS_s : DistributedSystem_s
 import opened AS_s : AbstractService_s
 import opened Collections__Seqs_s
 
-method Main(ghost env:HostEnvironment) returns (exitCode:int)
+method {:main} Main(ghost env:HostEnvironment)
   requires env.Valid() && env.ok.ok()
   requires env.udp.history() == []
   requires |env.constants.CommandLineArgs()| >= 2

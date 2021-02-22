@@ -37,7 +37,7 @@ class ReplicaImpl
 {
   var replica:ReplicaState;
   var nextActionIndex:uint64;
-  var udpClient:UdpClient;
+  var udpClient:UdpClient?;
   var localAddr:EndPoint;
   // Optimized mutable sets for ElectionState
   var cur_req_set:MutableSet<CRequestHeader>;
@@ -47,9 +47,9 @@ class ReplicaImpl
 
   ghost var Repr : set<object>;
 
-  constructor() {
-    var empty_Udp:UdpClient := new UdpClient();
-    udpClient := empty_Udp;
+  constructor()
+  {
+    udpClient := null;
     var empty_MutableMap:MutableMap<EndPoint, CReply> := MutableMap.EmptyMap();
     reply_cache_mutable := empty_MutableMap;
     var empty_MutableSet:MutableSet<CRequestHeader> := MutableSet.EmptySet();
@@ -62,10 +62,11 @@ class ReplicaImpl
     reads this.cur_req_set
     reads this.prev_req_set
     reads this.reply_cache_mutable
-    reads UdpClientIsValid.reads(udpClient)
+    reads if udpClient != null then UdpClientIsValid.reads(udpClient) else {}
   {
     && ReplicaStateIsAbstractable(replica)
     && (0 <= nextActionIndex as int < 10)
+    && udpClient != null
     && UdpClientIsValid(udpClient)
     && udpClient.LocalEndPoint() == localAddr
     && udpClient.LocalEndPoint() == replica.constants.all.config.replica_ids[replica.constants.my_index]
@@ -79,6 +80,7 @@ class ReplicaImpl
   }
 
   function Env() : HostEnvironment
+    requires udpClient != null
     reads this, UdpClientIsValid.reads(udpClient)
   {
     udpClient.env
@@ -100,11 +102,12 @@ class ReplicaImpl
       nextActionIndex as int)
   }
 
-  method ConstructUdpClient(constants:ReplicaConstantsState, ghost env_:HostEnvironment) returns (ok:bool, client:UdpClient)
+  method ConstructUdpClient(constants:ReplicaConstantsState, ghost env_:HostEnvironment) returns (ok:bool, client:UdpClient?)
     requires env_.Valid() && env_.ok.ok()
     requires ReplicaConstantsState_IsValid(constants)
     modifies env_.ok
-    ensures ok ==> && UdpClientIsValid(client)
+    ensures ok ==> && client != null
+                   && UdpClientIsValid(client)
                    && client.LocalEndPoint() == constants.all.config.replica_ids[constants.my_index]
                    && client.env == env_
   {
@@ -114,7 +117,6 @@ class ReplicaImpl
     seqIntoArrayOpt(my_ep.addr, ip_byte_array);
     var ip_endpoint;
     ok, ip_endpoint := IPEndPoint.Construct(ip_byte_array, my_ep.port, env_);
-    client := new UdpClient();
     if !ok { return; }
     ok, client := UdpClient.Construct(ip_endpoint, env_);
     if ok {

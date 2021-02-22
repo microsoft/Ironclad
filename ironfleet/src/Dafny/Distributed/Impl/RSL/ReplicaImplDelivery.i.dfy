@@ -38,6 +38,7 @@ method DeliverPacket(r:ReplicaImpl, packets:OutboundPackets) returns (ok:bool, g
   requires OutboundPacketsHasCorrectSrc(packets, r.replica.constants.all.config.replica_ids[r.replica.constants.my_index])
   modifies r.Repr
   ensures r.Repr == old(r.Repr)
+  ensures r.udpClient != null
   ensures ok == UdpClientOk(r.udpClient)
   ensures r.Env() == old(r.Env())
   ensures r.replica == old(r.replica)
@@ -72,6 +73,7 @@ method {:timeLimitMultiplier 2} DeliverPacketSequence(r:ReplicaImpl, packets:Out
   requires OutboundPacketsHasCorrectSrc(packets, r.replica.constants.all.config.replica_ids[r.replica.constants.my_index])
   modifies r.Repr
   ensures r.Repr == old(r.Repr)
+  ensures r.udpClient != null
   ensures ok == UdpClientOk(r.udpClient)
   ensures r.Env() == old(r.Env())
   ensures r.replica == old(r.replica)
@@ -100,6 +102,7 @@ method{:timeLimitMultiplier 2} DeliverBroadcast(r:ReplicaImpl, broadcast:CBroadc
   requires broadcast.CBroadcast? ==> broadcast.src == r.replica.constants.all.config.replica_ids[r.replica.constants.my_index];
   modifies r.Repr
   ensures r.Repr == old(r.Repr)
+  ensures r.udpClient != null
   ensures ok == UdpClientOk(r.udpClient)
   ensures r.Env() == old(r.Env())
   ensures r.replica == old(r.replica)
@@ -192,6 +195,7 @@ method DeliverOutboundPackets(r:ReplicaImpl, packets:OutboundPackets) returns (o
   requires OutboundPacketsHasCorrectSrc(packets, r.replica.constants.all.config.replica_ids[r.replica.constants.my_index]);
   modifies r.Repr
   ensures r.Repr == old(r.Repr)
+  ensures r.udpClient != null
   ensures ok == UdpClientOk(r.udpClient)
   ensures r.Env() == old(r.Env())
   ensures r.replica == old(r.replica)
