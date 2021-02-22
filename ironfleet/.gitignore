@@ -31,3 +31,4 @@ nohup.out
 *.vdfy
 *.tmp
 .sconsign.dblite
+*.suo
