@@ -41,7 +41,7 @@ lemma lemma_mul_is_mul_pos(x:int, y:int)
   ensures x * y == mul_pos(x, y)
 {
   reveal_mul_pos();
-  lemma_mul_auto_induction(x, imap u :: u >= 0 ==> u * y == mul_pos(u, y));
+  lemma_mul_auto_induction(x, u => u >= 0 ==> u * y == mul_pos(u, y));
 }
 
 //-////////////////////////////////////////////////////////////////////////////
@@ -82,7 +82,7 @@ lemma lemma_mul_inequality(x:int, y:int, z:int)
   requires z >= 0
   ensures  x*z <= y*z
 {
-  lemma_mul_auto_induction(z, imap u :: u >= 0 ==> x * u <= y * u);
+  lemma_mul_auto_induction(z, u => u >= 0 ==> x * u <= y * u);
 }
 
 lemma lemma_mul_upper_bound(x:int, x_bound:int, y:int, y_bound:int)
@@ -106,8 +106,8 @@ lemma lemma_mul_strict_upper_bound(x:int, x_bound:int, y:int, y_bound:int)
   requires 0<=y
   ensures x*y < x_bound * y_bound
 {
-  lemma_mul_auto_induction(x, imap u :: 0 <= u ==> u * y <= u * y_bound);
-  lemma_mul_auto_induction(y_bound, imap u :: 1 <= u ==> x * u < x_bound * u);
+  lemma_mul_auto_induction(x, u => 0 <= u ==> u * y <= u * y_bound);
+  lemma_mul_auto_induction(y_bound, u => 1 <= u ==> x * u < x_bound * u);
 }
 
 lemma lemma_mul_left_inequality(x:int, y:int, z:int)
@@ -115,8 +115,8 @@ lemma lemma_mul_left_inequality(x:int, y:int, z:int)
   ensures y <= z ==> x*y <= x*z
   ensures y < z ==> x*y < x*z
 {
-  lemma_mul_auto_induction(x, imap u :: u > 0 ==> y <= z ==> u*y <= u*z);
-  lemma_mul_auto_induction(x, imap u :: u > 0 ==> y < z ==> u*y < u*z);
+  lemma_mul_auto_induction(x, u => u > 0 ==> y <= z ==> u*y <= u*z);
+  lemma_mul_auto_induction(x, u => u > 0 ==> y < z ==> u*y < u*z);
 }
 
 lemma lemma_mul_strict_inequality_converse(x:int, y:int, z:int)
@@ -124,7 +124,7 @@ lemma lemma_mul_strict_inequality_converse(x:int, y:int, z:int)
   requires z >= 0
   ensures  x < y
 {
-  lemma_mul_auto_induction(z, imap u :: x * u < y * u && u >= 0 ==> x < y);
+  lemma_mul_auto_induction(z, u => x * u < y * u && u >= 0 ==> x < y);
 }
 
 lemma lemma_mul_inequality_converse(x:int, y:int, z:int)
@@ -132,7 +132,7 @@ lemma lemma_mul_inequality_converse(x:int, y:int, z:int)
   requires z > 0
   ensures  x <= y
 {
-  lemma_mul_auto_induction(z, imap u :: x * u <= y * u && u > 0 ==> x <= y);
+  lemma_mul_auto_induction(z, u => x * u <= y * u && u > 0 ==> x <= y);
 }
 
 lemma lemma_mul_equality_converse(x:int, y:int, z:int)
@@ -140,8 +140,8 @@ lemma lemma_mul_equality_converse(x:int, y:int, z:int)
   requires 0<z
   ensures x==y
 {
-  lemma_mul_auto_induction(z, imap u :: x > y && 0 < u ==> x * u > y * u);
-  lemma_mul_auto_induction(z, imap u :: x < y && 0 < u ==> x * u < y * u);
+  lemma_mul_auto_induction(z, u => x > y && 0 < u ==> x * u > y * u);
+  lemma_mul_auto_induction(z, u => x < y && 0 < u ==> x * u < y * u);
 }
 
 lemma lemma_mul_is_distributive_add_other_way(x:int, y:int, z:int)
@@ -174,7 +174,7 @@ lemma lemma_mul_strictly_increases(x:int, y:int)
   requires 0 < y
   ensures y < x*y
 {
-  lemma_mul_auto_induction(x, imap u :: 1 < u ==> y < u * y);
+  lemma_mul_auto_induction(x, u => 1 < u ==> y < u * y);
 }
 
 lemma lemma_mul_increases(x:int, y:int)
@@ -182,7 +182,7 @@ lemma lemma_mul_increases(x:int, y:int)
   requires 0<y
   ensures y <= x*y
 {
-  lemma_mul_auto_induction(x, imap u :: 0 < u ==> y <= u * y);
+  lemma_mul_auto_induction(x, u => 0 < u ==> y <= u * y);
 }
 
 lemma lemma_mul_nonnegative(x:int, y:int)
@@ -190,13 +190,13 @@ lemma lemma_mul_nonnegative(x:int, y:int)
   requires 0 <= y
   ensures  0 <= x*y
 {
-  lemma_mul_auto_induction(x, imap u :: 0 <= u ==> 0 <= u * y);
+  lemma_mul_auto_induction(x, u => 0 <= u ==> 0 <= u * y);
 }
 
 lemma lemma_mul_unary_negation(x:int, y:int)
   ensures (-x)*y == -(x*y) == x*(-y)
 {
-  lemma_mul_auto_induction(x, imap u :: (-u)*y == -(u*y) == u*(-y));
+  lemma_mul_auto_induction(x, u => (-u)*y == -(u*y) == u*(-y));
 }
 
 // TODO: delete lemma_mul_one_to_one_pos; use lemma_mul_one_to_one instead
@@ -205,8 +205,8 @@ lemma lemma_mul_one_to_one_pos(m:int, x:int, y:int)
   requires m*x == m*y
   ensures x == y
 {
-  lemma_mul_auto_induction(m, imap u :: x > y && 0 < u ==> x * u > y * u);
-  lemma_mul_auto_induction(m, imap u :: x < y && 0 < u ==> x * u < y * u);
+  lemma_mul_auto_induction(m, u => x > y && 0 < u ==> x * u > y * u);
+  lemma_mul_auto_induction(m, u => x < y && 0 < u ==> x * u < y * u);
 }
 
 lemma lemma_mul_one_to_one(m:int, x:int, y:int)
@@ -214,10 +214,10 @@ lemma lemma_mul_one_to_one(m:int, x:int, y:int)
   requires m*x == m*y
   ensures x == y
 {
-  lemma_mul_auto_induction(m, imap u :: x > y && 0 < u ==> x * u > y * u);
-  lemma_mul_auto_induction(m, imap u :: x > y && 0 > u ==> x * u < y * u);
-  lemma_mul_auto_induction(m, imap u :: x < y && 0 < u ==> x * u < y * u);
-  lemma_mul_auto_induction(m, imap u :: x < y && 0 > u ==> x * u > y * u);
+  lemma_mul_auto_induction(m, u => x > y && 0 < u ==> x * u > y * u);
+  lemma_mul_auto_induction(m, u => x > y && 0 > u ==> x * u < y * u);
+  lemma_mul_auto_induction(m, u => x < y && 0 < u ==> x * u < y * u);
+  lemma_mul_auto_induction(m, u => x < y && 0 > u ==> x * u > y * u);
 }
 
 //-////////////////////////////////////////////////////////////////////////////

@@ -185,9 +185,9 @@ function{:opaque} Phase2StartedTemporal(
   requires imaptotal(b)
   ensures  forall i {:trigger sat(i, Phase2StartedTemporal(b, asp, h))} ::
                sat(i, Phase2StartedTemporal(b, asp, h)) <==>
-               Phase2Started(b[i], b[i+1], asp, h);
+               Phase2Started(b[i], b[nextstep(i)], asp, h);
 {
-  stepmap(imap i :: Phase2Started(b[i], b[i+1], asp, h))
+  stepmap(imap i :: Phase2Started(b[i], b[nextstep(i)], asp, h))
 }
 
 predicate Phase2StableWithRequest(

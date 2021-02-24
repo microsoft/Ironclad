@@ -3,34 +3,32 @@ include "mul_nonlinear.i.dfy"
 module Math__mul_auto_proofs_i {
 import opened Math__mul_nonlinear_i
 
-lemma lemma_mul_induction_helper(f:imap<int,bool>, x:int)
-  requires forall i :: i in f
-  requires f[0]
-  requires forall i {:trigger f[i], f[i + 1]} :: i >= 0 && f[i] ==> f[i + 1]
-  requires forall i {:trigger f[i], f[i - 1]} :: i <= 0 && f[i] ==> f[i - 1]
-  ensures  f[x]
+lemma lemma_mul_induction_helper(f:int->bool, x:int)
+  requires f(0)
+  requires forall i {:trigger f(i), f(i + 1)} :: i >= 0 && f(i) ==> f(i + 1)
+  requires forall i {:trigger f(i), f(i - 1)} :: i <= 0 && f(i) ==> f(i - 1)
+  ensures  f(x)
   decreases if x >= 0 then x else -x
 {
   if (x > 0)
   {
     lemma_mul_induction_helper(f, x - 1);
-    assert f[(x - 1) + 1];
+    assert f((x - 1) + 1);
   }
   else if (x < 0)
   {
     lemma_mul_induction_helper(f, x + 1);
-    assert f[(x + 1) - 1];
+    assert f((x + 1) - 1);
   }
 }
 
-lemma lemma_mul_induction_forall(f:imap<int,bool>)
-  requires forall i :: i in f
-  requires f[0]
-  requires forall i {:trigger f[i], f[i + 1]} :: i >= 0 && f[i] ==> f[i + 1]
-  requires forall i {:trigger f[i], f[i - 1]} :: i <= 0 && f[i] ==> f[i - 1]
-  ensures  forall i :: f[i]
+lemma lemma_mul_induction_forall(f:int->bool)
+  requires f(0)
+  requires forall i {:trigger f(i), f(i + 1)} :: i >= 0 && f(i) ==> f(i + 1)
+  requires forall i {:trigger f(i), f(i - 1)} :: i <= 0 && f(i) ==> f(i - 1)
+  ensures  forall i :: f(i)
 {
-  forall i ensures f[i] { lemma_mul_induction_helper(f, i); }
+  forall i ensures f(i) { lemma_mul_induction_helper(f, i); }
 }
 
 lemma lemma_mul_auto_commutes()
@@ -39,7 +37,7 @@ lemma lemma_mul_auto_commutes()
   forall x:int, y:int
     ensures x * y == y * x
   {
-    lemma_mul_induction_forall(imap i :: x * i == i * x);
+    lemma_mul_induction_forall(i => x * i == i * x);
   }
 }
 
@@ -66,16 +64,16 @@ lemma lemma_mul_auto_distributes()
     ensures (x + y) * z == x * z + y * z
     ensures (x - y) * z == x * z - y * z
   {
-    var f1 := imap i :: (x + i) * z == x * z + i * z;
-    var f2 := imap i :: (x - i) * z == x * z - i * z;
+    var f1 := i => (x + i) * z == x * z + i * z;
+    var f2 := i => (x - i) * z == x * z - i * z;
     assert forall i {:trigger (x + (i + 1)) * z} :: (x + (i + 1)) * z == ((x + i) + 1) * z == (x + i) * z + z;
     assert forall i {:trigger (x + (i - 1)) * z} :: (x + (i - 1)) * z == ((x + i) - 1) * z == (x + i) * z - z;
     assert forall i {:trigger (x - (i + 1)) * z} :: (x - (i + 1)) * z == ((x - i) - 1) * z == (x - i) * z - z;
     assert forall i {:trigger (x - (i - 1)) * z} :: (x - (i - 1)) * z == ((x - i) + 1) * z == (x - i) * z + z;
     lemma_mul_induction_forall(f1);
     lemma_mul_induction_forall(f2);
-    assert f1[y];
-    assert f2[y];
+    assert f1(y);
+    assert f2(y);
   }
 }
 

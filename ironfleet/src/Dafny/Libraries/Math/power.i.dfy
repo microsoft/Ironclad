@@ -207,7 +207,7 @@ lemma lemma_power_positive(b:int, e:nat)
   ensures  0<power(b,e)
 {
   lemma_power_auto();
-  lemma_mul_auto_induction(e, imap u:int :: 0 <= u ==> 0 < power(b, u));
+  lemma_mul_auto_induction(e, u => 0 <= u ==> 0 < power(b, u));
 }
 
 lemma lemma_power_increases(b:nat,e1:nat,e2:nat)
@@ -216,7 +216,22 @@ lemma lemma_power_increases(b:nat,e1:nat,e2:nat)
   ensures power(b,e1) <= power(b,e2)
 {
   lemma_power_auto();
-  lemma_mul_auto_induction(e2 - e1, imap e :: 0 <= e ==> power(b, e1) <= power(b, e1 + e));
+  var f := e => 0 <= e ==> power(b, e1) <= power(b, e1 + e);
+  forall i {:trigger TMulAutoLe(0, i)} | TMulAutoLe(0, i) && f(i)
+    ensures f(i + 1)
+  {
+    calc {
+      power(b, e1 + i);
+      <= { lemma_power_positive(b, e1 + i);
+          lemma_mul_left_inequality(power(b, e1 + i), 1, b); }
+        power(b, e1 + i) * b;
+      == { lemma_power_1(b); }
+         power(b, e1 + i) * power(b, 1);
+      == { lemma_power_adds(b, e1 + i, 1); }
+         power(b, e1 + i + 1);
+    }
+  }
+  lemma_mul_auto_induction(e2 - e1, f);
 }
 
 lemma lemma_power_strictly_increases(b:nat,e1:nat,e2:nat)
@@ -225,7 +240,22 @@ lemma lemma_power_strictly_increases(b:nat,e1:nat,e2:nat)
   ensures power(b,e1) < power(b,e2)
 {
   lemma_power_auto();
-  lemma_mul_auto_induction(e2 - e1, imap e :: 0 < e ==> power(b, e1) < power(b, e1 + e));
+  var f := e => 0 < e ==> power(b, e1) < power(b, e1 + e);
+  forall i {:trigger TMulAutoLe(0, i)} | TMulAutoLe(0, i) && f(i)
+    ensures f(i + 1)
+  {
+    calc {
+      power(b, e1 + i);
+      <= { lemma_power_positive(b, e1 + i);
+          lemma_mul_left_inequality(power(b, e1 + i), 1, b); }
+        power(b, e1 + i) * b;
+      == { lemma_power_1(b); }
+         power(b, e1 + i) * power(b, 1);
+      == { lemma_power_adds(b, e1 + i, 1); }
+         power(b, e1 + i + 1);
+    }
+  }
+  lemma_mul_auto_induction(e2 - e1, f);
 }
 
 lemma lemma_square_is_power_2(x:nat)

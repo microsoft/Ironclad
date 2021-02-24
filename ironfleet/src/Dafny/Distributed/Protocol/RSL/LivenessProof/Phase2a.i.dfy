@@ -62,11 +62,11 @@ function{:opaque} ProposerSends2asForOperationTemporal(
   requires imaptotal(b)
   ensures  forall i{:trigger sat(i, ProposerSends2asForOperationTemporal(b, idx, opn))} ::
              sat(i, ProposerSends2asForOperationTemporal(b, idx, opn)) <==>
-             exists ios {:trigger ProposerSends2asForOperation(b[i], b[i+1], idx, opn, ios)} ::
-                    ProposerSends2asForOperation(b[i], b[i+1], idx, opn, ios)
+             exists ios {:trigger ProposerSends2asForOperation(b[i], b[nextstep(i)], idx, opn, ios)} ::
+                    ProposerSends2asForOperation(b[i], b[nextstep(i)], idx, opn, ios)
 {
-  stepmap(imap i :: exists ios {:trigger ProposerSends2asForOperation(b[i], b[i+1], idx, opn, ios)} ::
-                         ProposerSends2asForOperation(b[i], b[i+1], idx, opn, ios))
+  stepmap(imap i :: exists ios {:trigger ProposerSends2asForOperation(b[i], b[nextstep(i)], idx, opn, ios)} ::
+                         ProposerSends2asForOperation(b[i], b[nextstep(i)], idx, opn, ios))
 }
 
 predicate LearnerHas2bFromAcceptorInView(

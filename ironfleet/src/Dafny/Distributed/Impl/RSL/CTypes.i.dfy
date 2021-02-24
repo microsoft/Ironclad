@@ -474,7 +474,7 @@ function {:opaque} AbstractifyCVotesToVotes(votes:CVotes) : Votes
   // var newDomain := set i | i in votes.v :: AbstractifyCOperationNumberToOperationNumber(i);
   lemma_AbstractifyMapOfThings(votes.v, set i | i in votes.v :: AbstractifyCOperationNumberToOperationNumber(i));
   // map i | i in newDomain :: AbstractifyCVoteToVote(votes.v[COperationNumber(i as uint64)])
-  map j | j in (set i | i in votes.v :: AbstractifyCOperationNumberToOperationNumber(i)) :: AbstractifyCVoteToVote(votes.v[COperationNumber(j as uint64)])
+  map j {:trigger votes.v[COperationNumber(j as uint64)]} | j in (set i | i in votes.v :: AbstractifyCOperationNumberToOperationNumber(i)) :: AbstractifyCVoteToVote(votes.v[COperationNumber(j as uint64)])
 }
 
 lemma lemma_VotesInjective(v1:CVotes, v2:CVotes)

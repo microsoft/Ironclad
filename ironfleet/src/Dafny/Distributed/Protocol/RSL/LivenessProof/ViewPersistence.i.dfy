@@ -544,13 +544,14 @@ lemma lemma_EventuallyBallotStable(
   ahead_idx :| ahead_idx in asp.live_quorum && 0 <= ahead_idx < |b[step].replicas| && BalLeq(view, CurrentViewOfHost(b[step], ahead_idx));
   assert StablePeriodStarted(b[step], asp.live_quorum, view, ahead_idx);
 
+  var time_plus_duration := b[step].environment.time + duration;
   forall i | step <= i
-    ensures sat(i, untilabsolutetime(NoReplicaBeyondViewTemporal(b, view), b[step].environment.time + duration, PaxosTimeMap(b)))
+    ensures sat(i, untilabsolutetime(NoReplicaBeyondViewTemporal(b, view), time_plus_duration, PaxosTimeMap(b)))
   {
-    TemporalDeduceFromAlways(step, i, NoLiveReplicaSuspectsViewBeforeTemporal(b, asp.live_quorum, view, b[step].environment.time + duration + asp.max_clock_ambiguity + 1, asp.max_clock_ambiguity));
-    if b[i].environment.time <= b[step].environment.time + duration
+    TemporalDeduceFromAlways(step, i, NoLiveReplicaSuspectsViewBeforeTemporal(b, asp.live_quorum, view, time_plus_duration + asp.max_clock_ambiguity + 1, asp.max_clock_ambiguity));
+    if b[i].environment.time <= time_plus_duration
     {
-      assert b[i].environment.time < b[step].environment.time + duration + 1;
+      assert b[i].environment.time < time_plus_duration + 1;
       lemma_ConstantsAllConsistent(b, asp.c, i);
       forall idx | idx in asp.live_quorum
         ensures ViewPlusLe(CurrentViewPlusOfHost(b[i], idx), ViewPlus(view, false))
@@ -559,7 +560,7 @@ lemma lemma_EventuallyBallotStable(
         assert || BalLt(es.current_view, view)
                || (&& es.current_view == view
                   && es.constants.my_index !in es.current_view_suspectors
-                  && es.epoch_end_time >= b[step].environment.time + duration + asp.max_clock_ambiguity + 1);
+                  && es.epoch_end_time >= time_plus_duration + asp.max_clock_ambiguity + 1);
       }
       lemma_NoOneCanExceedViewUntilAQuorumMemberSuspectsIt(b, asp, i, view);
       assert AllQuorumMembersViewPlusLe(b[i], asp.live_quorum, ViewPlus(view, false));
@@ -574,7 +575,7 @@ lemma lemma_EventuallyBallotStable(
     }
   }
 
-  TemporalAlways(step, untilabsolutetime(NoReplicaBeyondViewTemporal(b, view), b[step].environment.time + duration, PaxosTimeMap(b)));
+  TemporalAlways(step, untilabsolutetime(NoReplicaBeyondViewTemporal(b, view), time_plus_duration, PaxosTimeMap(b)));
 }
 
 lemma lemma_EventuallyBallotStableWithRequest(

@@ -30,6 +30,7 @@ import opened Collections__Maps_i
 import opened Logic__Option_i
 import opened Environment_s
 import opened AppStateMachine_i
+import opened Temporal__Temporal_s
 
 predicate ClientIndexMatches(req_idx:int, client:EndPoint, newReplyCache:CReplyCache, batch:CRequestBatch, replies:seq<CReply>) 
   requires |batch| == |replies|
@@ -635,7 +636,7 @@ method {:timeLimitMultiplier 4} ExecutorExecute(cs:ExecutorState, reply_cache_mu
   assert forall i :: 0 <= i < |cv| ==> AbstractifyCRequestToRequest(cv[i]) == v[i];
     
   forall i | 0 <= i < |cv| 
-    ensures AbstractifyCAppStateToAppState(cstates[i+1]) == states[i+1]
+    ensures AbstractifyCAppStateToAppState(cstates[nextstep(i)]) == states[nextstep(i)]
   {
     assert HelperPredicateHRBI(i, cv, cstates, creplies, states);
   }
@@ -664,13 +665,13 @@ method {:timeLimitMultiplier 4} ExecutorExecute(cs:ExecutorState, reply_cache_mu
   var i := |cv|-1;
   if |cv| > 0 {
     assert 0 <= i < |cv|;
-    assert AbstractifyCAppStateToAppState(cstates[i+1]) == states[i+1];
+    assert AbstractifyCAppStateToAppState(cstates[nextstep(i)]) == states[nextstep(i)];
   } else {
-    assert i+1 == 0;
-    assert AbstractifyCAppStateToAppState(cstates[i+1]) == states[i+1];
+    assert nextstep(i) == 0;
+    assert AbstractifyCAppStateToAppState(cstates[nextstep(i)]) == states[nextstep(i)];
   }
   calc {
-    i+1;
+    nextstep(i);
     |cv|-1+1;
     |cv|;
     |cstates|-1;

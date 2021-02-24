@@ -40,7 +40,6 @@ lemma TemporalAssist()
     ensures sat(i, eventual(x)) == (exists j:int :: TLe(i, j) && sat(j, x))
   {
     reveal eventual();
-    assert sat(i, stepmap(imap ii :: exists j :: ii <= j && sat(j, x))) == (imap ii :: exists j :: ii <= j && sat(j, x))[i];
   }
 }
 
@@ -69,7 +68,6 @@ lemma TemporalBlast()
     ensures sat(i, eventual(x)) == (exists j:int :: TLe(i, j) && sat(j, x))
   {
     reveal eventual();
-    assert sat(i, stepmap(imap ii :: exists j :: ii <= j && sat(j, x))) == (imap ii :: exists j :: ii <= j && sat(j, x))[i];
   }
 }
     
@@ -98,7 +96,6 @@ lemma TemporalFullBlast()
     ensures sat(i, eventual(x)) == (exists j:int :: TLe(i, j) && sat(j, x))
   {
     reveal eventual();
-    assert sat(i, stepmap(imap ii :: exists j :: ii <= j && sat(j, x))) == (imap ii :: exists j :: ii <= j && sat(j, x))[i];
   }
 }
 

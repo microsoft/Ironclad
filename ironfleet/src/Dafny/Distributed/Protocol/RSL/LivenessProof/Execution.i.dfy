@@ -51,9 +51,9 @@ predicate RequestWithSeqnoExecuted(ps:RslState, ps':RslState, client:NodeIdentit
 function {:opaque} RequestWithSeqnoExecutedTemporal(b:Behavior<RslState>, client:NodeIdentity, seqno:int, idx:int):temporal
   requires imaptotal(b)
   ensures  forall i {:trigger sat(i, RequestWithSeqnoExecutedTemporal(b, client, seqno, idx))} ::
-             sat(i, RequestWithSeqnoExecutedTemporal(b, client, seqno, idx)) <==> RequestWithSeqnoExecuted(b[i], b[i+1], client, seqno, idx)
+             sat(i, RequestWithSeqnoExecutedTemporal(b, client, seqno, idx)) <==> RequestWithSeqnoExecuted(b[i], b[nextstep(i)], client, seqno, idx)
 {
-  stepmap(imap i :: RequestWithSeqnoExecuted(b[i], b[i+1], client, seqno, idx))
+  stepmap(imap i :: RequestWithSeqnoExecuted(b[i], b[nextstep(i)], client, seqno, idx))
 }
 
 predicate ReplySentToClientAtLeastSeqno(ps:RslState, ps':RslState, client:NodeIdentity, seqno:int, idx:int, ios:seq<RslIo>, batch_idx:int)
@@ -81,9 +81,9 @@ predicate RequestAtLeastSeqnoExecuted(ps:RslState, ps':RslState, client:NodeIden
 function {:opaque} RequestAtLeastSeqnoExecutedTemporal(b:Behavior<RslState>, client:NodeIdentity, seqno:int, idx:int):temporal
   requires imaptotal(b)
   ensures  forall i {:trigger sat(i, RequestAtLeastSeqnoExecutedTemporal(b, client, seqno, idx))} ::
-             sat(i, RequestAtLeastSeqnoExecutedTemporal(b, client, seqno, idx)) <==> RequestAtLeastSeqnoExecuted(b[i], b[i+1], client, seqno, idx)
+             sat(i, RequestAtLeastSeqnoExecutedTemporal(b, client, seqno, idx)) <==> RequestAtLeastSeqnoExecuted(b[i], b[nextstep(i)], client, seqno, idx)
 {
-  stepmap(imap i :: RequestAtLeastSeqnoExecuted(b[i], b[i+1], client, seqno, idx))
+  stepmap(imap i :: RequestAtLeastSeqnoExecuted(b[i], b[nextstep(i)], client, seqno, idx))
 }
 
 

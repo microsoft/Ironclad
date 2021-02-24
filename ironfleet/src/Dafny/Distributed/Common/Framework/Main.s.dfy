@@ -14,7 +14,7 @@ method {:main} Main(ghost env:HostEnvironment)
   requires env.Valid() && env.ok.ok()
   requires env.udp.history() == []
   requires |env.constants.CommandLineArgs()| >= 2
-  modifies set x:object | true     // Everything!
+  modifies set x:object | DS_s.H_s.ArbitraryObject(x)     // Everything!
   decreases *
 {
   var ok, host_state, config, servers, clients, id := DS_s.H_s.HostInitImpl(env);

@@ -105,36 +105,34 @@ lemma lemma_mod_auto(n:int)
 
 predicate TModAutoLe(x:int, y:int) { x <= y }
 
-lemma lemma_mod_auto_induction(n:int, x:int, f:imap<int,bool>)
+lemma lemma_mod_auto_induction(n:int, x:int, f:int->bool)
   requires n > 0
-  requires forall i :: i in f
-  requires ModAuto(n) ==> && (forall i {:trigger TModAutoLe(0, i)} :: TModAutoLe(0, i) && i < n ==> f[i])
-                         && (forall i {:trigger TModAutoLe(0, i)} :: TModAutoLe(0, i) && f[i] ==> f[i + n])
-                         && (forall i {:trigger TModAutoLe(i + 1, n)} :: TModAutoLe(i + 1, n) && f[i] ==> f[i - n])
+  requires ModAuto(n) ==> && (forall i {:trigger TModAutoLe(0, i)} :: TModAutoLe(0, i) && i < n ==> f(i))
+                         && (forall i {:trigger TModAutoLe(0, i)} :: TModAutoLe(0, i) && f(i) ==> f(i + n))
+                         && (forall i {:trigger TModAutoLe(i + 1, n)} :: TModAutoLe(i + 1, n) && f(i) ==> f(i - n))
   ensures  ModAuto(n)
-  ensures  f[x]
+  ensures  f(x)
 {
   lemma_mod_auto(n);
-  assert forall i :: TModAutoLe(0, i) && i < n ==> f[i];
-  assert forall i {:trigger f[i], f[i + n]} :: TModAutoLe(0, i) && f[i] ==> f[i + n];
-  assert forall i {:trigger f[i], f[i - n]} :: TModAutoLe(i + 1, n) && f[i] ==> f[i - n];
+  assert forall i :: TModAutoLe(0, i) && i < n ==> f(i);
+  assert forall i {:trigger f(i), f(i + n)} :: TModAutoLe(0, i) && f(i) ==> f(i + n);
+  assert forall i {:trigger f(i), f(i - n)} :: TModAutoLe(i + 1, n) && f(i) ==> f(i - n);
   lemma_mod_induction_forall(n, f);
-  assert f[x];
+  assert f(x);
 }
 
-lemma lemma_mod_auto_induction_forall(n:int, f:imap<int,bool>)
+lemma lemma_mod_auto_induction_forall(n:int, f:int->bool)
   requires n > 0
-  requires forall i :: i in f
-  requires ModAuto(n) ==> && (forall i {:trigger TModAutoLe(0, i)} :: TModAutoLe(0, i) && i < n ==> f[i])
-                         && (forall i {:trigger TModAutoLe(0, i)} :: TModAutoLe(0, i) && f[i] ==> f[i + n])
-                         && (forall i {:trigger TModAutoLe(i + 1, n)} :: TModAutoLe(i + 1, n) && f[i] ==> f[i - n])
+  requires ModAuto(n) ==> && (forall i {:trigger TModAutoLe(0, i)} :: TModAutoLe(0, i) && i < n ==> f(i))
+                         && (forall i {:trigger TModAutoLe(0, i)} :: TModAutoLe(0, i) && f(i) ==> f(i + n))
+                         && (forall i {:trigger TModAutoLe(i + 1, n)} :: TModAutoLe(i + 1, n) && f(i) ==> f(i - n))
   ensures  ModAuto(n)
-  ensures  forall i {:trigger f[i]} :: f[i]
+  ensures  forall i {:trigger f(i)} :: f(i)
 {
   lemma_mod_auto(n);
-  assert forall i :: TModAutoLe(0, i) && i < n ==> f[i];
-  assert forall i {:trigger f[i], f[i + n]} :: TModAutoLe(0, i) && f[i] ==> f[i + n];
-  assert forall i {:trigger f[i], f[i - n]} :: TModAutoLe(i + 1, n) && f[i] ==> f[i - n];
+  assert forall i :: TModAutoLe(0, i) && i < n ==> f(i);
+  assert forall i {:trigger f(i), f(i + n)} :: TModAutoLe(0, i) && f(i) ==> f(i + n);
+  assert forall i {:trigger f(i), f(i - n)} :: TModAutoLe(i + 1, n) && f(i) ==> f(i - n);
   lemma_mod_induction_forall(n, f);
 }
 

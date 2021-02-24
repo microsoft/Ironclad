@@ -22,6 +22,9 @@ predicate ConcreteConfigurationInvariants(config:ConcreteConfiguration)
 
 function ParseCommandLineConfiguration(args:seq<seq<uint16>>) : (ConcreteConfiguration, set<EndPoint>, set<EndPoint>)
 function ParseCommandLineId(ip:seq<uint16>, port:seq<uint16>) : EndPoint
+
+predicate ArbitraryObject(o:object) { true }
+
 // TODO: Prohibit HostInitImpl from sending (and receiving?) packets
 method HostInitImpl(ghost env:HostEnvironment) returns (
   ok:bool,
@@ -34,7 +37,7 @@ method HostInitImpl(ghost env:HostEnvironment) returns (
   requires env.Valid()
   requires env.ok.ok()
   requires |env.constants.CommandLineArgs()| >= 2
-  modifies set x:object | true     // Everything!
+  modifies set x:object | ArbitraryObject(x)     // Everything!
   ensures  ok ==> env.Valid() && env.ok.ok()
   ensures  ok ==> |env.constants.CommandLineArgs()| >= 2
   ensures  ok ==> HostStateInvariants(host_state, env)
@@ -60,7 +63,7 @@ method HostNextImpl(ghost env:HostEnvironment, host_state:HostState)
   )
   requires env.Valid() && env.ok.ok()
   requires HostStateInvariants(host_state, env)
-  modifies set x:object | true     // Everything!
+  modifies set x:object | ArbitraryObject(x)     // Everything!
   ensures  ok <==> env.Valid() && env.ok.ok()
   // TODO: Even when !ok, if sent is non-empty, we need to return valid set of sent packets too
   ensures  ok ==> HostStateInvariants(host_state', env)

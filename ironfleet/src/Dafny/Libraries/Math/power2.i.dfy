@@ -68,7 +68,7 @@ lemma lemma_power2_strictly_increases(e1: int, e2: int)
   ensures power2(e1) < power2(e2)
 {
   lemma_power2_auto();
-  lemma_mul_auto_induction(e2 - e1, imap e :: 0 < e ==> power2(e1) < power2(e1 + e));
+  lemma_mul_auto_induction(e2 - e1, e => 0 < e ==> power2(e1) < power2(e1 + e));
 }
 
 lemma lemma_power2_increases(e1: int, e2: int)
@@ -76,21 +76,21 @@ lemma lemma_power2_increases(e1: int, e2: int)
   ensures power2(e1) <= power2(e2)
 {
   lemma_power2_auto();
-  lemma_mul_auto_induction(e2 - e1, imap e :: 0 <= e ==> power2(e1) <= power2(e1 + e));
+  lemma_mul_auto_induction(e2 - e1, e => 0 <= e ==> power2(e1) <= power2(e1 + e));
 }
 
 // lemma lemma_power2_positive()
 //   ensures forall e:nat :: 0 < power2(e)
 // {
 //   lemma_power2_auto();
-//   lemma_mul_auto_induction_forall(imap e :: 0 <= e ==> 0 < power2(e));
+//   lemma_mul_auto_induction_forall(e => 0 <= e ==> 0 < power2(e));
 // }
 
 // lemma lemma_power2_nonzero_bigger_than_one()
 //   ensures forall e:nat :: 0<e ==> 1 < power2(e)
 // {
 //   lemma_power2_auto();
-//   var f := imap e :: (0 < e ==> 1 < power2(e));
+//   var f := e => (0 < e ==> 1 < power2(e));
 //   lemma_mul_auto_induction_forall(f);
 //   assert forall e :: f[e] <==> (0 < e ==> 1 < power2(e)); // REVIEW: why isn't this obvious to Dafny?
 // }
@@ -453,9 +453,9 @@ lemma lemma_mask_div_2(c:nat)
   ensures (power2(c)-1)/2 == power2(c-1)-1
 {
   lemma_power2_auto();
-  var f := imap u :: 0 < u ==> (power2(u)-1)/2 == power2(u-1)-1;
-  assert forall i {:trigger TMulAutoLe(0, i)} :: TMulAutoLe(0, i) && f[i] ==> f[i + 1];
-  assert forall i {:trigger TMulAutoLe(i, 0)} :: TMulAutoLe(i, 0) && f[i] ==> f[i - 1];
+  var f := u => 0 < u ==> (power2(u)-1)/2 == power2(u-1)-1;
+  assert forall i {:trigger TMulAutoLe(0, i)} :: TMulAutoLe(0, i) && f(i) ==> f(i + 1);
+  assert forall i {:trigger TMulAutoLe(i, 0)} :: TMulAutoLe(i, 0) && f(i) ==> f(i - 1);
   lemma_mul_auto_induction(c, f);
 }
 

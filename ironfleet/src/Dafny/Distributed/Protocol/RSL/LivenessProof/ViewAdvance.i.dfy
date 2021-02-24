@@ -132,10 +132,10 @@ function{:opaque} ReplicaSentHeartbeatTemporal(
   requires imaptotal(b)
   ensures  forall i {:trigger sat(i, ReplicaSentHeartbeatTemporal(b, sender_idx, receiver_idx))} ::
              sat(i, ReplicaSentHeartbeatTemporal(b, sender_idx, receiver_idx)) <==>
-             exists p {:trigger ReplicaSentHeartbeat(b[i], b[i+1], sender_idx, receiver_idx, p)} ::
-               ReplicaSentHeartbeat(b[i], b[i+1], sender_idx, receiver_idx, p)
+             exists p {:trigger ReplicaSentHeartbeat(b[i], b[nextstep(i)], sender_idx, receiver_idx, p)} ::
+               ReplicaSentHeartbeat(b[i], b[nextstep(i)], sender_idx, receiver_idx, p)
 {
-  stepmap(imap i :: exists p {:trigger ReplicaSentHeartbeat(b[i], b[i+1], sender_idx, receiver_idx, p)} :: ReplicaSentHeartbeat(b[i], b[i+1], sender_idx, receiver_idx, p))
+  stepmap(imap i :: exists p {:trigger ReplicaSentHeartbeat(b[i], b[nextstep(i)], sender_idx, receiver_idx, p)} :: ReplicaSentHeartbeat(b[i], b[nextstep(i)], sender_idx, receiver_idx, p))
 }
     
 lemma lemma_NextHeartbeatTimeInv(

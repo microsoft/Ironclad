@@ -106,9 +106,9 @@ function{:opaque} PrimarySent1aInViewTemporal(
   ):temporal
   requires imaptotal(b)
   ensures  forall i{:trigger sat(i, PrimarySent1aInViewTemporal(b, view))} ::
-             sat(i, PrimarySent1aInViewTemporal(b, view)) == PrimarySent1aInView(b[i], b[i+1], view)
+             sat(i, PrimarySent1aInViewTemporal(b, view)) == PrimarySent1aInView(b[i], b[nextstep(i)], view)
 {
-  stepmap(imap i :: PrimarySent1aInView(b[i], b[i+1], view))
+  stepmap(imap i :: PrimarySent1aInView(b[i], b[nextstep(i)], view))
 }
 
 lemma lemma_StablePeriodStartedLeadsToPrimaryInView(
