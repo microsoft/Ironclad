@@ -239,13 +239,14 @@ def generate_ironfleet_host_actions(source, target, env, for_signature):
 def get_ironfleet_host_dependencies(target, source, env):
   source_name = str(source[0])
   recursively_scan_for_dependencies(source_name, 0)
-  extra_dependencies = dependencies_by_file[source_name]
+  verification_dependencies = dependencies_by_file[source_name]
+  extra_dependencies = verification_dependencies
+  if not GetOption('no_verify'):
+    extra_dependencies.extend([re.sub('\.dfy$', '.vdfy', f) for f in verification_dependencies if re.search('\.dfy$', f)])
   extra_dependencies.extend(['src/IronfleetShell/IronfleetShell.csproj',
                              'src/IronfleetShell/Program.cs',
                              'src/Clients/Common/Profiler.cs',
                              'src/Dafny/Distributed/Common/Native/IoNative.cs'])
-  if not GetOption('no_verify'):
-    extra_dependencies.append(re.sub('\.dfy$', '.vdfy', source_name))
   return target, source + extra_dependencies
 
 # Add env.IronfleetHostBuild(), to generate dotnet build actions
