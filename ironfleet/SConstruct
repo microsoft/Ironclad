@@ -41,7 +41,7 @@ if sys.platform == "win32" or sys.platform == "cygwin":
   dafny_exe = os.path.join(GetOption('dafny_path'), 'Dafny.exe')
   dafny_invocation = [dafny_exe]
 else:
-  dafny_exe = os.path.join(GetOption('dafny_path'), 'Dafny.dll')
+  dafny_exe = os.path.join(GetOption('dafny_path'), 'dafny.dll')
   dafny_invocation = ["dotnet", dafny_exe]
 
 # Useful Dafny command lines
