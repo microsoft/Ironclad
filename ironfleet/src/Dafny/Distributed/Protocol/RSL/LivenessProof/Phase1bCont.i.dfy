@@ -20,6 +20,7 @@ import opened LiveRSL__Configuration_i
 import opened LiveRSL__DistributedSystem_i
 import opened LiveRSL__Environment_i
 import opened LiveRSL__Message_i
+import opened LiveRSL__Proposer_i
 import opened LiveRSL__Replica_i
 import opened LiveRSL__Types_i
 import opened LivenessProof__Assumptions_i
@@ -85,9 +86,9 @@ function{:opaque} AcceptorSent1bInViewTemporal(
   ):temporal
   requires imaptotal(b)
   ensures  forall i{:trigger sat(i, AcceptorSent1bInViewTemporal(b, view, idx))} ::
-             sat(i, AcceptorSent1bInViewTemporal(b, view, idx)) == AcceptorSent1bInView(b[i], b[i+1], view, idx)
+             sat(i, AcceptorSent1bInViewTemporal(b, view, idx)) == AcceptorSent1bInView(b[i], b[nextstep(i)], view, idx)
 {
-  stepmap(imap i :: AcceptorSent1bInView(b[i], b[i+1], view, idx))
+  stepmap(imap i :: AcceptorSent1bInView(b[i], b[nextstep(i)], view, idx))
 }
 
 function PrimaryHas1bFromAcceptorOrIsPastPhase1Temporal(
@@ -532,7 +533,12 @@ lemma lemma_PrimaryHas1bFromAllLiveAcceptorsLeadsToPrimaryEnteringPhase2WF1Req2(
     }
     lemma_SubsetCardinality(sources, asp.live_quorum, x=>true);
     assert |s.received_1b_packets| >= LMinQuorumSize(s.constants.all.config);
-
+    assert LSetOfMessage1bAboutBallot(s.received_1b_packets, s.max_ballot_i_sent_1a);
+    assert s.current_state == 1;
+    assert s' == s.(current_state := 2,
+                    next_operation_number_to_propose := b[i].replicas[primary_idx].replica.acceptor.log_truncation_point);
+    assert PrimaryInState2(b[i+1], view);
+    assert sat(i+1, y);
     assert sat(i+1, Q);
   }
 }
