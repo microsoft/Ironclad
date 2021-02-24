@@ -31,28 +31,21 @@ IronFleet is licensed under the MIT license included in the [LICENSE](./LICENSE)
 
 # Setup
 
-In the examples below, we'll assume you're using Cygwin, but other shells (e.g.,
-Powershell) should work as well.  
+To use Ironfleet, you'll need the following tools:
+  * .NET 5.0 (runtime for built executables, available at `https://dotnet.microsoft.com/download`)
+  * python 2 or 3 (needed for running scons)
+  * pip (needed for installing scons)
+  * scons (installable by running `pip install scons`)
+  * Dafny v3.0.0 (verifier, available at `https://github.com/dafny-lang/dafny`)
 
-To use Dafny interactively, you'll need Visual Studio 2012 or newer, Vim, or Emacs.
-Each has a plugin:
-  - For Vim, we suggest the vim-loves-dafny plugin:
-      https://github.com/mlr-msft/vim-loves-dafny
-  - For Emacs, we suggest the Emacs packages boogie-mode and dafny-mode:
-      https://github.com/boogie-org/boogie-friends
-  - For Visual Studio, open:
-      `./tools/Dafny/DafnyIroncladVsPlugin.vsix`
-    to install the Dafny plugin with our default settings.
-    If you're running on Windows Server, and you see an error message that says Z3 has crashed,
-    then you may need to install the [Microsoft Visual C++ runtime](http://www.microsoft.com/en-us/download/details.aspx?id=5555).
+Optionally, if you want to edit Dafny files and interactively debug them, you'll need:
+  * VS Code (available from `https://code.visualstudio.com/Download`)
+  * the "Dafny for Visual Studio Code" plugin authored by the Correctness Lab
+    (available as an extension within VS Code)
     
-These instructions assume you're running on Windows.  However, Dafny, and all of its
-dependencies, also run on Linux.  You can obtain Dafny sources from:
-
-  https://github.com/Microsoft/dafny/
-
-Dafny's INSTALL file contains instructions for building on Linux with Mono.  Note that we have
-not yet tested building our build tool, NuBuild, on Linux, so your mileage may vary.
+The instructions below have been mainly tested using Cygwin on Windows.
+But, they should work for other Windows shells (e.g., Powershell) and other
+platforms Dafny supports, including Ubuntu, Debian, and Mac OS X.
 
 # Verification and compilation
 
