@@ -54,57 +54,31 @@ dependencies, also run on Linux.  You can obtain Dafny sources from:
 Dafny's INSTALL file contains instructions for building on Linux with Mono.  Note that we have
 not yet tested building our build tool, NuBuild, on Linux, so your mileage may vary.
 
-# Verification
+# Verification and compilation
 
-To perform our definitive verifications, we use our NuBuild tool, which handles dependency
-tracking, caches intermediate verification results locally and in the cloud, and can
-utilize a cluster of cloud VMs to parallelize verification.  To enable cloud features,
-you'll need an Azure account and an Azure storage account.  Once you have an Azure storage
-account, put your storage account's connection string into the
-`bin_tools/NuBuild/Nubuild.exe.config` file.  This will let you make use of the cloud
-cache capabilities.  To use the cloud build functionality, you'll need to add your
-subscription Id and Certificate (base64 encoded) to
-`bin_tools/NuBuild/AzureManage.exe.config`, which will then let you manage a cluster of
-VMs to serve as workers.
+To build and verify the contents of this repo, use:
 
-You can still use NuBuild without cloud support, however, by passing the `--no-cloudcache` option.
+  `scons --dafny-path=/path/to/directory/with/dafny/`
 
-To verify an individual Dafny file (and all of its dependencies), run:
-
-  `./bin_tools/NuBuild/NuBuild.exe --no-cloudcache -j 3 DafnyVerifyTree src/Dafny/Distributed/Impl/SHT/AppInterface.i.dfy`
-
-which uses the `-j` flag to add 3-way local parallelism.
-
-To verify a forest of Dafny files (e.g., all of the IronFleet files), run:
-
-  `./bin_tools/NuBuild/NuBuild.exe -j 3 BatchDafny src/Dafny/Distributed/apps.dfy.batch`
+To use `<n>` threads in parallel, add `-j <n>` to this command.
 
 Expect this to take up to several hours, depending on your machine and how many cores you
 have available.  Also note that the prover's time limits are based on wall clock time, so
-if you run the verification on a slow machine, you may see a few time outs not present in
+if you run the verification on a slow machine, you may see a few timeouts not present in
 our build.
 
-# Compilation
+This will produce the following executables:
+```
+  src/Dafny/Distributed/Services/RSL/build/IronfleetShell.dll
+  src/IronRSLClient/bin/Release/net5.0/IronRSLClient.dll
+```
 
-To build a runnable, verification application, use:
-
-  `./bin_tools/NuBuild/NuBuild.exe --no-cloudcache -j 3 IronfleetApp src/Dafny/Distributed/Services/RSL/Main.i.dfy`
-
-The will produce an executable:
-  `./nuobj/Dafny/Distributed/Services/RSL/Main_i.exe`
-
-To produce an executable without performing verification use NuBuild's `--no-verify` flag.
-Note that in this case the resulting executable will be named `Main_i.unverified.exe`.
+To produce executables without performing verification, use `--no-verify`.
 
 For maximum performance, be sure to turn off performance profiling.  The easiest way
 to do this is to comment out the body of the RecordTimingSeq method in  
 
   `./src/Dafny/Distributed/Impl/Common/Util.i.dfy`
-
-To build the unverified C# clients for IronRSL and IronKV, open and build (in Release mode):
-
-  `./src/IronfleetClient/IronfleetClient.sln`
-  `./src/IronKVClient/IronfleetClient.sln`
 
 # Running
 
@@ -133,13 +107,17 @@ To run IronRSL, you should ideally use four different machines, but in a pinch y
 four separate windows on the same machine. Both the client and server executables expect a
 list of IP-port pairs that identifies all of the replicas in the system (in this example
 we're using 3, but more is feasible).  Each server instance also needs to be told which
-IP-port pair belongs to it.  The client also needs to know it's own IP, how many threads
-to use when generating requests, and how long to run for (in seconds).
+IP-port pair belongs to it.  The client also needs to know its own IP, how many threads
+to use when generating requests, and how long to run for (in seconds).  Make sure your
+firewall isn't blocking the UDP ports you use.
 
-  `./nuobj/Dafny/Distributed/Services/RSL/Main_i.exe 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4001`
-  `./nuobj/Dafny/Distributed/Services/RSL/Main_i.exe 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4002`
-  `./nuobj/Dafny/Distributed/Services/RSL/Main_i.exe 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4003`
-  `./src/IronfleetClient/IronfleetClient/bin/Release/IronfleetClient.exe 127.0.0.1 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 1 10`
+For example, to test IronRSL on a single machine, you can run each of the following four commands
+in a different console:
+
+  `dotnet src/Dafny/Distributed/Services/RSL/build/IronfleetShell.dll 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4001`
+  `dotnet src/Dafny/Distributed/Services/RSL/build/IronfleetShell.dll 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4002`
+  `dotnet src/Dafny/Distributed/Services/RSL/build/IronfleetShell.dll 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4003`
+  `dotnet src/IronRSLClient/bin/Release/net5.0/IronRSLClient.dll 127.0.0.1 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 1 10`
 
 The client will print out a GUID, but all of its interesting output goes to:
 
