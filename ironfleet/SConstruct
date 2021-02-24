@@ -25,6 +25,13 @@ AddOption('--no-verify',
   action='store_true',
   help="Don't verify, just build executables")
 
+AddOption('--time-limit',
+  dest='time_limit',
+  type='int',
+  default=30,
+  action='store',
+  help='Specify the time limit to use for each verification')
+
 dafny_path = GetOption('dafny_path')
 if dafny_path is None:
   sys.stderr.write("ERROR:  Missing --dafny-path on command line\n")
@@ -38,7 +45,7 @@ else:
   dafny_invocation = ["dotnet", dafny_exe]
 
 # Useful Dafny command lines
-dafny_basic_args = ['/compile:0', '/timeLimit:30', '/trace']
+dafny_basic_args = ['/compile:0', '/timeLimit:' + str(GetOption('time_limit')), '/trace']
 dafny_default_args = dafny_basic_args + ['/arith:5', '/noCheating:1']
 dafny_args_nlarith = dafny_basic_args + ['/arith:2', '/noCheating:1']
 dafny_spec_args = dafny_basic_args

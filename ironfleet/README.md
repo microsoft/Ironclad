@@ -65,15 +65,17 @@ To use `<n>` threads in parallel, add `-j <n>` to this command.
 Expect this to take up to several hours, depending on your machine and how many cores you
 have available.  Also note that the prover's time limits are based on wall clock time, so
 if you run the verification on a slow machine, you may see a few timeouts not present in
-our build.
+our build.  If that happens, try using a longer time limit for each verification; for
+example, using `--time-limit=60` makes the time limit 60 seconds instead of the default
+30 seconds.
 
-This will produce the following executables:
+Running scons will produce the following executables:
 ```
   src/Dafny/Distributed/Services/RSL/build/IronfleetShell.dll
   src/IronRSLClient/bin/Release/net5.0/IronRSLClient.dll
 ```
 
-To produce executables without performing verification, use `--no-verify`.
+To produce these executables without performing verification, use `--no-verify`.
 
 For maximum performance, be sure to turn off performance profiling.  The easiest way
 to do this is to comment out the body of the RecordTimingSeq method in  
