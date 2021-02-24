@@ -150,6 +150,24 @@ def scan_for_more_targets(target, source, env):
 #
 ####################################################################
 
+def check_dafny(lines):
+  for line in lines:
+    if re.search("[Oo]ut of resource", line):
+      sys.stderr.write("Dafny reported an out-of-resource error\n")
+      raise Exception()
+    if re.search("proof obligations\]\s+errors", line):
+      sys.stderr.write("Dafny reported errors not in summary\n")
+      raise Exception()
+
+def check_and_print_tail(filename):
+  with open(filename, 'r') as fh:
+    lines = fh.readlines()
+    check_dafny(lines)
+    sys.stdout.write(lines[-1])
+    sys.stdout.write('Full check of Dafny output succeeded\n')
+
+CheckAndPrintTail = SCons.Action.ActionFactory(check_and_print_tail, lambda x: "Checking " + x)
+
 def generate_dafny_verifier_actions(source, target, env, for_signature):
   abs_source = File(source[0]).abspath
   abs_target = File(target[0]).abspath
@@ -158,11 +176,9 @@ def generate_dafny_verifier_actions(source, target, env, for_signature):
   args = get_dafny_command_line_args(abs_source)
   return [
       dafny_invocation + args + [source_name, ">", temp_target_file],
-      ["python", "check_dafny.py", temp_target_file],
-      ["tail", "-n", "1", temp_target_file],
+      CheckAndPrintTail(temp_target_file),
       Move(abs_target, temp_target_file)
   ]
-
 
 # Add env.DafnyVerify(), to generate Dafny verifier actions
 def add_dafny_verifier_builder(env):
@@ -201,34 +217,35 @@ def verify_dafny_file(source):
 #
 ####################################################################
 
+def install_ironfleet_host(target_dir):
+  build_dir = 'src/IronfleetShell/bin/Release/net5.0/'
+  shutil.copytree(build_dir, target_dir)
+
+InstallIronfleetHost = SCons.Action.ActionFactory(install_ironfleet_host, lambda x: "Installing into " + x)
+
 def generate_ironfleet_host_actions(source, target, env, for_signature):
   source_name = str(source[0])
   cs_source_name = re.sub('\.dfy$', '.cs', source_name)
   build_dir = 'src/IronfleetShell/bin/Release/net5.0/'
   target_dir = os.path.dirname(str(target[0]))
-  commands = [
+  return [
     dafny_invocation + ['/compile:0', '/spillTargetCode:3', '/noVerify', source_name],
     Copy("src/IronfleetShell/Main.i.cs", cs_source_name),
     ["dotnet", "build", "--configuration", "Release", "src/IronfleetShell/IronfleetShell.csproj"],
     Delete(target_dir),
-    Mkdir(target_dir),
-    Mkdir(os.path.join(target_dir, 'ref')),
+    InstallIronfleetHost(target_dir)
   ]
-  for f in ['IronfleetShell.deps.json', 'IronfleetShell.exe', 'IronfleetShell.runtimeconfig.dev.json',
-            'MathNet.Numerics.dll', 'IronfleetShell.dll', 'IronfleetShell.pdb', 'IronfleetShell.runtimeconfig.json',
-            'ref/IronfleetShell.dll']:
-    commands.append(Copy(os.path.join(target_dir, f), os.path.join(build_dir, f)))
-  return commands
-
 
 def get_ironfleet_host_dependencies(target, source, env):
   source_name = str(source[0])
   recursively_scan_for_dependencies(source_name, 0)
-  extra_dependencies = dependencies_by_file[source_name] + \
-                       ['src/IronfleetShell/IronfleetShell.csproj',
-                        'src/IronfleetShell/Program.cs',
-                        'src/Clients/Common/Profiler.cs',
-                        'src/Dafny/Distributed/Common/Native/IoNative.cs']
+  extra_dependencies = dependencies_by_file[source_name]
+  extra_dependencies.extend(['src/IronfleetShell/IronfleetShell.csproj',
+                             'src/IronfleetShell/Program.cs',
+                             'src/Clients/Common/Profiler.cs',
+                             'src/Dafny/Distributed/Common/Native/IoNative.cs'])
+  if not GetOption('no_verify'):
+    extra_dependencies.append(re.sub('\.dfy$', '.vdfy', source_name))
   return target, source + extra_dependencies
 
 # Add env.IronfleetHostBuild(), to generate dotnet build actions
