@@ -50,7 +50,7 @@ predicate CAckStateIsAbstractable(cas:CAckState)
 function AbstractifyCAskStateToAckState(cas:CAckState) : AckState<Message>
     requires CAckStateIsAbstractable(cas);                                          
 {
-    AckState(int(cas.numPacketsAcked), AbstractifySeqOfCSingleMessageToSeqOfSingleMessage(cas.unAcked))
+    AckState(cas.numPacketsAcked as int, AbstractifySeqOfCSingleMessageToSeqOfSingleMessage(cas.unAcked))
 }
 
 
@@ -63,7 +63,7 @@ predicate UnAckedListSequential(list:seq<CSingleMessage>)
     requires NoAcksInUnAcked(list);
 {
     forall i, j :: 0 <= i && j == i + 1 && j < |list|
-        ==> int(list[i].seqno) + 1 == int(list[j].seqno)
+        ==> list[i].seqno as int + 1 == list[j].seqno as int
 }
 
 predicate CUnAckedValid(msg:CSingleMessage)
@@ -86,8 +86,8 @@ predicate CUnAckedListValidForDst(list:seq<CSingleMessage>, dst:EndPoint)
 predicate CAckStateIsValid(cas:CAckState, dst:EndPoint, params:CParameters)
 {
     CAckStateIsAbstractable(cas) && CUnAckedListValidForDst(cas.unAcked, dst)
- && int(cas.numPacketsAcked) + |cas.unAcked| <= int(params.max_seqno)
- && (|cas.unAcked| > 0 ==> int(cas.unAcked[0].seqno) == int(cas.numPacketsAcked) + 1)
+ && cas.numPacketsAcked as int + |cas.unAcked| <= params.max_seqno as int
+ && (|cas.unAcked| > 0 ==> cas.unAcked[0].seqno as int == cas.numPacketsAcked as int + 1)
 }
 
 //////////////////////////////////////////////////////////////////////////////

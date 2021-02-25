@@ -79,7 +79,7 @@ method {:timeLimitMultiplier 2} HostModelNextGetRequest(host:HostState, cpacket:
     var owner := DelegateForKeyImpl(host.delegationMap, k);
 
     var m;
-    ghost var receivedRequest := AppGetRequest(int(cpacket.msg.seqno), k);
+    ghost var receivedRequest := AppGetRequest(cpacket.msg.seqno as int, k);
     ghost var newReceivedRequests:seq<AppRequest>;
     
     if (owner == host.me) {
@@ -115,7 +115,7 @@ method {:timeLimitMultiplier 2} HostModelNextGetRequest(host:HostState, cpacket:
 
     assert AbstractifyCPacketToShtPacket(p) == Packet(g_src, s.me, g_sm); // OBSERVE
       
-    assert NextGetRequest_Reply(s, s', g_src,int(cpacket.msg.seqno),  cpacket.msg.m.k_getrequest, g_sm, g_m, g_out, shouldSend);
+    assert NextGetRequest_Reply(s, s', g_src, cpacket.msg.seqno as int,  cpacket.msg.m.k_getrequest, g_sm, g_m, g_out, shouldSend);
 }
 
 method {:timeLimitMultiplier 2} HostModelNextSetRequest(host:HostState, cpacket:CPacket) returns (host':HostState, sent_packets:seq<CPacket>)
@@ -161,7 +161,7 @@ method {:timeLimitMultiplier 2} HostModelNextSetRequest(host:HostState, cpacket:
     }
     var sd', sm, shouldSend := SendSingleCMessage(host.sd, m, cpacket.src, host.constants.params);
 
-    ghost var receivedRequest := AppSetRequest(int(cpacket.msg.seqno), k, ov);
+    ghost var receivedRequest := AppSetRequest(cpacket.msg.seqno as int, k, ov);
     ghost var newReceivedRequests:seq<AppRequest>;
 
     if (shouldSend) {
@@ -197,7 +197,7 @@ method {:timeLimitMultiplier 2} HostModelNextSetRequest(host:HostState, cpacket:
     ghost var g_m := AbstractifyCMessageToRslMessage(m);
     ghost var g_sm := AbstractifyCSingleMessageToSingleMessage(sm);
     ghost var g_src := AbstractifyEndPointToNodeIdentity(cpacket.src);
-    ghost var g_seqno := int(cpacket.msg.seqno);
+    ghost var g_seqno := cpacket.msg.seqno as int;
     ghost var g_out := AbstractifySeqOfCPacketsToSetOfShtPackets(sent_packets);
     
     lemma_AbstractifyEndPointToNodeIdentity_injective_forall();

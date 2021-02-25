@@ -27,7 +27,7 @@ function AbstractifyUdpEventToLSHTIo(evt:UdpEvent) : LSHTIo
         case LIoOpSend(s) => LIoOpSend(AbstractifyUdpPacketToLSHTPacket(s))
         case LIoOpReceive(r) => LIoOpReceive(AbstractifyUdpPacketToLSHTPacket(r))
         case LIoOpTimeoutReceive => LIoOpTimeoutReceive()
-        case LIoOpReadClock(t) => LIoOpReadClock(int(t))
+        case LIoOpReadClock(t) => LIoOpReadClock(t as int)
 }
 
 
@@ -145,7 +145,7 @@ method ReadClock(udpClient:UdpClient) returns (clock:CBoundedClock, ghost clockE
     ensures udpClient.env == old(udpClient.env);
     ensures old(udpClient.env.udp.history()) + [clockEvent] == udpClient.env.udp.history();
     ensures clockEvent.UdpGetTime?;
-    ensures int(clock.min) <= int(clockEvent.time) <= int(clock.max);
+    ensures clock.min as int <= clockEvent.time as int <= clock.max as int;
     ensures UdpClientIsValid(udpClient);
     ensures UdpEventIsAbstractable(clockEvent);
     ensures udpClient.LocalEndPoint() == old(udpClient.LocalEndPoint());
@@ -302,8 +302,8 @@ method SendBroadcast(udpClient:UdpClient, broadcast:CBroadcast, ghost localAddr_
 
         var i:uint64 := 0;
         while i < uint64(|broadcast.dsts|) 
-            invariant 0 <= int(i) <= |broadcast.dsts|;
-            invariant |udpEventLog| == int(i);
+            invariant 0 <= i as int <= |broadcast.dsts|;
+            invariant |udpEventLog| == i as int;
             invariant UdpClientRepr(udpClient) == old(UdpClientRepr(udpClient));
             invariant udpClient.env == old(udpClient.env);
             invariant udpClient.LocalEndPoint() == old(udpClient.LocalEndPoint());

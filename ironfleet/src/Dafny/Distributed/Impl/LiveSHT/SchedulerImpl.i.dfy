@@ -32,8 +32,8 @@ class SchedulerImpl
     {
            HostStateIsValid(host)
         && HostStateIsAbstractable(host)
-        && (0 <= int(nextActionIndex) < LHost_NumActions())
-        && (0 <= int(resendCount) < 100000000)
+        && (0 <= nextActionIndex as int < LHost_NumActions())
+        && (0 <= resendCount as int < 100000000)
         && UdpClientIsValid(udpClient)
         && udpClient.LocalEndPoint() == localAddr
         && udpClient.LocalEndPoint() == host.me
@@ -61,8 +61,8 @@ class SchedulerImpl
     {
         LScheduler(
             AbstractifyToHost(),
-            int(nextActionIndex),
-            int(resendCount))
+            nextActionIndex as int,
+            resendCount as int)
     }
       
     method ConstructUdpClient(constants:ConstantsState, me:EndPoint, ghost env_:HostEnvironment) returns (ok:bool, client:UdpClient)
@@ -119,8 +119,8 @@ class SchedulerImpl
     }
 
     static method rollActionIndex(a:uint64) returns (a':uint64)
-        requires 0 <= int(a) < 3;
-        ensures int(a') == (int(a)+1) % LHost_NumActions();
+        requires 0 <= a as int < 3;
+        ensures a' as int == (a as int + 1) % LHost_NumActions();
     {
         lemma_mod_auto(3);
         if (a >= 2) {
@@ -131,8 +131,8 @@ class SchedulerImpl
     }
 
     static method rollResendCount(a:uint64) returns (a':uint64)
-        requires 0 <= int(a) < 100000000;
-        ensures int(a') == (int(a)+1) % 100000000;
+        requires 0 <= a as int < 100000000;
+        ensures a' as int == (a as int + 1) % 100000000;
     {
         lemma_mod_auto(100000000);
         if (a >= 100000000-1) {
@@ -746,18 +746,18 @@ class SchedulerImpl
         scheduler := AbstractifyToLScheduler();
         calc {
             scheduler.nextActionIndex;
-            int(nextActionIndex);
-            int(nextActionIndex');
-            int((curActionIndex+1))%LHost_NumActions();
+            nextActionIndex as int;
+            nextActionIndex' as int;
+            (curActionIndex+1) as int % LHost_NumActions();
             (scheduler_old.nextActionIndex+1)%LHost_NumActions();
         }
         
         if (curActionIndex == 2) {
             calc {
                 scheduler.resendCount;
-                int(resendCount);
-                int(nextResendCount);
-                int((curResendCount+1))%100000000;
+                resendCount as int;
+                nextResendCount as int;
+                (curResendCount+1) as int % 100000000;
                 (scheduler_old.resendCount+1)%100000000;
             }
         
@@ -777,9 +777,8 @@ class SchedulerImpl
             assert old(AbstractifyToLScheduler()).nextActionIndex == 0;
             calc {
                 AbstractifyToLScheduler().nextActionIndex;
-                int(curActionIndex+1) % LHost_NumActions();
-                int(curActionIndex+1) % 3;
-                int(0+1) % 3;
+                (curActionIndex+1) as int % LHost_NumActions();
+                (curActionIndex+1) as int % 3;
                 1 % 3;
                  1;
             }

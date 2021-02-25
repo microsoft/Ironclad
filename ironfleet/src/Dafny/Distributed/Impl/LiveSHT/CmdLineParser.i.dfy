@@ -50,7 +50,7 @@ method GetHostIndex(host:EndPoint, hosts:seq<EndPoint>) returns (found:bool, ind
     requires SeqIsUnique(hosts);
     requires |hosts| < 0x1_0000_0000_0000_0000;
     requires forall h :: h in hosts ==> EndPointIsValidIPV4(h);
-    ensures  found ==> 0 <= int(index) < |hosts| && hosts[index] == host;
+    ensures  found ==> 0 <= index as int < |hosts| && hosts[index] == host;
     ensures !found ==> !(host in hosts);
     ensures !found ==> !(AbstractifyEndPointToNodeIdentity(host) in AbstractifyEndPointsToNodeIdentities(hosts));
 {
@@ -58,7 +58,7 @@ method GetHostIndex(host:EndPoint, hosts:seq<EndPoint>) returns (found:bool, ind
     lemma_AbstractifyEndPointsToNodeIdentities_properties(hosts);
 
     while i < uint64(|hosts|)
-        invariant int(i) <= |hosts|;
+        invariant i as int <= |hosts|;
         invariant forall j :: 0 <= j < i ==> hosts[j] != host;
     {
         if host == hosts[i] {
@@ -68,7 +68,7 @@ method GetHostIndex(host:EndPoint, hosts:seq<EndPoint>) returns (found:bool, ind
             calc ==> {
                 true;
                     { reveal_SeqIsUnique(); }
-                forall j :: 0 <= j < |hosts| && j != int(i) ==> hosts[j] != host;
+                forall j :: 0 <= j < |hosts| && j != i as int ==> hosts[j] != host;
             }
 
             return;
@@ -88,7 +88,7 @@ method parse_cmd_line(ghost env:HostEnvironment) returns (ok:bool, config:Consta
     requires HostEnvironmentIsValid(env);
     ensures ok ==> ConstantsStateIsValid(config);
     ensures ok ==> |config.hostIds| > 0;
-    ensures ok ==> 0 <= int(my_index) < |config.hostIds|;
+    ensures ok ==> 0 <= my_index as int < |config.hostIds|;
     //ensures (config, my_index) == sht_cmd_line_parsing(env);
     ensures var (config', my_ep') := sht_cmd_line_parsing(env);
             ok ==> config == config' && config.hostIds[my_index] == my_ep';

@@ -43,7 +43,7 @@ function AbstractifyHostStateToHost(host:HostState) : Host
         host.h,
         AbstractifyCSingleDeliveryAcctToSingleDeliveryAcct(host.sd),
         AbstractifyOptionCPacketToOptionShtPacket(host.receivedPacket),
-        int(host.numDelegations),
+        host.numDelegations as int,
         host.receivedRequests)
 }
 
@@ -60,7 +60,7 @@ predicate HostStateIsValid(host:HostState)
                                    && host.receivedPacket.v.dst == host.me)
     && ConstantsStateIsValid(host.constants)
     && host.numDelegations < host.constants.params.max_delegations
-    && |host.delegationMap.lows| <= 2 * int(host.numDelegations)
+    && |host.delegationMap.lows| <= 2 * host.numDelegations as int
 }
 
 

@@ -59,7 +59,7 @@ namespace Common
                 double variance = (sumsq_sec - total_sec * total_sec / count) / (count - 1);
                 double stdev = Math.Sqrt(variance);
                 double conf95 = StudentT.InvCDF(0, stdev, count-1, 0.975) / Math.Sqrt(count);
-                return string.Format("Aggregate {0}: avg_usec {1} conf95plusorminus {2} stdev {3} count {4} sum {5}", name, average_sec * Math.Pow(10, 6), conf95 * Math.Pow(10, 6), stdev * Math.Pow(10, 6), count, total_sec);
+                return string.Format("Aggregate {0}: avg_usec {1} conf95plusorminus {2} stdev {3} count {4} sum {5}", name, average_sec * Math.Pow(10, 6), conf95 * Math.Pow(10, 6), stdev * Math.Pow(10, 6), count, total_sec * Math.Pow(10, 6));
             }
             else
             {
@@ -68,7 +68,7 @@ namespace Common
                 double variance = (sumsq - (total * 1.0 * total) / count) / (count - 1);
                 double stdev = Math.Sqrt(variance);
                 double conf95 = StudentT.InvCDF(0, stdev, count - 1, 0.975) / Math.Sqrt(count);
-                return string.Format("Aggregate {0}: avg_usec {1} conf95plusorminus {2} stdev {3} count {4} sum {5}", name, average * Math.Pow(10, 6), conf95 * Math.Pow(10, 6), stdev * Math.Pow(10, 6), count, total);
+                return string.Format("Aggregate {0}: avg_usec {1} conf95plusorminus {2} stdev {3} count {4} sum {5}", name, average * Math.Pow(10, 6), conf95 * Math.Pow(10, 6), stdev * Math.Pow(10, 6), count, total * Math.Pow(10, 6));
             }
         }
     }

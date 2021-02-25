@@ -47,7 +47,7 @@ function AbstractifyToConfiguration(config:SHTConcreteConfiguration) : SHTConfig
 
 predicate ReplicaIndexValid(index:uint64, config:SHTConcreteConfiguration)
 {
-    0 <= int(index) < |config.hostIds|
+    0 <= index as int < |config.hostIds|
 }
 
 predicate ReplicaIndicesValid(indices:seq<uint64>, config:SHTConcreteConfiguration)
@@ -104,7 +104,7 @@ method CGetReplicaIndex(replica:EndPoint, config:SHTConcreteConfiguration) retur
     requires SHTConcreteConfigurationIsValid(config);
     requires EndPointIsValidIPV4(replica);
     ensures  found ==> ReplicaIndexValid(index, config) && config.hostIds[index] == replica;
-    ensures  found ==> GetHostIndex(AbstractifyEndPointToNodeIdentity(replica), AbstractifyToConfiguration(config)) == int(index);
+    ensures  found ==> GetHostIndex(AbstractifyEndPointToNodeIdentity(replica), AbstractifyToConfiguration(config)) == index as int;
     ensures !found ==> !(replica in config.hostIds);
     ensures !found ==> !(AbstractifyEndPointToNodeIdentity(replica) in AbstractifyEndPointsToNodeIdentities(config.hostIds));
 {
@@ -122,22 +122,22 @@ method CGetReplicaIndex(replica:EndPoint, config:SHTConcreteConfiguration) retur
             ghost var r_replica := AbstractifyEndPointToNodeIdentity(replica);
             ghost var r_replicas := AbstractifyToConfiguration(config).hostIds;
             assert r_replica == r_replicas[index];
-            assert ItemAtPositionInSeq(r_replicas, r_replica, int(index));
+            assert ItemAtPositionInSeq(r_replicas, r_replica, index as int);
             calc ==> {
                 true;
                     { reveal_SeqIsUnique(); }
-                forall j :: 0 <= j < |config.hostIds| && j != int(i) ==> config.hostIds[j] != replica;
+                forall j :: 0 <= j < |config.hostIds| && j != i as int ==> config.hostIds[j] != replica;
             }
 
-            if exists j :: 0 <= j < |r_replicas| && j != int(index) && ItemAtPositionInSeq(r_replicas, r_replica, j) {
-                ghost var j :| 0 <= j < |r_replicas| && j != int(index) && ItemAtPositionInSeq(r_replicas, r_replica, j);
+            if exists j :: 0 <= j < |r_replicas| && j != index as int && ItemAtPositionInSeq(r_replicas, r_replica, j) {
+                ghost var j :| 0 <= j < |r_replicas| && j != index as int && ItemAtPositionInSeq(r_replicas, r_replica, j);
                 assert r_replicas[j] == r_replica;
                 assert AbstractifyEndPointToNodeIdentity(config.hostIds[j]) == r_replica;
                 lemma_AbstractifyEndPointToNodeIdentity_injective(config.hostIds[i], config.hostIds[j]);
                 assert false;
             }
-            assert forall j :: 0 <= j < |r_replicas| && j != int(index) ==> !ItemAtPositionInSeq(r_replicas, r_replica, j);
-            assert FindIndexInSeq(r_replicas, r_replica) == int(index);
+            assert forall j :: 0 <= j < |r_replicas| && j != index as int ==> !ItemAtPositionInSeq(r_replicas, r_replica, j);
+            assert FindIndexInSeq(r_replicas, r_replica) == index as int;
             return;
         }
 
