@@ -61,8 +61,8 @@ function AbstractifyCSingleMessageToSingleMessage(smsg:CSingleMessage) : SingleM
 {
     match smsg
         case CSingleMessage(seqno, dst, m) => 
-            SingleMessage(int(seqno), AbstractifyEndPointToNodeIdentity(dst), AbstractifyCMessageToRslMessage(m))
-        case CAck(seqno) => Ack(int(seqno))
+            SingleMessage(seqno as int, AbstractifyEndPointToNodeIdentity(dst), AbstractifyCMessageToRslMessage(m))
+        case CAck(seqno) => Ack(seqno as int)
         case CInvalidMessage => InvalidMessage()
 }
 

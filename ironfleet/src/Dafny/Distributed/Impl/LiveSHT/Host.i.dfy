@@ -78,9 +78,9 @@ module Host_i exclusively refines Host_s {
         
         var scheduler := new SchedulerImpl;
 //        calc {
-//            int(constants.myIndex);
+//            constants.myIndex as int;
 //                { reveal_SeqIsUnique(); }
-//            int(my_index);
+//            my_index as int;
 //        }
 
         assert env!=null && env.Valid() && env.ok.ok();

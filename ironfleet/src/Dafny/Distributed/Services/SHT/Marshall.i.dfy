@@ -22,7 +22,7 @@ module MarshallProof_i {
         ensures  parse_Uint64(data).0.Some?;
         ensures  len == parse_Uint64(data).0.v.u;
         ensures  rest == parse_Uint64(data).1;
-        ensures  |rest| >= int(len);
+        ensures  |rest| >= len as int;
         ensures  val == VByteArray(rest[0..len]);
     {
         reveal_parse_Val();
@@ -40,7 +40,7 @@ module MarshallProof_i {
         requires g.GTaggedUnion?;
         ensures  parse_Uint64(data).0.Some?;
         ensures  caseId == parse_Uint64(data).0.v.u;
-        ensures  0 <= int(caseId) < |g.cases|;
+        ensures  0 <= caseId as int < |g.cases|;
         ensures  rest == parse_Uint64(data).1;
         ensures         parse_Val(rest, g.cases[caseId]).0.Some?;
         ensures  val == parse_Val(rest, g.cases[caseId]).0.v
@@ -308,7 +308,7 @@ module MarshallProof_i {
 
         // Prove that the next 8 bytes of seqno are correct
         var u, rest := lemma_ParseValCorrectVUint64(rest0, seqnoVal, GUint64);
-        assert msg.seqno == int(u);
+        assert msg.seqno == u as int;
         assert SeqByteToUint64(rest0[..8]) == u;
         assert Uint64ToSeqByte(u) == Uint64ToBytes(u);
         lemma_BEByteSeqToInt_BEUintToSeqByte_invertability();
@@ -393,7 +393,7 @@ module MarshallProof_i {
 
         // Prove that the next 8 bytes of seqno are correct
         var u, rest := lemma_ParseValCorrectVUint64(rest0, seqnoVal, GUint64);
-        assert msg.seqno == int(u);
+        assert msg.seqno == u as int;
         assert SeqByteToUint64(rest0[..8]) == u;
         assert Uint64ToSeqByte(u) == Uint64ToBytes(u);
         lemma_BEByteSeqToInt_BEUintToSeqByte_invertability();
@@ -483,14 +483,14 @@ module MarshallProof_i {
                                + [ 0, 0, 0, 0, 0, 0, 0, 0] 
                                + Uint64ToSeqByte(byteLen) 
                                + bytesVal.b;
-            assert SizeOfV(v) == 56 + int(byteLen);
-            if |data| > 56 + int(byteLen) {
+            assert SizeOfV(v) == 56 + byteLen as int;
+            if |data| > 56 + byteLen as int {
                 assert data[0..|data|] == data[..];
                 lemma_parse_Val_view_specific_size(data, v, CSingleMessage_grammar(), 0, |data|);
                 lemma_parse_Val_view_specific(data, v, CSingleMessage_grammar(), 0, |data|);
                 assert false;
             }
-            assert |data| == 56 + int(byteLen);
+            assert |data| == 56 + byteLen as int;
         } else {
             assert cmsg.m.v_setrequest.ValueAbsent?;
             assert valCaseId == 1;
@@ -551,11 +551,11 @@ module MarshallProof_i {
                 SeqByteToUint64(rest0[..8]);
                 SeqByteToUint64(Uint64ToBytes(uint64(reply.seqno)));
                 SeqByteToUint64(Uint64ToSeqByte(uint64(reply.seqno)));
-                SeqByteToUint64(BEUintToSeqByte(int(uint64(reply.seqno)), 8));
+                SeqByteToUint64(BEUintToSeqByte(uint64(reply.seqno) as int, 8));
                     { lemma_BEByteSeqToInt_BEUintToSeqByte_invertability(); }
                 uint64(reply.seqno);
             }
-            assert msg.seqno == int(u);
+            assert msg.seqno == u as int;
             assert reply.seqno == msg.seqno;
 
             // Prove some length relationships to show that our indices are within bounds
@@ -606,7 +606,7 @@ module MarshallProof_i {
                 SeqByteToUint64(MarshallSHTKey(reply.k));
                 SeqByteToUint64(Uint64ToBytes(reply.k));
                 SeqByteToUint64(Uint64ToSeqByte(reply.k));
-                SeqByteToUint64(BEUintToSeqByte(int(reply.k), 8));
+                SeqByteToUint64(BEUintToSeqByte(reply.k as int, 8));
                     { lemma_BEByteSeqToInt_BEUintToSeqByte_invertability(); }
                 reply.k;
             }
@@ -629,7 +629,7 @@ module MarshallProof_i {
                     SeqByteToUint64(rest5[..8]);
                     SeqByteToUint64(Uint64ToBytes(uint64(|reply.ov.v|)));
                     SeqByteToUint64(Uint64ToSeqByte(uint64(|reply.ov.v|)));
-                    SeqByteToUint64(BEUintToSeqByte(int(uint64(|reply.ov.v|)), 8));
+                    SeqByteToUint64(BEUintToSeqByte(uint64(|reply.ov.v|) as int, 8));
                         { lemma_BEByteSeqToInt_BEUintToSeqByte_invertability(); }
                     uint64(|reply.ov.v|);
                 }

@@ -90,8 +90,8 @@ method DelegateForKeyRangeIsHostImpl(m:CDelegationMap, kr:KeyRange, id:EndPoint)
     assert KeyPlusLt(witness_key, kr.khi);
     while index <= hi_index 
         invariant lo_index <= index <= hi_index + 1;
-        invariant forall i {:trigger InBounds(i, int(lo_index), int(index), |m'.lows|)} :: 
-                    InBounds(i, int(lo_index), int(index), |m'.lows|) ==> m'.lows[i].id == id;
+        invariant forall i {:trigger InBounds(i, lo_index as int, index as int, |m'.lows|)} :: 
+                    InBounds(i, lo_index as int, index as int, |m'.lows|) ==> m'.lows[i].id == id;
         invariant !witness_key.KeyInf?;
         invariant KeyRangeContains(kr, witness_key);
         invariant index <= hi_index ==> CDM_IndexForKey(m', witness_key) == index;
@@ -117,7 +117,7 @@ method DelegateForKeyRangeIsHostImpl(m:CDelegationMap, kr:KeyRange, id:EndPoint)
                     CDM_Partitioned(m', witness_key, 0);
                     if index != 0 {
                         assert CDM_IndexForKey(m', witness_key) != 0;
-                        assert KeyRangeContains(CDM_IndexToKeyRange(m', int(index)), witness_key);
+                        assert KeyRangeContains(CDM_IndexToKeyRange(m', index as int), witness_key);
                         assert false;
                     }
                     assert index == 0;  // Because witness_key is 0, it can only be contained from below by the 0th mapping
@@ -158,9 +158,9 @@ method DelegateForKeyRangeIsHostImpl(m:CDelegationMap, kr:KeyRange, id:EndPoint)
             assert KeyPlusLe(kr.klo, witness_key);
 
             if index < hi_index {
-                assert KeyPlusLt(witness_key, CDM_IndexToKeyRange(m', int(index)).khi);
-                CDM_KeyRangesAreOrdered(m', int(index), int(hi_index));
-                KeyPlusTransitivity(witness_key, CDM_IndexToKeyRange(m', int(index)).khi, m'.lows[hi_index].klo);
+                assert KeyPlusLt(witness_key, CDM_IndexToKeyRange(m', index as int).khi);
+                CDM_KeyRangesAreOrdered(m', index as int, hi_index as int);
+                KeyPlusTransitivity(witness_key, CDM_IndexToKeyRange(m', index as int).khi, m'.lows[hi_index].klo);
                 assert KeyPlusLt(witness_key, m'.lows[hi_index].klo);
                 assert KeyPlusLe(m'.lows[hi_index].klo, kr.khi);
                 KeyPlusTransitivity(witness_key, m'.lows[hi_index].klo, kr.khi);
@@ -179,15 +179,15 @@ method DelegateForKeyRangeIsHostImpl(m:CDelegationMap, kr:KeyRange, id:EndPoint)
                         ghost var k_index := CDM_IndexForKey(m', KeyPlus(k));
                         CDM_IndexForKey_Ordering_specific(m', kr.klo, KeyPlus(k));
                         CDM_IndexForKey_Ordering_specific(m', KeyPlus(k), kr.khi);
-                        assert int(lo_index) <= int(k_index) <= int(hi_index) < |m'.lows|;
+                        assert lo_index as int <= k_index as int <= hi_index as int < |m'.lows|;
                         if k_index == hi_index {
                             assert KeyPlusLe(kr.khi, KeyPlus(k));
                             KeyPlusAntisymmetry(kr.khi, KeyPlus(k));
                             assert false;
                         }
-                        assert InBounds(int(k_index), int(lo_index), int(hi_index), |m'.lows|);
+                        assert InBounds(k_index as int, lo_index as int, hi_index as int, |m'.lows|);
                         if k_index < old_index {
-                            assert InBounds(int(k_index), int(lo_index), int(old_index), |m'.lows|);
+                            assert InBounds(k_index as int, lo_index as int, old_index as int, |m'.lows|);
                             assert m'.lows[k_index].id == id;
                         } else {
                             assert m'.lows[k_index].id == id;
@@ -198,16 +198,16 @@ method DelegateForKeyRangeIsHostImpl(m:CDelegationMap, kr:KeyRange, id:EndPoint)
                 }
             }
 
-            assert KeyRangeContains(CDM_IndexToKeyRange(m', int(index)), witness_key);
-            CDM_Partitioned(m', witness_key, int(index));
+            assert KeyRangeContains(CDM_IndexToKeyRange(m', index as int), witness_key);
+            CDM_Partitioned(m', witness_key, index as int);
             assert CDM_IndexForKey(m', witness_key) == index;
         }
-        forall i {:trigger InBounds(i, int(lo_index), int(index), |m'.lows|)} | 
-                 InBounds(i, int(lo_index), int(index), |m'.lows|)
+        forall i {:trigger InBounds(i, lo_index as int, index as int, |m'.lows|)} | 
+                 InBounds(i, lo_index as int, index as int, |m'.lows|)
             ensures m'.lows[i].id == id;
         {
-            if i < int(old_index) {
-                assert InBounds(i, int(lo_index), int(old_index), |m'.lows|) ==> m'.lows[i].id == id;
+            if i < old_index as int {
+                assert InBounds(i, lo_index as int, old_index as int, |m'.lows|) ==> m'.lows[i].id == id;
             } else {
             }
         }
@@ -223,8 +223,8 @@ method DelegateForKeyRangeIsHostImpl(m:CDelegationMap, kr:KeyRange, id:EndPoint)
         ghost var k_index := CDM_IndexForKey(m', KeyPlus(k));
         CDM_IndexForKey_Ordering_specific(m', kr.klo, KeyPlus(k));
         CDM_IndexForKey_Ordering_specific(m', KeyPlus(k), kr.khi);
-        assert int(lo_index) <= int(k_index) <= int(hi_index) < |m'.lows|;
-        assert InBounds(int(k_index), int(lo_index), int(index), |m'.lows|);
+        assert lo_index as int <= k_index as int <= hi_index as int < |m'.lows|;
+        assert InBounds(k_index as int, lo_index as int, index as int, |m'.lows|);
         assert m'.lows[k_index].id == id;
     }
 
@@ -286,8 +286,8 @@ method CDM_Defragment(m:CDelegationMap) returns (m':CDelegationMap)
         ensures m.lows[CDM_IndexForKey(m,KeyPlus(k))].id == m'.lows[CDM_IndexForKey(m',KeyPlus(k))].id;
     {
         ghost var kp := KeyPlus(k);
-        ghost var k_index  := int(CDM_IndexForKey(m,  kp));
-        ghost var k_index' := int(CDM_IndexForKey(m', kp));
+        ghost var k_index  := CDM_IndexForKey(m,  kp) as int;
+        ghost var k_index' := CDM_IndexForKey(m', kp) as int;
         if KeyRangeContains(CDM_IndexToKeyRange(m, 0), kp) {
             assert KeyPlusLt(kp, m.lows[1].klo);
             assert KeyPlusLt(kp, KeyPlus(KeyMin()));

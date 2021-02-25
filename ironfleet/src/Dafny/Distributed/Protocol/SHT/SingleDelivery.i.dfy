@@ -25,7 +25,7 @@ datatype SingleDeliveryAcct<MT> = SingleDeliveryAcct(receiveState:TombstoneTable
 
 function TombstoneTableLookup(src:NodeIdentity, t:TombstoneTable) : nat
 {
-    if src in t then int(t[src]) else 0 
+    if src in t then t[src] as int else 0 
 }
 
 function AckStateLookup<MT>(src:NodeIdentity, sendState:SendState):AckState<MT>
