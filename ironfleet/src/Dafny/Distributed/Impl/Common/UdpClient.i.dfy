@@ -11,7 +11,7 @@ function Workaround_CastOkStateToObject(okState:OkState) : object {okState}
 function Workaround_CastNowStateToObject(nowState:NowState) : object {nowState}
 function Workaround_CastUdpStateToObject(udpState:UdpState) : object {udpState}
 function Workaround_CastIPEndPointToObject(ip:IPEndPoint) : object {ip}
-function Workaround_CastUdpClientToObject(udpc:UdpClient) : object {udpc}
+function Workaround_CastUdpClientToObject(udpc:UdpClient?) : object? {udpc}
 
 function HostEnvironmentDefaultFrame(env:HostEnvironment) : set<object>
   reads env
@@ -23,11 +23,12 @@ function HostEnvironmentDefaultFrame(env:HostEnvironment) : set<object>
   {Workaround_CastOkStateToObject(env.ok), Workaround_CastNowStateToObject(env.now), Workaround_CastUdpStateToObject(env.udp)}
 }
 
-function UdpClientRepr(udpc:UdpClient) : set<object>
+function UdpClientRepr(udpc:UdpClient?) : set<object?>
   reads udpc
-  reads HostEnvironmentDefaultFrame.reads(udpc.env)
+  reads if udpc != null then HostEnvironmentDefaultFrame.reads(udpc.env) else {}
 {
-  {Workaround_CastUdpClientToObject(udpc)} + HostEnvironmentDefaultFrame(udpc.env)
+  {Workaround_CastUdpClientToObject(udpc)} +
+  (if udpc != null then HostEnvironmentDefaultFrame(udpc.env) else {})
 }
 
 predicate HostEnvironmentIsValid(env:HostEnvironment)
@@ -39,11 +40,12 @@ predicate HostEnvironmentIsValid(env:HostEnvironment)
   && env.ok.ok()
 }
 
-predicate UdpClientOk(udpc:UdpClient)
+predicate UdpClientOk(udpc:UdpClient?)
   reads udpc
-  reads HostEnvironmentDefaultFrame.reads(udpc.env)
+  reads if udpc != null then HostEnvironmentDefaultFrame.reads(udpc.env) else {}
 {
-  udpc.env.ok.ok()
+  && udpc != null
+  && udpc.env.ok.ok()
 }
 
 function method EndPointIsValidIPV4(endPoint:EndPoint) : bool
@@ -52,10 +54,11 @@ function method EndPointIsValidIPV4(endPoint:EndPoint) : bool
   && 0 <= endPoint.port <= 65535
 }
 
-predicate UdpClientIsValid(udpc:UdpClient)
+predicate UdpClientIsValid(udpc:UdpClient?)
   reads UdpClientRepr(udpc)
-  reads HostEnvironmentIsValid.reads(udpc.env)
+  reads if udpc != null then HostEnvironmentIsValid.reads(udpc.env) else {}
 {
+  && udpc != null
   && udpc.IsOpen()
   && HostEnvironmentIsValid(udpc.env)
   && EndPointIsValidIPV4(udpc.LocalEndPoint())

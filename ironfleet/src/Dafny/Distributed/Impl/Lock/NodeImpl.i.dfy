@@ -16,13 +16,13 @@ import opened Common__UdpClient_i
 class NodeImpl
 {
     var node:CNode;
-    var udpClient:UdpClient;
+    var udpClient:UdpClient?;
     var localAddr:EndPoint;
 
     ghost var Repr : set<object>;
 
     constructor () {
-        udpClient := new UdpClient();
+        udpClient := null;
     }
 
     predicate Valid()
@@ -36,14 +36,14 @@ class NodeImpl
         && Repr == { this } + UdpClientRepr(udpClient)
     }
         
-    function Env() : HostEnvironment
+    function Env() : HostEnvironment?
         reads this, UdpClientIsValid.reads(udpClient);
     {
         if udpClient!=null then udpClient.env else null
     }
    
     method ConstructUdpClient(me:EndPoint, ghost env_:HostEnvironment) 
-        returns (ok:bool, client:UdpClient)
+        returns (ok:bool, client:UdpClient?)
         requires env_!=null && env_.Valid() && env_.ok.ok();
         requires EndPointIsValidIPV4(me);
         modifies env_.ok;
@@ -51,7 +51,7 @@ class NodeImpl
                     && client.LocalEndPoint() == me
                     && client.env == env_;
     {
-        client := new UdpClient();
+        client := null;
         var my_ep := me;
         var ip_byte_array := new byte[|my_ep.addr|];
         seqIntoArrayOpt(my_ep.addr, ip_byte_array);
