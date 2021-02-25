@@ -1,4 +1,5 @@
 using System;
+using System.Net.Sockets;
 using System.Numerics;
 using System.Diagnostics;
 using System.Threading;
@@ -81,23 +82,14 @@ public partial class UdpClient
       this.receiver.Start();
     }
 
-    // TODO: remove this
-    public static void ConstructDeprecated(bool useIPv6, ushort port, out bool ok, out UdpClient udp)
+    private static bool ShouldIgnoreException(Exception e)
     {
-        try
-        {
-            var family = useIPv6 ? System.Net.Sockets.AddressFamily.InterNetworkV6 : System.Net.Sockets.AddressFamily.InterNetwork;
-            udp = new UdpClient(new UClient(port, family));
-            uint SIO_UDP_CONNRESET = 0x9800000C; // suppress UDP "connection" closed exceptions, since UDP is connectionless
-            udp.client.Client.IOControl((System.Net.Sockets.IOControlCode)SIO_UDP_CONNRESET, new byte[] { 0 }, new byte[0]);
-            ok = true;
-        }
-        catch (Exception e)
-        {
-            System.Console.Error.WriteLine(e);
-            udp = null;
-            ok = false;
-        }
+      if (e is SocketException se) {
+          if (se.ErrorCode == 10054 /* WSAECONNRESET */) {
+            return true;
+          }
+      }
+      return false;
     }
 
     public static void Construct(IPEndPoint localEP, out bool ok, out UdpClient udp)
@@ -105,8 +97,6 @@ public partial class UdpClient
         try
         {
             udp = new UdpClient(new UClient(localEP.endpoint));
-            uint SIO_UDP_CONNRESET = 0x9800000C; // suppress UDP "connection" closed exceptions, since UDP is connectionless
-            udp.client.Client.IOControl((System.Net.Sockets.IOControlCode)SIO_UDP_CONNRESET, new byte[] { 0 }, new byte[0]);
             udp.client.Client.ReceiveBufferSize = 8192 * 100;
             ok = true;
         }
@@ -127,8 +117,13 @@ public partial class UdpClient
         }
         catch (Exception e)
         {
-            System.Console.Error.WriteLine(e);
-            ok = false;
+            if (ShouldIgnoreException(e)) {
+                ok = true;
+            }
+            else {
+                System.Console.Error.WriteLine(e);
+                ok = false;
+            }
         }
     }
 
@@ -161,9 +156,15 @@ public partial class UdpClient
         }
         catch (Exception e)
         {
-            System.Console.Error.WriteLine(e);
-            timedOut = false;
-            ok = false;
+            if (ShouldIgnoreException(e)) {
+                ok = true;
+                timedOut = true;
+            }
+            else {
+                System.Console.Error.WriteLine(e);
+                timedOut = false;
+                ok = false;
+            }
         }
     }
 
@@ -175,7 +176,9 @@ public partial class UdpClient
                 this.receive_queue.Enqueue(packet);
                 //System.Console.Out.WriteLine("Enqueued a packet from: " + packet.ep.Address);
             } catch (Exception e) {
-                System.Console.Error.WriteLine(e);
+                if (!ShouldIgnoreException(e)) {
+                    System.Console.Error.WriteLine(e);
+                }
             }
         }
     }
@@ -193,7 +196,9 @@ public partial class UdpClient
                       }                
                 }
             } catch (Exception e) {
-              System.Console.Error.WriteLine(e);
+                if (!ShouldIgnoreException(e)) {
+                    System.Console.Error.WriteLine(e);
+                }
             }
         }
     }
