@@ -56,26 +56,13 @@ namespace IronRSLClient
             ClientBase.endpoints = new List<IPEndPoint>() { ip0, ip1, ip2 };
             ClientBase.my_addr = client_ip;
 
-            // Create a directory for logging all of our output
-            string guid = Guid.NewGuid().ToString();
-            string output_directory = String.Format("{0}\\IronfleetOutput\\Job-{1}",
-                System.Environment.GetEnvironmentVariable("TMP"),
-                guid);
-            Directory.CreateDirectory(output_directory);
-
-            // Create the log file itself
-            FileStream log = new FileStream(output_directory + "\\client.txt", FileMode.Create);
-            StreamWriter log_stream = new StreamWriter(log);
-
             HiResTimer.Initialize();
             Client.Trace("Client process starting " + num_threads + " running for "+ experiment_duration + "s ...");
             
             Console.WriteLine("[[READY]]");
-            Console.WriteLine("ClientGUID {0}", guid);
             
             // Redirect all subsequent output to the log
             TextWriter stdout = Console.Out;
-            Console.SetOut(log_stream);
 
             // Start the experiment
             var threads = ClientBase.StartThreads<Client>(num_threads, send_reqs_at_once).ToArray();
@@ -89,7 +76,6 @@ namespace IronRSLClient
                 Thread.Sleep((int)experiment_duration * 1000);
                 stdout.WriteLine("[[DONE]]");
                 stdout.Flush();
-                log_stream.Flush();
                 Environment.Exit(0);
             }
         }

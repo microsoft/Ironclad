@@ -114,11 +114,7 @@ in a different console:
   `dotnet src/Dafny/Distributed/Services/RSL/build/IronfleetShell.dll 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4003`
   `dotnet src/IronRSLClient/bin/Release/net5.0/IronRSLClient.dll 127.0.0.1 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 1 10`
 
-The client will print out a GUID, but all of its interesting output goes to:
-
-  `/tmp/IronfleetOutput/Job-GUID/client.txt`
-
-which primarily logs the time needed for each request.
+The client's output will primarily consist of reports of the time needed for each request.
 
 Note that the servers use non-blocking network receives, so they may be slow to respond to Ctrl-C.
 
