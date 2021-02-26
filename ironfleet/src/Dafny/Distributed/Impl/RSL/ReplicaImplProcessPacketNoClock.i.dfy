@@ -37,6 +37,7 @@ import opened LiveRSL__UdpRSL_i
 import opened Common__UdpClient_i
 import opened Environment_s
 import opened Logic__Option_i
+import opened Common__Util_i
 
 lemma lemma_ReplicaNextProcessPacketWithoutReadingClockHelper(
   cpacket:CPacket,
@@ -196,6 +197,15 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
             && r.Env() == old(r.Env())
             && old_udp_history + udpEventLog == r.Env().udp.history()
 {
+  if ShouldPrintProgress() {
+    print("Received request from client ");
+    print(cpacket.src.addr);
+    print(":");
+    print(cpacket.src.port);
+    print(" with sequence number ");
+    print(cpacket.msg.seqno);
+    print("\n");
+  }
   //print ("Replica_Next_ProcessPacketWithoutReadingClock_body: Enter\n"); 
   ghost var replica_old := r.replica;
   ghost var rreplica := AbstractifyReplicaStateToLReplica(r.replica);

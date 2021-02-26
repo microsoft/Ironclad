@@ -10,6 +10,16 @@ import opened Math__power2_s
 import opened Math__power2_i
 import opened Math__div_i
 
+function method ShouldPrintProfilingInfo() : bool
+{
+  false  // Make this "true" to make hosts collect and print profile information
+}
+
+function method ShouldPrintProgress() : bool
+{
+  false // Make this "true" to make hosts print messages about their progress
+}
+
 // Uses BigIntegers.  If you can, consider using the Opt versions below
 method seqToArray_slow<A(0)>(s:seq<A>) returns(a:array<A>)
   ensures  a[..] == s
@@ -93,18 +103,20 @@ method seqIntoArrayChar(s:seq<char>, a:array<char>)
 method RecordTimingSeq(name:seq<char>, start:uint64, end:uint64)
   requires 0 < |name| < 0x1_0000_0000_0000_0000
 {
-  var name_array := new char[|name|];
+  if ShouldPrintProfilingInfo() {
+    var name_array := new char[|name|];
 
-  seqIntoArrayChar(name, name_array);
+    seqIntoArrayChar(name, name_array);
 
-  var time:uint64;
-  if start <= end {
-    time := end - start;
-  } else {
-    time := 0xFFFF_FFFF_FFFF_FFFF;
+    var time:uint64;
+    if start <= end {
+      time := end - start;
+    } else {
+      time := 0xFFFF_FFFF_FFFF_FFFF;
+    }
+
+    Time.RecordTiming(name_array, time);
   }
-
-  Time.RecordTiming(name_array, time);
 }
 
 function BEByteSeqToInt(bytes:seq<byte>) : int

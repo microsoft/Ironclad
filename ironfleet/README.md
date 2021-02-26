@@ -70,10 +70,10 @@ Running scons will produce the following executables:
 
 To produce these executables without performing verification, use `--no-verify`.
 
-For maximum performance, be sure to turn off performance profiling.  The easiest way
-to do this is to comment out the body of the RecordTimingSeq method in  
-
-  `./src/Dafny/Distributed/Impl/Common/Util.i.dfy`
+To avoid hampering performance, we've turned off most hosts' output.  To make hosts collect and
+print profile information, change `false` to `true` in `ShouldPrintProfilingInfo` in
+`./src/Dafny/Distributed/Impl/Common/Util.i.dfy`.  To make hosts print information about their
+progress, change `false` to `true` in `ShouldPrintProgress` in the same file.
 
 # Running
 
@@ -112,11 +112,18 @@ in a different console:
   `dotnet src/Dafny/Distributed/Services/RSL/build/IronfleetShell.dll 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4001`
   `dotnet src/Dafny/Distributed/Services/RSL/build/IronfleetShell.dll 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4002`
   `dotnet src/Dafny/Distributed/Services/RSL/build/IronfleetShell.dll 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4003`
-  `dotnet src/IronRSLClient/bin/Release/net5.0/IronRSLClient.dll 127.0.0.1 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 1 10`
+  `dotnet src/IronRSLClient/bin/Release/net5.0/IronRSLClient.dll nthreads=10 duration=30 clientport=6000 initialseqno=0`
 
-The client's output will primarily consist of reports of the time needed for each request.
+The first three are the RSL servers, and the latter is the client.  The client's output will primarily
+consist of reports of the time needed for each request.
 
-Note that the servers use non-blocking network receives, so they may be slow to respond to Ctrl-C.
+Note that until you stop all the RSL servers, each client endpoint is expected to use strictly
+increasing sequence numbers. So, if you run the client program multiple times, use a different
+clientip or use a clientport such that [clientport, clientport + nthreads) doesn't overlap with that
+of previous runs.  Or, use an initialseqno greater than the last sequence number any previous client
+run reported using.
+
+Note also that the servers use non-blocking network receives, so they may be slow to respond to Ctrl-C.
 
 ## IronKV
 

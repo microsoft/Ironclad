@@ -551,6 +551,15 @@ method GetPacketsFromRepliesImpl(me:EndPoint, requests:CRequestBatch, replies:se
   {
     assert ValidRequest(requests[i]) && ValidReply(replies[i]);
     var cmsg := CMessage_Reply(requests[i].seqno, replies[i].reply);
+    if ShouldPrintProgress() {
+      print("Sending reply to client ");
+      print(requests[i].client.addr);
+      print(":");
+      print(requests[i].client.port);
+      print(" with sequence number ");
+      print(requests[i].seqno);
+      print("\n");
+    }
     var cp := CPacket(requests[i].client, me, cmsg);
     cout := cout + [cp];
     coutArr[i] := cp;
@@ -886,6 +895,15 @@ method ExecutorProcessRequest(cs:ExecutorState, cinp:CPacket, reply_cache_mutabl
   if cinp.msg.seqno == cachedReply.seqno {
     var cr := cachedReply;
     var msg := CMessage_Reply(cr.seqno, cr.reply);
+    if ShouldPrintProgress() {
+      print("Sending cached reply to client ");
+      print(cr.client.addr);
+      print(":");
+      print(cr.client.port);
+      print(" with sequence number ");
+      print(cr.seqno);
+      print("\n");
+    }
     cout := OutboundPacket(Some(CPacket(cr.client, cs.constants.all.config.replica_ids[cs.constants.my_index], msg)));
     assert OutboundPacketsIsValid(cout);
   } else {
