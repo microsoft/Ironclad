@@ -121,7 +121,7 @@ Note that until you stop all the RSL servers, each client endpoint is expected t
 increasing sequence numbers. So, if you run the client program multiple times, use a different
 clientip or use a clientport such that [clientport, clientport + nthreads) doesn't overlap with that
 of previous runs.  Or, use an initialseqno greater than the last sequence number any previous client
-run reported using.
+run reported using (e.g., if a previous run output #req100, use at least initialseqno=101).
 
 Note also that the servers use non-blocking network receives, so they may be slow to respond to Ctrl-C.
 
