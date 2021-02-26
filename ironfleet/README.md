@@ -32,7 +32,7 @@ IronFleet is licensed under the MIT license included in the [LICENSE](./LICENSE)
 # Setup
 
 To use Ironfleet, you'll need the following tools:
-  * .NET 5.0 (runtime for built executables, available at `https://dotnet.microsoft.com/download`)
+  * .NET 5.0 SDK (available at `https://dotnet.microsoft.com/download`)
   * python 2 or 3 (needed for running scons)
   * pip (needed for installing scons)
   * scons (installable by running `pip install scons`)
@@ -43,9 +43,9 @@ Optionally, if you want to edit Dafny files and interactively debug them, you'll
   * the "Dafny for Visual Studio Code" plugin authored by the Correctness Lab
     (available as an extension within VS Code)
     
-The instructions below have been mainly tested using Cygwin on Windows.
-But, they should work for other Windows shells (e.g., Powershell) and other
-platforms Dafny supports, including Ubuntu, Debian, and Mac OS X.
+The instructions below have been tested using Windows (with Cygwin), Mac OS X,
+and Ubuntu 20.04.  They should generally work for other Windows shells (e.g.,
+Powershell) and other platforms Dafny supports, such as Ubuntu 16.04 and Debian.
 
 # Verification and compilation
 

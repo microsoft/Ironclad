@@ -38,10 +38,18 @@ if dafny_path is None:
   exit(-1)
 
 if sys.platform == "win32" or sys.platform == "cygwin":
-  dafny_exe = os.path.join(GetOption('dafny_path'), 'Dafny.exe')
+  dafny_exe = os.path.join(dafny_path, 'Dafny.exe')
+  if not os.path.exists(dafny_exe):
+    print("ERROR:  Could not find Dafny executable in " + dafny_path)
+    exit(-1)
   dafny_invocation = [dafny_exe]
 else:
-  dafny_exe = os.path.join(GetOption('dafny_path'), 'dafny.dll')
+  dafny_exe = os.path.join(dafny_path, 'Dafny.dll')
+  if not os.path.exists(dafny_exe):
+    dafny_exe = os.path.join(dafny_path, 'dafny.dll')
+  if not os.path.exists(dafny_exe):
+    print("ERROR:  Could not find Dafny executable in " + dafny_path)
+    exit(-1)
   dafny_invocation = ["dotnet", dafny_exe]
 
 # Useful Dafny command lines
