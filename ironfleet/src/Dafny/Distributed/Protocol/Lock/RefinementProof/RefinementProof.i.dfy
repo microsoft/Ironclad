@@ -15,7 +15,7 @@ module RefinementProof_i {
     import opened Collections__Maps_i
     import opened Logic__Option_i
     import opened Common__SeqIsUnique_i
-    import opened AbstractServiceLock_s
+    import opened AbstractServiceLock_s`All
 
     lemma lemma_InitRefines(gls:GLS_State, config:Config) 
         requires GLS_Init(gls, config);

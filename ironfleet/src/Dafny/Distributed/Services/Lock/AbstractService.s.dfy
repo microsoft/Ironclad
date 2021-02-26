@@ -1,7 +1,12 @@
 include "../../Common/Framework/AbstractService.s.dfy"
 
 module AbstractServiceLock_s refines AbstractService_s {
-    
+export Spec
+    provides Native__Io_s, Environment_s, Native__NativeTypes_s
+    provides ServiceState 
+    provides Service_Init, Service_Next, Service_Correspondence
+export All reveals *
+
 datatype ServiceState' = ServiceState'(
     hosts:set<EndPoint>,
     history:seq<EndPoint>

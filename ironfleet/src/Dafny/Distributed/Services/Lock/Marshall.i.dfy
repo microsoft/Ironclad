@@ -4,7 +4,7 @@ include "../../Impl/Lock/PacketParsing.i.dfy"
 
 module MarshallProof_i {
 import opened Native__NativeTypes_s
-    import opened AbstractServiceLock_s 
+    import opened AbstractServiceLock_s`All
     import opened Types_i 
     import opened Math__power2_i
     import opened Common__Util_i

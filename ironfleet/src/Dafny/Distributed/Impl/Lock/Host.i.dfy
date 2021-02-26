@@ -11,6 +11,14 @@ module Host_i refines Host_s {
     import opened Types_i
     import opened Impl_Node_i
     import opened UdpLock_i
+    export Spec
+        provides Native__Io_s, Environment_s, Native__NativeTypes_s
+        provides HostState
+        provides ConcreteConfiguration
+        provides HostInit, HostNext, ConcreteConfigInit, HostStateInvariants, ConcreteConfigurationInvariants
+        provides ParseCommandLineConfiguration, ParseCommandLineId, ArbitraryObject
+        provides HostInitImpl, HostNextImpl
+    export All reveals *
 
     datatype CScheduler = CScheduler(ghost node:Node, node_impl:NodeImpl)
 

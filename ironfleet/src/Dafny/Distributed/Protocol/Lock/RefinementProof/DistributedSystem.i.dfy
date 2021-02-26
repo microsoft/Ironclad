@@ -12,7 +12,7 @@ module DistributedSystem_i {
     import opened Common__SeqIsUniqueDef_i
     import opened Common__SeqIsUnique_i
     import opened Collections__Seqs_i
-    import opened Host_i
+    import opened Host_i`Spec
 
     /////////////////////////////////////////
     // LS_State

@@ -18,7 +18,7 @@ module Main_i refines Main_s {
     import opened Concrete_NodeIdentity_i
     import opened PacketParsing_i
     import opened UdpLock_i
-    import opened AS_s = AbstractServiceLock_s
+    import opened AS_s = AbstractServiceLock_s`All
     import opened Protocol_Node_i
     import opened Refinement_i
     import opened RefinementProof_i
@@ -32,6 +32,9 @@ module Main_i refines Main_s {
     import opened Common__SeqIsUnique_i
     import opened Common__SeqIsUniqueDef_i
     import opened Impl_Node_i
+    export
+        provides DS_s, Native__Io_s
+        provides Main
 
     predicate IsValidBehavior(config:ConcreteConfiguration, db:seq<DS_State>)
         reads *;
