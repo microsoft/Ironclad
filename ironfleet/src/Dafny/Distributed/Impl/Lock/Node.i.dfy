@@ -71,7 +71,7 @@ method NodeGrantImpl(s:CNode) returns (s':CNode, packet:Option<CLockPacket>, gho
     if s.held && s.epoch < 0xFFFF_FFFF_FFFF_FFFF {
         var ssss := CNode(false, s.epoch, s.my_index, s.config);
         s' := ssss;
-        var dst_index := (s.my_index + 1) % uint64(|s.config|);
+        var dst_index := (s.my_index + 1) % (|s.config| as uint64);
         packet := Some(LPacket(s.config[dst_index], s.config[s.my_index], CTransfer(s.epoch + 1)));
         ios := [LIoOpSend(AbstractifyCLockPacket(packet.v))];
         print "I grant the lock ", s.epoch, "\n";

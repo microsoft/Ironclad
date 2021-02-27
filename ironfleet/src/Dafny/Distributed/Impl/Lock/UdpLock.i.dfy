@@ -55,7 +55,6 @@ predicate OnlySentMarshallableData(rawlog:seq<UdpEvent>)
 datatype ReceiveResult = RRFail() | RRTimeout() | RRPacket(cpacket:CLockPacket)
 
 method GetEndPoint(ipe:IPEndPoint) returns (ep:EndPoint)
-    requires ipe!=null;
     ensures ep == ipe.EP();
     ensures EndPointIsValidIPV4(ep);
 {

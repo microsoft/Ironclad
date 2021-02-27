@@ -64,7 +64,6 @@ function DemarshallData(data:seq<byte>) : CMessage
 }
 
 method DemarshallDataMethod(data:array<byte>) returns (msg:CMessage)
-    requires data != null;
     requires data.Length < 0x1_0000_0000_0000_0000;
     ensures  msg == DemarshallData(data[..]);
 //    ensures  if Demarshallable(data[..], msg_grammar) then 
@@ -128,7 +127,6 @@ method MarshallMessage(c:CMessage) returns (val:V)
 
 method MarshallLockMessage(msg:CMessage) returns (data:array<byte>)
     requires !msg.CInvalid?;
-    ensures data!=null;
     ensures fresh(data);
     ensures UdpPacketBound(data[..]);
     ensures DemarshallData(data[..]) == msg;

@@ -30,21 +30,21 @@ predicate Service_Next(s:ServiceState, s':ServiceState)
 
 function Uint64ToBytes(u:uint64) : seq<byte>
 {
-    [byte( u/0x1000000_00000000),
-     byte((u/  0x10000_00000000)%0x100),
-     byte((u/    0x100_00000000)%0x100),
-     byte((u/      0x1_00000000)%0x100),
-     byte((u/         0x1000000)%0x100),
-     byte((u/           0x10000)%0x100),
-     byte((u/             0x100)%0x100),
-     byte( u                    %0x100)]
+  [( u/0x1000000_00000000)        as byte,
+   ((u/  0x10000_00000000)%0x100) as byte,
+   ((u/    0x100_00000000)%0x100) as byte,
+   ((u/      0x1_00000000)%0x100) as byte,
+   ((u/         0x1000000)%0x100) as byte,
+   ((u/           0x10000)%0x100) as byte,
+   ((u/             0x100)%0x100) as byte,
+   ( u                    %0x100) as byte]
 }
 
 function MarshallLockMsg(epoch:int) : seq<byte>
 {
   if 0 <= epoch < 0x1_0000_0000_0000_0000 then
         [ 0, 0, 0, 0, 0, 0, 0, 1] // MarshallMesssage_Request magic number
-      + Uint64ToBytes(uint64(epoch))        
+      + Uint64ToBytes(epoch as uint64)        
   else 
       [ 1 ]
 }

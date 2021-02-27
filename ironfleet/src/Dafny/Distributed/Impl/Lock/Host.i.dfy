@@ -32,7 +32,6 @@ module Host_i refines Host_s {
 
     predicate HostStateInvariants(host_state:HostState, env:HostEnvironment)
     {
-        host_state.node_impl != null 
      && host_state.node_impl.Valid() 
      && host_state.node_impl.Env() == env
      && host_state.node == AbstractifyCNode(host_state.node_impl.node)
@@ -40,7 +39,7 @@ module Host_i refines Host_s {
 
     predicate HostInit(host_state:HostState, config:ConcreteConfiguration, id:EndPoint)
     {
-        host_state.node_impl != null && host_state.node_impl.Valid()
+     && host_state.node_impl.Valid()
      && host_state.node_impl.node.config == config
      && host_state.node_impl.node.config[host_state.node_impl.node.my_index] == id
      && NodeInit(host_state.node, 

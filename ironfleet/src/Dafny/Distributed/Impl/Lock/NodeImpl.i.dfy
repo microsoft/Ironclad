@@ -44,7 +44,7 @@ class NodeImpl
    
     method ConstructUdpClient(me:EndPoint, ghost env_:HostEnvironment) 
         returns (ok:bool, client:UdpClient?)
-        requires env_!=null && env_.Valid() && env_.ok.ok();
+        requires env_.Valid() && env_.ok.ok();
         requires EndPointIsValidIPV4(me);
         modifies env_.ok;
         ensures ok ==> UdpClientIsValid(client)
@@ -71,7 +71,7 @@ class NodeImpl
     }
 
     method InitNode(config:Config, my_index:uint64, ghost env_:HostEnvironment) returns (ok:bool)
-        requires env_!=null && env_.Valid() && env_.ok.ok();
+        requires env_.Valid() && env_.ok.ok();
         requires ValidConfig(config) && ValidConfigIndex(config, my_index);
         modifies this, udpClient;
         modifies env_.ok;
