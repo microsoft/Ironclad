@@ -33,19 +33,14 @@ IronFleet is licensed under the MIT license included in the [LICENSE](./LICENSE)
 
 To use Ironfleet, you'll need the following tools:
   * .NET 5.0 SDK (available at `https://dotnet.microsoft.com/download`)
-  * python 2 or 3 (needed for running scons)
-  * pip (needed for installing scons)
-  * scons (installable by running `pip install scons`)
   * Dafny v3.0.0 (verifier, available at `https://github.com/dafny-lang/dafny`)
-
-Optionally, if you want to edit Dafny files and interactively debug them, you'll need:
-  * VS Code (available from `https://code.visualstudio.com/Download`)
-  * the "Dafny for Visual Studio Code" plugin authored by the Correctness Lab
-    (available as an extension within VS Code)
+  * python 2 or 3 (needed for running scons)
+  * scons (installable by running `pip install scons`)
     
-The instructions below have been tested using Windows (with Cygwin), Mac OS X,
-and Ubuntu 20.04.  They should generally work for other Windows shells (e.g.,
-Powershell) and other platforms Dafny supports, such as Ubuntu 16.04 and Debian.
+The instructions below have been tested using Windows 10, macOS Catalina, and
+Ubuntu 20.04.  They should also work for other platforms Dafny and .NET support,
+such as Ubuntu 16.04 and Debian.  On Windows, they work with at least the
+following shells:  Command Prompt, Windows PowerShell, and Cygwin mintty.
 
 # Verification and compilation
 
@@ -84,9 +79,11 @@ It consists of N processes passing around a lock. To run it, you need to supply 
 with the IP-port pairs of all processes, as well as its own IP-pair. For example, this is a 
 configuration with three processes:
 
-  `./nuobj/Dafny//Distributed/Services/Lock/Main_i.exe 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4002'
-  `./nuobj/Dafny//Distributed/Services/Lock/Main_i.exe 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4003'
-  `./nuobj/Dafny//Distributed/Services/Lock/Main_i.exe 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4001'
+```
+  ./nuobj/Dafny//Distributed/Services/Lock/Main_i.exe 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4002
+  ./nuobj/Dafny//Distributed/Services/Lock/Main_i.exe 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4003
+  ./nuobj/Dafny//Distributed/Services/Lock/Main_i.exe 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4001
+```
 
 It is important that you start the "first" process last, as it initially holds the lock and will
 immediately start passing it around. As this is a toy example, message retransmission is not implemented.
@@ -119,9 +116,9 @@ consist of reports of the time needed for each request.
 
 Note that until you stop all the RSL servers, each client endpoint is expected to use strictly
 increasing sequence numbers. So, if you run the client program multiple times, use a different
-clientip or use a clientport such that [clientport, clientport + nthreads) doesn't overlap with that
+`clientip` or use a `clientport` such that `[clientport, clientport + nthreads)` doesn't overlap with that
 of previous runs.  Or, use an initialseqno greater than the last sequence number any previous client
-run reported using (e.g., if a previous run output #req100, use at least initialseqno=101).
+run reported using (e.g., if a previous run output `#req100`, use at least `initialseqno=101`).
 
 Note also that the servers use non-blocking network receives, so they may be slow to respond to Ctrl-C.
 
