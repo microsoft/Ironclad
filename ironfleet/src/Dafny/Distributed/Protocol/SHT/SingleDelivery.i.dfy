@@ -108,7 +108,7 @@ predicate ReceiveRealPacket(s:SingleDeliveryAcct, s':SingleDeliveryAcct, pkt:Pac
     if NewSingleMessage(s, pkt) then
         var last_seqno := TombstoneTableLookup(pkt.src, s.receiveState);
         // Mark it received 
-        s' == s.(receiveState := s.receiveState[pkt.src := nat_t(last_seqno + 1)])
+        s' == s.(receiveState := s.receiveState[pkt.src := (last_seqno + 1) as nat_t])
     else
         s == s'
 }

@@ -74,8 +74,8 @@ method InitHostState(constants:ConstantsState, me:EndPoint) returns (host:HostSt
     var sd := CSingleDeliveryAcctInit(constants.params);
     var delegationMap := CDelegationMap([Mapping(KeyZero(), constants.rootIdentity)]);
 
-    //host := HostState(constants, me, delegationMap, map[], sd, None(), uint64(|delegationMap.lows|));
-    host := HostState(constants, me, delegationMap, map[], sd, None(), uint64(|delegationMap.lows|), []);
+    //host := HostState(constants, me, delegationMap, map[], sd, None(), |delegationMap.lows| as uint64);
+    host := HostState(constants, me, delegationMap, map[], sd, None(), |delegationMap.lows| as uint64, []);
     
     assert AbstractifyCDelegationMapToDelegationMap(delegationMap) == DelegationMap_Init(AbstractifyEndPointToNodeIdentity(constants.rootIdentity));
     assert Host_Init(AbstractifyHostStateToHost(host), AbstractifyEndPointToNodeIdentity(me), AbstractifyEndPointToNodeIdentity(constants.rootIdentity), AbstractifyEndPointsToNodeIdentities(constants.hostIds), AbstractifyCParametersToParameters(constants.params));

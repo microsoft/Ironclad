@@ -47,7 +47,7 @@ function MarshallSHTKey(k:Key) : seq<byte>
 function MarshallSHTValue(v:Value) : seq<byte>
 {
     if |v| < 0x1_0000_0000_0000_0000 then
-        Uint64ToBytes(uint64(|v|)) + v
+        Uint64ToBytes(|v| as uint64) + v
     else
         []  // We only handle reasonably sized values
 }

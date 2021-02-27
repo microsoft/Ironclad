@@ -319,7 +319,7 @@ module MarshallProof_i {
         assert SeqByteToUint64(rest0[..8]) == u;
         assert Uint64ToSeqByte(u) == Uint64ToBytes(u);
         lemma_BEByteSeqToInt_BEUintToSeqByte_invertability();
-        assert rest0[..8] == Uint64ToSeqByte(uint64(msg.seqno));
+        assert rest0[..8] == Uint64ToSeqByte(msg.seqno as uint64);
         assert data[8..16] == rest0[..8];
 
         // Prove that the 8 bytes of dst are correct
@@ -355,7 +355,7 @@ module MarshallProof_i {
         var key, rest_key := lemma_ParseValCorrectVUint64(rest3, mCaseVal, GUint64);
 
         assert data[..40] == [ 0, 0, 0, 0, 0, 0, 0, 0] 
-                           + Uint64ToSeqByte(uint64(msg.seqno)) 
+                           + Uint64ToSeqByte(msg.seqno as uint64)
                            + reserved_bytes
                            + [ 0, 0, 0, 0, 0, 0, 0, 0]
                            + Uint64ToSeqByte(msg.m.k_getrequest);
@@ -404,7 +404,7 @@ module MarshallProof_i {
         assert SeqByteToUint64(rest0[..8]) == u;
         assert Uint64ToSeqByte(u) == Uint64ToBytes(u);
         lemma_BEByteSeqToInt_BEUintToSeqByte_invertability();
-        assert rest0[..8] == Uint64ToSeqByte(uint64(msg.seqno));
+        assert rest0[..8] == Uint64ToSeqByte(msg.seqno as uint64);
         assert data[8..16] == rest0[..8];
 
         // Prove that the 8 bytes of dst are correct
@@ -460,7 +460,7 @@ module MarshallProof_i {
         var key, rest_key := lemma_ParseValCorrectVUint64(rest3, keyVal, GUint64);
 
         assert data[..40] == [ 0, 0, 0, 0, 0, 0, 0, 0] 
-                           + Uint64ToSeqByte(uint64(msg.seqno)) 
+                           + Uint64ToSeqByte(msg.seqno as uint64)
                            + reserved_bytes
                            + [ 0, 0, 0, 0, 0, 0, 0, 1]
                            + Uint64ToSeqByte(msg.m.k_setrequest);
@@ -483,7 +483,7 @@ module MarshallProof_i {
             var byteLen, bytesVal, rest6 := lemma_ParseValCorrectVByteArray(rest5, valCaseVal, GByteArray);
             assert data[..56+byteLen] == 
                                  [ 0, 0, 0, 0, 0, 0, 0, 0] 
-                               + Uint64ToSeqByte(uint64(msg.seqno)) 
+                               + Uint64ToSeqByte(msg.seqno as uint64)
                                + reserved_bytes
                                + [ 0, 0, 0, 0, 0, 0, 0, 1]
                                + Uint64ToSeqByte(msg.m.k_setrequest)
@@ -504,7 +504,7 @@ module MarshallProof_i {
             assert 1 == SeqByteToUint64(rest4[..8]);
             assert rest4[..8] == [ 0, 0, 0, 0, 0, 0, 0, 1];
             assert data[..48] == [ 0, 0, 0, 0, 0, 0, 0, 0] 
-                               + Uint64ToSeqByte(uint64(msg.seqno)) 
+                               + Uint64ToSeqByte(msg.seqno as uint64)
                                + reserved_bytes
                                + [ 0, 0, 0, 0, 0, 0, 0, 1]
                                + Uint64ToSeqByte(msg.m.k_setrequest)
@@ -556,11 +556,11 @@ module MarshallProof_i {
                 u;
                 parse_Uint64(rest0).0.v.u;
                 SeqByteToUint64(rest0[..8]);
-                SeqByteToUint64(Uint64ToBytes(uint64(reply.seqno)));
-                SeqByteToUint64(Uint64ToSeqByte(uint64(reply.seqno)));
-                SeqByteToUint64(BEUintToSeqByte(uint64(reply.seqno) as int, 8));
+                SeqByteToUint64(Uint64ToBytes(reply.seqno as uint64));
+                SeqByteToUint64(Uint64ToSeqByte(reply.seqno as uint64));
+                SeqByteToUint64(BEUintToSeqByte(reply.seqno as uint64 as int, 8));
                     { lemma_BEByteSeqToInt_BEUintToSeqByte_invertability(); }
-                uint64(reply.seqno);
+                reply.seqno as uint64;
             }
             assert msg.seqno == u as int;
             assert reply.seqno == msg.seqno;
@@ -634,11 +634,11 @@ module MarshallProof_i {
                     byteLen;
                     parse_Uint64(rest5).0.v.u;
                     SeqByteToUint64(rest5[..8]);
-                    SeqByteToUint64(Uint64ToBytes(uint64(|reply.ov.v|)));
-                    SeqByteToUint64(Uint64ToSeqByte(uint64(|reply.ov.v|)));
-                    SeqByteToUint64(BEUintToSeqByte(uint64(|reply.ov.v|) as int, 8));
+                    SeqByteToUint64(Uint64ToBytes(|reply.ov.v| as uint64));
+                    SeqByteToUint64(Uint64ToSeqByte(|reply.ov.v| as uint64));
+                    SeqByteToUint64(BEUintToSeqByte(|reply.ov.v| as uint64 as int, 8));
                         { lemma_BEByteSeqToInt_BEUintToSeqByte_invertability(); }
-                    uint64(|reply.ov.v|);
+                    |reply.ov.v| as uint64;
                 }
                 assert |bytesVal.b| == |msg.m.v.v|;
                 assert bytesVal.b == msg.m.v.v;

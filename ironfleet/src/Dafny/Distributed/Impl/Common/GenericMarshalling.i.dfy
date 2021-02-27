@@ -1329,7 +1329,7 @@ method{:timeLimitMultiplier 4} MarshallArrayContents(contents:seq<V>, eltType:G,
       //data.Length;
     }
     var item_size := MarshallVal(contents[i], eltType, data, cur_index);
-    //var item_size := ComputeSizeOf(contents[uint64(i)]);
+    //var item_size := ComputeSizeOf(contents[i as uint64]);
 
     ghost var fresh_bytes := data[cur_index..cur_index + item_size];
     marshalled_bytes := marshalled_bytes + fresh_bytes;
@@ -1661,7 +1661,7 @@ method MarshallBytes(bytes:seq<byte>, data:array<byte>, index:uint64)
   /*
   var j:uint64 := 0;
 
-  while (j < uint64(|bytes|))
+  while (j < |bytes| as uint64)
     invariant 0 <= j as int <= |bytes|
     invariant forall i:int :: 0 <= i < (index as int) ==> data[i] == old(data[i])
     invariant forall i:int :: index as int <= i < (index as int) + (j as int) ==> data[i] == bytes[i-(index as int)]
@@ -1703,7 +1703,7 @@ method MarshallByteArray(val:V, grammar:G, data:array<byte>, index:uint64) retur
   ghost var len := tuple.0;
   ghost var rest := tuple.1;
   assert{:split_here} true;
-  // assert len.v.u == uint64(|val.b|);
+  // assert len.v.u == |val.b| as uint64;
   
   assert rest == data[index + 8..(index as int) + SizeOfV(val)] == val.b;
   assert !len.None? && (len.v.u as int) <= |rest|;

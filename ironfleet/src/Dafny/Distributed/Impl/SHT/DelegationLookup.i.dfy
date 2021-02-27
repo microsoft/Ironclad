@@ -254,7 +254,7 @@ method CDM_Defragment(m:CDelegationMap) returns (m':CDelegationMap)
     ensures  AbstractifyCDelegationMapToDelegationMap(m) == AbstractifyCDelegationMapToDelegationMap(m');
     ensures  |m'.lows| >= 2 && m'.lows[1].klo.KeyPlus? ==> m'.lows[1].klo.k != KeyMin();
 {
-    if uint64(|m.lows|) < 2 || m.lows[1].klo != KeyPlus(KeyMin()) {
+    if |m.lows| as uint64 < 2 || m.lows[1].klo != KeyPlus(KeyMin()) {
         return m;
     }
 

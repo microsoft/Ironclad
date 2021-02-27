@@ -161,7 +161,7 @@ method ReadClock(udpClient:UdpClient) returns (clock:CBoundedClock, ghost clockE
     // TODO Jay: if I pretend the margin is 0, how will the verification fail?
 {
     var t := Time.GetTime(udpClient.env);
-    var u := uint64(t);
+    var u := t as uint64;
     clockEvent := UdpGetTime(t);
     clock := CBoundedClock(t,t);
 }
@@ -306,7 +306,7 @@ method SendBroadcast(udpClient:UdpClient, broadcast:CBroadcast, ghost localAddr_
         lemma_PaxosDemarshallableImpliesRefinable(buffer[..]);
 
         var i:uint64 := 0;
-        while i < uint64(|broadcast.dsts|) 
+        while i < |broadcast.dsts| as uint64
             invariant 0 <= i as int <= |broadcast.dsts|;
             invariant |udpEventLog| == i as int;
             invariant UdpClientRepr(udpClient) == old(UdpClientRepr(udpClient));

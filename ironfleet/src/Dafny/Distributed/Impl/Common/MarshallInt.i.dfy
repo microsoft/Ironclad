@@ -14,9 +14,9 @@ method MarshallUint32_guts(n:uint32, data:array<byte>, index:uint64)
   requires 0 <= (index as int) + (Uint32Size() as int) < 0x1_0000_0000_0000_0000  // Needed to prevent overflow on the next line
   requires data.Length < 0x1_0000_0000_0000_0000
   modifies data
-  ensures  BEByteSeqToUint32(data[index..index+uint64(Uint32Size())]) == n
+  ensures  BEByteSeqToUint32(data[index .. index + Uint32Size() as uint64]) == n
   ensures  data[0..index] == old(data[0..index])
-  ensures  data[index+uint64(Uint32Size())..] == old(data[index+uint64(Uint32Size())..])
+  ensures  data[index + Uint32Size() as uint64 ..] == old(data[index + Uint32Size() as uint64..])
 {
   data[index  ] := ( n/0x1000000) as byte;
   data[index+1] := ((n/  0x10000)%0x100) as byte;

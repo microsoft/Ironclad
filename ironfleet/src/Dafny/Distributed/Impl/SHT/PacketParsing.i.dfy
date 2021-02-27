@@ -338,14 +338,14 @@ method IsValidHashtable(h:Hashtable) returns (b:bool)
     requires HashtableIs64Bit(h);
     ensures  b == ValidHashtable(h);
 {
-    b := uint64(|h|) < 62;  // max_hashtable_size
+    b := |h| as uint64 < 62;  // max_hashtable_size
 
     if !b { return; }
 
     var keys := domain(h);
     lemma_MapSizeIsDomainSize(keys, h);
 
-    while uint64(|keys|) > 0
+    while |keys| as uint64 > 0
         invariant |keys| < max_hashtable_size();
         invariant forall k :: k in keys ==> k in h;
         invariant forall k :: k in h ==> k in keys || (ValidKey(k) && ValidValue(h[k]));
@@ -383,10 +383,10 @@ method IsMessageMarshallable(msg:CMessage) returns (b:bool)
             }
         case CRedirect(k, id) => 
             b := IsKeyValid(k);
-            b := b && (uint64(|id.addr|) == 4 && 0 <= id.port <= 65535);
+            b := b && (|id.addr| as uint64 == 4 && 0 <= id.port <= 65535);
         case CShard(kr, id) => 
             b := IsValidKeyRange(kr);
-            b := b && (uint64(|id.addr|) == 4 && 0 <= id.port <= 65535);
+            b := b && (|id.addr| as uint64 == 4 && 0 <= id.port <= 65535);
             if b {
                 b := IsEmptyKeyRange(kr);
                 b := !b;
@@ -414,7 +414,7 @@ method IsCSingleMessageMarshallable(msg:CSingleMessage) returns (b:bool)
     } else {
         assert msg.CSingleMessage?;
 
-        if !(uint64(|msg.dst.addr|) == 4 && 0 <= msg.dst.port <= 65535) {
+        if !(|msg.dst.addr| as uint64 == 4 && 0 <= msg.dst.port <= 65535) {
             b := false;
             return;
         }

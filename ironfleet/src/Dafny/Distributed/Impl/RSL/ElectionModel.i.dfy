@@ -804,7 +804,7 @@ method FindEarlierRequest(r1:seq<CRequest>, r2:seq<CRequest>, target:CRequest) r
   lemma_CRequestsMatch();
 
   var i:uint64 := 0;
-  while i < uint64(|r1|)
+  while i < |r1| as uint64
     invariant 0 <= i as int <= |r1|
     invariant forall j :: 0 <= j < i ==> !CRequestsMatch(r1[j], target)
   {
@@ -816,7 +816,7 @@ method FindEarlierRequest(r1:seq<CRequest>, r2:seq<CRequest>, target:CRequest) r
   }
 
   i := 0;
-  while i < uint64(|r2|)
+  while i < |r2| as uint64
     invariant 0 <= i as int <= |r2|
     invariant forall j :: 0 <= j < i ==> !CRequestsMatch(r2[j], target)
   {

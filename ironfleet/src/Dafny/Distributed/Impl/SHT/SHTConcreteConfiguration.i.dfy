@@ -117,8 +117,8 @@ method CGetReplicaIndex(replica:EndPoint, config:SHTConcreteConfiguration) retur
     var i:uint64 := 0;
     lemma_AbstractifyEndPointsToNodeIdentities_properties(config.hostIds);
 
-    while i < uint64(|config.hostIds|)
-        invariant i < uint64(|config.hostIds|);
+    while i < |config.hostIds| as uint64
+        invariant i < |config.hostIds| as uint64;
         invariant forall j :: 0 <= j < i ==> config.hostIds[j] != replica;
     {
         if replica == config.hostIds[i] {
@@ -147,7 +147,7 @@ method CGetReplicaIndex(replica:EndPoint, config:SHTConcreteConfiguration) retur
             return;
         }
 
-        if i == uint64(|config.hostIds|) - 1 {
+        if i == |config.hostIds| as uint64 - 1 {
             found := false;
             return;
         }

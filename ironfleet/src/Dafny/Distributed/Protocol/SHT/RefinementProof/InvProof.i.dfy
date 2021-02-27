@@ -591,7 +591,7 @@ lemma ReceivePacket_EachKeyClaimed(s:SHT_State, s':SHT_State, id:NodeIdentity, r
                         assert s'.hosts[id].receivedPacket.v == pkt;
                         var last_seqno := TombstoneTableLookup(pkt.src, h.sd.receiveState);
                         assert pkt.msg.seqno == last_seqno + 1;
-                        assert h'.sd == h.sd.(receiveState := h.sd.receiveState[pkt.src := nat_t(last_seqno + 1)]);
+                        assert h'.sd == h.sd.(receiveState := h.sd.receiveState[pkt.src := (last_seqno + 1) as nat_t]);
                         assert !NewSingleMessage(s'.hosts[id].sd, pkt);
                         assert BufferedPacketClaimsKey(s'.hosts[id], k);
                         assert HostClaimsKey(s'.hosts[id], k);

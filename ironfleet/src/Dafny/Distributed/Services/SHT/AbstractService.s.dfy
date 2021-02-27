@@ -56,7 +56,7 @@ function MarshallServiceGetRequest(app:AppRequest, reserved:seq<byte>) : seq<byt
 {
     if 0 <= app.g_seqno < 0x1_0000_0000_0000_0000 then
         [ 0, 0, 0, 0, 0, 0, 0, 0] // CSingleMessage_grammar magic number        
-      + Uint64ToBytes(uint64(app.g_seqno))
+      + Uint64ToBytes(app.g_seqno as uint64)
       + reserved
       + [ 0, 0, 0, 0, 0, 0, 0, 0] // CMessage_GetRequest_grammar magic number
       + MarshallSHTKey(app.g_k)
@@ -69,7 +69,7 @@ function MarshallServiceSetRequest(app:AppRequest, reserved:seq<byte>) : seq<byt
 {    
     if 0 <= app.s_seqno < 0x1_0000_0000_0000_0000 then
         [ 0, 0, 0, 0, 0, 0, 0, 0] // CSingleMessage_grammar magic number        
-      + Uint64ToBytes(uint64(app.s_seqno))
+      + Uint64ToBytes(app.s_seqno as uint64)
       + reserved
       + [ 0, 0, 0, 0, 0, 0, 0, 1] // CMessage_SetRequest_grammar magic number
       + MarshallSHTKey(app.s_k)
@@ -86,7 +86,7 @@ function MarshallServiceReply(app:AppReply, reserved:seq<byte>) : seq<byte>
 {
     if 0 <= app.seqno < 0x1_0000_0000_0000_0000 then
         [ 0, 0, 0, 0, 0, 0, 0, 0] // CSingleMessage_grammar magic number        
-      + Uint64ToBytes(uint64(app.seqno))
+      + Uint64ToBytes(app.seqno as uint64)
       + reserved
       + [ 0, 0, 0, 0, 0, 0, 0, 2] // CMessage_Reply_grammar magic number
       + MarshallSHTKey(app.k)

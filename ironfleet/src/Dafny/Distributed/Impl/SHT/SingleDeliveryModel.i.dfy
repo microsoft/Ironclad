@@ -249,12 +249,12 @@ method SendSingleCMessage(acct:CSingleDeliveryAcct, m:CMessage, dst:EndPoint, pa
     assert CAckStateIsValid(oldAckState, dst, params);
 
     assert oldAckState.numPacketsAcked as int + |oldAckState.unAcked| <= params.max_seqno as int;
-    if oldAckState.numPacketsAcked + uint64(|oldAckState.unAcked|) == params.max_seqno {
+    if oldAckState.numPacketsAcked + |oldAckState.unAcked| as uint64 == params.max_seqno {
         shouldSend := false;
         acct' := acct;
         sm := CSingleMessage(0, dst, m);        // Dummy message to simplify postconditions
     } else {
-        var sm_new := CSingleMessage(uint64(oldAckState.numPacketsAcked + uint64(|oldAckState.unAcked|) + 1), dst, m);
+        var sm_new := CSingleMessage((oldAckState.numPacketsAcked + |oldAckState.unAcked| as uint64 + 1) as uint64, dst, m);
         //assert CSingleMessageMarshallable(sm);
         assert MapSeqToSeq(oldAckState.unAcked + [sm_new], AbstractifyCSingleMessageToSingleMessage) == 
                MapSeqToSeq(oldAckState.unAcked, AbstractifyCSingleMessageToSingleMessage) + [AbstractifyCSingleMessageToSingleMessage(sm_new)];

@@ -62,7 +62,7 @@ method GetHostIndex(host:EndPoint, hosts:seq<EndPoint>) returns (found:bool, ind
     var i:uint64 := 0;
     lemma_AbstractifyEndPointsToNodeIdentities_properties(hosts);
 
-    while i < uint64(|hosts|)
+    while i < |hosts| as uint64
         invariant i as int <= |hosts|;
         invariant forall j :: 0 <= j < i ==> hosts[j] != host;
     {
@@ -79,7 +79,7 @@ method GetHostIndex(host:EndPoint, hosts:seq<EndPoint>) returns (found:bool, ind
             return;
         }
 
-        if i == uint64(|hosts|) - 1 {
+        if i == |hosts| as uint64 - 1 {
             found := false;
             return;
         }

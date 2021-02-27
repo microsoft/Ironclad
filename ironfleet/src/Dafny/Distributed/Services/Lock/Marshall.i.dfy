@@ -88,11 +88,11 @@ import opened Native__NativeTypes_s
                 u;
                 parse_Uint64(rest0).0.v.u;
                 SeqByteToUint64(rest0[..8]);
-                SeqByteToUint64(Uint64ToBytes(uint64(epoch)));
-                SeqByteToUint64(Uint64ToSeqByte(uint64(epoch)));
-                SeqByteToUint64(BEUintToSeqByte(uint64(epoch) as int, 8));
+                SeqByteToUint64(Uint64ToBytes(epoch as uint64));
+                SeqByteToUint64(Uint64ToSeqByte(epoch as uint64));
+                SeqByteToUint64(BEUintToSeqByte(epoch as uint64 as int, 8));
                     { lemma_BEByteSeqToInt_BEUintToSeqByte_invertability(); }
-                uint64(epoch);
+                epoch as uint64;
             }
             assert msg.locked_epoch == u as int;
             assert epoch == msg.locked_epoch;

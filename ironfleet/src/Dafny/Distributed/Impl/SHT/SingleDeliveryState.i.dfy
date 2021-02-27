@@ -28,7 +28,7 @@ datatype CSingleDeliveryAcct = CSingleDeliveryAcct(receiveState:CTombstoneTable,
 //////////////////////////////////////////////////////////////////////////////
 
 // Useful to give this cast a name, so it can be used as a higher-order function
-function uint64_to_nat_t(u:uint64) : nat_t { nat_t(u) }
+function uint64_to_nat_t(u:uint64) : nat_t { u as nat_t }
 
 predicate CTombstoneTableIsAbstractable(ts:CTombstoneTable) 
 {

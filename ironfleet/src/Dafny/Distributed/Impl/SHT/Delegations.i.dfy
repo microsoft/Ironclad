@@ -113,8 +113,8 @@ function method {:opaque} CDM_IndexForKey_helper(m:CDelegationMap, k:KeyPlus, in
     ensures k.KeyInf? ==> CDM_IndexForKey_helper(m, k, index) as int == |m.lows| - 1;
 {
     CDelegationMapIsSortedExtension(m);
-    if index >= uint64(uint64(|m.lows|) - 1) then
-        uint64(uint64(|m.lows|) - 1)
+    if index >= (|m.lows| as uint64 - 1) as uint64 then
+        (|m.lows| as uint64 - 1) as uint64
     else if KeyPlusLt(k, m.lows[index + 1].klo) then
         index
     else
@@ -174,7 +174,7 @@ function CDM_IndexForKeyRange(m:CDelegationMap, kr:KeyRange) : uint64
     requires kr in KeyRangesFromCDelegationMap(m);
     ensures 0 <= CDM_IndexForKeyRange(m, kr) as int < |m.lows|;
 {
-    var idx :| 0<=idx<|m.lows| && kr==CDM_IndexToKeyRange(m,idx); uint64(idx)
+    var idx :| 0<=idx<|m.lows| && kr==CDM_IndexToKeyRange(m,idx); idx as uint64
 }
 
 predicate CDelegationMapIsAbstractable(m:CDelegationMap)
@@ -606,7 +606,7 @@ lemma UpdateCDelegationMap_Part1(m:CDelegationMap, newkr:KeyRange, id:EndPoint, 
     requires m' == CDelegationMap(new_left + [Mapping(newkr.klo, id)] + new_right);
     requires CDelegationMapIsValid(m');
     ensures  AbstractifyCDelegationMapToDelegationMap(m') == UpdateDelegationMap(AbstractifyCDelegationMapToDelegationMap(m), newkr, AbstractifyEndPointToNodeIdentity(id));
-    //ensures uint64(|m'.lows|) <= uint64(|m.lows|) + 1
+    //ensures |m'.lows| as uint64 <= |m.lows| as uint64 + 1
 {
     var rm  := AbstractifyCDelegationMapToDelegationMap(m);
     var rm' := AbstractifyCDelegationMapToDelegationMap(m');
@@ -710,12 +710,12 @@ method {:induction false} {:timeLimitMultiplier 4} UpdateCDelegationMap(m:CDeleg
     requires CDelegationMapIsValid(m);
     requires EndPointIsValidIPV4(id);
     requires !EmptyKeyRange(newkr);
-    ensures uint64(|m.lows|) < 0xFFFF_FFFF_FFFF_FFFF - 2 ==> ok == true;
+    ensures |m.lows| as uint64 < 0xFFFF_FFFF_FFFF_FFFF - 2 ==> ok == true;
     ensures  ok ==> CDelegationMapIsValid(m');
     ensures  ok ==> AbstractifyCDelegationMapToDelegationMap(m') == UpdateDelegationMap(AbstractifyCDelegationMapToDelegationMap(m), newkr, AbstractifyEndPointToNodeIdentity(id));
-    ensures ok ==> (uint64(|m.lows|) < 0xFFFF_FFFF_FFFF_FFFF - 2) && (uint64(|m'.lows|) <= uint64(|m.lows|) + 2);
+    ensures ok ==> (|m.lows| as uint64 < 0xFFFF_FFFF_FFFF_FFFF - 2) && (|m'.lows| as uint64 <= |m.lows| as uint64 + 2);
 {
-    if uint64(|m.lows|) >= 0xFFFF_FFFF_FFFF_FFFF - 2 {
+    if |m.lows| as uint64 >= 0xFFFF_FFFF_FFFF_FFFF - 2 {
         ok := false;
         return;
     }
