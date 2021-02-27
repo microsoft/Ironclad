@@ -61,6 +61,7 @@ Running scons will produce the following executables:
 ```
   src/Dafny/Distributed/Services/RSL/build/IronfleetShell.dll
   src/IronRSLClient/bin/Release/net5.0/IronRSLClient.dll
+  src/Dafny/Distributed/Services/Lock/build/IronfleetShell.dll
 ```
 
 To produce these executables without performing verification, use `--no-verify`.
@@ -80,9 +81,9 @@ with the IP-port pairs of all processes, as well as its own IP-pair. For example
 configuration with three processes:
 
 ```
-  ./nuobj/Dafny//Distributed/Services/Lock/Main_i.exe 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4002
-  ./nuobj/Dafny//Distributed/Services/Lock/Main_i.exe 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4003
-  ./nuobj/Dafny//Distributed/Services/Lock/Main_i.exe 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4001
+  dotnet src/Dafny/Distributed/Services/Lock/build/IronfleetShell.dll 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4002
+  dotnet src/Dafny/Distributed/Services/Lock/build/IronfleetShell.dll 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4003
+  dotnet src/Dafny/Distributed/Services/Lock/build/IronfleetShell.dll 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4001
 ```
 
 It is important that you start the "first" process last, as it initially holds the lock and will
