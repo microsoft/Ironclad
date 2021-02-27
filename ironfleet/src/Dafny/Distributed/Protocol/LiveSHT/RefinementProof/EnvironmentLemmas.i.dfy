@@ -3,6 +3,7 @@ include "EnvironmentRefinement.i.dfy"
 
 module LiveSHT__EnvironmentLemmas_i {
 import opened Environment_s
+import opened LiveSHT__Environment_i
 import opened LiveSHT__EnvironmentRefinement_i
 
 lemma Lemma_EffectOnLSHTEnvironmentRefinementOfAddingPackets(e:LSHTEnvironment, e':LSHTEnvironment, ios:seq<LSHTIo>)

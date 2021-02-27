@@ -5,11 +5,18 @@ include "Parameters.i.dfy"
 include "../../Common/Logic/Option.i.dfy"
 
 module SHT__CMessage_i {
+import opened Native__NativeTypes_s
+import opened Native__Io_s
 import opened SHT__Message_i
 import opened Common__NodeIdentity_i
 import opened SHT__Network_i
 import opened Impl_Parameters_i
 import opened Logic__Option_i
+import opened AppInterface_i`Spec
+import opened SHT__HT_s
+import opened SHT__SingleMessage_i
+import opened SHT__Keys_i
+import opened GenericRefinement_i
 
 // For now, we use the same keys and values the app's spec does
 // Someday, we may want to introduce a split between the app's

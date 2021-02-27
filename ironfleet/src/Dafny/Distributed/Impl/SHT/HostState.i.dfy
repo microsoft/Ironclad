@@ -6,12 +6,21 @@ include "PacketParsing.i.dfy"
 include "../../Common/Logic/Option.i.dfy"
 
 module SHT__HostState_i {
+import opened Native__NativeTypes_s
+import opened Native__Io_s
 import opened SHT__Host_i
 import opened SHT__SingleDeliveryState_i
 import opened Impl__Delegations_i
 import opened SHT__ConstantsState_i
 import opened SHT__PacketParsing_i
+import opened SHT__HT_s
 import opened Logic__Option_i
+import opened AbstractServiceSHT_s`All
+import opened SHT__CMessage_i
+import opened Common__UdpClient_i
+import opened AppInterface_i`Spec
+import opened Common__NodeIdentity_i
+import opened Impl_Parameters_i
 
 datatype HostState = HostState(
     constants:ConstantsState,

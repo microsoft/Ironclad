@@ -4,10 +4,18 @@ include "../../Protocol/SHT/RefinementProof/InvProof.i.dfy"
 include "PacketParsing.i.dfy"
 
 module SHT__SingleDeliveryModel_i {
+import opened Native__NativeTypes_s
+import opened Native__Io_s
+import opened SHT__Network_i
+import opened SHT__CMessage_i
 import opened SHT__SingleDeliveryState_i
 import opened Impl_Parameters_i
 import opened SHT__InvProof_i
 import opened SHT__PacketParsing_i
+import opened Common__SeqIsUnique_i
+import opened Common__NodeIdentity_i
+import opened GenericRefinement_i
+import opened SHT__SingleDelivery_i
 
 method CTombstoneTableLookup(src:EndPoint, t:CTombstoneTable) returns (last_seqno:uint64)
     requires EndPointIsAbstractable(src);
@@ -114,20 +122,19 @@ method ReceiveAckImpl(acct:CSingleDeliveryAcct, pkt:CPacket, ghost params:CParam
     if pkt.msg.ack_seqno > oldAckState.numPacketsAcked {
         var newUnAcked := TruncateUnAckListImpl(oldAckState.unAcked, pkt.msg.ack_seqno, pkt.src, oldAckState.numPacketsAcked as int, params.max_seqno as int);
         assert CUnAckedListValidForDst(newUnAcked, pkt.src);
-        var newAckState := oldAckState[numPacketsAcked := pkt.msg.ack_seqno]
-                                      [unAcked := newUnAcked];
+        var newAckState := oldAckState.(numPacketsAcked := pkt.msg.ack_seqno, unAcked := newUnAcked);
         lemma_AbstractifyEndPointToNodeIdentity_injective_forall();
         lemma_AbstractifyMap_properties(acct.sendState, AbstractifyEndPointToNodeIdentity, AbstractifyCAskStateToAckState, RefineNodeIdentityToEndPoint);
         assert AbstractifyCAskStateToAckState(newAckState) == 
-               AbstractifyCAskStateToAckState(oldAckState)[numPacketsAcked := AbstractifyCPacketToShtPacket(pkt).msg.ack_seqno]
-                                            [unAcked := AbstractifySeqOfCSingleMessageToSeqOfSingleMessage(newUnAcked)];
+               AbstractifyCAskStateToAckState(oldAckState).(numPacketsAcked := AbstractifyCPacketToShtPacket(pkt).msg.ack_seqno,
+                                            unAcked := AbstractifySeqOfCSingleMessageToSeqOfSingleMessage(newUnAcked));
 //        if newAckState.unAcked == [] {
 //            assert pkt.msg.ack_seqno as int < params.max_seqno as int;
 //            assert newAckState.numPacketsAcked as int + |newAckState.unAcked| <= params.max_seqno as int;
 //        } else {
 //            assert newAckState.numPacketsAcked as int + |newAckState.unAcked| <= params.max_seqno as int;
 //        }
-        acct' := acct[sendState := acct.sendState[pkt.src := newAckState]];
+        acct' := acct.(sendState := acct.sendState[pkt.src := newAckState]);
     } else {
         acct' := acct;
     }
@@ -183,7 +190,7 @@ method ReceiveRealPacketImpl(acct:CSingleDeliveryAcct, pkt:CPacket, ghost params
     var b := NewSingleMessageImpl(acct, pkt, params);
     if b {
         var last_seqno := CTombstoneTableLookup(pkt.src, acct.receiveState);
-        acct' := acct[receiveState := acct.receiveState[pkt.src := last_seqno + 1]];
+        acct' := acct.(receiveState := acct.receiveState[pkt.src := last_seqno + 1]);
 
         lemma_AbstractifyEndPointToNodeIdentity_injective_forall();
         lemma_AbstractifyMap_properties(acct.receiveState, AbstractifyEndPointToNodeIdentity, uint64_to_nat_t, RefineNodeIdentityToEndPoint);
@@ -252,9 +259,9 @@ method SendSingleCMessage(acct:CSingleDeliveryAcct, m:CMessage, dst:EndPoint, pa
         assert MapSeqToSeq(oldAckState.unAcked + [sm_new], AbstractifyCSingleMessageToSingleMessage) == 
                MapSeqToSeq(oldAckState.unAcked, AbstractifyCSingleMessageToSingleMessage) + [AbstractifyCSingleMessageToSingleMessage(sm_new)];
 
-        var newAckState := oldAckState[unAcked := oldAckState.unAcked + [sm_new]];
+        var newAckState := oldAckState.(unAcked := oldAckState.unAcked + [sm_new]);
         var acctInt := acct.sendState[dst := newAckState];
-        acct' := acct[sendState := acctInt];
+        acct' := acct.(sendState := acctInt);
         sm := sm_new;
         shouldSend := true;
         UnAckedListFinalEntry(AbstractifySeqOfCSingleMessageToSeqOfSingleMessage(oldAckState.unAcked), oldAckState.numPacketsAcked as int);

@@ -6,12 +6,15 @@ include "Parameters.i.dfy"
 include "PacketParsing.i.dfy"
 
 module SHT__SingleDeliveryState_i {
+import opened Native__NativeTypes_s
+import opened Native__Io_s
 import opened Common__NodeIdentity_i
 import opened SHT__SingleDelivery_i
 import opened GenericRefinement_i
 import opened SHT__CMessage_i
 import opened Impl_Parameters_i
 import opened SHT__PacketParsing_i
+import opened SHT__Message_i
 
 // Highest sequence number we have received from each node
 type CTombstoneTable = map<EndPoint,uint64>

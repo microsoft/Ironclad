@@ -4,6 +4,7 @@ include "Parameters.i.dfy"
 module SHT__Configuration_i {
 import opened SHT__Host_i
 import opened Protocol_Parameters_i 
+import opened Concrete_NodeIdentity_i`Spec
 
 datatype SHTConfiguration = SHTConfiguration(
     clientIds:seq<NodeIdentity>,

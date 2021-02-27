@@ -2,9 +2,15 @@ include "../../Common/Framework/AbstractService.s.dfy"
 include "AppInterface.s.dfy"
 include "HT.s.dfy"
 
-module AbstractServiceSHT_s exclusively refines AbstractService_s {
-import opened AppInterface_s
+module AbstractServiceSHT_s refines AbstractService_s {
+import opened Bytes_s
+import opened AppInterface_i`Spec
 import opened SHT__HT_s
+export Spec
+    provides Native__Io_s, Environment_s, Native__NativeTypes_s
+    provides ServiceState 
+    provides Service_Init, Service_Next, Service_Correspondence
+export All reveals *
 
 datatype AppRequest = AppGetRequest(g_seqno:int, g_k:Key) | AppSetRequest(s_seqno:int, s_k:Key, ov:OptionalValue)
 datatype AppReply   = AppReply(seqno:int, k:Key, ov:OptionalValue)
@@ -43,18 +49,6 @@ predicate Service_Next(s:ServiceState, s':ServiceState)
 {
     exists request, reply :: Service_Next_ServerExecutesRequest(s, s', request, reply)
     //|| exists request :: Service_Next_ServerReceivesRequest(s, s', request)
-}
-
-function Uint64ToBytes(u:uint64) : seq<byte>
-{
-    [byte( u/0x1000000_00000000),
-     byte((u/  0x10000_00000000)%0x100),
-     byte((u/    0x100_00000000)%0x100),
-     byte((u/      0x1_00000000)%0x100),
-     byte((u/         0x1000000)%0x100),
-     byte((u/           0x10000)%0x100),
-     byte((u/             0x100)%0x100),
-     byte( u                    %0x100)]
 }
 
 function MarshallServiceGetRequest(app:AppRequest, reserved:seq<byte>) : seq<byte>

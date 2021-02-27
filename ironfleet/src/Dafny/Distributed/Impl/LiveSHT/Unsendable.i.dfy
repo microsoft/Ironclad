@@ -2,8 +2,15 @@ include "../../Protocol/LiveSHT/Scheduler.i.dfy"
 include "../SHT/PacketParsing.i.dfy"
 
 module LiveSHT__Unsendable_i {
+    import opened Native__NativeTypes_s
+    import opened Native__Io_s
+    import opened Logic__Option_i
+    import opened Environment_s
     import opened LiveSHT__Scheduler_i
     import opened SHT__PacketParsing_i
+    import opened SHT__Host_i
+    import opened SHT__Keys_i
+    import opened Common__GenericMarshalling_i
 
     predicate IosReflectIgnoringUnDemarshallable(ios:seq<LIoOp<EndPoint, seq<byte>>>)
     {
@@ -26,16 +33,16 @@ module LiveSHT__Unsendable_i {
     predicate HostNextIgnoreUnsendableReceive(s:LScheduler, s':LScheduler, ios:seq<LIoOp<EndPoint, seq<byte>>>)
     {
         s.nextActionIndex == 0
-     && s' == s[nextActionIndex := 1]
+     && s' == s.(nextActionIndex := 1)
      && IosReflectIgnoringUnDemarshallable(ios) 
     }
 
     predicate IgnoreSchedulerUpdate(s:LScheduler, s':LScheduler) 
     {
         if ShouldProcessReceivedMessage(s.host) then
-            s' == s[nextActionIndex := 2][host := s.host[receivedPacket := None()]]
+            s' == s.(nextActionIndex := 2, host := s.host.(receivedPacket := None))
         else 
-            s' == s[nextActionIndex := 2]
+            s' == s.(nextActionIndex := 2)
     }
     
     predicate HostNextIgnoreUnsendableProcess(s:LScheduler, s':LScheduler, ios:seq<LIoOp<EndPoint, seq<byte>>>)

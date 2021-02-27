@@ -6,11 +6,18 @@ include "../../Impl/SHT/AppInterfaceConcrete.i.dfy"
 include "AppInterface.i.dfy"
 
 module MarshallProof_i {
-    import opened AbstractServiceSHT_s 
+    import opened Native__NativeTypes_s
+    import opened Bytes_s
+    import opened Math__power2_i
+    import opened AbstractServiceSHT_s`All
     import opened SHT__Message_i
     import opened SHT__PacketParsing_i
-    import opened Impl__AppInterfaceConcrete_i 
-    import opened AppInterface_i
+    import opened SHT__SingleMessage_i
+    import opened SHT__CMessage_i
+    import opened Impl__AppInterfaceConcrete_i`All
+    import opened AppInterface_i`All
+    import opened Common__Util_i
+    import opened Common__GenericMarshalling_i
 
     lemma lemma_ParseValCorrectVByteArray(data:seq<byte>, v:V, g:G) returns (len:uint64, val:V, rest:seq<byte>)
         requires ValInGrammar(v, g);

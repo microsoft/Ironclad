@@ -1,10 +1,18 @@
 include "AppInterface.s.dfy"
-include "AbstractService.s.dfy"
+include "Bytes.s.dfy"
 
-module AppInterface_i exclusively refines AppInterface_s {
-import opened AbstractServiceSHT_s
+module AppInterface_i refines AppInterface_s {
+import opened Bytes_s
+export Spec
+    provides Native__NativeTypes_s
+    reveals Key // provides Key REVIEW: triggers a Dafny bug
+    provides Value
+    provides KeyLt
+    provides lemma_KeyOrdering
+    provides KeyMin, ValidKey, ValidValue, MarshallSHTKey, MarshallSHTValue
+export All reveals *
 
-type Key = uint64
+type Key(==, !new) = uint64
 type Value = seq<byte>
 
 predicate method KeyLt(ka:Key, kb:Key) 

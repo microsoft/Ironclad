@@ -1,17 +1,28 @@
 include "CMessage.i.dfy"
-include "AppInterface.i.dfy"
+include "AppInterfaceConcrete.i.dfy"
 include "../Common/NodeIdentity.i.dfy"
 include "../Common/GenericMarshalling.i.dfy"
 include "../../Protocol/LiveSHT/RefinementProof/Environment.i.dfy"
 include "../../Protocol/SHT/Host.i.dfy"
 
 module {:fuel ValInGrammar,4} SHT__PacketParsing_i {
-import opened SHT__CMessage_i
-import opened Impl__AppInterface_i
+import opened Native__NativeTypes_s
+import opened Native__Io_s
+import opened Collections__Maps_i
+import opened Math__mul_i
+import opened Environment_s
+import opened Impl__AppInterfaceConcrete_i`Spec
 import opened Common__GenericMarshalling_i
 import opened Common__NodeIdentity_i
 import opened LiveSHT__Environment_i
+import opened SHT__HT_s
+import opened SHT__Keys_i
+import opened SHT__CMessage_i
+import opened SHT__Network_i
 import opened SHT__Host_i
+import opened Impl_Parameters_i
+import opened AppInterface_i`All
+import opened Common__UdpClient_i
 
 ////////////////////////////////////////////////////////////////////
 //    Grammars for the basic types

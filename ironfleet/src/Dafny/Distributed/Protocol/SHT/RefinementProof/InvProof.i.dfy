@@ -1,7 +1,21 @@
 include "InvDefs.i.dfy"
 
 module SHT__InvProof_i {
+import opened SHT__SHT_i
+import opened Concrete_NodeIdentity_i`Spec
+import opened SHT__Network_i
+import opened AppInterface_i`Spec
+import opened SHT__HT_s
+import opened SHT__SingleDelivery_i
+import opened SHT__Host_i
+import opened Logic__Option_i
+import opened SHT__Keys_i
+import opened SHT__Delegations_i
 import opened SHT__InvDefs_i
+import opened SHT__Message_i
+import opened SHT__SingleMessage_i
+import opened Protocol_Parameters_i
+import opened SHT__Configuration_i
 
 lemma lemma_AllDelegationsToKnownHosts(s:SHT_State, k:Key, id:NodeIdentity, nextId:NodeIdentity)
     requires MapComplete(s);
@@ -387,8 +401,8 @@ lemma HighestSeqnoSent_Monotonic(s:SingleDeliveryAcct, s':SingleDeliveryAcct, pk
             var oldAckState := AckStateLookup(dst, s.sendState);
 
             if pkt.msg.ack_seqno > oldAckState.numPacketsAcked {
-                var newAckState := oldAckState[numPacketsAcked := pkt.msg.ack_seqno]
-                                              [unAcked := TruncateUnAckList(oldAckState.unAcked, pkt.msg.ack_seqno)];
+                var newAckState := oldAckState.(numPacketsAcked := pkt.msg.ack_seqno,
+                                              unAcked := TruncateUnAckList(oldAckState.unAcked, pkt.msg.ack_seqno));
                 assert s'.sendState[dst] == newAckState;
                 TruncateAckPreservesUnAckListProperties(oldAckState.unAcked, oldAckState.numPacketsAcked, pkt.msg.ack_seqno, dst);
                 calc {
@@ -494,9 +508,9 @@ lemma ReceivePacket_EachKeyClaimed(s:SHT_State, s':SHT_State, id:NodeIdentity, r
     assert ReceiveSingleMessage(h.sd, h'.sd, rpkt, ack, out);
 
     if NewSingleMessage(h.sd, rpkt) {
-        assert h' == h[sd := h'.sd][receivedPacket := Some(rpkt)];
+        assert h' == h.(sd := h'.sd, receivedPacket := Some(rpkt));
     } else {
-        assert h' == h[sd := h'.sd][receivedPacket := None()];
+        assert h' == h.(sd := h'.sd, receivedPacket := None);
     }
 
     // Prove EachKeyClaimedInExactlyOnePlace(s');
@@ -521,7 +535,7 @@ lemma ReceivePacket_EachKeyClaimed(s:SHT_State, s':SHT_State, id:NodeIdentity, r
                         assert pkt.msg.SingleMessage? && pkt.msg.seqno > last_seqno';
                     } else {
                         if NewSingleMessage(h.sd, rpkt) {
-                            assert h' == h[sd := h'.sd][receivedPacket := Some(rpkt)];
+                            assert h' == h.(sd := h'.sd, receivedPacket := Some(rpkt));
                             if rpkt.src == pkt.src {
                                 forall () ensures pkt.msg.seqno != rpkt.msg.seqno; {
                                     reveal_PacketsHaveSenderUniqueSeqnos();
@@ -531,7 +545,7 @@ lemma ReceivePacket_EachKeyClaimed(s:SHT_State, s':SHT_State, id:NodeIdentity, r
                                 assert pkt.msg.SingleMessage? && pkt.msg.seqno > last_seqno';
                             }
                         } else {
-                            assert h' == h[sd := h'.sd][receivedPacket := None()];
+                            assert h' == h.(sd := h'.sd, receivedPacket := None);
                             assert pkt.msg.SingleMessage? && pkt.msg.seqno > last_seqno';
                         }
                     }
@@ -577,7 +591,7 @@ lemma ReceivePacket_EachKeyClaimed(s:SHT_State, s':SHT_State, id:NodeIdentity, r
                         assert s'.hosts[id].receivedPacket.v == pkt;
                         var last_seqno := TombstoneTableLookup(pkt.src, h.sd.receiveState);
                         assert pkt.msg.seqno == last_seqno + 1;
-                        assert h'.sd == h.sd[receiveState := h.sd.receiveState[pkt.src := nat_t(last_seqno + 1)]];
+                        assert h'.sd == h.sd.(receiveState := h.sd.receiveState[pkt.src := nat_t(last_seqno + 1)]);
                         assert !NewSingleMessage(s'.hosts[id].sd, pkt);
                         assert BufferedPacketClaimsKey(s'.hosts[id], k);
                         assert HostClaimsKey(s'.hosts[id], k);
@@ -1588,7 +1602,7 @@ lemma NextInv_Process_Boring_Message(s:SHT_State, s':SHT_State, id:NodeIdentity,
     requires s.hosts[id].receivedPacket.Some? && s.hosts[id].receivedPacket.v.msg.SingleMessage?
              ==> !s.hosts[id].receivedPacket.v.msg.m.Delegate?;
     //requires s'.hosts[id].receivedPacket.None?;
-    requires s'.hosts[id] == s.hosts[id][receivedPacket := None];
+    requires s'.hosts[id] == s.hosts[id].(receivedPacket := None);
     requires out == {};
     requires !SpontaneouslyRetransmit(s.hosts[id], s'.hosts[id], out);
     ensures Inv(s');
@@ -1597,7 +1611,7 @@ lemma NextInv_Process_Boring_Message(s:SHT_State, s':SHT_State, id:NodeIdentity,
     var h' := s'.hosts[id];
 
     assert out == {};
-    assert h' == h[receivedPacket := None];
+    assert h' == h.(receivedPacket := None);
     reveal_UnAckedListInNetwork(); // ==>
     assert AckListsInv(s');
     reveal_PacketsHaveSenderUniqueSeqnos(); // ==>
@@ -1649,7 +1663,7 @@ lemma NextInv_Process_Message(s:SHT_State, s':SHT_State, id:NodeIdentity, recv:s
             || rpkt.msg.m.recipient !in h.constants.hostIds 
             || !DelegateForKeyRangeIsHost(h.delegationMap, rpkt.msg.m.kr, h.me)
             || |ExtractRange(h.h, rpkt.msg.m.kr)| >= max_hashtable_size()) {
-            //s' == s[receivedPacket := s'.receivedPacket] && out == {}   
+            //s' == s.(receivedPacket := s'.receivedPacket) && out == {}   
             NextInv_Process_Boring_Message(s, s', id, recv, out);
         } else {
             var sm,b :| NextShard(h, h', out, rpkt.msg.m.kr, rpkt.msg.m.recipient, sm, b);
@@ -1703,7 +1717,7 @@ lemma NextInv_ProcessReceivedPacket_BoringPacket(s:SHT_State, s':SHT_State, id:N
     var h' := s'.hosts[id];
 
     assert out == {};
-    assert h' == h[receivedPacket := None];
+    assert h' == h.(receivedPacket := None);
     reveal_UnAckedListInNetwork(); // ==>
     assert AckListsInv(s');
     reveal_PacketsHaveSenderUniqueSeqnos(); // ==>

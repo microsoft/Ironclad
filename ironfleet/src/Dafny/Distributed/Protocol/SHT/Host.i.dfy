@@ -8,14 +8,21 @@ include "../../Services/SHT/AbstractService.s.dfy"
 include "../Common/NodeIdentity.i.dfy"
 
 module SHT__Host_i {
+import opened Collections__Maps2_s
 import opened SHT__SingleDelivery_i
 import opened SHT__Delegations_i
 import opened Protocol_Parameters_i 
 import opened LiveSHT__Environment_i
 import opened Collections__Sets_i
 import opened Logic__Option_i
-import opened AbstractServiceSHT_s
+import opened AbstractServiceSHT_s`All
 import opened Concrete_NodeIdentity_i
+import opened SHT__HT_s
+import opened SHT__Message_i
+import opened SHT__SingleMessage_i
+import opened SHT__Network_i
+import opened AppInterface_i`Spec
+import opened SHT__Keys_i
 
 datatype Constants = Constants(
     rootIdentity:NodeIdentity,
@@ -98,7 +105,7 @@ predicate NextGetRequest_Reply(s:Host, s':Host, src:NodeIdentity, seqno:int, k:K
         && sm.dst == src
         && out == {Packet(src, s.me, sm)}
     else
-        s' == s[receivedPacket := s'.receivedPacket]
+        s' == s.(receivedPacket := s'.receivedPacket)
         && out == {}
 }
 
@@ -135,7 +142,7 @@ predicate NextSetRequest_Complete(s:Host, s':Host, src:NodeIdentity, seqno:int, 
         && sm.dst == src
         && out == {Packet(src, s.me, sm)}
     else
-           s' == s[receivedPacket := s'.receivedPacket]
+           s' == s.(receivedPacket := s'.receivedPacket)
         && out == {}
 }
 
@@ -203,7 +210,7 @@ predicate NextShard_Wrapper(s:Host, s':Host, pkt:Packet, out:set<Packet>)
            || pkt.msg.m.recipient !in s.constants.hostIds 
            || !DelegateForKeyRangeIsHost(s.delegationMap, pkt.msg.m.kr, s.me)
            || |ExtractRange(s.h, pkt.msg.m.kr)| >= max_hashtable_size()) then 
-            s' == s[receivedPacket := s'.receivedPacket] && out == {}   
+            s' == s.(receivedPacket := s'.receivedPacket) && out == {}   
        else 
             exists sm,b :: NextShard(s, s', out, pkt.msg.m.kr, pkt.msg.m.recipient, sm, b)
 }
@@ -214,7 +221,7 @@ predicate NextReply(s:Host, s':Host, pkt:Packet, out:set<Packet>)
 {
        pkt.msg.m.Reply?
     && out == {}
-    && s' == s[receivedPacket := s'.receivedPacket]
+    && s' == s.(receivedPacket := s'.receivedPacket)
 }
 
 predicate NextRedirect(s:Host, s':Host, pkt:Packet, out:set<Packet>)
@@ -223,7 +230,7 @@ predicate NextRedirect(s:Host, s':Host, pkt:Packet, out:set<Packet>)
 {
        pkt.msg.m.Redirect?
     && out == {}
-    && s' == s[receivedPacket := s'.receivedPacket]
+    && s' == s.(receivedPacket := s'.receivedPacket)
 }
 
 predicate ShouldProcessReceivedMessage(s:Host)
@@ -256,7 +263,7 @@ predicate ReceivePacket(s:Host, s':Host, pkt:Packet, out:set<Packet>, ack:Packet
                s'.receivedPacket == Some(pkt)   // Enqueue this packet for processing
             else
                s'.receivedPacket.None?)
-        && s' == s[sd := s'.sd][receivedPacket := s'.receivedPacket]  // Nothing else changes
+        && s' == s.(sd := s'.sd, receivedPacket := s'.receivedPacket)  // Nothing else changes
     else 
         s' == s && out == {}
 }

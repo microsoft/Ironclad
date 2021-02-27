@@ -2,8 +2,14 @@ include "../../Protocol/SHT/Delegations.i.dfy"
 include "../Common/NodeIdentity.i.dfy"
 
 module Impl__Delegations_i {
+import opened Native__NativeTypes_s
+import opened Native__Io_s
 import opened SHT__Delegations_i
 import opened Common__NodeIdentity_i
+import opened AppInterface_i`Spec
+import opened Concrete_NodeIdentity_i`Spec
+import opened SHT__Keys_i
+import opened Common__UdpClient_i
 
 // To enable efficient lookups of which host owns a given key, 
 // we maintain a list of mappings.  Each mapping indicates that 

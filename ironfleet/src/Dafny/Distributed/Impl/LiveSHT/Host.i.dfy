@@ -2,9 +2,26 @@ include "../../Common/Framework/Host.s.dfy"
 include "SchedulerImpl.i.dfy"
 include "CmdLineParser.i.dfy"
 
-module Host_i exclusively refines Host_s {
+module Host_i refines Host_s {
+    import opened Collections__Sets_i
+
+    import opened Common__NodeIdentity_i
+    import opened Impl_Parameters_i
+    import opened SHT__ConstantsState_i
+    import opened LiveSHT__Environment_i
+    import opened LiveSHT__Scheduler_i
     import opened LiveSHT__SchedulerImpl_i
+    import opened LiveSHT__UdpSHT_i
+    import opened LiveSHT__Unsendable_i
     import opened ShtCmdLineParser_i 
+    export Spec
+        provides Native__Io_s, Environment_s, Native__NativeTypes_s
+        provides HostState
+        provides ConcreteConfiguration
+        provides HostInit, HostNext, ConcreteConfigInit, HostStateInvariants, ConcreteConfigurationInvariants
+        provides ParseCommandLineConfiguration, ParseCommandLineId, ArbitraryObject
+        provides HostInitImpl, HostNextImpl
+    export All reveals *
 
 
     datatype CScheduler = CScheduler(ghost sched:LScheduler, scheduler_impl:SchedulerImpl)
@@ -76,7 +93,7 @@ module Host_i exclusively refines Host_s {
         id := init_config.hostIds[my_index];
         config := init_config;
         
-        var scheduler := new SchedulerImpl;
+        var scheduler := new SchedulerImpl();
 //        calc {
 //            constants.myIndex as int;
 //                { reveal_SeqIsUnique(); }

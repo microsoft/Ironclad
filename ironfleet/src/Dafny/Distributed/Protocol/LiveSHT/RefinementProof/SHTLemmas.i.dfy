@@ -6,13 +6,24 @@ include "EnvironmentLemmas.i.dfy"
 include "SHT.i.dfy"
 
 module RefinementProof__DistributedSystemLemmas_i {
+import opened Native__Io_s
+import opened Collections__Maps2_s
 import opened Collections__Maps2_i
+import opened Concrete_NodeIdentity_i`Spec
+import opened Environment_s
+import opened SHT__Host_i
+import opened SHT__Network_i
+import opened SHT__SHT_i
+import opened SHT__Configuration_i
 import opened LiveSHT__SHTRefinement_i
 import opened LiveSHT__Scheduler_i
 import opened LiveSHT__SchedulerRefinement_i
 import opened LiveSHT__SchedulerLemmas_i
 import opened LiveSHT__EnvironmentLemmas_i
 import opened LiveSHT__SHT_i
+import opened LiveSHT__EnvironmentRefinement_i
+import opened LiveSHT__Environment_i
+
 
 lemma Lemma_HostNextImpliesHostNextWithBiggerReceiveSet(s:Host, s':Host, recvs1:set<Packet>, recvs2:set<Packet>, out:set<Packet>)
     requires Host_Next(s, s', recvs1, out);

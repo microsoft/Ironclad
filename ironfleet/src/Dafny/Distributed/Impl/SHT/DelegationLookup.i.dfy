@@ -1,7 +1,13 @@
 include "Delegations.i.dfy"
 
 module DelegationLookup_i {
+import opened Native__NativeTypes_s
+import opened Native__Io_s
 import opened Impl__Delegations_i
+import opened SHT__Keys_i
+import opened Common__NodeIdentity_i
+import opened AppInterface_i`Spec
+import opened SHT__Delegations_i
 
 function min(x:int, y:int) : int { if x < y then x else y }
 

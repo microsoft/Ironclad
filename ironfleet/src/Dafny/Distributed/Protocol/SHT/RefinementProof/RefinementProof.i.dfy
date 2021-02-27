@@ -4,10 +4,25 @@ include "Refinement.i.dfy"
 include "InvProof.i.dfy"
 
 module SHT__RefinementProof_i {
+import opened Logic__Option_i
+import opened Collections__Maps2_s
 import opened Collections__Maps2_i
 import opened Collections__Sets_i
+import opened AbstractServiceSHT_s`All
+import opened AppInterface_i`Spec
+import opened Concrete_NodeIdentity_i
 import opened SHT__Refinement_i
 import opened SHT__InvProof_i
+import opened SHT__HT_s
+import opened SHT__InvDefs_i
+import opened SHT__Message_i
+import opened SHT__SHT_i
+import opened SHT__Network_i
+import opened SHT__SingleMessage_i
+import opened SHT__Keys_i
+import opened SHT__Host_i
+import opened SHT__Delegations_i
+import opened SHT__SingleDelivery_i
 
 predicate HashtableNext(h:Hashtable, h':Hashtable)
 {
@@ -1613,7 +1628,7 @@ lemma ReceiveBoringPacketRefines(s:SHT_State, s':SHT_State, id:NodeIdentity, rec
     var h' := s'.hosts[id];
 
     assert out == {};
-    assert h' == h[receivedPacket := None];
+    assert h' == h.(receivedPacket := None);
 
     reveal_HiddenInv();
     NondelegatingReadonlyStepPreservesRefinement(s, s', id, recv, out);

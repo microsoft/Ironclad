@@ -5,10 +5,16 @@ include "PacketParsing.i.dfy"
 
 
 module SHT__SHTConcreteConfiguration_i {
+import opened Native__NativeTypes_s
+import opened Native__Io_s
 import opened SHT__Configuration_i
 import opened Common__NodeIdentity_i
 import opened SHT__PacketParsing_i
 import opened LiveSHT__SHTRefinement_i
+import opened Impl_Parameters_i
+import opened Common__UdpClient_i
+import opened Common__SeqIsUniqueDef_i
+import opened Collections__Seqs_i
 
 
 datatype SHTConcreteConfiguration = SHTConcreteConfiguration(

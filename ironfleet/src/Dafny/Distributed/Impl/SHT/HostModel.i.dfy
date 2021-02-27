@@ -4,10 +4,31 @@ include "PacketParsing.i.dfy"
 include "DelegationLookup.i.dfy"
 
 module SHT__HostModel_i {
+import opened Native__NativeTypes_s
+import opened Native__Io_s
 import opened SHT__HostState_i
 import opened SHT__SingleDeliveryModel_i
 import opened SHT__PacketParsing_i
 import opened DelegationLookup_i
+import opened Environment_s
+import opened SHT__Host_i
+import opened SHT__SingleDeliveryState_i
+import opened Impl__Delegations_i
+import opened SHT__ConstantsState_i
+import opened SHT__HT_s
+import opened Logic__Option_i
+import opened AbstractServiceSHT_s`All
+import opened SHT__CMessage_i
+import opened Common__UdpClient_i
+import opened AppInterface_i`Spec
+import opened Common__NodeIdentity_i
+import opened Impl_Parameters_i
+import opened SHT__Keys_i
+import opened SHT__Network_i
+import opened SHT__Delegations_i
+import opened SHT__Message_i
+import opened SHT__SingleMessage_i
+import opened SHT__SingleDelivery_i
 
 function method mapremove<KT,VT>(m:map<KT,VT>, k:KT) : map<KT,VT>
 {
@@ -93,13 +114,13 @@ method {:timeLimitMultiplier 2} HostModelNextGetRequest(host:HostState, cpacket:
 
     var sd', sm, shouldSend  := SendSingleCMessage(host.sd, m, cpacket.src, host.constants.params);
     
-    host' := host[sd := sd'][receivedPacket := None];
+    host' := host.(sd := sd', receivedPacket := None);
     var p := CPacket(cpacket.src, host.me, sm);
     if shouldSend {
-        host' := host[sd := sd'][receivedPacket := None][receivedRequests := newReceivedRequests];
+        host' := host.(sd := sd', receivedPacket := None, receivedRequests := newReceivedRequests);
         sent_packets := [p];
     } else {
-        host' := host[receivedPacket := None];
+        host' := host.(receivedPacket := None);
         sent_packets := [];
     }
 
@@ -131,7 +152,7 @@ method {:timeLimitMultiplier 2} HostModelNextSetRequest(host:HostState, cpacket:
     var marshallable := IsMessageMarshallable(cpacket.msg.m);
     if !marshallable {
         assert !ValidKey(k) || !ValidOptionalValue(ov);
-        host' := host[receivedPacket := None];
+        host' := host.(receivedPacket := None);
         sent_packets := [];
 
         ghost var s := AbstractifyHostStateToHost(host);
@@ -178,9 +199,9 @@ method {:timeLimitMultiplier 2} HostModelNextSetRequest(host:HostState, cpacket:
             newReceivedRequests := host.receivedRequests;
         }
         
-        host' := host[h := h'][sd := sd'][receivedPacket := None][receivedRequests := newReceivedRequests];
+        host' := host.(h := h', sd := sd', receivedPacket := None, receivedRequests := newReceivedRequests);
     } else {
-        host' := host[receivedPacket := None];
+        host' := host.(receivedPacket := None);
     }
     
     
@@ -209,7 +230,7 @@ method {:timeLimitMultiplier 2} HostModelNextSetRequest(host:HostState, cpacket:
 predicate HostIgnoringUnParseable(host:Host, host':Host, packets:set<Packet>)
 {
     packets == {}
- && host' == host[receivedPacket := None()]
+ && host' == host.(receivedPacket := None)
  && host.receivedPacket.Some? 
  && host.receivedPacket.v.msg.SingleMessage? 
  && host.receivedPacket.v.msg.m.Delegate?
@@ -232,7 +253,7 @@ method HostModelNextDelegate(host:HostState, cpacket:CPacket) returns (host':Hos
 
     var marshallable := IsCSingleMessageMarshallable(cpacket.msg);
     if !marshallable {
-        host' := host[receivedPacket := None];
+        host' := host.(receivedPacket := None);
         assert HostIgnoringUnParseable(AbstractifyHostStateToHost(host), AbstractifyHostStateToHost(host'), AbstractifySeqOfCPacketsToSetOfShtPackets(sent_packets));
         return;
     }
@@ -240,9 +261,9 @@ method HostModelNextDelegate(host:HostState, cpacket:CPacket) returns (host':Hos
     if cpacket.src in host.constants.hostIds {
         var ok, delegationMap' := UpdateCDelegationMap(host.delegationMap, cpacket.msg.m.range, host.me);
         var h' := BulkUpdateHashtable(host.h, cpacket.msg.m.range, cpacket.msg.m.h);
-        host' := host[h := h'][delegationMap := delegationMap'][receivedPacket := None][numDelegations := host.numDelegations + 1];
+        host' := host.(h := h', delegationMap := delegationMap', receivedPacket := None, numDelegations := host.numDelegations + 1);
     } else {
-        host' := host[receivedPacket := None];
+        host' := host.(receivedPacket := None);
     }
     lemma_AbstractifyEndPointToNodeIdentity_injective_forall();
     //reveal_AbstractifySeqOfCPacketsToSetOfShtPackets();
@@ -256,7 +277,7 @@ method {:timeLimitMultiplier 4} HostModelNextShard(host:HostState, cpacket:CPack
     var recipient := cpacket.msg.m.recipient;
     var kr := cpacket.msg.m.kr;
     sent_packets := [];
-    host' := host[receivedPacket := None];
+    host' := host.(receivedPacket := None);
     lemma_AbstractifyEndPointToNodeIdentity_injective_forall();
     reveal_AbstractifySeqOfCPacketsToSetOfShtPackets();
     var marshallable := IsMessageMarshallable(cpacket.msg.m);
@@ -285,13 +306,13 @@ method {:timeLimitMultiplier 4} HostModelNextShard(host:HostState, cpacket:CPack
         var ok, delegationMap' := UpdateCDelegationMap(host.delegationMap, kr, recipient);
         var h' := BulkRemoveHashtable(host.h, kr);
     
-        host' := host[h := h'][delegationMap := delegationMap'][sd := sd'][receivedPacket := None][numDelegations := host.numDelegations + 1];
+        host' := host.(h := h', delegationMap := delegationMap', sd := sd', receivedPacket := None, numDelegations := host.numDelegations + 1);
 
         p := CPacket(recipient, host.me, sm);
         sent_packets := [p];
         
     } else {
-        host' := host[receivedPacket := None][numDelegations := host.numDelegations + 1];
+        host' := host.(receivedPacket := None, numDelegations := host.numDelegations + 1);
         sent_packets := [];
     }
   
@@ -344,7 +365,7 @@ method {:timeLimitMultiplier 2} HostModelNextReceiveMessage(host:HostState, cpac
     } else if (cpacket.msg.m.CShard?) {
         host', sent_packets := HostModelNextShard(host, cpacket);
     } else if (cpacket.msg.m.CReply? || cpacket.msg.m.CRedirect?) {
-        host' := host[receivedPacket := None];
+        host' := host.(receivedPacket := None);
         sent_packets := [];
         assert |sent_packets| == 0;
         reveal_AbstractifySeqOfCPacketsToSetOfShtPackets();
@@ -399,13 +420,13 @@ method HostModelReceivePacket(host:HostState, cpacket:CPacket) returns (host':Ho
             sent_packets := [ack];        
             
             if (b') {
-                host' := host[receivedPacket := Some(cpacket)][sd := sd'];
+                host' := host.(receivedPacket := Some(cpacket), sd := sd');
             } else {
-                host' := host[receivedPacket := None][sd := sd'];    
+                host' := host.(receivedPacket := None, sd := sd');
             }
             
         } else {
-            host' := host[sd := sd'];
+            host' := host.(sd := sd');
             ack := cpacket;
             sent_packets := [];
         }

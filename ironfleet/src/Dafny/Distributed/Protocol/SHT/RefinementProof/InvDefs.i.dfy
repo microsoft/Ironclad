@@ -2,6 +2,15 @@ include "SHT.i.dfy"
 
 module SHT__InvDefs_i {
 import opened SHT__SHT_i
+import opened Concrete_NodeIdentity_i`Spec
+import opened SHT__Network_i
+import opened AppInterface_i`Spec
+import opened SHT__HT_s
+import opened SHT__SingleDelivery_i
+import opened SHT__Host_i
+import opened Logic__Option_i
+import opened SHT__Keys_i
+import opened SHT__Delegations_i
 
 // The Refinement definition (Lamport's Bar()) is trusted.
 // Ugh. That makes the entire Host.i definition ... trusted! Aaagh!

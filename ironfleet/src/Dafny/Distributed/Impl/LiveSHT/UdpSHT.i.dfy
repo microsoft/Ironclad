@@ -5,7 +5,12 @@ include "../SHT/SHTConcreteConfiguration.i.dfy"
 include "../SHT/CMessage.i.dfy"
 
 module LiveSHT__UdpSHT_i {
+import opened Native__NativeTypes_s
+import opened Native__Io_s
+import opened Environment_s
+import opened Common__Util_i
 import opened Common__UdpClient_i
+import opened Common__NodeIdentity_i
 import opened SHT__PacketParsing_i
 import opened LiveSHT__Environment_i
 import opened SHT__SHTConcreteConfiguration_i

@@ -5,7 +5,10 @@ include "EnvironmentRefinement.i.dfy"
 module LiveSHT__SchedulerRefinement_i {
 import opened LiveSHT__Scheduler_i
 import opened LiveSHT__EnvironmentRefinement_i
+import opened Environment_s
 import opened SHT__Host_i
+import opened SHT__Network_i
+import opened LiveSHT__Environment_i
 
 function AddPacketSets<Packet>(ps:seq<set<Packet>>) : set<Packet>
     ensures forall i :: 0 <= i < |ps| ==> ps[i] <= AddPacketSets(ps);

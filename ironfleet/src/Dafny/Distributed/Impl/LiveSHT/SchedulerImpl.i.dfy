@@ -9,22 +9,44 @@ include "Unsendable.i.dfy"
 //include "CBoundedClock.i.dfy"
 
 module LiveSHT__SchedulerImpl_i {
+import opened Native__NativeTypes_s
+import opened Native__Io_s
+import opened Logic__Option_i
+import opened Math__mod_auto_i
+import opened Collections__Seqs_i
+import opened Environment_s
 import opened SHT__Host_i
 import opened SHT__HostModel_i
+import opened SHT__HostState_i
+import opened SHT__CMessage_i
+import opened SHT__ConstantsState_i
+import opened SHT__Network_i
+import opened SHT__PacketParsing_i
+import opened SHT__SingleDeliveryState_i
+import opened SHT__SingleDelivery_i
+import opened Impl_Parameters_i
 import opened LiveSHT__Scheduler_i
 import opened LiveSHT__UdpSHT_i
 import opened LiveSHT__SchedulerModel_i
 import opened LiveSHT__Unsendable_i
+import opened LiveSHT__Environment_i
+import opened Common__UdpClient_i
+import opened Common__NodeIdentity_i 
+import opened Common__Util_i
 
 class SchedulerImpl
 {
     var host:HostState;
     var nextActionIndex:uint64;
     var resendCount:uint64;
-    var udpClient:UdpClient;
+    var udpClient:UdpClient?;
     var localAddr:EndPoint;
 
     ghost var Repr : set<object>;
+
+    constructor()
+    {
+    }
 
     predicate Valid()
         reads this;
@@ -590,7 +612,7 @@ class SchedulerImpl
             && nextActionIndex == old(nextActionIndex)
             && resendCount == old(resendCount)
             && (LHost_ProcessReceivedPacket_Next(old(AbstractifyToHost()), AbstractifyToHost(), ios)
-                || HostNextIgnoreUnsendableProcess(old(AbstractifyToLScheduler()), AbstractifyToLScheduler()[nextActionIndex := 2], udpEventLog))
+                || HostNextIgnoreUnsendableProcess(old(AbstractifyToLScheduler()), AbstractifyToLScheduler().(nextActionIndex := 2), udpEventLog))
             && old(AbstractifyToHost()).me == AbstractifyToHost().me
             && RawIoConsistentWithSpecIO(udpEventLog, ios)
             && OnlySentMarshallableData(udpEventLog) 
@@ -611,12 +633,12 @@ class SchedulerImpl
                     assert |host.delegationMap.lows| < 0xFFFF_FFFF_FFFF_FFFF - 2;
                     host, sent_packets := HostModelNextReceiveMessage(host, cpacket);
                 } else {
-                    host := host[receivedPacket := None];
+                    host := host.(receivedPacket := None);
                     sent_packets := [];
                     assert false;
                 }
             } else {
-                //host := host[receivedPacket := None];
+                //host := host.(receivedPacket := None);
                 sent_packets := [];
                 //assert false;
             }
@@ -664,10 +686,10 @@ class SchedulerImpl
                 } 
 
                 if HostIgnoringUnParseable(old(AbstractifyToHost()), AbstractifyToHost(), AbstractifySeqOfCPacketsToSetOfShtPackets(sent_packets)) {
-                    assert HostNextIgnoreUnsendableProcess(old(AbstractifyToLScheduler()), AbstractifyToLScheduler()[nextActionIndex := 2], udpEventLog);
+                    assert HostNextIgnoreUnsendableProcess(old(AbstractifyToLScheduler()), AbstractifyToLScheduler().(nextActionIndex := 2), udpEventLog);
                 }
                 assert LHost_ProcessReceivedPacket_Next(old(AbstractifyToHost()), AbstractifyToHost(), ios)
-                    || HostNextIgnoreUnsendableProcess(old(AbstractifyToLScheduler()), AbstractifyToLScheduler()[nextActionIndex := 2], udpEventLog);
+                    || HostNextIgnoreUnsendableProcess(old(AbstractifyToLScheduler()), AbstractifyToLScheduler().(nextActionIndex := 2), udpEventLog);
             } else {
                 assert AbstractifyOutboundPacketsToSeqOfLSHTPackets(sent_packets) == ExtractSentPacketsFromIos(ios);
                 assert Env() == old(Env());
@@ -764,7 +786,7 @@ class SchedulerImpl
             if (nextResendCount == 0) {
                 assert LHost_NoReceive_Next(old(AbstractifyToLScheduler()).host, AbstractifyToLScheduler().host, ios);
             } else {
-                assert scheduler == scheduler_old[resendCount := scheduler.resendCount][nextActionIndex := scheduler.nextActionIndex];
+                assert scheduler == scheduler_old.(resendCount := scheduler.resendCount, nextActionIndex := scheduler.nextActionIndex);
             }
 
         }

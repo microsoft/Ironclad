@@ -3,6 +3,8 @@ include "../Common/NodeIdentity.i.dfy"
 include "Parameters.i.dfy"
 
 module SHT__ConstantsState_i {
+import opened Common__SeqIsUniqueDef_i
+import opened Native__Io_s
 import opened SHT__Host_i
 import opened Common__NodeIdentity_i
 import opened Impl_Parameters_i

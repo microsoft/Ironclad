@@ -1,4 +1,5 @@
 include "../../Common/Framework/Main.s.dfy"
+include "SHTDistributedSystem.i.dfy"
 include "../../Impl/LiveSHT/Host.i.dfy"
 include "../../Common/Collections/Maps2.s.dfy"
 include "../../Protocol/SHT/RefinementProof/RefinementProof.i.dfy"
@@ -7,14 +8,47 @@ include "../../Protocol/LiveSHT/RefinementProof/SHTLemmas.i.dfy"
 include "Marshall.i.dfy"
 include "../../Protocol/SHT/Network.i.dfy"
 
-module Main_i exclusively refines Main_s {
-    import opened Host_i
+module Main_i refines Main_s {
+    import opened AS_s = AbstractServiceSHT_s`All
+    import opened DS_s = SHT_DistributedSystem_i
+    import opened DS_s.H_s
+    import opened Native__NativeTypes_s
+    import opened Math__mod_auto_i
+    import opened Collections__Sets_i
     import opened Collections__Maps2_s
+    import opened Collections__Maps2_i
+    import opened Environment_s
+    import opened Common__SeqIsUniqueDef_i
     import opened SHT__RefinementProof_i
     import opened Concrete_NodeIdentity_i
     import opened RefinementProof__DistributedSystemLemmas_i
     import opened MarshallProof_i
+    import opened SHT__SHT_i
     import opened SHT__Network_i
+    import opened SHT__Message_i
+    import opened SHT__SingleMessage_i
+    import opened SHT__Configuration_i
+    import opened SHT__CMessage_i
+    import opened SHT__PacketParsing_i
+    import opened SHT__ConstantsState_i
+    import opened SHT__SHTConcreteConfiguration_i
+    import opened SHT__Host_i
+    import opened SHT__Delegations_i
+    import opened SHT__InvDefs_i
+    import opened SHT__InvProof_i
+    import opened SHT__Refinement_i
+    import opened LiveSHT__UdpSHT_i
+    import opened LiveSHT__SHT_i
+    import opened LiveSHT__Environment_i
+    import opened LiveSHT__Scheduler_i
+    import opened LiveSHT__Unsendable_i
+    import opened LiveSHT__SHTRefinement_i
+    import opened Common__GenericMarshalling_i
+    import opened Common__NodeIdentity_i
+
+    export
+        provides DS_s, Native__Io_s
+        provides Main
 
     predicate IsValidBehavior(config:ConcreteConfiguration, db:seq<DS_State>)
         reads *;
@@ -805,7 +839,7 @@ module Main_i exclusively refines Main_s {
         ios:seq<LSHTIo>
         )
         requires s.nextActionIndex == 0;
-        requires s' == s[nextActionIndex := (s.nextActionIndex + 1) % LHost_NumActions()];
+        requires s' == s.(nextActionIndex := (s.nextActionIndex + 1) % LHost_NumActions());
         requires |ios| == 1;
         requires ios[0].LIoOpReceive?;
         requires ios[0].r.msg.InvalidMessage?;
@@ -1320,11 +1354,11 @@ module Main_i exclusively refines Main_s {
         ensures  last(db').environment.nextStep.LEnvStepStutter?;
         ensures  forall i :: 0 <= i < |db'| - 1 ==> db'[i] == db[i];
         ensures  last(db') == last(db).(environment := last(db').environment);
-        ensures  last(db').environment == last(db).environment[nextStep := LEnvStepStutter()];
+        ensures  last(db').environment == last(db).environment.(nextStep := LEnvStepStutter());
         ensures  LEnvStepIsAbstractable(last(db').environment.nextStep);
     {
         var sz := |db|;
-        db' := all_but_last(db) + [last(db)[environment := last(db).environment[nextStep := LEnvStepStutter()]]];
+        db' := all_but_last(db) + [last(db).(environment := last(db).environment.(nextStep := LEnvStepStutter()))];
         assert |db'| == |db|;
         forall i | 0 <= i < |db'| - 1
             ensures DS_Next(db'[i], db'[i+1]);
@@ -1524,11 +1558,11 @@ module Main_i exclusively refines Main_s {
         ensures  forall i {:trigger DS_Next(db'[i], db'[i+1])} :: 0 <= i < |db'| - 1 ==> DS_Next(db'[i], db'[i+1]);
         ensures  last(db').environment.nextStep.LEnvStepStutter?;
         ensures  forall i :: 0 <= i < |db'| - 1 ==> db'[i] == db[i];
-        ensures  last(db') == last(db)[environment := last(db').environment];
-        ensures  last(db').environment == last(db).environment[nextStep := LEnvStepStutter()];
+        ensures  last(db') == last(db).(environment := last(db').environment);
+        ensures  last(db').environment == last(db).environment.(nextStep := LEnvStepStutter());
     {
         var sz := |db|;
-        db' := all_but_last(db) + [last(db)[environment := last(db).environment[nextStep := LEnvStepStutter()]]];
+        db' := all_but_last(db) + [last(db).(environment := last(db).environment.(nextStep := LEnvStepStutter()))];
         assert |db'| == |db|;
         forall i | 0 <= i < |db'| - 1
             ensures DS_Next(db'[i], db'[i+1]);
@@ -1541,7 +1575,7 @@ module Main_i exclusively refines Main_s {
         }
     }
 
-    lemma RefinementProof(config:ConcreteConfiguration, db:seq<DS_State>) returns (sb:seq<ServiceState>)
+    lemma RefinementProof(config:DS_s.H_s.ConcreteConfiguration, db:seq<DS_State>) returns (sb:seq<ServiceState>)
     {
         var db' := lemma_FixFinalEnvStep(config, db);
         sb := RefinementProofForFixedBehavior(config, db');

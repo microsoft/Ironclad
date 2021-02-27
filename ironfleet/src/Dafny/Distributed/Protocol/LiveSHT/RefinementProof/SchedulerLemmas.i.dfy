@@ -3,9 +3,13 @@ include "EnvironmentRefinement.i.dfy"
 include "Environment.i.dfy"
 
 module LiveSHT__SchedulerLemmas_i {
+import opened Environment_s
+import opened SHT__Host_i
+import opened SHT__Network_i
 import opened LiveSHT__SchedulerRefinement_i
 import opened LiveSHT__EnvironmentRefinement_i
 import opened LiveSHT__Environment_i
+import opened LiveSHT__Scheduler_i
 
 lemma Lemma_LHostNextReceivePacketImpliesHostNextOrStutter(
     l_host:Host,
