@@ -36,9 +36,8 @@ function sht_parse_id(ip:seq<uint16>, port:seq<uint16>) : EndPoint
 }
 
 function sht_cmd_line_parsing(env:HostEnvironment) : (ConstantsState, EndPoint)
-    requires env != null && env.constants != null;
     reads env;
-    reads if env != null then env.constants else null;
+    reads env.constants;
 {
     var args := env.constants.CommandLineArgs();
     if |args| < 2 then

@@ -100,7 +100,7 @@ module Host_i refines Host_s {
 //            my_index as int;
 //        }
 
-        assert env!=null && env.Valid() && env.ok.ok();
+        assert env.Valid() && env.ok.ok();
         
         ok := scheduler.Host_Init_Impl(config, id, env);
         

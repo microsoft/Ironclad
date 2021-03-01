@@ -268,7 +268,7 @@ method SendSingleCMessage(acct:CSingleDeliveryAcct, m:CMessage, dst:EndPoint, pa
     }
 }
 
-predicate CombinedPreImage<T(==)>(seqs:seq<seq<T>>, combined:seq<T>, index:int)
+predicate CombinedPreImage<T>(seqs:seq<seq<T>>, combined:seq<T>, index:int)
     requires 0 <= index < |combined|;
 {
     exists j, k {:trigger seqs[j][k]} :: 0 <= j < |seqs| && 0 <= k < |seqs[j]| && seqs[j][k] == combined[index]

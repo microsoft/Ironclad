@@ -88,7 +88,7 @@ class SchedulerImpl
     }
       
     method ConstructUdpClient(constants:ConstantsState, me:EndPoint, ghost env_:HostEnvironment) returns (ok:bool, client:UdpClient?)
-        requires env_!=null && env_.Valid() && env_.ok.ok();
+        requires env_.Valid() && env_.ok.ok();
         requires ConstantsStateIsValid(constants);
         requires EndPointIsAbstractable(me);
         modifies env_.ok;
@@ -115,7 +115,7 @@ class SchedulerImpl
 
     
     method {:timeLimitMultiplier 2} Host_Init_Impl(constants:ConstantsState, me:EndPoint, ghost env_:HostEnvironment) returns (ok:bool)
-        requires env_!=null && env_.Valid() && env_.ok.ok();
+        requires env_.Valid() && env_.ok.ok();
         requires ConstantsStateIsValid(constants);
         requires EndPointIsAbstractable(me);
         modifies this, udpClient;

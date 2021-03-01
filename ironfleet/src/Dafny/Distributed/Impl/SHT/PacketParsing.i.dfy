@@ -234,7 +234,6 @@ function SHTDemarshallData(data:seq<byte>) : CSingleMessage
 }
 
 method SHTDemarshallDataMethod(data:array<byte>) returns (msg:CSingleMessage)
-    requires data != null;
     requires data.Length < 0x1_0000_0000_0000_0000;
     ensures  CSingleMessageIs64Bit(msg); 
     ensures  if Demarshallable(data[..], CSingleMessage_grammar()) then
@@ -815,7 +814,6 @@ lemma lemma_CSingleMessage_grammar_valid()
 method SHTMarshall(msg:CSingleMessage) returns (data:array<byte>)
     requires CSingleMessageIsAbstractable(msg);
     requires CSingleMessageMarshallable(msg);
-    ensures data!=null;
     ensures fresh(data);
     ensures UdpPacketBound(data[..]);
     ensures BufferRefinementAgreesWithMessageRefinement(msg, data[..]);

@@ -76,7 +76,6 @@ predicate OnlySentMarshallableData(rawlog:seq<UdpEvent>)
 datatype ReceiveResult = RRFail() | RRTimeout() | RRPacket(cpacket:CPacket)
 
 method GetEndPoint(ipe:IPEndPoint) returns (ep:EndPoint)
-    requires ipe!=null;
     ensures ep == ipe.EP();
     ensures EndPointIsValidIPV4(ep);
 {
@@ -122,7 +121,6 @@ method Receive(udpClient:UdpClient, localAddr:EndPoint) returns (rr:ReceiveResul
         udpEvent := LIoOpTimeoutReceive(); 
         return;
     } else {
-        assert remote!=null;
         var start_time := Time.GetDebugTimeTicks();
         var cmessage := SHTDemarshallDataMethod(buffer);
         var end_time := Time.GetDebugTimeTicks();
