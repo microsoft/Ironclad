@@ -9,7 +9,7 @@ include "Marshall.i.dfy"
 include "../../Protocol/SHT/Network.i.dfy"
 
 module Main_i refines Main_s {
-    import opened AS_s = AbstractServiceSHT_s`All
+    import opened AS_s = AbstractServiceSHT_s`Spec
     import opened DS_s = SHT_DistributedSystem_i
     import opened DS_s.H_s
     import opened Native__NativeTypes_s
@@ -123,10 +123,10 @@ module Main_i refines Main_s {
                               )
     }
 
-    function AbstractifyConcreteReplicas(replicas:map<EndPoint,HostState>, replica_order:seq<EndPoint>) : seq<LScheduler>
+    function{:opaque} AbstractifyConcreteReplicas(replicas:map<EndPoint,HostState>, replica_order:seq<EndPoint>) : seq<LScheduler>
         requires forall r :: r in replica_order ==> r in replicas;
         ensures  |AbstractifyConcreteReplicas(replicas, replica_order)| == |replica_order|;
-        ensures  forall i :: 0 <= i < |replica_order| ==> 
+        ensures  forall i {:trigger AbstractifyConcreteReplicas(replicas, replica_order)[i]} :: 0 <= i < |replica_order| ==> 
                  AbstractifyConcreteReplicas(replicas, replica_order)[i] == replicas[replica_order[i]].sched;
     {
         if replica_order == [] then []
@@ -1410,7 +1410,7 @@ module Main_i refines Main_s {
         exists h,req_index :: h in maprange(sht_state.hosts) && 0 <= req_index < |h.receivedRequests| && req == h.receivedRequests[req_index]
     }
 
-    lemma {:timeLimitMultiplier 2} RefinementProofForFixedBehavior(config:ConcreteConfiguration, db:seq<DS_State>) returns (sb:seq<ServiceState>)
+    lemma {:timeLimitMultiplier 4} RefinementProofForFixedBehavior(config:ConcreteConfiguration, db:seq<DS_State>) returns (sb:seq<ServiceState>)
         requires |db| > 0;
         requires DS_Init(db[0], config);
         requires forall i {:trigger DS_Next(db[i], db[i+1])} :: 0 <= i < |db| - 1 ==> DS_Next(db[i], db[i+1]);
@@ -1425,7 +1425,7 @@ module Main_i refines Main_s {
         var lsht_states := RefinementToLiveSHTProof(config, db);
         var sht_states := RefinementToSHTSequence(sht_config, lsht_states);
         var service_states := RefinementToServiceStateSequence(sht_config, sht_states);
-        
+      
         sb := service_states;
         var server_addresses := MapSeqToSet(config.hostIds, x=>x);
         assert Service_Init(sb[0], server_addresses);
@@ -1442,7 +1442,7 @@ module Main_i refines Main_s {
             var serviceState := sb[i];
             var lsht_state := lsht_states[i];
             var sht_state := sht_states[i];
-            
+
             forall p, reply, reserved_bytes | 
                     p in concretePkts 
                  && p.src in serviceState.serverAddresses 

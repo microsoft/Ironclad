@@ -64,7 +64,7 @@ class SchedulerImpl
         && CSingleDeliveryAccountIsValid(host.sd, host.constants.params)
     }
         
-    function Env() : HostEnvironment
+    function Env() : HostEnvironment?
         reads this, UdpClientIsValid.reads(udpClient);
     {
         if udpClient!=null then udpClient.env else null
@@ -87,7 +87,7 @@ class SchedulerImpl
             resendCount as int)
     }
       
-    method ConstructUdpClient(constants:ConstantsState, me:EndPoint, ghost env_:HostEnvironment) returns (ok:bool, client:UdpClient)
+    method ConstructUdpClient(constants:ConstantsState, me:EndPoint, ghost env_:HostEnvironment) returns (ok:bool, client:UdpClient?)
         requires env_!=null && env_.Valid() && env_.ok.ok();
         requires ConstantsStateIsValid(constants);
         requires EndPointIsAbstractable(me);
@@ -244,6 +244,7 @@ class SchedulerImpl
         ensures ExtractSentPacketsFromIos(ios_tail) == ExtractSentPacketsFromIos(ios_head + ios_tail);
     {
         if |ios_head| == 0 {
+            assert ios_head + ios_tail == ios_tail;
         } else {
             assert !ios_head[0].LIoOpSend?;
             ghost var ios := [ios_head[0]] + ios_head[1..] + ios_tail;
@@ -355,7 +356,7 @@ class SchedulerImpl
     {
     }
     
-    method HostNextReceivePacket(ghost udpEventLogOld:seq<UdpEvent>, rr:ReceiveResult, ghost receive_event:UdpEvent) returns (ok:bool, ghost udpEventLog:seq<UdpEvent>, ghost ios:seq<LSHTIo>)
+    method{:timeLimitMultiplier 2} HostNextReceivePacket(ghost udpEventLogOld:seq<UdpEvent>, rr:ReceiveResult, ghost receive_event:UdpEvent) returns (ok:bool, ghost udpEventLog:seq<UdpEvent>, ghost ios:seq<LSHTIo>)
         requires nextActionIndex == 0;
         requires Valid();
         requires Env().udp.history() == udpEventLogOld + [receive_event];

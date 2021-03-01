@@ -10,6 +10,10 @@ export Spec
     provides Native__Io_s, Environment_s, Native__NativeTypes_s
     provides ServiceState 
     provides Service_Init, Service_Next, Service_Correspondence
+
+    reveals AppRequest, AppReply
+    provides AppInterface_i, SHT__HT_s
+    provides MarshallServiceGetRequest, MarshallServiceSetRequest, MarshallServiceReply
 export All reveals *
 
 datatype AppRequest = AppGetRequest(g_seqno:int, g_k:Key) | AppSetRequest(s_seqno:int, s_k:Key, ov:OptionalValue)

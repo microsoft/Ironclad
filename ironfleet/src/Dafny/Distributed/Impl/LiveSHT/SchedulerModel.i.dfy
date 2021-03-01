@@ -40,7 +40,11 @@ lemma MapSentPacketSeqToIos_ExtractSentPacketsFromIos_equivalence(sent_packets:s
     reveal_ExtractSentPacketsFromIos();
     reveal_MapSentPacketSeqToIos();
     reveal_AbstractifyOutboundPacketsToSeqOfLSHTPackets();
-    assert AbstractifyOutboundPacketsToSeqOfLSHTPackets(sent_packets) == ExtractSentPacketsFromIos(ios);
+    var x := AbstractifyOutboundPacketsToSeqOfLSHTPackets(sent_packets);
+    var y := ExtractSentPacketsFromIos(ios);
+    if (|x| > 0) {
+        MapSentPacketSeqToIos_ExtractSentPacketsFromIos_equivalence(sent_packets[1..], ios[1..]);
+    }
 }
 
 function MapSentPacketToIos(sent_packet:CPacket) : seq<LSHTIo>

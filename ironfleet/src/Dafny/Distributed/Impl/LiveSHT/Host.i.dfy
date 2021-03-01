@@ -24,7 +24,7 @@ module Host_i refines Host_s {
     export All reveals *
 
 
-    datatype CScheduler = CScheduler(ghost sched:LScheduler, scheduler_impl:SchedulerImpl)
+    datatype CScheduler = CScheduler(ghost sched:LScheduler, scheduler_impl:SchedulerImpl?)
 
     type HostState = CScheduler
     type ConcreteConfiguration = ConstantsState
@@ -180,6 +180,7 @@ module Host_i refines Host_s {
     {
         var rest;
         recvs, rest := RemoveRecvs(events);
+        assert events[|recvs|..] == rest;
         if |rest| > 0 && (rest[0].LIoOpReadClock? || rest[0].LIoOpTimeoutReceive?) {
             clocks := [rest[0]];
             sends := rest[1..];

@@ -266,7 +266,7 @@ module Main_i refines Main_s {
         assert LEnvironment_PerformIos(le, le', id, r_ios);
     }
 
-    lemma {:timeLimitMultiplier 5} RefinementToLSState(config:ConcreteConfiguration, db:seq<DS_State>) returns (sb:seq<LS_State>)
+    lemma {:timeLimitMultiplier 10} RefinementToLSState(config:ConcreteConfiguration, db:seq<DS_State>) returns (sb:seq<LS_State>)
         requires |db| > 0;
         requires DS_Init(db[0], config);
         requires forall i {:trigger DS_Next(db[i], db[i+1])} :: 0 <= i < |db| - 1 ==> DS_Next(db[i], db[i+1]);

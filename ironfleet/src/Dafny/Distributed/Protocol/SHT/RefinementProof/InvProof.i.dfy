@@ -441,7 +441,7 @@ lemma ReceivePacket_UnsentSeqnos(s:SHT_State, s':SHT_State, id:NodeIdentity, rec
     reveal_PacketsHaveSenderUniqueSeqnos();
 
     // Prove ReceiverHasCanceledNoUnsentSeqnos(s')
-    forall dst, src, seqno | dst in AllHostIdentities(s') && src in AllHostIdentities(s')
+    forall dst, src, seqno {:trigger ReceiverHasNotCanceledUnsentSeqno(s', dst, src, seqno)} | dst in AllHostIdentities(s') && src in AllHostIdentities(s')
                           && HighestSeqnoSent(s'.hosts[src].sd, dst) < seqno
         ensures seqno > TombstoneTableLookup(src, s'.hosts[dst].sd.receiveState);
     {
@@ -1617,7 +1617,7 @@ lemma NextInv_Process_Boring_Message(s:SHT_State, s':SHT_State, id:NodeIdentity,
     reveal_PacketsHaveSenderUniqueSeqnos(); // ==>
     assert PacketsHaveSenderUniqueSeqnos(s');
     // Prove ReceiverHasCanceledNoUnsentSeqnos(s')
-    forall dst, src, seqno 
+    forall dst, src, seqno {:trigger ReceiverHasNotCanceledUnsentSeqno(s', dst, src, seqno)}
         ensures dst in AllHostIdentities(s) && src in AllHostIdentities(s)
                                      && HighestSeqnoSent(s.hosts[src].sd, dst) < seqno
         ==> seqno > TombstoneTableLookup(src, s.hosts[dst].sd.receiveState);
@@ -1785,7 +1785,7 @@ lemma NextInv_SpontaneouslyRetransmit(s:SHT_State, s':SHT_State, id:NodeIdentity
 
 
     // Prove ReceiverHasCanceledNoUnsentSeqnos(s')
-    forall dst, src, seqno 
+    forall dst, src, seqno {:trigger ReceiverHasNotCanceledUnsentSeqno(s', dst, src, seqno)}
         ensures dst in AllHostIdentities(s) && src in AllHostIdentities(s)
                                      && HighestSeqnoSent(s.hosts[src].sd, dst) < seqno
         ==> seqno > TombstoneTableLookup(src, s.hosts[dst].sd.receiveState);

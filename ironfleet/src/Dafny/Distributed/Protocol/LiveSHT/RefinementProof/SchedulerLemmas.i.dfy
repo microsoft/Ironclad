@@ -36,7 +36,7 @@ lemma Lemma_LHostNextReceivePacketImpliesHostNextOrStutter(
     
     var sent_packets := ExtractSentPacketsFromIos(ios);
     Lemma_HostRefinementForPacketsAppliesToIos(l_host, l_host', PacketsTo(LSHTEnvironment_Refine(l_environment), l_host.me),
-                                               ExtractPacketsFromLSHTPackets(sent_packets), l_environment, l_environment', ios);
+                                               sent_packets, l_environment, l_environment', ios);
 }
 
 lemma Lemma_LHostNextProcessReceivedPacketImpliesHostNextOrStutter(
@@ -55,7 +55,7 @@ lemma Lemma_LHostNextProcessReceivedPacketImpliesHostNextOrStutter(
 {
     var sent_packets := ExtractSentPacketsFromIos(ios);
     Lemma_HostRefinementForPacketsAppliesToIos(l_host, l_host', PacketsTo(LSHTEnvironment_Refine(l_environment), l_host.me),
-                                               ExtractPacketsFromLSHTPackets(sent_packets), l_environment, l_environment', ios);
+                                               sent_packets, l_environment, l_environment', ios);
 }
 
 lemma Lemma_LHostNextSpontaneousImpliesHostNextOrStutter(
@@ -75,7 +75,7 @@ lemma Lemma_LHostNextSpontaneousImpliesHostNextOrStutter(
         var sent_packets := ExtractSentPacketsFromIos(ios);
         Lemma_HostRefinementForPacketsAppliesToIos(l_scheduler.host, l_scheduler'.host,
                                                    PacketsTo(LSHTEnvironment_Refine(l_environment), l_scheduler.host.me),
-                                                   ExtractPacketsFromLSHTPackets(sent_packets), l_environment, l_environment', ios);
+                                                   sent_packets, l_environment, l_environment', ios);
     } else {
         assert l_scheduler'.host == l_scheduler.host;
         assert ios == [];
