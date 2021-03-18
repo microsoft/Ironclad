@@ -238,7 +238,7 @@ predicate HostIgnoringUnParseable(host:Host, host':Host, packets:set<Packet>)
     !(ValidKeyRange(msg.range) && ValidHashtable(msg.h) && !EmptyKeyRange(msg.range))
 }
 
-method HostModelNextDelegate(host:HostState, cpacket:CPacket) returns (host':HostState, sent_packets:seq<CPacket>)
+method {:timeLimitMultiplier 4} HostModelNextDelegate(host:HostState, cpacket:CPacket) returns (host':HostState, sent_packets:seq<CPacket>)
     requires NextDelegatePreconditions(host, cpacket);
     requires CSingleMessageIs64Bit(cpacket.msg);
     requires host.receivedPacket.Some? && host.receivedPacket.v == cpacket;

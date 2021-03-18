@@ -356,7 +356,7 @@ class SchedulerImpl
     {
     }
     
-    method{:timeLimitMultiplier 2} HostNextReceivePacket(ghost udpEventLogOld:seq<UdpEvent>, rr:ReceiveResult, ghost receive_event:UdpEvent) returns (ok:bool, ghost udpEventLog:seq<UdpEvent>, ghost ios:seq<LSHTIo>)
+    method{:timeLimitMultiplier 8} HostNextReceivePacket(ghost udpEventLogOld:seq<UdpEvent>, rr:ReceiveResult, ghost receive_event:UdpEvent) returns (ok:bool, ghost udpEventLog:seq<UdpEvent>, ghost ios:seq<LSHTIo>)
         requires nextActionIndex == 0;
         requires Valid();
         requires Env().udp.history() == udpEventLogOld + [receive_event];

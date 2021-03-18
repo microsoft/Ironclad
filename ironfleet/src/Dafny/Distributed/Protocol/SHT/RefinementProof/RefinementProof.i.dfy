@@ -1453,7 +1453,7 @@ lemma NextShardPreservesRefinement_main(s:SHT_State, s':SHT_State, id:NodeIdenti
     assert InvRefinementNormalized(s');
 }
 
-lemma {:timeLimitMultiplier 3} Next_Process_Message_Refines(s:SHT_State, s':SHT_State, id:NodeIdentity, recv:set<Packet>, out:set<Packet>)
+lemma {:timeLimitMultiplier 12} Next_Process_Message_Refines(s:SHT_State, s':SHT_State, id:NodeIdentity, recv:set<Packet>, out:set<Packet>)
     requires Inv(s);
     requires MapComplete(s');
     requires SHT_Next(s, s');
@@ -1636,7 +1636,7 @@ lemma ReceiveBoringPacketRefines(s:SHT_State, s':SHT_State, id:NodeIdentity, rec
 }
 */
 
-lemma {:timeLimitMultiplier 6} ReceivePacketRefines(s:SHT_State, s':SHT_State, id:NodeIdentity, recv:set<Packet>, rpkt:Packet, out:set<Packet>, ack:Packet) 
+lemma {:timeLimitMultiplier 24} ReceivePacketRefines(s:SHT_State, s':SHT_State, id:NodeIdentity, recv:set<Packet>, rpkt:Packet, out:set<Packet>, ack:Packet) 
     requires Inv(s);
     requires MapComplete(s');
     requires SHT_Next(s, s');
@@ -1872,7 +1872,7 @@ lemma {:timeLimitMultiplier 2} NextPredRefines(s:SHT_State, s':SHT_State, id:Nod
     }
 }
 
-lemma {:timeLimitMultiplier 2} NextExternalRefines(s:SHT_State, s':SHT_State, id:NodeIdentity, recv:set<Packet>, out:set<Packet>)
+lemma {:timeLimitMultiplier 8} NextExternalRefines(s:SHT_State, s':SHT_State, id:NodeIdentity, recv:set<Packet>, out:set<Packet>)
     requires Inv(s);
     requires MapComplete(s');
     requires SHT_Next(s, s');

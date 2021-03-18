@@ -1255,7 +1255,7 @@ module Main_i refines Main_s {
         }
     }
 
-    lemma {:timeLimitMultiplier 5} RefinementToServiceStateSequence(config:SHTConfiguration, db:seq<SHT_State>) returns (sb:seq<ServiceState>)
+    lemma {:timeLimitMultiplier 20} RefinementToServiceStateSequence(config:SHTConfiguration, db:seq<SHT_State>) returns (sb:seq<ServiceState>)
         requires |db| > 0;
         requires SHT_Init(config, db[0]);
         requires forall i {:trigger SHT_Next(db[i], db[i+1])} :: 0 <= i < |db| - 1 ==> db[i] == db[i+1] || SHT_Next(db[i], db[i+1]);

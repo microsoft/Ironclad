@@ -466,7 +466,7 @@ lemma SequenceIndexingHelper<T>(a:seq<T>, b:seq<T>, c:seq<T>, d:seq<T>, combined
 {
 }
 
-lemma {:timeLimitMultiplier 4} UpdateCDelegationMap_RHS_Helper(m:CDelegationMap, newkr:KeyRange, id:EndPoint, m':CDelegationMap,
+lemma {:timeLimitMultiplier 16} UpdateCDelegationMap_RHS_Helper(m:CDelegationMap, newkr:KeyRange, id:EndPoint, m':CDelegationMap,
                                left_index:int, right_index:int, new_left:seq<Mapping>, new_right:seq<Mapping>,
                                k:Key, new_index:int)
     requires CDelegationMapIsValid(m);
