@@ -146,7 +146,7 @@ public partial class UdpClient
                     Receive(0, out ok, out timedOut, out remote, out buffer);
                 }
             } else {
-                //System.Console.Out.WriteLine("Dequeued a packet from: " + packet.ep.Address);
+//                System.Console.Out.WriteLine("Dequeued a packet from: " + packet.ep.Address + " port " + packet.ep.Port);
                 timedOut = false;
                 remote = new IPEndPoint(packet.ep);
                 buffer = new byte[packet.buffer.Length];

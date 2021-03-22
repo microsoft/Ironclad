@@ -31,12 +31,12 @@ Allowed keys:
 If nthreads > 1, then each thread will use a different port number,
 using consecutive port numbers starting with clientport.
 
-NOTE: Each client IP address is expected to use strictly increasing
+NOTE: Each client endpoint is expected to use strictly increasing
 sequence numbers. So if you run this program multiple times, either:
 (1) use a different clientip, (2) use a clientport that causes
 different ports to be used, or (3) use an initialseqno greater than
 any sequence number seen in previous runs (e.g., if the previous run
-output #req100, use at least initialseqno=101).
+output #req100, use at least initialseqno=101)
 ");
         }
 

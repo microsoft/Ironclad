@@ -29,6 +29,7 @@ namespace IronfleetTestDriver
 
     public struct Param
     {
+        public int base_client_port;
         public ulong id;
         public ulong num_keys;
         public ulong size_value;
@@ -60,10 +61,10 @@ namespace IronfleetTestDriver
         {
             Thread.Sleep(3000);
             var c = new IronSHT.Client();
-            c.Experiment(((Param)p).id, ((Param)p).num_keys, ((Param)p).size_value, ((Param)p).workload);
+            c.Experiment(((Param)p).base_client_port, ((Param)p).id, ((Param)p).num_keys, ((Param)p).size_value, ((Param)p).workload);
         }
 
-        static public IEnumerable<Thread> StartExperimentThreads<T>(ulong num_threads, ulong num_keys, ulong size_value, char workload, ulong clientId_startIdx) where T : ClientBase, new()
+        static public IEnumerable<Thread> StartExperimentThreads<T>(int base_client_port, uint num_threads, ulong num_keys, ulong size_value, char workload) where T : ClientBase, new()
         {
             if (num_threads < 0)
             {
@@ -71,14 +72,15 @@ namespace IronfleetTestDriver
             }
 
             Param p;
+            p.base_client_port = base_client_port;
             p.num_keys = num_keys;
             p.size_value = size_value;
             p.workload = workload;
 
-            for (ulong i = 0; i < num_threads; ++i)
+            for (uint i = 0; i < num_threads; ++i)
             {
                 var t = new Thread(StartExperimentThread);
-                p.id = i + clientId_startIdx;
+                p.id = i;
                 t.Start(p);
                 yield return t;
             }
@@ -88,10 +90,10 @@ namespace IronfleetTestDriver
         {
             Thread.Sleep(3000);
             var c = new IronSHT.Client();
-            c.Setup(((Param)p).id, ((Param)p).num_keys, ((Param)p).size_value);
+            c.Setup(((Param)p).base_client_port, ((Param)p).id, ((Param)p).num_keys, ((Param)p).size_value);
         }
 
-        static public IEnumerable<Thread> StartSetupThreads<T>(ulong num_threads, ulong num_keys, ulong size_value) where T : ClientBase, new()
+        static public IEnumerable<Thread> StartSetupThreads<T>(int base_client_port, uint num_threads, ulong num_keys, ulong size_value) where T : ClientBase, new()
         {
             if (num_threads < 0)
             {
@@ -100,11 +102,12 @@ namespace IronfleetTestDriver
 
             
             Param p;
+            p.base_client_port = base_client_port;
             p.num_keys = num_keys;
             p.size_value = size_value;
             p.workload = 's';
             
-            for (ulong i = 0; i < num_threads; ++i)
+            for (uint i = 0; i < num_threads; ++i)
             {
                 var t = new Thread(StartSetupThread);
                 p.id = i;
@@ -118,9 +121,9 @@ namespace IronfleetTestDriver
             
         }
 
-        protected abstract void Experiment(ulong id, ulong num_keys, ulong size_value, char workload);
+        protected abstract void Experiment(int base_client_port, ulong id, ulong num_keys, ulong size_value, char workload);
 
-        protected abstract void Setup(ulong id, ulong num_keys, ulong size_value);
+        protected abstract void Setup(int base_client_port, ulong id, ulong num_keys, ulong size_value);
 
         protected void Send(MessageBase msg, System.Net.IPEndPoint remote)
         {
@@ -134,7 +137,7 @@ namespace IronfleetTestDriver
         protected byte[] Receive()
         {
             IPEndPoint endpoint = null;
-            return this.udpClient.Receive(ref endpoint);          
+            return this.udpClient.Receive(ref endpoint);
         }
 
         // this should really be in the MultiPaxos.cs

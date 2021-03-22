@@ -60,8 +60,9 @@ example, using `--time-limit=60` makes the time limit 60 seconds instead of the 
 Running scons will produce the following executables:
 ```
   src/Dafny/Distributed/Services/RSL/build/IronfleetShell.dll
-  src/IronRSLClient/bin/Release/net5.0/IronRSLClient.dll
   src/Dafny/Distributed/Services/Lock/build/IronfleetShell.dll
+  src/Dafny/Distributed/Services/SHT/build/IronfleetShell.dll
+  src/IronRSLClient/bin/Release/net5.0/IronRSLClient.dll
 ```
 
 To produce these executables without performing verification, use `--no-verify`.
@@ -107,10 +108,12 @@ firewall isn't blocking the UDP ports you use.
 For example, to test IronRSL on a single machine, you can run each of the following four commands
 in a different console:
 
-  `dotnet src/Dafny/Distributed/Services/RSL/build/IronfleetShell.dll 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4001`
-  `dotnet src/Dafny/Distributed/Services/RSL/build/IronfleetShell.dll 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4002`
-  `dotnet src/Dafny/Distributed/Services/RSL/build/IronfleetShell.dll 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4003`
-  `dotnet src/IronRSLClient/bin/Release/net5.0/IronRSLClient.dll nthreads=10 duration=30 clientport=6000 initialseqno=0`
+```
+  dotnet src/Dafny/Distributed/Services/RSL/build/IronfleetShell.dll 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4001
+  dotnet src/Dafny/Distributed/Services/RSL/build/IronfleetShell.dll 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4002
+  dotnet src/Dafny/Distributed/Services/RSL/build/IronfleetShell.dll 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4003
+  dotnet src/IronRSLClient/bin/Release/net5.0/IronRSLClient.dll nthreads=10 duration=30 clientport=6000 initialseqno=0
+```
 
 The first three are the RSL servers, and the latter is the client.  The client's output will primarily
 consist of reports of the time needed for each request.
@@ -125,29 +128,22 @@ Note also that the servers use non-blocking network receives, so they may be slo
 
 ## IronKV
 
-To run IronKV, you could use one or more machines for the server and
-one machine for the client. Like IronRSL, IronKV executables also
-require a list of IP-port pairs. Additionally, the IronKV client also
-needs a few parameters to generate a stream of Get/Set requests
-(details below).
+To run IronKV, you should ideally use multiple different machines, but in a
+pinch you can use separate windows on the same machine. Like IronRSL,
+IronKV executables also require a list of IP-port pairs. Additionally, the
+IronKV client also needs a few parameters to generate a stream of Get/Set
+requests (details below).
 
-  `./nuobj/Dafny/Distributed/Services/SHT/Main_i.exe 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4001`
-  `./nuobj/Dafny/Distributed/Services/SHT/Main_i.exe 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4002`
-  `./nuobj/Dafny/Distributed/Services/SHT/Main_i.exe 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4003`
+For example, you can run each of the following four commands in a different
+console:
+```
+  dotnet src/Dafny/Distributed/Services/SHT/build/IronfleetShell.dll 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4001
+  dotnet src/Dafny/Distributed/Services/SHT/build/IronfleetShell.dll 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4002
+  dotnet src/Dafny/Distributed/Services/SHT/build/IronfleetShell.dll 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4003
+  dotnet src/IronKVClient/bin/Release/net5.0/IronKVClient.dll nthreads=10 duration=30 numkeys=10000 clientport=6000
+```
 
-  `./src/IronKVClient/IronfleetClient/bin/Release/IronfleetClient.exe 127.0.0.1 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 1 10 [OPERATION] [NUM-KEYS] [VAL-SIZE]`
-where OPERATION specifies the workload to use (e.g., g for Gets or s
-Sets), and NUMKEYS tells the client to preload the server with an
-initial set of values (of size VALSIZE bytes) for keys from 0 to
-NUMKEYS-1,
-
-Like in IronRSL, the client will print out a GUID, but all of it's
-interesting output goes to:
-
-  `/tmp/IronfleetOutput/Job-GUID/client.txt`
-
-which primarily logs the time needed for each request.
-
+Like in IronRSL, the client will print its output to standard output.
 
 # Code Layout
 

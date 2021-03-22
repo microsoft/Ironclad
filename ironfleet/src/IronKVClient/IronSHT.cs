@@ -230,11 +230,11 @@
             return hex.Replace("-", "");
         }
 
-        protected override void Setup(ulong id, ulong num_keys, ulong size_value)
+        protected override void Setup(int base_client_port, ulong id, ulong num_keys, ulong size_value)
         {
-            ulong seq_num = 0;            
+            ulong seq_num = 0;
 
-            this.udpClient = new System.Net.Sockets.UdpClient(7000+(int)id);
+            this.udpClient = new System.Net.Sockets.UdpClient(base_client_port+(int)id);
             this.udpClient.Client.ReceiveTimeout = 1000;
             ulong myaddr = MyAddress64();
             
@@ -355,13 +355,13 @@
             }
         }
 
-        protected override void Experiment(ulong id, ulong num_keys, ulong size_value, char workload)
+        protected override void Experiment(int base_client_port, ulong id, ulong num_keys, ulong size_value, char workload)
         {
             ulong request_key = 150;
             int serverIdx = 0;
             ulong seq_num = 0;
             
-            this.udpClient = new System.Net.Sockets.UdpClient(6000 + (int)id);
+            this.udpClient = new System.Net.Sockets.UdpClient(base_client_port + (int)id);
             this.udpClient.Client.ReceiveTimeout = 0;
             uint SIO_UDP_CONNRESET = 0x9800000C; // suppress UDP "connection" closed exceptions, since UDP is connectionless
             this.udpClient.Client.IOControl((System.Net.Sockets.IOControlCode)SIO_UDP_CONNRESET, new byte[] { 0 }, new byte[0]);
@@ -440,7 +440,7 @@
                     {
                         bytes = Receive();
                     }
-                    catch (System.Net.Sockets.SocketException e)
+                    catch (System.Net.Sockets.SocketException)
                     {
                         //serverIdx = (serverIdx + 1) % ClientBase.endpoints.Count();
                         //Console.WriteLine("#timeout; rotating to server {0}", serverIdx);
@@ -479,6 +479,9 @@
                             received_reply = true;
                             Console.Out.WriteLine(string.Format("#req{0} {1} {2} {3}", seq_num, (start_time * 1.0 / Stopwatch.Frequency * Math.Pow(10, 3)), (end_time * 1.0 / Stopwatch.Frequency * Math.Pow(10, 3)), id));
                         }
+                    }
+                    else {
+                        Console.Out.WriteLine("Received packet of unexpected length {0}", bytes.Length);
                     }
                 }
             }

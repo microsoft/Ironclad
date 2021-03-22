@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import sys
 import SCons.Util
+import threading
 
 Import("*")
 
@@ -236,8 +237,26 @@ def verify_dafny_file(source):
 def install_ironfleet_host(target_dir):
   build_dir = 'src/IronfleetShell/bin/Release/net5.0/'
   shutil.copytree(build_dir, target_dir)
+  return 0
 
 InstallIronfleetHost = SCons.Action.ActionFactory(install_ironfleet_host, lambda x: "Installing into " + x)
+
+# Only one Ironfleet shell compilation can happen at once since they use the same source directory.
+# So, before performing Ironfleet shell compilation, acquire the following lock, and release it
+# after completion.
+
+ironfleet_shell_lock = threading.Lock()
+
+def acquire_ironfleet_shell_lock():
+  ironfleet_shell_lock.acquire()
+  return 0
+
+def release_ironfleet_shell_lock():
+  ironfleet_shell_lock.release()
+  return 0
+
+AcquireIronfleetShellLock = SCons.Action.ActionFactory(acquire_ironfleet_shell_lock, lambda : "")
+ReleaseIronfleetShellLock = SCons.Action.ActionFactory(release_ironfleet_shell_lock, lambda : "")
 
 def generate_ironfleet_host_actions(source, target, env, for_signature):
   source_name = str(source[0])
@@ -246,10 +265,12 @@ def generate_ironfleet_host_actions(source, target, env, for_signature):
   target_dir = os.path.dirname(str(target[0]))
   return [
     dafny_invocation + ['/compile:0', '/spillTargetCode:3', '/noVerify', source_name],
+    AcquireIronfleetShellLock(),
     Copy("src/IronfleetShell/Main.i.cs", cs_source_name),
     ["dotnet", "build", "--configuration", "Release", "src/IronfleetShell/IronfleetShell.csproj"],
     Delete(target_dir),
-    InstallIronfleetHost(target_dir)
+    InstallIronfleetHost(target_dir),
+    ReleaseIronfleetShellLock()
   ]
 
 def get_ironfleet_host_dependencies(target, source, env):
@@ -363,5 +384,7 @@ verify_dafny_file('src/Dafny/Distributed/Services/SHT/Main.i.dfy')
 verify_dafny_file('src/Dafny/Distributed/Services/RSL/Main.i.dfy')
 verify_dafny_file('src/Dafny/Distributed/Protocol/RSL/LivenessProof/LivenessProof.i.dfy')
 env.IronfleetHostBuild('src/Dafny/Distributed/Services/RSL/build/IronfleetShell.dll', 'src/Dafny/Distributed/Services/RSL/Main.i.dfy')
-env.IronfleetClientBuild('src/IronRSLClient/bin/Release/net5.0/IronRSLClient.dll', 'src/IronRSLClient/IronRSLClient.csproj')
 env.IronfleetHostBuild('src/Dafny/Distributed/Services/Lock/build/IronfleetShell.dll', 'src/Dafny/Distributed/Services/Lock/Main.i.dfy')
+env.IronfleetHostBuild('src/Dafny/Distributed/Services/SHT/build/IronfleetShell.dll', 'src/Dafny/Distributed/Services/SHT/Main.i.dfy')
+env.IronfleetClientBuild('src/IronRSLClient/bin/Release/net5.0/IronRSLClient.dll', 'src/IronRSLClient/IronRSLClient.csproj')
+env.IronfleetClientBuild('src/IronKVClient/bin/Release/net5.0/IronKVClient.dll', 'src/IronKVClient/IronKVClient.csproj')
