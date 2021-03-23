@@ -1,13 +1,17 @@
 # About
 
-This directory contains experimental verified IronFleet code,
-as described in:
+This directory contains experimental verified IronFleet code, as described in:
 
->  [_IronFleet: Proving Practical Distributed Systems Correct_](http://research.microsoft.com/apps/pubs/default.aspx?id=255833)
+>  [_IronFleet: Proving Practical Distributed Systems Correct_](https://www.microsoft.com/en-us/research/publication/ironfleet-proving-practical-distributed-systems-correct/)
 >  Chris Hawblitzel, Jon Howell, Manos Kapritsos, Jacob R. Lorch, 
 >  Bryan Parno, Michael L. Roberts, Srinath Setty, and Brian Zill.
 >  In Proceedings of the ACM Symposium on Operating Systems Principles (SOSP).
 >  October 5, 2015.
+
+>  [_IronFleet: Proving Safety and Liveness of Practical Distributed Systems_](https://www.microsoft.com/en-us/research/publication/ironfleet-proving-safety-liveness-practical-distributed-systems/)
+>  Chris Hawblitzel, Jon Howell, Manos Kapritsos, Jacob R. Lorch, 
+>  Bryan Parno, Michael L. Roberts, Srinath Setty, and Brian Zill.
+>  Communications of the ACM (CACM) 60(7), July 2017.
 
 As a brief summary, we are motivated by the fact that distributed systems are notorious
 for harboring subtle bugs.  Verification can, in principle, eliminate these bugs a priori,
