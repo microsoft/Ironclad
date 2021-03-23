@@ -107,6 +107,3 @@ should be a `.i.dfy` file and will be verified for correctness.
         host with the concrete implementation and supplies a proof that refinement holds
         from the implementation all the way up to the abstract specification.  See
         `src/Dafny/Distributed/Common/Framework` for the guarantees this provides.
-- `tools`
-  + `NuBuild`
-    Obsolete build tool; use scons instead
