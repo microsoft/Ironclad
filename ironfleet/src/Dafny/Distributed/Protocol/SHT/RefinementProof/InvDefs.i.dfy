@@ -46,23 +46,23 @@ predicate AllDelegationsToKnownHosts(s:SHT_State)
 
 predicate NoAcksInUnAckedLists(acct:SingleDeliveryAcct)
 {
-    forall id :: var unAcked := AckStateLookup(id, acct.sendState).unAcked;
-                 forall i :: 0 <= i < |unAcked| ==> unAcked[i].SingleMessage?
+    forall id, i :: var unAcked := AckStateLookup(id, acct.sendState).unAcked;
+              0 <= i < |unAcked| ==> unAcked[i].SingleMessage?
 }
 
 predicate UnAckedListsSequential(acct:SingleDeliveryAcct)
     requires NoAcksInUnAckedLists(acct);
 {
-    forall id :: var unAcked := AckStateLookup(id, acct.sendState).unAcked;
-                 forall i, j :: 0 <= i && j == i + 1 && j < |unAcked|
-                    ==> unAcked[i].seqno + 1 == unAcked[j].seqno
+    forall id, i, j :: var unAcked := AckStateLookup(id, acct.sendState).unAcked;
+                 0 <= i && j == i + 1 && j < |unAcked|
+                 ==> unAcked[i].seqno + 1 == unAcked[j].seqno
 }
 
 predicate UnAckedDstsConsistent(acct:SingleDeliveryAcct)
     requires NoAcksInUnAckedLists(acct);
 {
-    forall id :: var unAcked := AckStateLookup(id, acct.sendState).unAcked;
-                 forall i :: 0 <= i < |unAcked| ==> unAcked[i].dst == id
+    forall id, i :: var unAcked := AckStateLookup(id, acct.sendState).unAcked;
+              0 <= i < |unAcked| ==> unAcked[i].dst == id
 }
 
 predicate UnAckedListExceedsNumPacketsAcked(acct:SingleDeliveryAcct)
