@@ -27,7 +27,7 @@ specification, as well as desirable liveness requirements.  Each implementation 
 performance competitive with a reference system.  With our methodology and lessons
 learned, we aim to raise the standard for distributed systems from "tested" to "correct."
 
-See http://research.microsoft.com/ironclad for more details.
+See https://research.microsoft.com/ironclad for more details.
 
 # License
 
