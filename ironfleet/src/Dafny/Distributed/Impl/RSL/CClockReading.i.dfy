@@ -9,7 +9,7 @@ datatype CClockReading = CClockReading(t:uint64)
 
 function AbstractifyCClockReadingToClockReading(cclock:CClockReading) : ClockReading
 {
-    ClockReading(int(cclock.t))
+  ClockReading(cclock.t as int)
 }
 
 } 

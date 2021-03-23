@@ -7,7 +7,9 @@ module LiveSHT__SHT_i {
 import opened SHT__Host_i
 import opened SHT__Configuration_i
 import opened Environment_s
+import opened Concrete_NodeIdentity_i`Spec
 import opened LiveSHT__Scheduler_i
+import opened LiveSHT__Environment_i
 
 datatype LSHT_State = LSHT_State(
     config:SHTConfiguration,

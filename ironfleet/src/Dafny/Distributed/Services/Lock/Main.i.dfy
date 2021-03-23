@@ -11,16 +11,30 @@ include "../../Protocol/Lock/RefinementProof/RefinementProof.i.dfy"
 include "Marshall.i.dfy"
 
 module Main_i refines Main_s {
+    import opened Native__NativeTypes_s
     import opened DS_s = Lock_DistributedSystem_i
     import opened Environment_s
+    import opened Types_i
     import opened Concrete_NodeIdentity_i
     import opened PacketParsing_i
     import opened UdpLock_i
-    import opened Host_i
-    import opened AS_s = AbstractServiceLock_s
+    import opened AS_s = AbstractServiceLock_s`All
+    import opened Protocol_Node_i
     import opened Refinement_i
     import opened RefinementProof_i
     import opened MarshallProof_i
+    import opened DistributedSystem_i
+    import opened DS_s.H_s
+    import opened Common__Util_i
+    import opened Common__GenericMarshalling_i
+    import opened Message_i
+    import opened Collections__Sets_i
+    import opened Common__SeqIsUnique_i
+    import opened Common__SeqIsUniqueDef_i
+    import opened Impl_Node_i
+    export
+        provides DS_s, Native__Io_s
+        provides Main
 
     predicate IsValidBehavior(config:ConcreteConfiguration, db:seq<DS_State>)
         reads *;
@@ -95,8 +109,8 @@ module Main_i refines Main_s {
         if |replica_order| == 0 then map[]
         else
             lemma_UniqueSeq_SubSeqsUnique(replica_order, [replica_order[0]], replica_order[1..]);
-            assert SeqIsUnique(replica_order[1..]);
             reveal_SeqIsUnique();
+            assert SeqIsUnique(replica_order[1..]);
             assert replica_order[0] !in replica_order[1..];
             assert replica_order[0] !in AbstractifyConcreteReplicas(replicas, replica_order[1..]);
             
@@ -252,7 +266,7 @@ module Main_i refines Main_s {
         assert LEnvironment_PerformIos(le, le', id, r_ios);
     }
 
-    lemma {:timeLimitMultiplier 2} RefinementToLSState(config:ConcreteConfiguration, db:seq<DS_State>) returns (sb:seq<LS_State>)
+    lemma {:timeLimitMultiplier 10} RefinementToLSState(config:ConcreteConfiguration, db:seq<DS_State>) returns (sb:seq<LS_State>)
         requires |db| > 0;
         requires DS_Init(db[0], config);
         requires forall i {:trigger DS_Next(db[i], db[i+1])} :: 0 <= i < |db| - 1 ==> DS_Next(db[i], db[i+1]);
@@ -481,7 +495,7 @@ module Main_i refines Main_s {
         lemma_DsConsistency(config, db, i-1);
     }
 
-    lemma RefinementProof(config:ConcreteConfiguration, db:seq<DS_State>) returns (sb:seq<ServiceState>)
+    lemma RefinementProof(config:DS_s.H_s.ConcreteConfiguration, db:seq<DS_State>) returns (sb:seq<ServiceState>)
         /*
         requires |db| > 0;
         requires DS_Init(db[0], config);

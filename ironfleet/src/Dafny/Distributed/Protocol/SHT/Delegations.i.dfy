@@ -4,6 +4,9 @@ include "Keys.i.dfy"
 
 module SHT__Delegations_i {
 import opened Collections__Maps2_s
+import opened AppInterface_i`Spec
+import opened Concrete_NodeIdentity_i`Spec
+import opened SHT__HT_s
 import opened SHT__Message_i
 import opened SHT__Keys_i
 

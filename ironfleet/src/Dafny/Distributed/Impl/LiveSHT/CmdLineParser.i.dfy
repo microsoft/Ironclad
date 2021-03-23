@@ -2,9 +2,14 @@ include "../Common/CmdLineParser.i.dfy"
 include "../SHT/ConstantsState.i.dfy"
 
 module ShtCmdLineParser_i {
-
+import opened Native__NativeTypes_s
+import opened Native__Io_s
 import opened CmdLineParser_i
 import opened SHT__ConstantsState_i
+import opened Impl_Parameters_i
+import opened Common__UdpClient_i
+import opened Common__SeqIsUniqueDef_i
+import opened Common__NodeIdentity_i
 
 function method EndPointNull() : EndPoint { EndPoint([0, 0, 0, 0], 0) }
 
@@ -31,9 +36,8 @@ function sht_parse_id(ip:seq<uint16>, port:seq<uint16>) : EndPoint
 }
 
 function sht_cmd_line_parsing(env:HostEnvironment) : (ConstantsState, EndPoint)
-    requires env != null && env.constants != null;
     reads env;
-    reads if env != null then env.constants else null;
+    reads env.constants;
 {
     var args := env.constants.CommandLineArgs();
     if |args| < 2 then
@@ -50,15 +54,15 @@ method GetHostIndex(host:EndPoint, hosts:seq<EndPoint>) returns (found:bool, ind
     requires SeqIsUnique(hosts);
     requires |hosts| < 0x1_0000_0000_0000_0000;
     requires forall h :: h in hosts ==> EndPointIsValidIPV4(h);
-    ensures  found ==> 0 <= int(index) < |hosts| && hosts[index] == host;
+    ensures  found ==> 0 <= index as int < |hosts| && hosts[index] == host;
     ensures !found ==> !(host in hosts);
     ensures !found ==> !(AbstractifyEndPointToNodeIdentity(host) in AbstractifyEndPointsToNodeIdentities(hosts));
 {
     var i:uint64 := 0;
     lemma_AbstractifyEndPointsToNodeIdentities_properties(hosts);
 
-    while i < uint64(|hosts|)
-        invariant int(i) <= |hosts|;
+    while i < |hosts| as uint64
+        invariant i as int <= |hosts|;
         invariant forall j :: 0 <= j < i ==> hosts[j] != host;
     {
         if host == hosts[i] {
@@ -68,13 +72,13 @@ method GetHostIndex(host:EndPoint, hosts:seq<EndPoint>) returns (found:bool, ind
             calc ==> {
                 true;
                     { reveal_SeqIsUnique(); }
-                forall j :: 0 <= j < |hosts| && j != int(i) ==> hosts[j] != host;
+                forall j :: 0 <= j < |hosts| && j != i as int ==> hosts[j] != host;
             }
 
             return;
         }
 
-        if i == uint64(|hosts|) - 1 {
+        if i == |hosts| as uint64 - 1 {
             found := false;
             return;
         }
@@ -88,7 +92,7 @@ method parse_cmd_line(ghost env:HostEnvironment) returns (ok:bool, config:Consta
     requires HostEnvironmentIsValid(env);
     ensures ok ==> ConstantsStateIsValid(config);
     ensures ok ==> |config.hostIds| > 0;
-    ensures ok ==> 0 <= int(my_index) < |config.hostIds|;
+    ensures ok ==> 0 <= my_index as int < |config.hostIds|;
     //ensures (config, my_index) == sht_cmd_line_parsing(env);
     ensures var (config', my_ep') := sht_cmd_line_parsing(env);
             ok ==> config == config' && config.hostIds[my_index] == my_ep';

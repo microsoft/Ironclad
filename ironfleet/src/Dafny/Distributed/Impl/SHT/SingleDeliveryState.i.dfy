@@ -6,12 +6,15 @@ include "Parameters.i.dfy"
 include "PacketParsing.i.dfy"
 
 module SHT__SingleDeliveryState_i {
+import opened Native__NativeTypes_s
+import opened Native__Io_s
 import opened Common__NodeIdentity_i
 import opened SHT__SingleDelivery_i
 import opened GenericRefinement_i
 import opened SHT__CMessage_i
 import opened Impl_Parameters_i
 import opened SHT__PacketParsing_i
+import opened SHT__Message_i
 
 // Highest sequence number we have received from each node
 type CTombstoneTable = map<EndPoint,uint64>
@@ -25,7 +28,7 @@ datatype CSingleDeliveryAcct = CSingleDeliveryAcct(receiveState:CTombstoneTable,
 //////////////////////////////////////////////////////////////////////////////
 
 // Useful to give this cast a name, so it can be used as a higher-order function
-function uint64_to_nat_t(u:uint64) : nat_t { nat_t(u) }
+function uint64_to_nat_t(u:uint64) : nat_t { u as nat_t }
 
 predicate CTombstoneTableIsAbstractable(ts:CTombstoneTable) 
 {
@@ -50,7 +53,7 @@ predicate CAckStateIsAbstractable(cas:CAckState)
 function AbstractifyCAskStateToAckState(cas:CAckState) : AckState<Message>
     requires CAckStateIsAbstractable(cas);                                          
 {
-    AckState(int(cas.numPacketsAcked), AbstractifySeqOfCSingleMessageToSeqOfSingleMessage(cas.unAcked))
+    AckState(cas.numPacketsAcked as int, AbstractifySeqOfCSingleMessageToSeqOfSingleMessage(cas.unAcked))
 }
 
 
@@ -63,7 +66,7 @@ predicate UnAckedListSequential(list:seq<CSingleMessage>)
     requires NoAcksInUnAcked(list);
 {
     forall i, j :: 0 <= i && j == i + 1 && j < |list|
-        ==> int(list[i].seqno) + 1 == int(list[j].seqno)
+        ==> list[i].seqno as int + 1 == list[j].seqno as int
 }
 
 predicate CUnAckedValid(msg:CSingleMessage)
@@ -86,8 +89,8 @@ predicate CUnAckedListValidForDst(list:seq<CSingleMessage>, dst:EndPoint)
 predicate CAckStateIsValid(cas:CAckState, dst:EndPoint, params:CParameters)
 {
     CAckStateIsAbstractable(cas) && CUnAckedListValidForDst(cas.unAcked, dst)
- && int(cas.numPacketsAcked) + |cas.unAcked| <= int(params.max_seqno)
- && (|cas.unAcked| > 0 ==> int(cas.unAcked[0].seqno) == int(cas.numPacketsAcked) + 1)
+ && cas.numPacketsAcked as int + |cas.unAcked| <= params.max_seqno as int
+ && (|cas.unAcked| > 0 ==> cas.unAcked[0].seqno as int == cas.numPacketsAcked as int + 1)
 }
 
 //////////////////////////////////////////////////////////////////////////////

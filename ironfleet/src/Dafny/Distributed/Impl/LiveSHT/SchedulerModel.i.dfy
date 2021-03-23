@@ -8,17 +8,22 @@ include "UdpSHT.i.dfy"
 //include "CBoundedClock.i.dfy"
 
 module LiveSHT__SchedulerModel_i {
+import opened Environment_s
 import opened SHT__Host_i
 import opened SHT__HostModel_i
+import opened SHT__CMessage_i
+import opened SHT__PacketParsing_i
 import opened LiveSHT__Scheduler_i
 import opened LiveSHT__UdpSHT_i
+import opened LiveSHT__Environment_i
+import opened Common__NodeIdentity_i
 
 predicate AllIosAreSends(ios:seq<LSHTIo>)
 {
     forall i :: 0<=i<|ios| ==> ios[i].LIoOpSend?
 }
 
-static lemma MapSentPacketToIos_ExtractSentPacketsFromIos_equivalence(sent_packet:CPacket, ios:seq<LSHTIo>)
+lemma MapSentPacketToIos_ExtractSentPacketsFromIos_equivalence(sent_packet:CPacket, ios:seq<LSHTIo>)
         requires OutboundPacketsIsValid(sent_packet);
         requires ios == MapSentPacketToIos(sent_packet);
         ensures [AbstractifyOutboundPacketsToLSHTPacket(sent_packet)] == ExtractSentPacketsFromIos(ios);
@@ -26,7 +31,7 @@ static lemma MapSentPacketToIos_ExtractSentPacketsFromIos_equivalence(sent_packe
     reveal_ExtractSentPacketsFromIos();
 }
 
-static lemma MapSentPacketSeqToIos_ExtractSentPacketsFromIos_equivalence(sent_packets:seq<CPacket>, ios:seq<LSHTIo>)
+lemma MapSentPacketSeqToIos_ExtractSentPacketsFromIos_equivalence(sent_packets:seq<CPacket>, ios:seq<LSHTIo>)
     requires OutboundPacketsSeqIsValid(sent_packets);
     //requires forall i :: 0 <= i < |sent_packets| ==> CPacketIsSendable(sent_packets[i]) && sent_packets[i].msg.CSingleMessage? && CSingleMessageMarshallable(sent_packets[i].msg);
     requires ios == MapSentPacketSeqToIos(sent_packets);
@@ -35,7 +40,11 @@ static lemma MapSentPacketSeqToIos_ExtractSentPacketsFromIos_equivalence(sent_pa
     reveal_ExtractSentPacketsFromIos();
     reveal_MapSentPacketSeqToIos();
     reveal_AbstractifyOutboundPacketsToSeqOfLSHTPackets();
-    assert AbstractifyOutboundPacketsToSeqOfLSHTPackets(sent_packets) == ExtractSentPacketsFromIos(ios);
+    var x := AbstractifyOutboundPacketsToSeqOfLSHTPackets(sent_packets);
+    var y := ExtractSentPacketsFromIos(ios);
+    if (|x| > 0) {
+        MapSentPacketSeqToIos_ExtractSentPacketsFromIos_equivalence(sent_packets[1..], ios[1..]);
+    }
 }
 
 function MapSentPacketToIos(sent_packet:CPacket) : seq<LSHTIo>

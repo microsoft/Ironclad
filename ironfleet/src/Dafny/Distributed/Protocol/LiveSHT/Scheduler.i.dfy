@@ -14,6 +14,11 @@ import opened LiveSHT__Environment_i
 import opened LiveSHT__EnvironmentRefinement_i
 import opened Collections__Sets_i
 import opened LiveSHT__BoundedClock_i
+import opened SHT__Network_i
+import opened Protocol_Parameters_i
+import opened Concrete_NodeIdentity_i`Spec
+import opened SHT__Delegations_i
+import opened Environment_s
 
 function {:opaque} ExtractSentPacketsFromIos(ios:seq<LSHTIo>) : seq<LSHTPacket>
     ensures forall p :: p in ExtractSentPacketsFromIos(ios) <==> LIoOpSend(p) in ios;
@@ -108,7 +113,7 @@ predicate LHost_NoReceive_Next_Wrapper(s:LScheduler, s':LScheduler, ios:seq<LSHT
            LHost_NoReceive_Next(s.host, s'.host, ios) 
         else (
               ios == []
-           && s' == s[resendCount := s'.resendCount][nextActionIndex := s'.nextActionIndex])
+           && s' == s.(resendCount := s'.resendCount, nextActionIndex := s'.nextActionIndex))
 }
 
 predicate LScheduler_Next(s:LScheduler, s':LScheduler, ios:seq<LSHTIo>)

@@ -1,6 +1,13 @@
 include "AppInterface.i.dfy"
 
-module Impl__AppInterfaceConcrete_i exclusively refines Impl__AppInterface_i {
+module Impl__AppInterfaceConcrete_i refines Impl__AppInterface_i {
+export Spec
+    provides Common__GenericMarshalling_i, AppInterface_i
+    provides Key_grammar, Value_grammar
+    provides parse_Key, parse_Value
+    provides MarshallKey, MarshallValue, IsKeyValid, IsValueValid, IsKeyLt
+    provides lemma_ValidKey_grammer, lemma_ValidValue_grammer
+export All reveals *
 
 function method Key_grammar() : G { GUint64 }  
 function method Value_grammar() : G { GByteArray  }

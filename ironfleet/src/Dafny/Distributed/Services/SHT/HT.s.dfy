@@ -1,4 +1,4 @@
-include "AppInterface.s.dfy"
+include "AppInterface.i.dfy"
 include "../../Common/Collections/Maps2.s.dfy"
 
 ////////////////////////////////////////////////////////
@@ -8,7 +8,7 @@ include "../../Common/Collections/Maps2.s.dfy"
 module SHT__HT_s {
 
 import opened Collections__Maps2_s
-import opened AppInterface_s
+import opened AppInterface_i`Spec
 
 datatype OptionalValue = ValuePresent(v:Value) | ValueAbsent()
 

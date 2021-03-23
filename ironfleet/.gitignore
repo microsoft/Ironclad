@@ -28,3 +28,8 @@ tmp/
 flycheck_*
 *.vim
 nohup.out
+*.vdfy
+*.tmp
+.sconsign.dblite
+*.suo
+*~

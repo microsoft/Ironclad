@@ -1,7 +1,7 @@
 include "../../Services/SHT/AppInterface.i.dfy"
 
 module SHT__Keys_i {
-import opened AppInterface_i
+import opened AppInterface_i`All
 
 predicate method KeyLe(ka:Key, kb:Key) {
     ka == kb || KeyLt(ka, kb)

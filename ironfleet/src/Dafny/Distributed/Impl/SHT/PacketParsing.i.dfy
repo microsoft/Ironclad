@@ -1,17 +1,28 @@
 include "CMessage.i.dfy"
-include "AppInterface.i.dfy"
+include "AppInterfaceConcrete.i.dfy"
 include "../Common/NodeIdentity.i.dfy"
 include "../Common/GenericMarshalling.i.dfy"
 include "../../Protocol/LiveSHT/RefinementProof/Environment.i.dfy"
 include "../../Protocol/SHT/Host.i.dfy"
 
 module {:fuel ValInGrammar,4} SHT__PacketParsing_i {
-import opened SHT__CMessage_i
-import opened Impl__AppInterface_i
+import opened Native__NativeTypes_s
+import opened Native__Io_s
+import opened Collections__Maps_i
+import opened Math__mul_i
+import opened Environment_s
+import opened Impl__AppInterfaceConcrete_i`Spec
 import opened Common__GenericMarshalling_i
 import opened Common__NodeIdentity_i
 import opened LiveSHT__Environment_i
+import opened SHT__HT_s
+import opened SHT__Keys_i
+import opened SHT__CMessage_i
+import opened SHT__Network_i
 import opened SHT__Host_i
+import opened Impl_Parameters_i
+import opened AppInterface_i`All
+import opened Common__UdpClient_i
 
 ////////////////////////////////////////////////////////////////////
 //    Grammars for the basic types
@@ -223,7 +234,6 @@ function SHTDemarshallData(data:seq<byte>) : CSingleMessage
 }
 
 method SHTDemarshallDataMethod(data:array<byte>) returns (msg:CSingleMessage)
-    requires data != null;
     requires data.Length < 0x1_0000_0000_0000_0000;
     ensures  CSingleMessageIs64Bit(msg); 
     ensures  if Demarshallable(data[..], CSingleMessage_grammar()) then
@@ -327,14 +337,14 @@ method IsValidHashtable(h:Hashtable) returns (b:bool)
     requires HashtableIs64Bit(h);
     ensures  b == ValidHashtable(h);
 {
-    b := uint64(|h|) < 62;  // max_hashtable_size
+    b := |h| as uint64 < 62;  // max_hashtable_size
 
     if !b { return; }
 
     var keys := domain(h);
     lemma_MapSizeIsDomainSize(keys, h);
 
-    while uint64(|keys|) > 0
+    while |keys| as uint64 > 0
         invariant |keys| < max_hashtable_size();
         invariant forall k :: k in keys ==> k in h;
         invariant forall k :: k in h ==> k in keys || (ValidKey(k) && ValidValue(h[k]));
@@ -372,10 +382,10 @@ method IsMessageMarshallable(msg:CMessage) returns (b:bool)
             }
         case CRedirect(k, id) => 
             b := IsKeyValid(k);
-            b := b && (uint64(|id.addr|) == 4 && 0 <= id.port <= 65535);
+            b := b && (|id.addr| as uint64 == 4 && 0 <= id.port <= 65535);
         case CShard(kr, id) => 
             b := IsValidKeyRange(kr);
-            b := b && (uint64(|id.addr|) == 4 && 0 <= id.port <= 65535);
+            b := b && (|id.addr| as uint64 == 4 && 0 <= id.port <= 65535);
             if b {
                 b := IsEmptyKeyRange(kr);
                 b := !b;
@@ -403,7 +413,7 @@ method IsCSingleMessageMarshallable(msg:CSingleMessage) returns (b:bool)
     } else {
         assert msg.CSingleMessage?;
 
-        if !(uint64(|msg.dst.addr|) == 4 && 0 <= msg.dst.port <= 65535) {
+        if !(|msg.dst.addr| as uint64 == 4 && 0 <= msg.dst.port <= 65535) {
             b := false;
             return;
         }
@@ -804,7 +814,6 @@ lemma lemma_CSingleMessage_grammar_valid()
 method SHTMarshall(msg:CSingleMessage) returns (data:array<byte>)
     requires CSingleMessageIsAbstractable(msg);
     requires CSingleMessageMarshallable(msg);
-    ensures data!=null;
     ensures fresh(data);
     ensures UdpPacketBound(data[..]);
     ensures BufferRefinementAgreesWithMessageRefinement(msg, data[..]);

@@ -4,21 +4,14 @@ Here is a brief overview of the files of interest in this repository.  One centr
 convention is that all trusted specification files end in `.s.dfy`.  Everything else
 should be a `.i.dfy` file and will be verified for correctness.
 
-- `bin_tools/NuBuild` 
-  Prebuilt binaries of our build tool
-- `tools/Dafny` 
-  Prebuilt binaries of the tools we use: 
-    [Dafny](http://research.microsoft.com/en-us/projects/dafny/),
-    [Boogie](https://github.com/boogie-org/boogie), and
-    [Z3](https://github.com/Z3Prover/z3).
-- `tools/NuBuild` 
-  Source code for our build tool
+- `SConstruct`
+  SCons build file for verifying and compiling everything
 - `src`
-  + `IronfleetClient`     
+  + `IronRSLClient`     
     Unverified C# client for IronRSL
   + `IronKVClient`  
     Unverified C# client for IronKV
-  + `IronfleetTestDriver` 
+  + `IronfleetShell`
     C# solution and project files for building the C# code emitted
     when compiling our Dafny code.
   + `Dafny`
@@ -114,4 +107,3 @@ should be a `.i.dfy` file and will be verified for correctness.
         host with the concrete implementation and supplies a proof that refinement holds
         from the implementation all the way up to the abstract specification.  See
         `src/Dafny/Distributed/Common/Framework` for the guarantees this provides.
-

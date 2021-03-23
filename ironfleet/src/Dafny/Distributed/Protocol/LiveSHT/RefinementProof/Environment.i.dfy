@@ -3,7 +3,9 @@ include "../../SHT/Message.i.dfy"
 include "../../../Common/Framework/Environment.s.dfy"
 
 module LiveSHT__Environment_i {
+import opened Concrete_NodeIdentity_i`Spec
 import opened SHT__Message_i
+import opened SHT__SingleMessage_i 
 import opened SHT__SingleDelivery_i
 import opened Environment_s
 

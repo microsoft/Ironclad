@@ -3,8 +3,13 @@ include "../../Protocol/Lock/Types.i.dfy"
 include "../../Impl/Lock/PacketParsing.i.dfy"
 
 module MarshallProof_i {
-    import opened AbstractServiceLock_s 
+import opened Native__NativeTypes_s
+    import opened AbstractServiceLock_s`All
     import opened Types_i 
+    import opened Math__power2_i
+    import opened Common__Util_i
+    import opened Common__GenericMarshalling_i
+    import opened Message_i
     import opened PacketParsing_i
 
     lemma lemma_ParseValCorrectVCase(data:seq<byte>, v:V, g:G) returns (caseId:uint64, val:V, rest:seq<byte>)
@@ -16,7 +21,7 @@ module MarshallProof_i {
         requires g.GTaggedUnion?;
         ensures  parse_Uint64(data).0.Some?;
         ensures  caseId == parse_Uint64(data).0.v.u;
-        ensures  0 <= int(caseId) < |g.cases|;
+        ensures  0 <= caseId as int < |g.cases|;
         ensures  rest == parse_Uint64(data).1;
         ensures         parse_Val(rest, g.cases[caseId]).0.Some?;
         ensures  val == parse_Val(rest, g.cases[caseId]).0.v
@@ -83,13 +88,13 @@ module MarshallProof_i {
                 u;
                 parse_Uint64(rest0).0.v.u;
                 SeqByteToUint64(rest0[..8]);
-                SeqByteToUint64(Uint64ToBytes(uint64(epoch)));
-                SeqByteToUint64(Uint64ToSeqByte(uint64(epoch)));
-                SeqByteToUint64(BEUintToSeqByte(int(uint64(epoch)), 8));
+                SeqByteToUint64(Uint64ToBytes(epoch as uint64));
+                SeqByteToUint64(Uint64ToSeqByte(epoch as uint64));
+                SeqByteToUint64(BEUintToSeqByte(epoch as uint64 as int, 8));
                     { lemma_BEByteSeqToInt_BEUintToSeqByte_invertability(); }
-                uint64(epoch);
+                epoch as uint64;
             }
-            assert msg.locked_epoch == int(u);
+            assert msg.locked_epoch == u as int;
             assert epoch == msg.locked_epoch;
         } else {
             reveal_parse_Val();

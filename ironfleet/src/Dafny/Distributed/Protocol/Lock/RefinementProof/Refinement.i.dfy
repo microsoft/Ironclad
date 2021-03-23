@@ -4,7 +4,8 @@ include "../../../Common/Collections/Sets.i.dfy"
 
 module Refinement_i {
     import opened DistributedSystem_i
-    import opened AbstractServiceLock_s 
+    import opened AbstractServiceLock_s`All
+    import opened Collections__Maps2_s
     
     function AbstractifyGLS_State(gls:GLS_State) : ServiceState
     {

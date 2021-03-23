@@ -5,7 +5,12 @@ include "../SHT/SHTConcreteConfiguration.i.dfy"
 include "../SHT/CMessage.i.dfy"
 
 module LiveSHT__UdpSHT_i {
+import opened Native__NativeTypes_s
+import opened Native__Io_s
+import opened Environment_s
+import opened Common__Util_i
 import opened Common__UdpClient_i
+import opened Common__NodeIdentity_i
 import opened SHT__PacketParsing_i
 import opened LiveSHT__Environment_i
 import opened SHT__SHTConcreteConfiguration_i
@@ -27,7 +32,7 @@ function AbstractifyUdpEventToLSHTIo(evt:UdpEvent) : LSHTIo
         case LIoOpSend(s) => LIoOpSend(AbstractifyUdpPacketToLSHTPacket(s))
         case LIoOpReceive(r) => LIoOpReceive(AbstractifyUdpPacketToLSHTPacket(r))
         case LIoOpTimeoutReceive => LIoOpTimeoutReceive()
-        case LIoOpReadClock(t) => LIoOpReadClock(int(t))
+        case LIoOpReadClock(t) => LIoOpReadClock(t as int)
 }
 
 
@@ -71,7 +76,6 @@ predicate OnlySentMarshallableData(rawlog:seq<UdpEvent>)
 datatype ReceiveResult = RRFail() | RRTimeout() | RRPacket(cpacket:CPacket)
 
 method GetEndPoint(ipe:IPEndPoint) returns (ep:EndPoint)
-    requires ipe!=null;
     ensures ep == ipe.EP();
     ensures EndPointIsValidIPV4(ep);
 {
@@ -117,7 +121,6 @@ method Receive(udpClient:UdpClient, localAddr:EndPoint) returns (rr:ReceiveResul
         udpEvent := LIoOpTimeoutReceive(); 
         return;
     } else {
-        assert remote!=null;
         var start_time := Time.GetDebugTimeTicks();
         var cmessage := SHTDemarshallDataMethod(buffer);
         var end_time := Time.GetDebugTimeTicks();
@@ -145,7 +148,7 @@ method ReadClock(udpClient:UdpClient) returns (clock:CBoundedClock, ghost clockE
     ensures udpClient.env == old(udpClient.env);
     ensures old(udpClient.env.udp.history()) + [clockEvent] == udpClient.env.udp.history();
     ensures clockEvent.UdpGetTime?;
-    ensures int(clock.min) <= int(clockEvent.time) <= int(clock.max);
+    ensures clock.min as int <= clockEvent.time as int <= clock.max as int;
     ensures UdpClientIsValid(udpClient);
     ensures UdpEventIsAbstractable(clockEvent);
     ensures udpClient.LocalEndPoint() == old(udpClient.LocalEndPoint());
@@ -156,7 +159,7 @@ method ReadClock(udpClient:UdpClient) returns (clock:CBoundedClock, ghost clockE
     // TODO Jay: if I pretend the margin is 0, how will the verification fail?
 {
     var t := Time.GetTime(udpClient.env);
-    var u := uint64(t);
+    var u := t as uint64;
     clockEvent := UdpGetTime(t);
     clock := CBoundedClock(t,t);
 }
@@ -301,9 +304,9 @@ method SendBroadcast(udpClient:UdpClient, broadcast:CBroadcast, ghost localAddr_
         lemma_PaxosDemarshallableImpliesRefinable(buffer[..]);
 
         var i:uint64 := 0;
-        while i < uint64(|broadcast.dsts|) 
-            invariant 0 <= int(i) <= |broadcast.dsts|;
-            invariant |udpEventLog| == int(i);
+        while i < |broadcast.dsts| as uint64
+            invariant 0 <= i as int <= |broadcast.dsts|;
+            invariant |udpEventLog| == i as int;
             invariant UdpClientRepr(udpClient) == old(UdpClientRepr(udpClient));
             invariant udpClient.env == old(udpClient.env);
             invariant udpClient.LocalEndPoint() == old(udpClient.LocalEndPoint());

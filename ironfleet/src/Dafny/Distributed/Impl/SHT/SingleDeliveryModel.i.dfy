@@ -4,15 +4,23 @@ include "../../Protocol/SHT/RefinementProof/InvProof.i.dfy"
 include "PacketParsing.i.dfy"
 
 module SHT__SingleDeliveryModel_i {
+import opened Native__NativeTypes_s
+import opened Native__Io_s
+import opened SHT__Network_i
+import opened SHT__CMessage_i
 import opened SHT__SingleDeliveryState_i
 import opened Impl_Parameters_i
 import opened SHT__InvProof_i
 import opened SHT__PacketParsing_i
+import opened Common__SeqIsUnique_i
+import opened Common__NodeIdentity_i
+import opened GenericRefinement_i
+import opened SHT__SingleDelivery_i
 
 method CTombstoneTableLookup(src:EndPoint, t:CTombstoneTable) returns (last_seqno:uint64)
     requires EndPointIsAbstractable(src);
     requires CTombstoneTableIsAbstractable(t);
-    ensures  int(last_seqno) == TombstoneTableLookup(AbstractifyEndPointToNodeIdentity(src), AbstractifyCTombstoneTableToTombstoneTable(t));
+    ensures  last_seqno as int == TombstoneTableLookup(AbstractifyEndPointToNodeIdentity(src), AbstractifyCTombstoneTableToTombstoneTable(t));
 {
     lemma_AbstractifyEndPointToNodeIdentity_injective_forall();
     lemma_AbstractifyMap_properties(t, AbstractifyEndPointToNodeIdentity, uint64_to_nat_t, RefineNodeIdentityToEndPoint);
@@ -81,15 +89,15 @@ method TruncateUnAckListImpl(unAcked:seq<CSingleMessage>, seqnoAcked:uint64, e:E
     requires CSingleMessageSeqIsAbstractable(unAcked);
     requires CUnAckedListValidForDst(unAcked, e);
     requires UnAckedListSequential(unAcked);
-    requires (|unAcked| > 0 ==> int(unAcked[0].seqno) == old_seqno + 1);
-    requires old_seqno <= int(seqnoAcked) <= bound;
+    requires (|unAcked| > 0 ==> unAcked[0].seqno as int == old_seqno + 1);
+    requires old_seqno <= seqnoAcked as int <= bound;
     requires |unAcked| + old_seqno <= bound;
     ensures  CSingleMessageSeqIsAbstractable(truncated);
     ensures  CUnAckedListValidForDst(truncated, e);
     ensures  UnAckedListSequential(truncated);
-    ensures  AbstractifySeqOfCSingleMessageToSeqOfSingleMessage(truncated) == TruncateUnAckList(AbstractifySeqOfCSingleMessageToSeqOfSingleMessage(unAcked), int(seqnoAcked));
-    ensures (|truncated| > 0 ==> int(truncated[0].seqno) == int(seqnoAcked) + 1)
-    ensures |truncated| + int(seqnoAcked) <= bound;
+    ensures  AbstractifySeqOfCSingleMessageToSeqOfSingleMessage(truncated) == TruncateUnAckList(AbstractifySeqOfCSingleMessageToSeqOfSingleMessage(unAcked), seqnoAcked as int);
+    ensures (|truncated| > 0 ==> truncated[0].seqno as int == seqnoAcked as int + 1)
+    ensures |truncated| + seqnoAcked as int <= bound;
 {
     if |unAcked| > 0 && unAcked[0].CSingleMessage? && unAcked[0].seqno <= seqnoAcked {
         assert AbstractifySeqOfCSingleMessageToSeqOfSingleMessage(unAcked[1..]) == AbstractifySeqOfCSingleMessageToSeqOfSingleMessage(unAcked)[1..];        // OBSERVE
@@ -112,22 +120,21 @@ method ReceiveAckImpl(acct:CSingleDeliveryAcct, pkt:CPacket, ghost params:CParam
     assert CUnAckedListValid(oldAckState.unAcked);
 
     if pkt.msg.ack_seqno > oldAckState.numPacketsAcked {
-        var newUnAcked := TruncateUnAckListImpl(oldAckState.unAcked, pkt.msg.ack_seqno, pkt.src, int(oldAckState.numPacketsAcked), int(params.max_seqno));
+        var newUnAcked := TruncateUnAckListImpl(oldAckState.unAcked, pkt.msg.ack_seqno, pkt.src, oldAckState.numPacketsAcked as int, params.max_seqno as int);
         assert CUnAckedListValidForDst(newUnAcked, pkt.src);
-        var newAckState := oldAckState[numPacketsAcked := pkt.msg.ack_seqno]
-                                      [unAcked := newUnAcked];
+        var newAckState := oldAckState.(numPacketsAcked := pkt.msg.ack_seqno, unAcked := newUnAcked);
         lemma_AbstractifyEndPointToNodeIdentity_injective_forall();
         lemma_AbstractifyMap_properties(acct.sendState, AbstractifyEndPointToNodeIdentity, AbstractifyCAskStateToAckState, RefineNodeIdentityToEndPoint);
         assert AbstractifyCAskStateToAckState(newAckState) == 
-               AbstractifyCAskStateToAckState(oldAckState)[numPacketsAcked := AbstractifyCPacketToShtPacket(pkt).msg.ack_seqno]
-                                            [unAcked := AbstractifySeqOfCSingleMessageToSeqOfSingleMessage(newUnAcked)];
+               AbstractifyCAskStateToAckState(oldAckState).(numPacketsAcked := AbstractifyCPacketToShtPacket(pkt).msg.ack_seqno,
+                                            unAcked := AbstractifySeqOfCSingleMessageToSeqOfSingleMessage(newUnAcked));
 //        if newAckState.unAcked == [] {
-//            assert int(pkt.msg.ack_seqno) < int(params.max_seqno);
-//            assert int(newAckState.numPacketsAcked) + |newAckState.unAcked| <= int(params.max_seqno);
+//            assert pkt.msg.ack_seqno as int < params.max_seqno as int;
+//            assert newAckState.numPacketsAcked as int + |newAckState.unAcked| <= params.max_seqno as int;
 //        } else {
-//            assert int(newAckState.numPacketsAcked) + |newAckState.unAcked| <= int(params.max_seqno);
+//            assert newAckState.numPacketsAcked as int + |newAckState.unAcked| <= params.max_seqno as int;
 //        }
-        acct' := acct[sendState := acct.sendState[pkt.src := newAckState]];
+        acct' := acct.(sendState := acct.sendState[pkt.src := newAckState]);
     } else {
         acct' := acct;
     }
@@ -183,7 +190,7 @@ method ReceiveRealPacketImpl(acct:CSingleDeliveryAcct, pkt:CPacket, ghost params
     var b := NewSingleMessageImpl(acct, pkt, params);
     if b {
         var last_seqno := CTombstoneTableLookup(pkt.src, acct.receiveState);
-        acct' := acct[receiveState := acct.receiveState[pkt.src := last_seqno + 1]];
+        acct' := acct.(receiveState := acct.receiveState[pkt.src := last_seqno + 1]);
 
         lemma_AbstractifyEndPointToNodeIdentity_injective_forall();
         lemma_AbstractifyMap_properties(acct.receiveState, AbstractifyEndPointToNodeIdentity, uint64_to_nat_t, RefineNodeIdentityToEndPoint);
@@ -241,27 +248,27 @@ method SendSingleCMessage(acct:CSingleDeliveryAcct, m:CMessage, dst:EndPoint, pa
     var oldAckState := CAckStateLookup(dst, acct.sendState, params);
     assert CAckStateIsValid(oldAckState, dst, params);
 
-    assert int(oldAckState.numPacketsAcked) + |oldAckState.unAcked| <= int(params.max_seqno);
-    if oldAckState.numPacketsAcked + uint64(|oldAckState.unAcked|) == params.max_seqno {
+    assert oldAckState.numPacketsAcked as int + |oldAckState.unAcked| <= params.max_seqno as int;
+    if oldAckState.numPacketsAcked + |oldAckState.unAcked| as uint64 == params.max_seqno {
         shouldSend := false;
         acct' := acct;
         sm := CSingleMessage(0, dst, m);        // Dummy message to simplify postconditions
     } else {
-        var sm_new := CSingleMessage(uint64(oldAckState.numPacketsAcked + uint64(|oldAckState.unAcked|) + 1), dst, m);
+        var sm_new := CSingleMessage((oldAckState.numPacketsAcked + |oldAckState.unAcked| as uint64 + 1) as uint64, dst, m);
         //assert CSingleMessageMarshallable(sm);
         assert MapSeqToSeq(oldAckState.unAcked + [sm_new], AbstractifyCSingleMessageToSingleMessage) == 
                MapSeqToSeq(oldAckState.unAcked, AbstractifyCSingleMessageToSingleMessage) + [AbstractifyCSingleMessageToSingleMessage(sm_new)];
 
-        var newAckState := oldAckState[unAcked := oldAckState.unAcked + [sm_new]];
+        var newAckState := oldAckState.(unAcked := oldAckState.unAcked + [sm_new]);
         var acctInt := acct.sendState[dst := newAckState];
-        acct' := acct[sendState := acctInt];
+        acct' := acct.(sendState := acctInt);
         sm := sm_new;
         shouldSend := true;
-        UnAckedListFinalEntry(AbstractifySeqOfCSingleMessageToSeqOfSingleMessage(oldAckState.unAcked), int(oldAckState.numPacketsAcked));
+        UnAckedListFinalEntry(AbstractifySeqOfCSingleMessageToSeqOfSingleMessage(oldAckState.unAcked), oldAckState.numPacketsAcked as int);
     }
 }
 
-predicate CombinedPreImage<T(==)>(seqs:seq<seq<T>>, combined:seq<T>, index:int)
+predicate CombinedPreImage<T>(seqs:seq<seq<T>>, combined:seq<T>, index:int)
     requires 0 <= index < |combined|;
 {
     exists j, k {:trigger seqs[j][k]} :: 0 <= j < |seqs| && 0 <= k < |seqs[j]| && seqs[j][k] == combined[index]

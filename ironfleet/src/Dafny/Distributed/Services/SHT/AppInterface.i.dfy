@@ -1,10 +1,18 @@
 include "AppInterface.s.dfy"
-include "AbstractService.s.dfy"
+include "Bytes.s.dfy"
 
-module AppInterface_i exclusively refines AppInterface_s {
-import opened AbstractServiceSHT_s
+module AppInterface_i refines AppInterface_s {
+import opened Bytes_s
+export Spec
+    provides Native__NativeTypes_s
+    reveals Key // provides Key REVIEW: triggers a Dafny bug
+    provides Value
+    provides KeyLt
+    provides lemma_KeyOrdering
+    provides KeyMin, ValidKey, ValidValue, MarshallSHTKey, MarshallSHTValue
+export All reveals *
 
-type Key = uint64
+type Key(==, !new) = uint64
 type Value = seq<byte>
 
 predicate method KeyLt(ka:Key, kb:Key) 
@@ -39,7 +47,7 @@ function MarshallSHTKey(k:Key) : seq<byte>
 function MarshallSHTValue(v:Value) : seq<byte>
 {
     if |v| < 0x1_0000_0000_0000_0000 then
-        Uint64ToBytes(uint64(|v|)) + v
+        Uint64ToBytes(|v| as uint64) + v
     else
         []  // We only handle reasonably sized values
 }

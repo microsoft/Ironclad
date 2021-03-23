@@ -3,7 +3,7 @@ include "../../Common/Native/NativeTypes.s.dfy"
 abstract module AppInterface_s {
     import opened Native__NativeTypes_s
 
-    type Key(==)
+    type Key(==, !new)
     type Value
 
     predicate method KeyLt(ka:Key, kb:Key) 

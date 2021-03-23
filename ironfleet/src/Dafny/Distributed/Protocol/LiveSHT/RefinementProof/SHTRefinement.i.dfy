@@ -7,12 +7,13 @@ include "../../../Common/Collections/Seqs.i.dfy"
 
 module LiveSHT__SHTRefinement_i {
 import opened Collections__Maps2_i
+import opened Concrete_NodeIdentity_i`Spec
 import opened LiveSHT__SHT_i
 import opened LiveSHT__SchedulerRefinement_i
 import opened LiveSHT__EnvironmentRefinement_i
 import opened SHT__SHT_i
+import opened SHT__Configuration_i
 import opened Collections__Seqs_i
-
 
 function LSHTConfiguration_Refine(c:SHTConfiguration) : SHTConfiguration
 {

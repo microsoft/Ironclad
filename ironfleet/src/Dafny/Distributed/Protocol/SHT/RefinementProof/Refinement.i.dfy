@@ -8,10 +8,13 @@ include "../../../Common/Collections/Maps2.i.dfy"
 module SHT__Refinement_i {
 import opened SHT__HT_s
 import opened SHT__InvDefs_i
-import opened AbstractServiceSHT_s
+import opened AbstractServiceSHT_s`All
+import opened AppInterface_i`Spec
 import opened SHT__Message_i
+import opened SHT__SHT_i
 import opened Concrete_NodeIdentity_i
 import opened Collections__Maps2_i
+import opened Collections__Sets_i
 
 // Frustrating:
 // a set comprehension must produce a finite set, but Dafny's heuristics can't figure out how to produce a bounded set of values for 'h'

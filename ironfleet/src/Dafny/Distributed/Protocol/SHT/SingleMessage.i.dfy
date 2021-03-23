@@ -1,7 +1,7 @@
-include "../Common/NodeIdentity.s.dfy"
+include "../Common/NodeIdentity.i.dfy"
 
 module SHT__SingleMessage_i {
-import opened Common__NodeIdentity_s
+import opened Concrete_NodeIdentity_i`Spec
 
 // A type to ensure each message is delivered exactly once
 // Note that we send sequence numbers starting at 1

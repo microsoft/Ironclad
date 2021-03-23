@@ -9,22 +9,44 @@ include "Unsendable.i.dfy"
 //include "CBoundedClock.i.dfy"
 
 module LiveSHT__SchedulerImpl_i {
+import opened Native__NativeTypes_s
+import opened Native__Io_s
+import opened Logic__Option_i
+import opened Math__mod_auto_i
+import opened Collections__Seqs_i
+import opened Environment_s
 import opened SHT__Host_i
 import opened SHT__HostModel_i
+import opened SHT__HostState_i
+import opened SHT__CMessage_i
+import opened SHT__ConstantsState_i
+import opened SHT__Network_i
+import opened SHT__PacketParsing_i
+import opened SHT__SingleDeliveryState_i
+import opened SHT__SingleDelivery_i
+import opened Impl_Parameters_i
 import opened LiveSHT__Scheduler_i
 import opened LiveSHT__UdpSHT_i
 import opened LiveSHT__SchedulerModel_i
 import opened LiveSHT__Unsendable_i
+import opened LiveSHT__Environment_i
+import opened Common__UdpClient_i
+import opened Common__NodeIdentity_i 
+import opened Common__Util_i
 
 class SchedulerImpl
 {
     var host:HostState;
     var nextActionIndex:uint64;
     var resendCount:uint64;
-    var udpClient:UdpClient;
+    var udpClient:UdpClient?;
     var localAddr:EndPoint;
 
     ghost var Repr : set<object>;
+
+    constructor()
+    {
+    }
 
     predicate Valid()
         reads this;
@@ -32,8 +54,8 @@ class SchedulerImpl
     {
            HostStateIsValid(host)
         && HostStateIsAbstractable(host)
-        && (0 <= int(nextActionIndex) < LHost_NumActions())
-        && (0 <= int(resendCount) < 100000000)
+        && (0 <= nextActionIndex as int < LHost_NumActions())
+        && (0 <= resendCount as int < 100000000)
         && UdpClientIsValid(udpClient)
         && udpClient.LocalEndPoint() == localAddr
         && udpClient.LocalEndPoint() == host.me
@@ -42,7 +64,7 @@ class SchedulerImpl
         && CSingleDeliveryAccountIsValid(host.sd, host.constants.params)
     }
         
-    function Env() : HostEnvironment
+    function Env() : HostEnvironment?
         reads this, UdpClientIsValid.reads(udpClient);
     {
         if udpClient!=null then udpClient.env else null
@@ -61,12 +83,12 @@ class SchedulerImpl
     {
         LScheduler(
             AbstractifyToHost(),
-            int(nextActionIndex),
-            int(resendCount))
+            nextActionIndex as int,
+            resendCount as int)
     }
       
-    method ConstructUdpClient(constants:ConstantsState, me:EndPoint, ghost env_:HostEnvironment) returns (ok:bool, client:UdpClient)
-        requires env_!=null && env_.Valid() && env_.ok.ok();
+    method ConstructUdpClient(constants:ConstantsState, me:EndPoint, ghost env_:HostEnvironment) returns (ok:bool, client:UdpClient?)
+        requires env_.Valid() && env_.ok.ok();
         requires ConstantsStateIsValid(constants);
         requires EndPointIsAbstractable(me);
         modifies env_.ok;
@@ -93,7 +115,7 @@ class SchedulerImpl
 
     
     method {:timeLimitMultiplier 2} Host_Init_Impl(constants:ConstantsState, me:EndPoint, ghost env_:HostEnvironment) returns (ok:bool)
-        requires env_!=null && env_.Valid() && env_.ok.ok();
+        requires env_.Valid() && env_.ok.ok();
         requires ConstantsStateIsValid(constants);
         requires EndPointIsAbstractable(me);
         modifies this, udpClient;
@@ -119,8 +141,8 @@ class SchedulerImpl
     }
 
     static method rollActionIndex(a:uint64) returns (a':uint64)
-        requires 0 <= int(a) < 3;
-        ensures int(a') == (int(a)+1) % LHost_NumActions();
+        requires 0 <= a as int < 3;
+        ensures a' as int == (a as int + 1) % LHost_NumActions();
     {
         lemma_mod_auto(3);
         if (a >= 2) {
@@ -131,8 +153,8 @@ class SchedulerImpl
     }
 
     static method rollResendCount(a:uint64) returns (a':uint64)
-        requires 0 <= int(a) < 100000000;
-        ensures int(a') == (int(a)+1) % 100000000;
+        requires 0 <= a as int < 100000000;
+        ensures a' as int == (a as int + 1) % 100000000;
     {
         lemma_mod_auto(100000000);
         if (a >= 100000000-1) {
@@ -222,6 +244,7 @@ class SchedulerImpl
         ensures ExtractSentPacketsFromIos(ios_tail) == ExtractSentPacketsFromIos(ios_head + ios_tail);
     {
         if |ios_head| == 0 {
+            assert ios_head + ios_tail == ios_tail;
         } else {
             assert !ios_head[0].LIoOpSend?;
             ghost var ios := [ios_head[0]] + ios_head[1..] + ios_tail;
@@ -333,7 +356,7 @@ class SchedulerImpl
     {
     }
     
-    method HostNextReceivePacket(ghost udpEventLogOld:seq<UdpEvent>, rr:ReceiveResult, ghost receive_event:UdpEvent) returns (ok:bool, ghost udpEventLog:seq<UdpEvent>, ghost ios:seq<LSHTIo>)
+    method{:timeLimitMultiplier 8} HostNextReceivePacket(ghost udpEventLogOld:seq<UdpEvent>, rr:ReceiveResult, ghost receive_event:UdpEvent) returns (ok:bool, ghost udpEventLog:seq<UdpEvent>, ghost ios:seq<LSHTIo>)
         requires nextActionIndex == 0;
         requires Valid();
         requires Env().udp.history() == udpEventLogOld + [receive_event];
@@ -590,7 +613,7 @@ class SchedulerImpl
             && nextActionIndex == old(nextActionIndex)
             && resendCount == old(resendCount)
             && (LHost_ProcessReceivedPacket_Next(old(AbstractifyToHost()), AbstractifyToHost(), ios)
-                || HostNextIgnoreUnsendableProcess(old(AbstractifyToLScheduler()), AbstractifyToLScheduler()[nextActionIndex := 2], udpEventLog))
+                || HostNextIgnoreUnsendableProcess(old(AbstractifyToLScheduler()), AbstractifyToLScheduler().(nextActionIndex := 2), udpEventLog))
             && old(AbstractifyToHost()).me == AbstractifyToHost().me
             && RawIoConsistentWithSpecIO(udpEventLog, ios)
             && OnlySentMarshallableData(udpEventLog) 
@@ -611,12 +634,12 @@ class SchedulerImpl
                     assert |host.delegationMap.lows| < 0xFFFF_FFFF_FFFF_FFFF - 2;
                     host, sent_packets := HostModelNextReceiveMessage(host, cpacket);
                 } else {
-                    host := host[receivedPacket := None];
+                    host := host.(receivedPacket := None);
                     sent_packets := [];
                     assert false;
                 }
             } else {
-                //host := host[receivedPacket := None];
+                //host := host.(receivedPacket := None);
                 sent_packets := [];
                 //assert false;
             }
@@ -664,10 +687,10 @@ class SchedulerImpl
                 } 
 
                 if HostIgnoringUnParseable(old(AbstractifyToHost()), AbstractifyToHost(), AbstractifySeqOfCPacketsToSetOfShtPackets(sent_packets)) {
-                    assert HostNextIgnoreUnsendableProcess(old(AbstractifyToLScheduler()), AbstractifyToLScheduler()[nextActionIndex := 2], udpEventLog);
+                    assert HostNextIgnoreUnsendableProcess(old(AbstractifyToLScheduler()), AbstractifyToLScheduler().(nextActionIndex := 2), udpEventLog);
                 }
                 assert LHost_ProcessReceivedPacket_Next(old(AbstractifyToHost()), AbstractifyToHost(), ios)
-                    || HostNextIgnoreUnsendableProcess(old(AbstractifyToLScheduler()), AbstractifyToLScheduler()[nextActionIndex := 2], udpEventLog);
+                    || HostNextIgnoreUnsendableProcess(old(AbstractifyToLScheduler()), AbstractifyToLScheduler().(nextActionIndex := 2), udpEventLog);
             } else {
                 assert AbstractifyOutboundPacketsToSeqOfLSHTPackets(sent_packets) == ExtractSentPacketsFromIos(ios);
                 assert Env() == old(Env());
@@ -746,25 +769,25 @@ class SchedulerImpl
         scheduler := AbstractifyToLScheduler();
         calc {
             scheduler.nextActionIndex;
-            int(nextActionIndex);
-            int(nextActionIndex');
-            int((curActionIndex+1))%LHost_NumActions();
+            nextActionIndex as int;
+            nextActionIndex' as int;
+            (curActionIndex+1) as int % LHost_NumActions();
             (scheduler_old.nextActionIndex+1)%LHost_NumActions();
         }
         
         if (curActionIndex == 2) {
             calc {
                 scheduler.resendCount;
-                int(resendCount);
-                int(nextResendCount);
-                int((curResendCount+1))%100000000;
+                resendCount as int;
+                nextResendCount as int;
+                (curResendCount+1) as int % 100000000;
                 (scheduler_old.resendCount+1)%100000000;
             }
         
             if (nextResendCount == 0) {
                 assert LHost_NoReceive_Next(old(AbstractifyToLScheduler()).host, AbstractifyToLScheduler().host, ios);
             } else {
-                assert scheduler == scheduler_old[resendCount := scheduler.resendCount][nextActionIndex := scheduler.nextActionIndex];
+                assert scheduler == scheduler_old.(resendCount := scheduler.resendCount, nextActionIndex := scheduler.nextActionIndex);
             }
 
         }
@@ -777,9 +800,8 @@ class SchedulerImpl
             assert old(AbstractifyToLScheduler()).nextActionIndex == 0;
             calc {
                 AbstractifyToLScheduler().nextActionIndex;
-                int(curActionIndex+1) % LHost_NumActions();
-                int(curActionIndex+1) % 3;
-                int(0+1) % 3;
+                (curActionIndex+1) as int % LHost_NumActions();
+                (curActionIndex+1) as int % 3;
                 1 % 3;
                  1;
             }

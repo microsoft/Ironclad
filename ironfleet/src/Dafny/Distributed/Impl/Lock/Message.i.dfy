@@ -1,6 +1,9 @@
 include "../../Protocol/Lock/Types.i.dfy"
 
 module Message_i {
+import opened Native__NativeTypes_s
+import opened Native__Io_s
+import opened Environment_s
 import opened Types_i
 
 datatype CMessage = CTransfer(transfer_epoch:uint64) | CLocked(locked_epoch:uint64) | CInvalid
@@ -8,8 +11,8 @@ datatype CMessage = CTransfer(transfer_epoch:uint64) | CLocked(locked_epoch:uint
 function AbstractifyCMessage(cmsg:CMessage) : LockMessage
 {
     match cmsg {
-        case CTransfer(epoch) => Transfer(int(epoch))
-        case CLocked(epoch)   => Locked(int(epoch))
+        case CTransfer(epoch) => Transfer(epoch as int)
+        case CLocked(epoch)   => Locked(epoch as int)
         case CInvalid         => Invalid()
     }
 }

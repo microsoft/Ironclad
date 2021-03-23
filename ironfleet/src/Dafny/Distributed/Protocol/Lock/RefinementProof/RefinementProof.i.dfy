@@ -4,10 +4,18 @@ include "../../../Common/Collections/Maps.i.dfy"
 include "../../../Common/Logic/Option.i.dfy"
 
 module RefinementProof_i {
+    import opened Native__Io_s
+    import opened Environment_s
+    import opened Protocol_Node_i
+    import opened DistributedSystem_i
     import opened Refinement_i
+    import opened Collections__Seqs_s
+    import opened Collections__Maps2_s
     import opened Collections__Sets_i
     import opened Collections__Maps_i
     import opened Logic__Option_i
+    import opened Common__SeqIsUnique_i
+    import opened AbstractServiceLock_s`All
 
     lemma lemma_InitRefines(gls:GLS_State, config:Config) 
         requires GLS_Init(gls, config);
