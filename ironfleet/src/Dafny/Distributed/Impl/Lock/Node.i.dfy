@@ -6,7 +6,10 @@ include "PacketParsing.i.dfy"
 include "../Common/SeqIsUniqueDef.i.dfy"
 
 module Impl_Node_i {
+import opened Native__NativeTypes_s
+import opened Environment_s
 import opened Protocol_Node_i
+import opened Types_i
 import opened Message_i
 import opened Common__UdpClient_i
 import opened Logic__Option_i
@@ -24,7 +27,7 @@ predicate ValidConfig(c:Config)
 
 predicate ValidConfigIndex(c:Config, index:uint64)
 {
-    0 <= int(index) < |c|
+    0 <= index as int < |c|
 }
 
 predicate CNodeValid(c:CNode)
@@ -35,15 +38,15 @@ predicate CNodeValid(c:CNode)
 
 function AbstractifyCNode(n:CNode) : Node
 {
-    Node(n.held, int(n.epoch), int(n.my_index), n.config)
+    Node(n.held, n.epoch as int, n.my_index as int, n.config)
 }
 
 method NodeInitImpl(my_index:uint64, config:Config) returns (node:CNode)
     requires 0 < |config| < 0x1_0000_0000_0000_0000;
-    requires 0 <= int(my_index) < |config|;
+    requires 0 <= my_index as int < |config|;
     requires ValidConfig(config);
     ensures CNodeValid(node);
-    ensures NodeInit(AbstractifyCNode(node), int(my_index), config);
+    ensures NodeInit(AbstractifyCNode(node), my_index as int, config);
     ensures node.my_index == my_index;
     ensures node.config == config;
 {
@@ -66,8 +69,9 @@ method NodeGrantImpl(s:CNode) returns (s':CNode, packet:Option<CLockPacket>, gho
     ensures  CNodeValid(s');
 {
     if s.held && s.epoch < 0xFFFF_FFFF_FFFF_FFFF {
-        s' := s[held := false];
-        var dst_index := (s.my_index + 1) % uint64(|s.config|);
+        var ssss := CNode(false, s.epoch, s.my_index, s.config);
+        s' := ssss;
+        var dst_index := (s.my_index + 1) % (|s.config| as uint64);
         packet := Some(LPacket(s.config[dst_index], s.config[s.my_index], CTransfer(s.epoch + 1)));
         ios := [LIoOpSend(AbstractifyCLockPacket(packet.v))];
         print "I grant the lock ", s.epoch, "\n";
@@ -99,7 +103,8 @@ method NodeAcceptImpl(s:CNode, transfer_packet:CLockPacket)
        && transfer_packet.src in s.config
        && transfer_packet.msg.CTransfer? 
        && transfer_packet.msg.transfer_epoch > s.epoch {
-        s' := s[held := true][epoch := transfer_packet.msg.transfer_epoch];
+        var ssss := CNode(true, transfer_packet.msg.transfer_epoch, s.my_index, s.config);
+        s' := ssss;
         locked_packet := Some(LPacket(transfer_packet.src, 
                                       s.config[s.my_index],
                                       CLocked(transfer_packet.msg.transfer_epoch)));

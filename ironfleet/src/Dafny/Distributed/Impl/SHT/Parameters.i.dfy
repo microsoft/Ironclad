@@ -9,7 +9,7 @@ datatype CParameters = CParameters(max_seqno:uint64, max_delegations:uint64)
 
 function AbstractifyCParametersToParameters(params:CParameters) : Parameters
 {
-    Parameters(int(params.max_seqno), int(params.max_delegations))    
+    Parameters(params.max_seqno as int, params.max_delegations as int)
 }
 
 predicate CParametersIsValid(params:CParameters)

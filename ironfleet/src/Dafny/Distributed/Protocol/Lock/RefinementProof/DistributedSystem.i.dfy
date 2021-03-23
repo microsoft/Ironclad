@@ -1,12 +1,18 @@
 include "../Node.i.dfy"
 include "../../../Impl/Common/SeqIsUnique.i.dfy"
 include "../../../Common/Collections/Seqs.i.dfy"
-//include "../../../Common/Framework/DistributedSystem.s.dfy"
+include "../../../Common/Framework/DistributedSystem.s.dfy"
+include "../../../Impl/Lock/Host.i.dfy"
 
 module DistributedSystem_i {
+    import opened Native__Io_s
+    import opened Environment_s
+    import opened Types_i
     import opened Protocol_Node_i
+    import opened Common__SeqIsUniqueDef_i
     import opened Common__SeqIsUnique_i
     import opened Collections__Seqs_i
+    import opened Host_i`Spec
 
     /////////////////////////////////////////
     // LS_State

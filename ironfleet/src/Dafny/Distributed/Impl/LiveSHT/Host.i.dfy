@@ -2,12 +2,29 @@ include "../../Common/Framework/Host.s.dfy"
 include "SchedulerImpl.i.dfy"
 include "CmdLineParser.i.dfy"
 
-module Host_i exclusively refines Host_s {
+module Host_i refines Host_s {
+    import opened Collections__Sets_i
+
+    import opened Common__NodeIdentity_i
+    import opened Impl_Parameters_i
+    import opened SHT__ConstantsState_i
+    import opened LiveSHT__Environment_i
+    import opened LiveSHT__Scheduler_i
     import opened LiveSHT__SchedulerImpl_i
+    import opened LiveSHT__UdpSHT_i
+    import opened LiveSHT__Unsendable_i
     import opened ShtCmdLineParser_i 
+    export Spec
+        provides Native__Io_s, Environment_s, Native__NativeTypes_s
+        provides HostState
+        provides ConcreteConfiguration
+        provides HostInit, HostNext, ConcreteConfigInit, HostStateInvariants, ConcreteConfigurationInvariants
+        provides ParseCommandLineConfiguration, ParseCommandLineId, ArbitraryObject
+        provides HostInitImpl, HostNextImpl
+    export All reveals *
 
 
-    datatype CScheduler = CScheduler(ghost sched:LScheduler, scheduler_impl:SchedulerImpl)
+    datatype CScheduler = CScheduler(ghost sched:LScheduler, scheduler_impl:SchedulerImpl?)
 
     type HostState = CScheduler
     type ConcreteConfiguration = ConstantsState
@@ -76,14 +93,14 @@ module Host_i exclusively refines Host_s {
         id := init_config.hostIds[my_index];
         config := init_config;
         
-        var scheduler := new SchedulerImpl;
+        var scheduler := new SchedulerImpl();
 //        calc {
-//            int(constants.myIndex);
+//            constants.myIndex as int;
 //                { reveal_SeqIsUnique(); }
-//            int(my_index);
+//            my_index as int;
 //        }
 
-        assert env!=null && env.Valid() && env.ok.ok();
+        assert env.Valid() && env.ok.ok();
         
         ok := scheduler.Host_Init_Impl(config, id, env);
         
@@ -163,6 +180,7 @@ module Host_i exclusively refines Host_s {
     {
         var rest;
         recvs, rest := RemoveRecvs(events);
+        assert events[|recvs|..] == rest;
         if |rest| > 0 && (rest[0].LIoOpReadClock? || rest[0].LIoOpTimeoutReceive?) {
             clocks := [rest[0]];
             sends := rest[1..];

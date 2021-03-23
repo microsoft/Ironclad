@@ -2,8 +2,11 @@ include "../Host.i.dfy"
 include "../Configuration.i.dfy"
 
 module SHT__SHT_i {
+import opened Collections__Maps2_s
 import opened SHT__Host_i
 import opened SHT__Configuration_i
+import opened Concrete_NodeIdentity_i`Spec
+import opened SHT__Network_i
 
 datatype SHT_State = SHT_State(
     config:SHTConfiguration,

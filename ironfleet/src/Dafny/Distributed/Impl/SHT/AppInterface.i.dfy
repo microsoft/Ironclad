@@ -4,6 +4,7 @@ include "../../Protocol/SHT/Keys.i.dfy"
 abstract module Impl__AppInterface_i {
 import opened Common__GenericMarshalling_i
 import opened SHT__Keys_i
+import opened AppInterface_i`All
 
 //////////////////////////////////////////////////////////////////////////////////
 // The application's implementation supplies these functions, lemmas, etc.

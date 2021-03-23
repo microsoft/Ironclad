@@ -2,8 +2,14 @@ include "../../Protocol/SHT/Delegations.i.dfy"
 include "../Common/NodeIdentity.i.dfy"
 
 module Impl__Delegations_i {
+import opened Native__NativeTypes_s
+import opened Native__Io_s
 import opened SHT__Delegations_i
 import opened Common__NodeIdentity_i
+import opened AppInterface_i`Spec
+import opened Concrete_NodeIdentity_i`Spec
+import opened SHT__Keys_i
+import opened Common__UdpClient_i
 
 // To enable efficient lookups of which host owns a given key, 
 // we maintain a list of mappings.  Each mapping indicates that 
@@ -100,15 +106,15 @@ function KeyRangesFromCDelegationMap(m:CDelegationMap) : set<KeyRange>
 
 function method {:opaque} CDM_IndexForKey_helper(m:CDelegationMap, k:KeyPlus, index:uint64) : uint64
     requires CDelegationMapIsValid(m);
-    requires forall i :: 0 <= i <= int(index) && i < |m.lows| ==> KeyPlusLe(m.lows[i].klo, k);
-    decreases |m.lows| - int(index);
-    ensures  0 <= int(CDM_IndexForKey_helper(m, k, index)) < |m.lows|;
-    ensures  !k.KeyInf? ==> KeyRangeContains(CDM_IndexToKeyRange(m, int(CDM_IndexForKey_helper(m, k, index))), k);
-    ensures k.KeyInf? ==> int(CDM_IndexForKey_helper(m, k, index)) == |m.lows| - 1;
+    requires forall i :: 0 <= i <= index as int && i < |m.lows| ==> KeyPlusLe(m.lows[i].klo, k);
+    decreases |m.lows| - index as int;
+    ensures  0 <= CDM_IndexForKey_helper(m, k, index) as int < |m.lows|;
+    ensures  !k.KeyInf? ==> KeyRangeContains(CDM_IndexToKeyRange(m, CDM_IndexForKey_helper(m, k, index) as int), k);
+    ensures k.KeyInf? ==> CDM_IndexForKey_helper(m, k, index) as int == |m.lows| - 1;
 {
     CDelegationMapIsSortedExtension(m);
-    if index >= uint64(uint64(|m.lows|) - 1) then
-        uint64(uint64(|m.lows|) - 1)
+    if index >= (|m.lows| as uint64 - 1) as uint64 then
+        (|m.lows| as uint64 - 1) as uint64
     else if KeyPlusLt(k, m.lows[index + 1].klo) then
         index
     else
@@ -154,9 +160,9 @@ lemma CDM_Partitioned(m:CDelegationMap, k:KeyPlus, index:int)
 function method CDM_IndexForKey(m:CDelegationMap, k:KeyPlus) : uint64
     requires 0<|m.lows|;
     requires CDelegationMapIsValid(m);
-    ensures 0 <= int(CDM_IndexForKey(m, k)) < |m.lows|;
-    ensures !k.KeyInf? ==> KeyRangeContains(CDM_IndexToKeyRange(m, int(CDM_IndexForKey(m, k))), k);
-    ensures k.KeyInf? ==> int(CDM_IndexForKey(m, k)) == |m.lows| - 1;
+    ensures 0 <= CDM_IndexForKey(m, k) as int < |m.lows|;
+    ensures !k.KeyInf? ==> KeyRangeContains(CDM_IndexToKeyRange(m, CDM_IndexForKey(m, k) as int), k);
+    ensures k.KeyInf? ==> CDM_IndexForKey(m, k) as int == |m.lows| - 1;
 {
     //IndexForKeyAccurate(m, k, 0); 
     CDM_IndexForKey_helper(m, k, 0)
@@ -166,9 +172,9 @@ function method CDM_IndexForKey(m:CDelegationMap, k:KeyPlus) : uint64
 function CDM_IndexForKeyRange(m:CDelegationMap, kr:KeyRange) : uint64 
     requires CDelegationMapIsAbstractable(m);
     requires kr in KeyRangesFromCDelegationMap(m);
-    ensures 0 <= int(CDM_IndexForKeyRange(m, kr)) < |m.lows|;
+    ensures 0 <= CDM_IndexForKeyRange(m, kr) as int < |m.lows|;
 {
-    var idx :| 0<=idx<|m.lows| && kr==CDM_IndexToKeyRange(m,idx); uint64(idx)
+    var idx :| 0<=idx<|m.lows| && kr==CDM_IndexToKeyRange(m,idx); idx as uint64
 }
 
 predicate CDelegationMapIsAbstractable(m:CDelegationMap)
@@ -296,8 +302,8 @@ lemma CDM_IndexForKey_Ordering(m:CDelegationMap)
     forall k1, k2 | KeyPlusLe(k1, k2) 
         ensures CDM_IndexForKey(m, k1) <= CDM_IndexForKey(m, k2);
     {
-        var index1 :=  int(CDM_IndexForKey(m, k1));
-        var index2 :=  int(CDM_IndexForKey(m, k2));
+        var index1 :=  CDM_IndexForKey(m, k1) as int;
+        var index2 :=  CDM_IndexForKey(m, k2) as int;
         CDelegationMapIsSortedExtension(m);
         KeyPlusAntisymmetry(k1, k2);
 
@@ -350,8 +356,8 @@ lemma {:timeLimitMultiplier 4} {:induction false} UpdateCDelegationMap_Part2(m:C
     requires CDelegationMapIsValid(m);
     requires EndPointIsValidIPV4(id);
     requires !EmptyKeyRange(newkr);
-    requires left_index == int(CDM_IndexForKey(m, newkr.klo));
-    requires right_index == int(CDM_IndexForKey(m, newkr.khi));
+    requires left_index == CDM_IndexForKey(m, newkr.klo) as int;
+    requires right_index == CDM_IndexForKey(m, newkr.khi) as int;
     requires new_left == m.lows[..left_index];
     requires m.lows[left_index].klo == newkr.klo;
     requires !(left_index == 0 && !newkr.klo.KeyZero?);  // left_index != 0 || newkr.klo.KeyZero
@@ -375,7 +381,7 @@ lemma {:timeLimitMultiplier 4} {:induction false} UpdateCDelegationMap_Part2(m:C
         CDelegationMapIsSortedExtension(m);
         CDelegationMapIsSortedExtension(m');
 
-        var k_index := int(CDM_IndexForKey(m', KeyPlus(k)));
+        var k_index := CDM_IndexForKey(m', KeyPlus(k)) as int;
         if KeyRangeContains(newkr, KeyPlus(k)) {
             if newkr.klo.KeyZero? {
                 assert KeyPlusLe(newkr.klo, m.lows[0].klo);
@@ -433,7 +439,7 @@ lemma {:timeLimitMultiplier 4} {:induction false} UpdateCDelegationMap_Part2(m:C
                     assert KeyPlusLt(KeyPlus(k), range.khi);
                     assert KeyRangeContains(range, KeyPlus(k));
                     CDM_Partitioned(m, KeyPlus(k), k_index);
-                    assert int(CDM_IndexForKey(m, KeyPlus(k))) == k_index;
+                    assert CDM_IndexForKey(m, KeyPlus(k)) as int == k_index;
                     assert rm'[k] == AbstractifyEndPointToNodeIdentity(m.lows[k_index].id);
 
                     assert rm'[k] == updated_rm[k];
@@ -460,22 +466,22 @@ lemma SequenceIndexingHelper<T>(a:seq<T>, b:seq<T>, c:seq<T>, d:seq<T>, combined
 {
 }
 
-lemma {:timeLimitMultiplier 4} UpdateCDelegationMap_RHS_Helper(m:CDelegationMap, newkr:KeyRange, id:EndPoint, m':CDelegationMap,
+lemma {:timeLimitMultiplier 16} UpdateCDelegationMap_RHS_Helper(m:CDelegationMap, newkr:KeyRange, id:EndPoint, m':CDelegationMap,
                                left_index:int, right_index:int, new_left:seq<Mapping>, new_right:seq<Mapping>,
                                k:Key, new_index:int)
     requires CDelegationMapIsValid(m);
     requires EndPointIsValidIPV4(id);
     requires !EmptyKeyRange(newkr);
     requires !KeyRangeContains(newkr, KeyPlus(k));
-    requires left_index == int(CDM_IndexForKey(m, newkr.klo));
-    requires right_index == int(CDM_IndexForKey(m, newkr.khi));
+    requires left_index == CDM_IndexForKey(m, newkr.klo) as int;
+    requires right_index == CDM_IndexForKey(m, newkr.khi) as int;
     requires 0 <= new_index <= |m.lows|;
     requires |new_left| == new_index;
     requires new_left == m.lows[..new_index];
     requires new_right == if newkr.khi.KeyInf? then [] else [Mapping(newkr.khi, m.lows[right_index].id)] + m.lows[right_index+1..];
     requires m' == CDelegationMap(new_left + [Mapping(newkr.klo, id)] + new_right);
     requires CDelegationMapIsValid(m');
-    requires var k_index := int(CDM_IndexForKey(m', KeyPlus(k)));
+    requires var k_index := CDM_IndexForKey(m', KeyPlus(k)) as int;
              k_index > new_index + 1;
     ensures  AbstractifyCDelegationMapToDelegationMap(m')[k] == UpdateDelegationMap(AbstractifyCDelegationMapToDelegationMap(m), newkr, AbstractifyEndPointToNodeIdentity(id))[k];
 
@@ -484,13 +490,13 @@ lemma {:timeLimitMultiplier 4} UpdateCDelegationMap_RHS_Helper(m:CDelegationMap,
     var rm  := AbstractifyCDelegationMapToDelegationMap(m);
     var rm' := AbstractifyCDelegationMapToDelegationMap(m');
     var updated_rm := UpdateDelegationMap(rm, newkr, AbstractifyEndPointToNodeIdentity(id));
-    var k_index := int(CDM_IndexForKey(m', KeyPlus(k)));
+    var k_index := CDM_IndexForKey(m', KeyPlus(k)) as int;
 
     CDelegationMapIsSortedExtension(m);
     CDelegationMapIsSortedExtension(m');
 
     assert !newkr.khi.KeyInf?;
-    var cr := CDM_IndexToKeyRange(m', int(k_index));
+    var cr := CDM_IndexToKeyRange(m', k_index as int);
     assert KeyRangeContains(cr, KeyPlus(k));
     assert m'.lows == m.lows[..new_index] + [Mapping(newkr.klo, id)] + [Mapping(newkr.khi, m.lows[right_index].id)] + m.lows[right_index+1..];
 
@@ -498,7 +504,7 @@ lemma {:timeLimitMultiplier 4} UpdateCDelegationMap_RHS_Helper(m:CDelegationMap,
 
     assert |m.lows[..new_index]| == new_index == new_index;
     assert |m.lows[..new_index] + [Mapping(newkr.klo, id)] + [Mapping(newkr.khi, m.lows[right_index].id)]| == new_index + 2;
-    if |m.lows[right_index+1..]| > int(k_index) - new_index - 2 {
+    if |m.lows[right_index+1..]| > k_index as int - new_index - 2 {
         assert {:split_here} true;
         SequenceIndexingHelper(m.lows[..new_index], [Mapping(newkr.klo, id)], [Mapping(newkr.khi, m.lows[right_index].id)], m.lows[right_index+1..], m'.lows, k_index);
         assert m'.lows[k_index] == m.lows[right_index+1..][k_index-new_index - 2];
@@ -523,7 +529,7 @@ lemma {:timeLimitMultiplier 4} UpdateCDelegationMap_RHS_Helper(m:CDelegationMap,
     }
 
     CDM_Partitioned(m, KeyPlus(k), offset_index);
-    assert int(CDM_IndexForKey(m, KeyPlus(k))) == offset_index;
+    assert CDM_IndexForKey(m, KeyPlus(k)) as int == offset_index;
     //var i :| 0 <= i < |m.lows| && m.lows[i].klo == cr.klo;
     assert rm'[k] == rm[k];
 }
@@ -535,22 +541,22 @@ lemma {:timeLimitMultiplier 4} UpdateCDelegationMap_RHS(m:CDelegationMap, newkr:
     requires EndPointIsValidIPV4(id);
     requires !EmptyKeyRange(newkr);
     requires !KeyRangeContains(newkr, KeyPlus(k));
-    requires left_index == int(CDM_IndexForKey(m, newkr.klo));
-    requires right_index == int(CDM_IndexForKey(m, newkr.khi));
+    requires left_index == CDM_IndexForKey(m, newkr.klo) as int;
+    requires right_index == CDM_IndexForKey(m, newkr.khi) as int;
     requires 0 <= new_index <= |m.lows|;
     requires |new_left| == new_index;
     requires new_left == m.lows[..new_index];
     requires new_right == if newkr.khi.KeyInf? then [] else [Mapping(newkr.khi, m.lows[right_index].id)] + m.lows[right_index+1..];
     requires m' == CDelegationMap(new_left + [Mapping(newkr.klo, id)] + new_right);
     requires CDelegationMapIsValid(m');
-    requires var k_index := int(CDM_IndexForKey(m', KeyPlus(k)));
+    requires var k_index := CDM_IndexForKey(m', KeyPlus(k)) as int;
              k_index > new_index;
     ensures  AbstractifyCDelegationMapToDelegationMap(m')[k] == UpdateDelegationMap(AbstractifyCDelegationMapToDelegationMap(m), newkr, AbstractifyEndPointToNodeIdentity(id))[k];
 {
     var rm  := AbstractifyCDelegationMapToDelegationMap(m);
     var rm' := AbstractifyCDelegationMapToDelegationMap(m');
     var updated_rm := UpdateDelegationMap(rm, newkr, AbstractifyEndPointToNodeIdentity(id));
-    var k_index := int(CDM_IndexForKey(m', KeyPlus(k)));
+    var k_index := CDM_IndexForKey(m', KeyPlus(k)) as int;
 
     CDelegationMapIsSortedExtension(m);
     CDelegationMapIsSortedExtension(m');
@@ -558,7 +564,7 @@ lemma {:timeLimitMultiplier 4} UpdateCDelegationMap_RHS(m:CDelegationMap, newkr:
     assert !newkr.khi.KeyInf?;
 
     if k_index == new_index + 1 {
-        assert CDM_IndexToKeyRange(m', int(k_index)).klo == newkr.khi;
+        assert CDM_IndexToKeyRange(m', k_index as int).klo == newkr.khi;
         assert rm'[k] == AbstractifyEndPointToNodeIdentity(m.lows[right_index].id);
         assert KeyPlusLe(m.lows[right_index].klo, newkr.khi);
         assert KeyPlusLe(newkr.khi, KeyPlus(k));
@@ -592,15 +598,15 @@ lemma UpdateCDelegationMap_Part1(m:CDelegationMap, newkr:KeyRange, id:EndPoint, 
     requires CDelegationMapIsValid(m);
     requires EndPointIsValidIPV4(id);
     requires !EmptyKeyRange(newkr);
-    requires left_index == int(CDM_IndexForKey(m, newkr.klo));
-    requires right_index == int(CDM_IndexForKey(m, newkr.khi));
+    requires left_index == CDM_IndexForKey(m, newkr.klo) as int;
+    requires right_index == CDM_IndexForKey(m, newkr.khi) as int;
     requires m.lows[left_index].klo != newkr.klo;
     requires new_left == m.lows[..left_index+1];
     requires new_right == if newkr.khi.KeyInf? then [] else [Mapping(newkr.khi, m.lows[right_index].id)] + m.lows[right_index+1..];
     requires m' == CDelegationMap(new_left + [Mapping(newkr.klo, id)] + new_right);
     requires CDelegationMapIsValid(m');
     ensures  AbstractifyCDelegationMapToDelegationMap(m') == UpdateDelegationMap(AbstractifyCDelegationMapToDelegationMap(m), newkr, AbstractifyEndPointToNodeIdentity(id));
-    //ensures uint64(|m'.lows|) <= uint64(|m.lows|) + 1
+    //ensures |m'.lows| as uint64 <= |m.lows| as uint64 + 1
 {
     var rm  := AbstractifyCDelegationMapToDelegationMap(m);
     var rm' := AbstractifyCDelegationMapToDelegationMap(m');
@@ -618,12 +624,12 @@ lemma UpdateCDelegationMap_Part1(m:CDelegationMap, newkr:KeyRange, id:EndPoint, 
         CDelegationMapIsSortedExtension(m');
 
         if KeyRangeContains(newkr, KeyPlus(k)) {
-            //var k_index := int(CDM_IndexForKey(m', KeyPlus(k)));
+            //var k_index := CDM_IndexForKey(m', KeyPlus(k)) as int;
             var index := left_index + 1;
             assert m'.lows[index] == Mapping(newkr.klo, id);
             assert KeyRangeContains(CDM_IndexToKeyRange(m', index), KeyPlus(k));
             CDM_Partitioned(m', KeyPlus(k), index);
-            assert int(CDM_IndexForKey(m', KeyPlus(k))) == index;
+            assert CDM_IndexForKey(m', KeyPlus(k)) as int == index;
             assert rm'[k] == AbstractifyEndPointToNodeIdentity(id);
         } else {
             KeyPlusAntisymmetry(KeyPlus(k), newkr.khi);
@@ -632,7 +638,7 @@ lemma UpdateCDelegationMap_Part1(m:CDelegationMap, newkr:KeyRange, id:EndPoint, 
             assert !KeyPlusLe(newkr.klo, KeyPlus(k)) ==> KeyPlusLt(KeyPlus(k), newkr.klo);
             assert KeyPlusLt(KeyPlus(k), newkr.klo) || KeyPlusLe(newkr.khi, KeyPlus(k));  // From !KeyRangeContains(newkr, k)
 
-            var k_index := int(CDM_IndexForKey(m', KeyPlus(k)));
+            var k_index := CDM_IndexForKey(m', KeyPlus(k)) as int;
             var new_index := left_index+1;  // Index of the new mapping, Mapping(newkr.klo, id)
 
             assert k_index != new_index;
@@ -664,7 +670,7 @@ lemma UpdateCDelegationMap_Part1(m:CDelegationMap, newkr:KeyRange, id:EndPoint, 
                 }
 //                assert KeyRangeContains(kr.klo, KeyPlus(k));
 //                CDM_Partitioned(m', KeyPlus(k), k_index);
-//                assert int(CDM_IndexForKey(m', KeyPlus(k))) == k_index;
+//                assert CDM_IndexForKey(m', KeyPlus(k)) as int == k_index;
                 /*
                 assert KeyPlusLt(KeyPlus(k), newkr.klo);
                 if |m.lows| > 1 {
@@ -672,7 +678,7 @@ lemma UpdateCDelegationMap_Part1(m:CDelegationMap, newkr:KeyRange, id:EndPoint, 
                     KeyPlusTransitivity(KeyPlus(k), newkr.klo, m.lows[1].klo);
                     assert KeyRangeContains(CDM_IndexToKeyRange(m, 0), KeyPlus(k));
                     CDM_Partitioned(m, KeyPlus(k), 0);
-                    assert int(CDM_IndexForKey(m, KeyPlus(k))) == 0;
+                    assert CDM_IndexForKey(m, KeyPlus(k)) as int == 0;
                 }
                 calc {
                     rm'[k];
@@ -704,12 +710,12 @@ method {:induction false} {:timeLimitMultiplier 4} UpdateCDelegationMap(m:CDeleg
     requires CDelegationMapIsValid(m);
     requires EndPointIsValidIPV4(id);
     requires !EmptyKeyRange(newkr);
-    ensures uint64(|m.lows|) < 0xFFFF_FFFF_FFFF_FFFF - 2 ==> ok == true;
+    ensures |m.lows| as uint64 < 0xFFFF_FFFF_FFFF_FFFF - 2 ==> ok == true;
     ensures  ok ==> CDelegationMapIsValid(m');
     ensures  ok ==> AbstractifyCDelegationMapToDelegationMap(m') == UpdateDelegationMap(AbstractifyCDelegationMapToDelegationMap(m), newkr, AbstractifyEndPointToNodeIdentity(id));
-    ensures ok ==> (uint64(|m.lows|) < 0xFFFF_FFFF_FFFF_FFFF - 2) && (uint64(|m'.lows|) <= uint64(|m.lows|) + 2);
+    ensures ok ==> (|m.lows| as uint64 < 0xFFFF_FFFF_FFFF_FFFF - 2) && (|m'.lows| as uint64 <= |m.lows| as uint64 + 2);
 {
-    if uint64(|m.lows|) >= 0xFFFF_FFFF_FFFF_FFFF - 2 {
+    if |m.lows| as uint64 >= 0xFFFF_FFFF_FFFF_FFFF - 2 {
         ok := false;
         return;
     }
@@ -741,7 +747,7 @@ method {:induction false} {:timeLimitMultiplier 4} UpdateCDelegationMap(m:CDeleg
         // We still need to map the portion of the range above newkr.khi but inside m.lows[right_index]
         new_right := [Mapping(newkr.khi, m.lows[right_index].id)] + m.lows[right_index+1..];
         assert KeyPlusLt(newkr.klo, newkr.khi);
-        if int(right_index) + 1 < |m.lows| {
+        if right_index as int + 1 < |m.lows| {
             assert KeyPlusLt(newkr.khi, m.lows[right_index+1].klo);
         }
     }
@@ -765,7 +771,7 @@ method {:induction false} {:timeLimitMultiplier 4} UpdateCDelegationMap(m:CDeleg
                 if m.lows[left_index].klo != newkr.klo {
                     assert KeyPlusLt(m'.lows[i].klo, m'.lows[i+1].klo);
                 } else {
-                    assert i == int(left_index) - 1;
+                    assert i == left_index as int - 1;
 
                     assert m'.lows[i].klo == m.lows[i].klo;
                     assert KeyPlusLe(m.lows[i + 1].klo, newkr.klo);
@@ -818,9 +824,9 @@ method {:induction false} {:timeLimitMultiplier 4} UpdateCDelegationMap(m:CDeleg
     }
 
     if m.lows[left_index].klo != newkr.klo {
-        UpdateCDelegationMap_Part1(m, newkr, id, m', int(left_index), int(right_index), new_left, new_right);
+        UpdateCDelegationMap_Part1(m, newkr, id, m', left_index as int, right_index as int, new_left, new_right);
     } else {
-        UpdateCDelegationMap_Part2(m, newkr, id, m', int(left_index), int(right_index), new_left, new_right);
+        UpdateCDelegationMap_Part2(m, newkr, id, m', left_index as int, right_index as int, new_left, new_right);
     }
 }
 

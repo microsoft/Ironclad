@@ -4,10 +4,25 @@ include "Refinement.i.dfy"
 include "InvProof.i.dfy"
 
 module SHT__RefinementProof_i {
+import opened Logic__Option_i
+import opened Collections__Maps2_s
 import opened Collections__Maps2_i
 import opened Collections__Sets_i
+import opened AbstractServiceSHT_s`All
+import opened AppInterface_i`Spec
+import opened Concrete_NodeIdentity_i
 import opened SHT__Refinement_i
 import opened SHT__InvProof_i
+import opened SHT__HT_s
+import opened SHT__InvDefs_i
+import opened SHT__Message_i
+import opened SHT__SHT_i
+import opened SHT__Network_i
+import opened SHT__SingleMessage_i
+import opened SHT__Keys_i
+import opened SHT__Host_i
+import opened SHT__Delegations_i
+import opened SHT__SingleDelivery_i
 
 predicate HashtableNext(h:Hashtable, h':Hashtable)
 {
@@ -1438,7 +1453,7 @@ lemma NextShardPreservesRefinement_main(s:SHT_State, s':SHT_State, id:NodeIdenti
     assert InvRefinementNormalized(s');
 }
 
-lemma {:timeLimitMultiplier 3} Next_Process_Message_Refines(s:SHT_State, s':SHT_State, id:NodeIdentity, recv:set<Packet>, out:set<Packet>)
+lemma {:timeLimitMultiplier 12} Next_Process_Message_Refines(s:SHT_State, s':SHT_State, id:NodeIdentity, recv:set<Packet>, out:set<Packet>)
     requires Inv(s);
     requires MapComplete(s');
     requires SHT_Next(s, s');
@@ -1484,7 +1499,7 @@ lemma {:timeLimitMultiplier 3} Next_Process_Message_Refines(s:SHT_State, s':SHT_
             assert reply in R'.replies;
 
             assert h'.receivedRequests[|h'.receivedRequests|-1] == req;
-            assert req in R'.requests;
+            assert h'.receivedRequests[.. |h'.receivedRequests|-1] == h.receivedRequests;
             assert R'.requests == R.requests + { req };
             assert R'.replies == R.replies + { reply };
             assert Service_Next_ServerExecutesRequest(Refinement(s), Refinement(s'), req, reply);
@@ -1522,6 +1537,7 @@ lemma {:timeLimitMultiplier 3} Next_Process_Message_Refines(s:SHT_State, s':SHT_
                 ensures r in R'.requests;
             {
                 assert h'.receivedRequests[|h'.receivedRequests|-1] == req;
+                assert h'.receivedRequests[.. |h'.receivedRequests|-1] == h.receivedRequests;
                 
                 assert req in R'.requests;
                 
@@ -1613,14 +1629,14 @@ lemma ReceiveBoringPacketRefines(s:SHT_State, s':SHT_State, id:NodeIdentity, rec
     var h' := s'.hosts[id];
 
     assert out == {};
-    assert h' == h[receivedPacket := None];
+    assert h' == h.(receivedPacket := None);
 
     reveal_HiddenInv();
     NondelegatingReadonlyStepPreservesRefinement(s, s', id, recv, out);
 }
 */
 
-lemma {:timeLimitMultiplier 3} ReceivePacketRefines(s:SHT_State, s':SHT_State, id:NodeIdentity, recv:set<Packet>, rpkt:Packet, out:set<Packet>, ack:Packet) 
+lemma {:timeLimitMultiplier 24} ReceivePacketRefines(s:SHT_State, s':SHT_State, id:NodeIdentity, recv:set<Packet>, rpkt:Packet, out:set<Packet>, ack:Packet) 
     requires Inv(s);
     requires MapComplete(s');
     requires SHT_Next(s, s');
@@ -1856,7 +1872,7 @@ lemma {:timeLimitMultiplier 2} NextPredRefines(s:SHT_State, s':SHT_State, id:Nod
     }
 }
 
-lemma NextExternalRefines(s:SHT_State, s':SHT_State, id:NodeIdentity, recv:set<Packet>, out:set<Packet>)
+lemma {:timeLimitMultiplier 8} NextExternalRefines(s:SHT_State, s':SHT_State, id:NodeIdentity, recv:set<Packet>, out:set<Packet>)
     requires Inv(s);
     requires MapComplete(s');
     requires SHT_Next(s, s');

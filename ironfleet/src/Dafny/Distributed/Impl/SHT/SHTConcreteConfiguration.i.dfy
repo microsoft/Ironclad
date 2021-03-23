@@ -5,10 +5,16 @@ include "PacketParsing.i.dfy"
 
 
 module SHT__SHTConcreteConfiguration_i {
+import opened Native__NativeTypes_s
+import opened Native__Io_s
 import opened SHT__Configuration_i
 import opened Common__NodeIdentity_i
 import opened SHT__PacketParsing_i
 import opened LiveSHT__SHTRefinement_i
+import opened Impl_Parameters_i
+import opened Common__UdpClient_i
+import opened Common__SeqIsUniqueDef_i
+import opened Collections__Seqs_i
 
 
 datatype SHTConcreteConfiguration = SHTConcreteConfiguration(
@@ -47,7 +53,7 @@ function AbstractifyToConfiguration(config:SHTConcreteConfiguration) : SHTConfig
 
 predicate ReplicaIndexValid(index:uint64, config:SHTConcreteConfiguration)
 {
-    0 <= int(index) < |config.hostIds|
+    0 <= index as int < |config.hostIds|
 }
 
 predicate ReplicaIndicesValid(indices:seq<uint64>, config:SHTConcreteConfiguration)
@@ -104,15 +110,15 @@ method CGetReplicaIndex(replica:EndPoint, config:SHTConcreteConfiguration) retur
     requires SHTConcreteConfigurationIsValid(config);
     requires EndPointIsValidIPV4(replica);
     ensures  found ==> ReplicaIndexValid(index, config) && config.hostIds[index] == replica;
-    ensures  found ==> GetHostIndex(AbstractifyEndPointToNodeIdentity(replica), AbstractifyToConfiguration(config)) == int(index);
+    ensures  found ==> GetHostIndex(AbstractifyEndPointToNodeIdentity(replica), AbstractifyToConfiguration(config)) == index as int;
     ensures !found ==> !(replica in config.hostIds);
     ensures !found ==> !(AbstractifyEndPointToNodeIdentity(replica) in AbstractifyEndPointsToNodeIdentities(config.hostIds));
 {
     var i:uint64 := 0;
     lemma_AbstractifyEndPointsToNodeIdentities_properties(config.hostIds);
 
-    while i < uint64(|config.hostIds|)
-        invariant i < uint64(|config.hostIds|);
+    while i < |config.hostIds| as uint64
+        invariant i < |config.hostIds| as uint64;
         invariant forall j :: 0 <= j < i ==> config.hostIds[j] != replica;
     {
         if replica == config.hostIds[i] {
@@ -122,26 +128,26 @@ method CGetReplicaIndex(replica:EndPoint, config:SHTConcreteConfiguration) retur
             ghost var r_replica := AbstractifyEndPointToNodeIdentity(replica);
             ghost var r_replicas := AbstractifyToConfiguration(config).hostIds;
             assert r_replica == r_replicas[index];
-            assert ItemAtPositionInSeq(r_replicas, r_replica, int(index));
+            assert ItemAtPositionInSeq(r_replicas, r_replica, index as int);
             calc ==> {
                 true;
                     { reveal_SeqIsUnique(); }
-                forall j :: 0 <= j < |config.hostIds| && j != int(i) ==> config.hostIds[j] != replica;
+                forall j :: 0 <= j < |config.hostIds| && j != i as int ==> config.hostIds[j] != replica;
             }
 
-            if exists j :: 0 <= j < |r_replicas| && j != int(index) && ItemAtPositionInSeq(r_replicas, r_replica, j) {
-                ghost var j :| 0 <= j < |r_replicas| && j != int(index) && ItemAtPositionInSeq(r_replicas, r_replica, j);
+            if exists j :: 0 <= j < |r_replicas| && j != index as int && ItemAtPositionInSeq(r_replicas, r_replica, j) {
+                ghost var j :| 0 <= j < |r_replicas| && j != index as int && ItemAtPositionInSeq(r_replicas, r_replica, j);
                 assert r_replicas[j] == r_replica;
                 assert AbstractifyEndPointToNodeIdentity(config.hostIds[j]) == r_replica;
                 lemma_AbstractifyEndPointToNodeIdentity_injective(config.hostIds[i], config.hostIds[j]);
                 assert false;
             }
-            assert forall j :: 0 <= j < |r_replicas| && j != int(index) ==> !ItemAtPositionInSeq(r_replicas, r_replica, j);
-            assert FindIndexInSeq(r_replicas, r_replica) == int(index);
+            assert forall j :: 0 <= j < |r_replicas| && j != index as int ==> !ItemAtPositionInSeq(r_replicas, r_replica, j);
+            assert FindIndexInSeq(r_replicas, r_replica) == index as int;
             return;
         }
 
-        if i == uint64(|config.hostIds|) - 1 {
+        if i == |config.hostIds| as uint64 - 1 {
             found := false;
             return;
         }

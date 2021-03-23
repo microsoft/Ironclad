@@ -1,13 +1,17 @@
 # About
 
-This directory contains experimental verified IronFleet code,
-as described in:
+This directory contains experimental verified IronFleet code, as described in:
 
->  [_IronFleet: Proving Practical Distributed Systems Correct_](http://research.microsoft.com/apps/pubs/default.aspx?id=255833)
+>  [_IronFleet: Proving Practical Distributed Systems Correct_](https://www.microsoft.com/en-us/research/publication/ironfleet-proving-practical-distributed-systems-correct/)
 >  Chris Hawblitzel, Jon Howell, Manos Kapritsos, Jacob R. Lorch, 
 >  Bryan Parno, Michael L. Roberts, Srinath Setty, and Brian Zill.
 >  In Proceedings of the ACM Symposium on Operating Systems Principles (SOSP).
 >  October 5, 2015.
+
+>  [_IronFleet: Proving Safety and Liveness of Practical Distributed Systems_](https://www.microsoft.com/en-us/research/publication/ironfleet-proving-safety-liveness-practical-distributed-systems/)
+>  Chris Hawblitzel, Jon Howell, Manos Kapritsos, Jacob R. Lorch, 
+>  Bryan Parno, Michael L. Roberts, Srinath Setty, and Brian Zill.
+>  Communications of the ACM (CACM) 60(7), July 2017.
 
 As a brief summary, we are motivated by the fact that distributed systems are notorious
 for harboring subtle bugs.  Verification can, in principle, eliminate these bugs a priori,
@@ -23,7 +27,7 @@ specification, as well as desirable liveness requirements.  Each implementation 
 performance competitive with a reference system.  With our methodology and lessons
 learned, we aim to raise the standard for distributed systems from "tested" to "correct."
 
-See http://research.microsoft.com/ironclad for more details.
+See https://research.microsoft.com/ironclad for more details.
 
 # License
 
@@ -31,157 +35,143 @@ IronFleet is licensed under the MIT license included in the [LICENSE](./LICENSE)
 
 # Setup
 
-In the examples below, we'll assume you're using Cygwin, but other shells (e.g.,
-Powershell) should work as well.  
-
-To use Dafny interactively, you'll need Visual Studio 2012 or newer, Vim, or Emacs.
-Each has a plugin:
-  - For Vim, we suggest the vim-loves-dafny plugin:
-      https://github.com/mlr-msft/vim-loves-dafny
-  - For Emacs, we suggest the Emacs packages boogie-mode and dafny-mode:
-      https://github.com/boogie-org/boogie-friends
-  - For Visual Studio, open:
-      `./tools/Dafny/DafnyIroncladVsPlugin.vsix`
-    to install the Dafny plugin with our default settings.
-    If you're running on Windows Server, and you see an error message that says Z3 has crashed,
-    then you may need to install the [Microsoft Visual C++ runtime](http://www.microsoft.com/en-us/download/details.aspx?id=5555).
+To use Ironfleet, you'll need the following tools:
+  * .NET 5.0 SDK (available at `https://dotnet.microsoft.com/download`)
+  * Dafny v3.0.0 (verifier, available at `https://github.com/dafny-lang/dafny`)
+  * python 2 or 3 (needed for running scons)
+  * scons (installable by running `pip install scons`)
     
-These instructions assume you're running on Windows.  However, Dafny, and all of its
-dependencies, also run on Linux.  You can obtain Dafny sources from:
+The instructions below have been tested using Windows 10, macOS Catalina, and
+Ubuntu 20.04.  They should also work for other platforms Dafny and .NET support,
+such as Ubuntu 16.04 and Debian.  On Windows, they work with at least the
+following shells: Command Prompt, Windows PowerShell, and Cygwin mintty.
 
-  https://github.com/Microsoft/dafny/
+# Verification and compilation
 
-Dafny's INSTALL file contains instructions for building on Linux with Mono.  Note that we have
-not yet tested building our build tool, NuBuild, on Linux, so your mileage may vary.
+To build and verify the contents of this repo, use:
 
-# Verification
+  `scons --dafny-path=/path/to/directory/with/dafny/`
 
-To perform our definitive verifications, we use our NuBuild tool, which handles dependency
-tracking, caches intermediate verification results locally and in the cloud, and can
-utilize a cluster of cloud VMs to parallelize verification.  To enable cloud features,
-you'll need an Azure account and an Azure storage account.  Once you have an Azure storage
-account, put your storage account's connection string into the
-`bin_tools/NuBuild/Nubuild.exe.config` file.  This will let you make use of the cloud
-cache capabilities.  To use the cloud build functionality, you'll need to add your
-subscription Id and Certificate (base64 encoded) to
-`bin_tools/NuBuild/AzureManage.exe.config`, which will then let you manage a cluster of
-VMs to serve as workers.
+To use `<n>` threads in parallel, add `-j <n>` to this command.
 
-You can still use NuBuild without cloud support, however, by passing the `--no-cloudcache` option.
+Expect this to take up to several hours, depending on your machine and how many
+cores you have available.  Also note that the prover's time limits are based on
+wall clock time, so if you run the verification on a slow machine, you may see a
+few timeouts not present in our build.  If that happens, try using a longer time
+limit for each verification; for example, using `--time-limit=60` makes the time
+limit 60 seconds instead of the default 30 seconds.
 
-To verify an individual Dafny file (and all of its dependencies), run:
+Running scons will produce the following executables:
+```
+  src/Dafny/Distributed/Services/RSL/build/IronfleetShell.dll
+  src/Dafny/Distributed/Services/Lock/build/IronfleetShell.dll
+  src/Dafny/Distributed/Services/SHT/build/IronfleetShell.dll
+  src/IronRSLClient/bin/Release/net5.0/IronRSLClient.dll
+  src/IronKVClient/bin/Release/net5.0/IronKVClient.dll
+```
 
-  `./bin_tools/NuBuild/NuBuild.exe --no-cloudcache -j 3 DafnyVerifyTree src/Dafny/Distributed/Impl/SHT/AppInterface.i.dfy`
+To produce these executables without performing verification, use `--no-verify`.
 
-which uses the `-j` flag to add 3-way local parallelism.
-
-To verify a forest of Dafny files (e.g., all of the IronFleet files), run:
-
-  `./bin_tools/NuBuild/NuBuild.exe -j 3 BatchDafny src/Dafny/Distributed/apps.dfy.batch`
-
-Expect this to take up to several hours, depending on your machine and how many cores you
-have available.  Also note that the prover's time limits are based on wall clock time, so
-if you run the verification on a slow machine, you may see a few time outs not present in
-our build.
-
-# Compilation
-
-To build a runnable, verification application, use:
-
-  `./bin_tools/NuBuild/NuBuild.exe --no-cloudcache -j 3 IronfleetApp src/Dafny/Distributed/Services/RSL/Main.i.dfy`
-
-The will produce an executable:
-  `./nuobj/Dafny/Distributed/Services/RSL/Main_i.exe`
-
-To produce an executable without performing verification use NuBuild's `--no-verify` flag.
-Note that in this case the resulting executable will be named `Main_i.unverified.exe`.
-
-For maximum performance, be sure to turn off performance profiling.  The easiest way
-to do this is to comment out the body of the RecordTimingSeq method in  
-
-  `./src/Dafny/Distributed/Impl/Common/Util.i.dfy`
-
-To build the unverified C# clients for IronRSL and IronKV, open and build (in Release mode):
-
-  `./src/IronfleetClient/IronfleetClient.sln`
-  `./src/IronKVClient/IronfleetClient.sln`
+To avoid hampering performance, we've turned off most hosts' output.  To make
+hosts collect and print profile information, change `false` to `true` in
+`ShouldPrintProfilingInfo` in `./src/Dafny/Distributed/Impl/Common/Util.i.dfy`.
+To make hosts print information about their progress, change `false` to `true`
+in `ShouldPrintProgress` in the same file.
 
 # Running
 
 ## IronLock
 
-IronLock is the simplest of the protocols we have verified, so it may be a good starting point.
-It consists of N processes passing around a lock. To run it, you need to supply each process
-with the IP-port pairs of all processes, as well as its own IP-pair. For example, this is a 
-configuration with three processes:
+IronLock is the simplest of the protocols we've verified, so it may be a good
+starting point.  It consists of N processes passing around a lock. To run it,
+you need to supply each process with the IP-port pairs of all processes, as well
+as its own IP-pair. For example, this is a configuration with three processes:
 
-  `./nuobj/Dafny//Distributed/Services/Lock/Main_i.exe 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4002'
-  `./nuobj/Dafny//Distributed/Services/Lock/Main_i.exe 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4003'
-  `./nuobj/Dafny//Distributed/Services/Lock/Main_i.exe 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4001'
+```
+  dotnet src/Dafny/Distributed/Services/Lock/build/IronfleetShell.dll 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4002
+  dotnet src/Dafny/Distributed/Services/Lock/build/IronfleetShell.dll 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4003
+  dotnet src/Dafny/Distributed/Services/Lock/build/IronfleetShell.dll 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4001
+```
 
-It is important that you start the "first" process last, as it initially holds the lock and will
-immediately start passing it around. As this is a toy example, message retransmission is not implemented.
-Therefore, if the other processes are not running by the time the first process sends a grant message, 
-the message will be lost and the protocol will stop. 
+It's important that you start the "first" process last (as in the above
+example), as it initially holds the lock and will immediately start passing it
+around. As this is a toy example, message retransmission isn't implemented.
+Therefore, if the other processes aren't running by the time the first process
+sends a grant message, the message will be lost and the protocol will stop.
 
-If started properly, the processes will pass the lock among them as fast as they can, printing a message 
-everytime they accept or grant the lock.
+If started properly, the processes will pass the lock among them as fast as they
+can, printing a message everytime they accept or grant the lock.
 
 ## IronRSL
 
-To run IronRSL, you should ideally use four different machines, but in a pinch you can use
-four separate windows on the same machine. Both the client and server executables expect a
-list of IP-port pairs that identifies all of the replicas in the system (in this example
-we're using 3, but more is feasible).  Each server instance also needs to be told which
-IP-port pair belongs to it.  The client also needs to know it's own IP, how many threads
-to use when generating requests, and how long to run for (in seconds).
+To run IronRSL, you should ideally use four different machines, but in a pinch
+you can use four separate windows on the same machine. The server executable
+expects a list of IP-port pairs that identifies all of the replicas in the
+system (in this example we're using 3, but more is feasible). Each server
+instance also needs to be told which IP-port pair belongs to it.
 
-  `./nuobj/Dafny/Distributed/Services/RSL/Main_i.exe 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4001`
-  `./nuobj/Dafny/Distributed/Services/RSL/Main_i.exe 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4002`
-  `./nuobj/Dafny/Distributed/Services/RSL/Main_i.exe 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4003`
-  `./src/IronfleetClient/IronfleetClient/bin/Release/IronfleetClient.exe 127.0.0.1 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 1 10`
+The client has reasonable defaults that you can override with key=value
+command-line arguments. Run the client with `--help` to get detailed usage
+information. Make sure your firewall isn't blocking the UDP ports you use.
 
-The client will print out a GUID, but all of its interesting output goes to:
+For example, to test IronRSL on a single machine, you can run each of the
+following four commands in a different console:
 
-  `/tmp/IronfleetOutput/Job-GUID/client.txt`
+```
+  dotnet src/Dafny/Distributed/Services/RSL/build/IronfleetShell.dll 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4001
+  dotnet src/Dafny/Distributed/Services/RSL/build/IronfleetShell.dll 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4002
+  dotnet src/Dafny/Distributed/Services/RSL/build/IronfleetShell.dll 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4003
+  dotnet src/IronRSLClient/bin/Release/net5.0/IronRSLClient.dll nthreads=10 duration=30 clientport=6000 initialseqno=0
+```
 
-which primarily logs the time needed for each request.
+The first three are the RSL servers, and the latter is the client.  The client's
+output will primarily consist of reports of the time needed for each request.
 
-Note that the servers use non-blocking network receives, so they may be slow to respond to Ctrl-C.
+Note that until you stop all the RSL servers, each client endpoint is expected
+to use strictly increasing sequence numbers. So, if you run the client program
+multiple times, use a different `clientip` or use a `clientport` such that
+`[clientport, clientport + nthreads)` doesn't overlap with that of previous
+runs.  Or, use an initialseqno greater than the last sequence number any
+previous client run reported using (e.g., if a previous run output `#req100`,
+use at least `initialseqno=101`).
+
+Note also that the servers use non-blocking network receives, so they may be
+slow to respond to Ctrl-C.
 
 ## IronKV
 
-To run IronKV, you could use one or more machines for the server and
-one machine for the client. Like IronRSL, IronKV executables also
-require a list of IP-port pairs. Additionally, the IronKV client also
-needs a few parameters to generate a stream of Get/Set requests
-(details below).
+To run IronKV, you should ideally use multiple different machines, but in a
+pinch you can use separate windows on the same machine. Like IronRSL, IronKV
+server executables require a list of IP-port pairs, and the IronKV client
+takes command-line arguments of the form key=value.
 
-  `./nuobj/Dafny/Distributed/Services/SHT/Main_i.exe 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4001`
-  `./nuobj/Dafny/Distributed/Services/SHT/Main_i.exe 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4002`
-  `./nuobj/Dafny/Distributed/Services/SHT/Main_i.exe 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4003`
+For example, you can run each of the following four commands in a different
+console:
+```
+  dotnet src/Dafny/Distributed/Services/SHT/build/IronfleetShell.dll 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4001
+  dotnet src/Dafny/Distributed/Services/SHT/build/IronfleetShell.dll 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4002
+  dotnet src/Dafny/Distributed/Services/SHT/build/IronfleetShell.dll 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4003
+  dotnet src/IronKVClient/bin/Release/net5.0/IronKVClient.dll nthreads=10 duration=30 workload=g numkeys=10000 clientport=6000
+```
 
-  `./src/IronKVClient/IronfleetClient/bin/Release/IronfleetClient.exe 127.0.0.1 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 1 10 [OPERATION] [NUM-KEYS] [VAL-SIZE]`
-where OPERATION specifies the workload to use (e.g., g for Gets or s
-Sets), and NUMKEYS tells the client to preload the server with an
-initial set of values (of size VALSIZE bytes) for keys from 0 to
-NUMKEYS-1,
+Like in IronRSL, the client will print its output to standard output.
 
-Like in IronRSL, the client will print out a GUID, but all of it's
-interesting output goes to:
-
-  `/tmp/IronfleetOutput/Job-GUID/client.txt`
-
-which primarily logs the time needed for each request.
-
+Note that until you stop all the KV servers, each client endpoint is expected to
+use a stateful protocol. And note that the client uses `nthreads+1` ports, since
+it needs an additional port for setup. So, if you run the client program
+multiple times, use a different `clientip` or use a `clientport` such that
+`[clientport, clientport + nthreads]` doesn't overlap with that of previous
+runs.
 
 # Code Layout
 
-See the [CODE](./CODE.md) file for more details on the various files in the repository.
+See the [CODE](./CODE.md) file for more details on the various files in the
+repository.
 
 # Contributing
 
 See the [CONTRIBUTING](./CONTRIBUTING.md) file for more details.
 
 # Version History
-- v0.1:   Initial code release
+- v0.1:  Initial code release
+- v0.2:  Compatibility with Dafny 3.0.0 and .NET Core 5

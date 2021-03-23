@@ -3,6 +3,8 @@ include "Network.i.dfy"
 include "Parameters.i.dfy"
 
 module SHT__SingleDelivery_i {
+import opened Concrete_NodeIdentity_i
+import opened SHT__Message_i
 import opened SHT__SingleMessage_i 
 import opened SHT__Network_i    
 import opened Protocol_Parameters_i
@@ -25,7 +27,7 @@ datatype SingleDeliveryAcct<MT> = SingleDeliveryAcct(receiveState:TombstoneTable
 
 function TombstoneTableLookup(src:NodeIdentity, t:TombstoneTable) : nat
 {
-    if src in t then int(t[src]) else 0 
+    if src in t then t[src] as int else 0 
 }
 
 function AckStateLookup<MT>(src:NodeIdentity, sendState:SendState):AckState<MT>
@@ -68,9 +70,9 @@ predicate ReceiveAck(s:SingleDeliveryAcct, s':SingleDeliveryAcct, pkt:Packet, ac
     acks == {} &&   // We don't ack acks
     var oldAckState := AckStateLookup(pkt.src, s.sendState);
     if pkt.msg.ack_seqno > oldAckState.numPacketsAcked then
-        var newAckState := oldAckState[numPacketsAcked := pkt.msg.ack_seqno]
-                                      [unAcked := TruncateUnAckList(oldAckState.unAcked, pkt.msg.ack_seqno)];
-        s' == s[sendState := s.sendState[pkt.src := newAckState]]
+        var newAckState := oldAckState.(numPacketsAcked := pkt.msg.ack_seqno,
+                                        unAcked := TruncateUnAckList(oldAckState.unAcked, pkt.msg.ack_seqno));
+        s' == s.(sendState := s.sendState[pkt.src := newAckState])
     else 
         s' == s
 }
@@ -106,7 +108,7 @@ predicate ReceiveRealPacket(s:SingleDeliveryAcct, s':SingleDeliveryAcct, pkt:Pac
     if NewSingleMessage(s, pkt) then
         var last_seqno := TombstoneTableLookup(pkt.src, s.receiveState);
         // Mark it received 
-        s' == s[receiveState := s.receiveState[pkt.src := nat_t(last_seqno + 1)]]
+        s' == s.(receiveState := s.receiveState[pkt.src := (last_seqno + 1) as nat_t])
     else
         s == s'
 }
@@ -158,7 +160,7 @@ predicate SendSingleMessage<MT>(s:SingleDeliveryAcct, s':SingleDeliveryAcct, m:M
        if new_seqno > params.max_seqno then
            s' == s && !shouldSend // Packet shouldn't be sent if we exceed the maximum sequence number
        else
-           (s' == s[sendState := s.sendState[sm.dst := oldAckState[unAcked := oldAckState.unAcked + [sm]]]]
+           (s' == s.(sendState := s.sendState[sm.dst := oldAckState.(unAcked := oldAckState.unAcked + [sm])])
             && sm.seqno == new_seqno
             && shouldSend)
 }

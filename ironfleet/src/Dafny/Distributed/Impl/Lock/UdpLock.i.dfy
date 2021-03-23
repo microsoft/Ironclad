@@ -2,7 +2,14 @@ include "../Common/UdpClient.i.dfy"
 include "PacketParsing.i.dfy"
 
 module UdpLock_i {
+import opened Native__Io_s
+import opened Logic__Option_i
+import opened Environment_s
+import opened Types_i
+import opened Message_i
+import opened Common__Util_i
 import opened Common__UdpClient_i
+import opened Common__GenericMarshalling_i
 import opened PacketParsing_i 
 
 //////////////////////////////////////////////////////////////////////////////
@@ -15,7 +22,7 @@ function AstractifyUdpEventToLockIo(evt:UdpEvent) : LockIo
         case LIoOpSend(s) => LIoOpSend(AbstractifyUdpPacket(s))
         case LIoOpReceive(r) => LIoOpReceive(AbstractifyUdpPacket(r))
         case LIoOpTimeoutReceive => LIoOpTimeoutReceive()
-        case LIoOpReadClock(t) => LIoOpReadClock(int(t))
+        case LIoOpReadClock(t) => LIoOpReadClock(t as int)
 }
 
 function {:opaque} AbstractifyRawLogToIos(rawlog:seq<UdpEvent>) : seq<LockIo>
@@ -48,7 +55,6 @@ predicate OnlySentMarshallableData(rawlog:seq<UdpEvent>)
 datatype ReceiveResult = RRFail() | RRTimeout() | RRPacket(cpacket:CLockPacket)
 
 method GetEndPoint(ipe:IPEndPoint) returns (ep:EndPoint)
-    requires ipe!=null;
     ensures ep == ipe.EP();
     ensures EndPointIsValidIPV4(ep);
 {
