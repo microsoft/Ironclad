@@ -79,6 +79,17 @@ lemma lemma_ReplicaNextReadClockAndProcessPacketHelper(
     var i :| 0 <= i < |send_ios| && io == send_ios[i];  // OBSERVE trigger
   }
   assert AbstractifyRawLogToIos(all_events) == all_ios;
+
+  calc {
+    final_history;
+    pre_delivery_history + send_events;
+    pre_clock_history + [clock_event] + send_events;
+    old_history + [receive_event] + [clock_event] + send_events;
+    old_history + ([receive_event] + [clock_event]) + send_events;
+    old_history + [receive_event, clock_event] + send_events;
+    old_history + ([receive_event, clock_event] + send_events);
+    old_history + all_events;
+  }
 }
 
 method {:fuel ReplicaStateIsValid,0,0} {:timeLimitMultiplier 3} Replica_Next_ReadClockAndProcessPacket(

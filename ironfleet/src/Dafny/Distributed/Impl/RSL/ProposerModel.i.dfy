@@ -303,7 +303,7 @@ method ProposerProcess1b(proposer:ProposerState, packet:CPacket) returns (propos
   lemma_AbstractifySetOfCPacketsToSetOfRslPackets_srcMembership(proposer.received_1b_packets, packet.src);
 }
 
-lemma lemma_MapSingleton<T,S>(m:map<T,S>, elm:T)
+lemma lemma_MapSingleton<T(!new),S(!new)>(m:map<T,S>, elm:T)
   requires |m| == 1
   requires elm in m
   ensures forall x :: x in m ==> x == elm

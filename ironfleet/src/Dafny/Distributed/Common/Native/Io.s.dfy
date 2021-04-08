@@ -13,6 +13,8 @@ class HostEnvironment
   ghost var udp:UdpState;
   ghost var files:FileSystemState;
 
+  constructor{:axiom} () requires false
+
   predicate Valid()
     reads this
   {

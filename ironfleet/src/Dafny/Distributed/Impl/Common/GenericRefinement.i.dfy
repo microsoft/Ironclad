@@ -134,8 +134,8 @@ lemma Lemma_AbstractifyMap_append<KT,VT,CKT,CVT>(cm:map<CKT,CVT>, RefineKey:CKT~
   assert r_cm' == rm';
 }
 
-lemma Lemma_AbstractifyMap_remove<KT,VT,CKT,CVT>(cm:map<CKT,CVT>, RefineKey:CKT~>KT, RefineValue:CVT~>VT, ReverseKey:KT~>CKT,
-                                                 ck:CKT)
+lemma Lemma_AbstractifyMap_remove<KT(!new),VT(!new),CKT(!new),CVT(!new)>(
+  cm:map<CKT,CVT>, RefineKey:CKT~>KT, RefineValue:CVT~>VT, ReverseKey:KT~>CKT, ck:CKT)
   requires MapIsAbstractable(cm, RefineKey, RefineValue, ReverseKey)
   // Injectivity
   requires forall ck1, ck2 :: RefineKey.requires(ck1) && RefineKey.requires(ck2) && RefineKey(ck1) == RefineKey(ck2) ==> ck1 == ck2
@@ -179,7 +179,8 @@ lemma Lemma_AbstractifyMap_remove<KT,VT,CKT,CVT>(cm:map<CKT,CVT>, RefineKey:CKT~
   assert rm' == smaller_rm;
 }
 
-lemma lemma_AbstractifyMap_properties<CKT,CVT,KT,VT>(cm:map<CKT,CVT>, RefineKey:CKT~>KT, RefineValue:CVT~>VT, ReverseKey:KT~>CKT)
+lemma lemma_AbstractifyMap_properties<CKT(!new),CVT(!new),KT(!new),VT(!new)>(
+  cm:map<CKT,CVT>, RefineKey:CKT~>KT, RefineValue:CVT~>VT, ReverseKey:KT~>CKT)
   requires MapIsAbstractable(cm, RefineKey, RefineValue, ReverseKey)
   // Injectivity
   requires forall ck1, ck2 :: RefineKey.requires(ck1) && RefineKey.requires(ck2) && RefineKey(ck1) == RefineKey(ck2) ==> ck1 == ck2

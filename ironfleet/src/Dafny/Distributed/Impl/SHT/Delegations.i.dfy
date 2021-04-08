@@ -593,8 +593,10 @@ lemma {:timeLimitMultiplier 4} UpdateCDelegationMap_RHS(m:CDelegationMap, newkr:
     assert AbstractifyCDelegationMapToDelegationMap(m')[k] == UpdateDelegationMap(AbstractifyCDelegationMapToDelegationMap(m), newkr, AbstractifyEndPointToNodeIdentity(id))[k];
 }
 
-lemma UpdateCDelegationMap_Part1(m:CDelegationMap, newkr:KeyRange, id:EndPoint, m':CDelegationMap,
-                                 left_index:int, right_index:int, new_left:seq<Mapping>, new_right:seq<Mapping>)
+lemma {:timeLimitMultiplier 2} UpdateCDelegationMap_Part1(
+    m:CDelegationMap, newkr:KeyRange, id:EndPoint, m':CDelegationMap,
+    left_index:int, right_index:int, new_left:seq<Mapping>, new_right:seq<Mapping>
+    )
     requires CDelegationMapIsValid(m);
     requires EndPointIsValidIPV4(id);
     requires !EmptyKeyRange(newkr);

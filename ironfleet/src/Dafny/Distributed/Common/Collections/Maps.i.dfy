@@ -25,7 +25,7 @@ function union<U(!new), V>(m: map<U,V>, m': map<U,V>): map<U,V>
   map i{:auto_trigger} | i in (domain(m) + domain(m')) :: if i in m then m[i] else m'[i]
 }
 
-function method RemoveElt<U(!new),V>(m:map<U,V>, elt:U) : map<U,V>
+function method RemoveElt<U(!new),V(!new)>(m:map<U,V>, elt:U) : map<U,V>
   requires elt in m
   decreases |m|
   ensures |RemoveElt(m, elt)| == |m| - 1
@@ -37,7 +37,7 @@ function method RemoveElt<U(!new),V>(m:map<U,V>, elt:U) : map<U,V>
   m'
 }
 
-lemma lemma_non_empty_map_has_elements<S,T>(m:map<S,T>)
+lemma lemma_non_empty_map_has_elements<S(!new),T(!new)>(m:map<S,T>)
   requires |m| > 0
   ensures exists x :: x in m
 {
@@ -48,7 +48,7 @@ lemma lemma_non_empty_map_has_elements<S,T>(m:map<S,T>)
   assert |dom| > 0;
 }
 
-lemma lemma_MapSizeIsDomainSize<S,T>(dom:set<S>, m:map<S,T>)
+lemma lemma_MapSizeIsDomainSize<S(!new),T(!new)>(dom:set<S>, m:map<S,T>)
   requires dom == domain(m)
   ensures |m| == |dom|
 {
@@ -69,7 +69,7 @@ lemma lemma_MapSizeIsDomainSize<S,T>(dom:set<S>, m:map<S,T>)
   }
 }
 
-lemma lemma_maps_decrease<S,T>(before:map<S,T>, after:map<S,T>, item_removed:S)
+lemma lemma_maps_decrease<S(!new),T(!new)>(before:map<S,T>, after:map<S,T>, item_removed:S)
   requires item_removed in before
   requires after == map s | s in before && s != item_removed :: before[s]
   ensures  |after| < |before|
@@ -123,7 +123,7 @@ lemma lemma_maps_decrease<S,T>(before:map<S,T>, after:map<S,T>, item_removed:S)
 }
 
 
-lemma lemma_map_remove_one<S,T>(before:map<S,T>, after:map<S,T>, item_removed:S)
+lemma lemma_map_remove_one<S(!new),T(!new)>(before:map<S,T>, after:map<S,T>, item_removed:S)
   requires item_removed in before
   requires after == map s | s in before && s != item_removed :: before[s]
   ensures  |after| + 1 == |before|
