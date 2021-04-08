@@ -21,7 +21,7 @@ function CountMatchesInMultiset<T(!new)>(m:multiset<T>, f:T-->bool):int
     CountMatchesInMultiset(m - multiset{x}, f) + if f(x) then 1 else 0
 }
 
-lemma Lemma_RemovingElementAffectsCount<T>(m:multiset<T>, f:T-->bool, x:T)
+lemma Lemma_RemovingElementAffectsCount<T(!new)>(m:multiset<T>, f:T-->bool, x:T)
   requires forall u :: f.requires(u)
   requires x in m
   ensures  CountMatchesInMultiset(m, f) - CountMatchesInMultiset(m - multiset{x}, f) == if f(x) then 1 else 0
@@ -38,7 +38,7 @@ lemma Lemma_RemovingElementAffectsCount<T>(m:multiset<T>, f:T-->bool, x:T)
   }
 }
 
-lemma Lemma_MatchCountInSeqIsMatchCountInMultiset<T>(s:seq<T>, m:multiset<T>, f:T-->bool)
+lemma Lemma_MatchCountInSeqIsMatchCountInMultiset<T(!new)>(s:seq<T>, m:multiset<T>, f:T-->bool)
   requires forall x :: f.requires(x)
   requires m == multiset(s)
   ensures  CountMatchesInSeq(s, f) == CountMatchesInMultiset(m, f)

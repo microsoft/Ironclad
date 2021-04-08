@@ -123,7 +123,7 @@ predicate HostQueueDecomposition<IdType, MessageType>(
   hostQueue == s1 + [p] + s2 + hostQueue'
 }
 
-lemma{:timeLimitMultiplier 2} Lemma_ReceiveRemovesPacketFromHostQueue<IdType, MessageType>(
+lemma Lemma_ReceiveRemovesPacketFromHostQueue<IdType, MessageType>(
   hostQueue:seq<LPacket<IdType, MessageType>>,
   hostQueue':seq<LPacket<IdType, MessageType>>,
   ios:seq<LIoOp<IdType, MessageType>>,
@@ -154,23 +154,21 @@ lemma{:timeLimitMultiplier 2} Lemma_ReceiveRemovesPacketFromHostQueue<IdType, Me
       [hostQueue[0]] + hostQueue[1..j+1] + hostQueue[1..][j..];
     }
     assert HostQueueDecomposition(hostQueue, hostQueue', s1, s2, p);
+    return;
   }
-  else
-  {
-    Lemma_IfOpSeqIsCompatibleWithReductionThenSoIsSuffix(ios, 1);
-    Lemma_ReceiveRemovesPacketFromHostQueue(hostQueue[1..], hostQueue', ios[1..], p);
-    var s1', s2 :| hostQueue[1..] == s1' + [p] + s2 + hostQueue';
-    var j := Lemma_HostQueuePerformIosProducesTail(hostQueue[1..], hostQueue', ios[1..]);
-    assert 0 <= j <= |hostQueue[1..]| && hostQueue' == hostQueue[1..][j..];
-    calc {
-      hostQueue;
-      [hostQueue[0]] + hostQueue[1..];
-      [hostQueue[0]] + s1' + [p] + s2 + hostQueue';
-    }
-    var s1 := [hostQueue[0]] + s1';
-    assert HostQueueDecomposition(hostQueue, hostQueue', s1, s2, p);
+
+  Lemma_IfOpSeqIsCompatibleWithReductionThenSoIsSuffix(ios, 1);
+  Lemma_ReceiveRemovesPacketFromHostQueue(hostQueue[1..], hostQueue', ios[1..], p);
+  var s1', s2 :| hostQueue[1..] == s1' + [p] + s2 + hostQueue';
+  var j := Lemma_HostQueuePerformIosProducesTail(hostQueue[1..], hostQueue', ios[1..]);
+  assert 0 <= j <= |hostQueue[1..]| && hostQueue' == hostQueue[1..][j..];
+  calc {
+    hostQueue;
+    [hostQueue[0]] + hostQueue[1..];
+    [hostQueue[0]] + s1' + [p] + s2 + hostQueue';
   }
-  assert exists s1, s2 :: HostQueueDecomposition(hostQueue, hostQueue', s1, s2, p);
+  var s1 := [hostQueue[0]] + s1';
+  assert HostQueueDecomposition(hostQueue, hostQueue', s1, s2, p);
 }
 
 lemma Lemma_RemovePacketFromHostQueueImpliesReceive<IdType, MessageType>(
