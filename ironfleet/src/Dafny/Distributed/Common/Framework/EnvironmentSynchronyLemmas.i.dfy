@@ -79,7 +79,7 @@ predicate AllPacketsReceivedWithin<IdType(!new), MessageType(!new)>(
       sat(i, next(eventuallynextwithin(PacketReceivedTemporal(b, p), receive_period, BehaviorToTimeMap(b))))
 }
 
-function{:opaque} AllPacketsReceivedWithinTemporal<IdType, MessageType>(
+function{:opaque} AllPacketsReceivedWithinTemporal<IdType(!new), MessageType(!new)>(
   b:Behavior<LEnvironment<IdType, MessageType>>,
   receive_period:int,
   sources:set<IdType>,
@@ -946,7 +946,7 @@ lemma Lemma_EventuallyEachHostQueueEmpties<IdType, MessageType>(
   }
 }
 
-lemma Lemma_EventuallyAllPacketsAlwaysReceivedInTimeHelper3<IdType, MessageType>(
+lemma Lemma_EventuallyAllPacketsAlwaysReceivedInTimeHelper3<IdType(!new), MessageType(!new)>(
   synchrony_start:int,
   latency_bound:int,
   sources:set<IdType>,
@@ -1071,7 +1071,7 @@ lemma Lemma_EventuallyAllPacketsAlwaysReceivedInTimeHelper3<IdType, MessageType>
   processing_bound := latency_bound + burst_size * receive_period;
 }
 
-lemma Lemma_EventuallyAllPacketsAlwaysReceivedInTimeHelper2<IdType, MessageType>(
+lemma Lemma_EventuallyAllPacketsAlwaysReceivedInTimeHelper2<IdType(!new), MessageType(!new)>(
   synchrony_start:int,
   i1:int,
   latency_bound:int,
@@ -1127,7 +1127,7 @@ lemma Lemma_EventuallyAllPacketsAlwaysReceivedInTimeHelper2<IdType, MessageType>
   processing_sync_start := i1;
 }
 
-lemma Lemma_EventuallyAllPacketsAlwaysReceivedInTime<IdType, MessageType>(
+lemma Lemma_EventuallyAllPacketsAlwaysReceivedInTime<IdType(!new), MessageType(!new)>(
   synchrony_start:int,
   latency_bound:int,
   sources:set<IdType>,
