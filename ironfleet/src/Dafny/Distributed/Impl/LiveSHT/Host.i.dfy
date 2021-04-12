@@ -13,13 +13,14 @@ module Host_i refines Host_s {
     import opened LiveSHT__SchedulerImpl_i
     import opened LiveSHT__UdpSHT_i
     import opened LiveSHT__Unsendable_i
+    import opened CmdLineParser_i
     import opened ShtCmdLineParser_i 
     export Spec
         provides Native__Io_s, Environment_s, Native__NativeTypes_s
         provides HostState
         provides ConcreteConfiguration
         provides HostInit, HostNext, ConcreteConfigInit, HostStateInvariants, ConcreteConfigurationInvariants
-        provides ParseCommandLineConfiguration, ParseCommandLineId, ArbitraryObject
+        provides ResolveCommandLine, ParseCommandLineConfiguration, ParseCommandLineId, ArbitraryObject
         provides HostInitImpl, HostNextImpl
     export All reveals *
 
@@ -72,6 +73,11 @@ module Host_i refines Host_s {
      && (forall e :: e in clients ==> EndPointIsAbstractable(e))
     }
 
+    function ResolveCommandLine(args:seq<seq<uint16>>) : seq<seq<uint16>>
+    {
+        resolve_cmd_line_args(args)
+    }
+
     function ParseCommandLineConfiguration(args:seq<seq<uint16>>) : (ConcreteConfiguration, set<EndPoint>, set<EndPoint>)
     {
         var sht_config := sht_config_parsing(args);
@@ -109,7 +115,7 @@ module Host_i refines Host_s {
         servers := set e | e in config.hostIds;
         clients := {};
         assert env.constants == old(env.constants);
-        ghost var args := env.constants.CommandLineArgs();
+        ghost var args := resolve_cmd_line_args(env.constants.CommandLineArgs());
         ghost var tuple := ParseCommandLineConfiguration(args[0..|args|-2]);
         ghost var parsed_config, parsed_servers, parsed_clients := tuple.0, tuple.1, tuple.2;
         //assert config.config == parsed_config.config;

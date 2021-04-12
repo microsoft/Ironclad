@@ -88,9 +88,9 @@ you need to supply each process with the IP-port pairs of all processes, as well
 as its own IP-pair. For example, this is a configuration with three processes:
 
 ```
-  dotnet src/Dafny/Distributed/Services/Lock/build/IronfleetShell.dll 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4002
-  dotnet src/Dafny/Distributed/Services/Lock/build/IronfleetShell.dll 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4003
-  dotnet src/Dafny/Distributed/Services/Lock/build/IronfleetShell.dll 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4001
+  dotnet src/Dafny/Distributed/Services/Lock/build/IronfleetShell.dll localhost:4001 localhost:4002 localhost:4003 localhost:4002
+  dotnet src/Dafny/Distributed/Services/Lock/build/IronfleetShell.dll localhost:4001 localhost:4002 localhost:4003 localhost:4003
+  dotnet src/Dafny/Distributed/Services/Lock/build/IronfleetShell.dll localhost:4001 localhost:4002 localhost:4003 localhost:4001
 ```
 
 It's important that you start the "first" process last (as in the above
@@ -118,9 +118,9 @@ For example, to test IronRSL on a single machine, you can run each of the
 following four commands in a different console:
 
 ```
-  dotnet src/Dafny/Distributed/Services/RSL/build/IronfleetShell.dll 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4001
-  dotnet src/Dafny/Distributed/Services/RSL/build/IronfleetShell.dll 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4002
-  dotnet src/Dafny/Distributed/Services/RSL/build/IronfleetShell.dll 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4003
+  dotnet src/Dafny/Distributed/Services/RSL/build/IronfleetShell.dll localhost:4001 localhost:4002 localhost:4003 localhost:4001
+  dotnet src/Dafny/Distributed/Services/RSL/build/IronfleetShell.dll localhost:4001 localhost:4002 localhost:4003 localhost:4002
+  dotnet src/Dafny/Distributed/Services/RSL/build/IronfleetShell.dll localhost:4001 localhost:4002 localhost:4003 localhost:4003
   dotnet src/IronRSLClient/bin/Release/net5.0/IronRSLClient.dll nthreads=10 duration=30 clientport=6000 initialseqno=0
 ```
 
@@ -148,9 +148,9 @@ takes command-line arguments of the form key=value.
 For example, you can run each of the following four commands in a different
 console:
 ```
-  dotnet src/Dafny/Distributed/Services/SHT/build/IronfleetShell.dll 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4001
-  dotnet src/Dafny/Distributed/Services/SHT/build/IronfleetShell.dll 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4002
-  dotnet src/Dafny/Distributed/Services/SHT/build/IronfleetShell.dll 127.0.0.1 4001 127.0.0.1 4002 127.0.0.1 4003 127.0.0.1 4003
+  dotnet src/Dafny/Distributed/Services/SHT/build/IronfleetShell.dll localhost:4001 localhost:4002 localhost:4003 localhost:4001
+  dotnet src/Dafny/Distributed/Services/SHT/build/IronfleetShell.dll localhost:4001 localhost:4002 localhost:4003 localhost:4002
+  dotnet src/Dafny/Distributed/Services/SHT/build/IronfleetShell.dll localhost:4001 localhost:4002 localhost:4003 localhost:4003
   dotnet src/IronKVClient/bin/Release/net5.0/IronKVClient.dll nthreads=10 duration=30 workload=g numkeys=10000 clientport=6000
 ```
 

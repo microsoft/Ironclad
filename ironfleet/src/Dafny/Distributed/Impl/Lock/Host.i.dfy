@@ -7,6 +7,7 @@ module Host_i refines Host_s {
     import opened Collections__Sets_i
     import opened Protocol_Node_i
     import opened NodeImpl_i
+    import opened CmdLineParser_i
     import opened LockCmdLineParser_i
     import opened Types_i
     import opened Impl_Node_i
@@ -16,7 +17,7 @@ module Host_i refines Host_s {
         provides HostState
         provides ConcreteConfiguration
         provides HostInit, HostNext, ConcreteConfigInit, HostStateInvariants, ConcreteConfigurationInvariants
-        provides ParseCommandLineConfiguration, ParseCommandLineId, ArbitraryObject
+        provides ResolveCommandLine, ParseCommandLineConfiguration, ParseCommandLineId, ArbitraryObject
         provides HostInitImpl, HostNextImpl
     export All reveals *
 
@@ -57,6 +58,11 @@ module Host_i refines Host_s {
     {
         ValidConfig(config)
      && MapSeqToSet(config, x=>x) == servers
+    }
+
+    function ResolveCommandLine(args:seq<seq<uint16>>) : seq<seq<uint16>>
+    {
+        resolve_cmd_line_args(args)
     }
 
     function ParseCommandLineConfiguration(args:seq<seq<uint16>>) : (ConcreteConfiguration, set<EndPoint>, set<EndPoint>)

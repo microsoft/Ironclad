@@ -221,4 +221,49 @@ method collect_cmd_line_args(ghost env:HostEnvironment) returns (args:seq<seq<ui
   }
 }
 
+// "foo:bar:10 --> ("foo:bar", "10")
+// "foo" -> ("foo", "")
+function method split_at_last_colon(str:seq<uint16>, n:nat) : (seq<uint16>, seq<uint16>)
+  requires n <= |str|
+{
+  if n == 0 then
+    (str, [])
+  else if str[n - 1] == ':' as uint16 then
+    (str[.. n - 1], str[n ..])
+  else
+    split_at_last_colon(str, n - 1)
+}
+
+function method resolve_ip_address(str:seq<uint16>) : (seq<uint16>)
+{
+  if parse_ip_addr(str).0 then
+    // already an IP address
+    str
+  else
+    // resolve
+    IPEndPoint.DnsResolve(str)
+}
+
+function method resolve_cmd_line_args_rec(args:seq<seq<uint16>>) : (args':seq<seq<uint16>>)
+  ensures |args'| >= |args|
+{
+  if |args| == 0 then
+    args
+  else
+    var (s1, s2) := split_at_last_colon(args[0], |args[0]|);
+    if |s2| == 0 then
+      [s1] + resolve_cmd_line_args_rec(args[1..])
+    else
+      [resolve_ip_address(s1), s2] + resolve_cmd_line_args_rec(args[1..])
+}
+
+function method resolve_cmd_line_args(args:seq<seq<uint16>>) : (args':seq<seq<uint16>>)
+  ensures |args'| >= |args|
+{
+  if |args| == 0 then
+    args
+  else
+    [args[0]] + resolve_cmd_line_args_rec(args[1..])
+}
+
 }

@@ -20,6 +20,8 @@ predicate HostStateInvariants(host_state:HostState, env:HostEnvironment)
   reads *
 predicate ConcreteConfigurationInvariants(config:ConcreteConfiguration)
 
+function ResolveCommandLine(args:seq<seq<uint16>>) : (args':seq<seq<uint16>>)
+  ensures |args'| >= |args|
 function ParseCommandLineConfiguration(args:seq<seq<uint16>>) : (ConcreteConfiguration, set<EndPoint>, set<EndPoint>)
 function ParseCommandLineId(ip:seq<uint16>, port:seq<uint16>) : EndPoint
 
@@ -42,13 +44,13 @@ method HostInitImpl(ghost env:HostEnvironment) returns (
   ensures  ok ==> |env.constants.CommandLineArgs()| >= 2
   ensures  ok ==> HostStateInvariants(host_state, env)
   ensures  ok ==> ConcreteConfigurationInvariants(config)
-  ensures  ok ==> var args := env.constants.CommandLineArgs();
+  ensures  ok ==> var args := ResolveCommandLine(env.constants.CommandLineArgs());
                   var (parsed_config, parsed_servers, parsed_clients) := ParseCommandLineConfiguration(args[0..|args|-2]);
                   && config == parsed_config
                   && servers == parsed_servers
                   && clients == parsed_clients
                   && ConcreteConfigInit(parsed_config, parsed_servers, parsed_clients);
-  ensures  ok ==> var args := env.constants.CommandLineArgs();
+  ensures  ok ==> var args := ResolveCommandLine(env.constants.CommandLineArgs());
                   && id == ParseCommandLineId(args[|args|-2], args[|args|-1])
                   && HostInit(host_state, config, id);
 
