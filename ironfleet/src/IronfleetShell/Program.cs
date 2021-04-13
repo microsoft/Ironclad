@@ -9,7 +9,7 @@ namespace IronfleetShell
     using MathNet.Numerics.Distributions;
 
 
-  class Program
+    class Program
     {
         static void Main(string[] args)
         {
@@ -18,6 +18,7 @@ namespace IronfleetShell
             Console.WriteLine("IronFleet program started.");
             Console.WriteLine("[[READY]]");
             Main__i_Compile.__default._Main();
+            Console.WriteLine("[[EXIT]]");
         }
     }
 }

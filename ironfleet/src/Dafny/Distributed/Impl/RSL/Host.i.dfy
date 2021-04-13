@@ -17,6 +17,7 @@ import opened LiveRSL__ReplicaImplClass_i
 import opened LiveRSL__ReplicaImplMain_i
 import opened LiveRSL__UdpRSL_i
 import opened LiveRSL__Unsendable_i
+import opened CmdLineParser_i
 import opened PaxosCmdLineParser_i 
 import opened Collections__Sets_i
 import opened Common__NodeIdentity_i
@@ -63,6 +64,11 @@ predicate ConcreteConfigInit(config:ConcreteConfiguration, servers:set<EndPoint>
   && MapSeqToSet(config.config.replica_ids, x=>x) == servers
   && (forall e :: e in servers ==> EndPointIsAbstractable(e))
   && (forall e :: e in clients ==> EndPointIsAbstractable(e))
+}
+
+function ResolveCommandLine(args:seq<seq<uint16>>) : seq<seq<uint16>>
+{
+  resolve_cmd_line_args(args)
 }
 
 function ParseCommandLineConfiguration(args:seq<seq<uint16>>) : (ConcreteConfiguration, set<EndPoint>, set<EndPoint>)
@@ -112,7 +118,7 @@ method {:timeLimitMultiplier 4} HostInitImpl(ghost env:HostEnvironment) returns 
   servers := set e | e in constants.all.config.replica_ids;
   clients := {};
   assert env.constants == old(env.constants);
-  ghost var args := env.constants.CommandLineArgs();
+  ghost var args := resolve_cmd_line_args(env.constants.CommandLineArgs());
   ghost var tuple := ParseCommandLineConfiguration(args[0..|args|-2]);
   ghost var parsed_config, parsed_servers, parsed_clients := tuple.0, tuple.1, tuple.2;
   assert config.config == parsed_config.config;

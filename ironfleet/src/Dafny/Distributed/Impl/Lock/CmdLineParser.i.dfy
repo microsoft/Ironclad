@@ -33,7 +33,7 @@ function lock_cmd_line_parsing(env:HostEnvironment) : (seq<EndPoint>, EndPoint)
     reads env;
     reads env.constants
 {
-    var args := env.constants.CommandLineArgs();
+    var args := resolve_cmd_line_args(env.constants.CommandLineArgs());
     if |args| < 2 then
         ([], EndPointNull()) 
     else
@@ -90,15 +90,19 @@ method ParseCmdLine(ghost env:HostEnvironment) returns (ok:bool, host_ids:seq<En
 {
     ok := false;
     var num_args := HostConstants.NumCommandLineArgs(env);
-    if num_args < 4 || num_args % 2 != 1 {
+    var args := collect_cmd_line_args(env);
+    assert args == env.constants.CommandLineArgs();
+
+    args := resolve_cmd_line_args(args);
+
+    if |args| < 4 || |args| % 2 != 1 {
         print "Incorrect number of command line arguments.\n";
-        print "Expected: ./Main.exe [IP port]+ [IP port]\n";
+        print "Expected: ./Main.exe [name:port]+ [name:port]\n";
+        print "      or: ./Main.exe [IP port]+ [IP port]\n";
         print "  where the final argument is one of the two IP-port pairs provided earlier \n";
         return;
     }
 
-    var args := collect_cmd_line_args(env);
-    assert args == env.constants.CommandLineArgs();
     var tuple1 := parse_end_points(args[1..|args|-2]);
     ok := tuple1.0;
     var endpoints := tuple1.1;

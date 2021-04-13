@@ -57,6 +57,40 @@ public partial class IPEndPoint
             ok = false;
         }
     }
+
+    // DnsResolve is a Dafny function, which must be deterministic, so remember lookup results
+    private static System.Collections.Generic.Dictionary<string, string> dns =
+        new System.Collections.Generic.Dictionary<string, string>();
+
+    public static Dafny.ISequence<ushort> DnsResolve(Dafny.ISequence<ushort> name)
+    {
+        var str_name = new String(Array.ConvertAll(name.Elements, c => (char)c));
+        try
+        {
+            if (dns.ContainsKey(str_name))
+            {
+                return Dafny.Sequence<ushort>.FromArray(Array.ConvertAll(dns[str_name].ToCharArray(), c => (ushort)c));
+            }
+            foreach (var addr in System.Net.Dns.GetHostEntry(str_name).AddressList)
+            {
+                if (addr.AddressFamily == AddressFamily.InterNetwork)
+                {
+                    dns.Add(str_name, addr.ToString());
+                    return Dafny.Sequence<ushort>.FromArray(Array.ConvertAll(addr.ToString().ToCharArray(), c => (ushort)c));
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            System.Console.Error.WriteLine("Error: DNS lookup failed for " + str_name);
+            System.Console.Error.WriteLine(e);
+            dns.Add(str_name, str_name);
+            return name;
+        }
+        System.Console.Error.WriteLine("Error: could not find IPv4 address for " + str_name);
+        dns.Add(str_name, str_name);
+        return name;
+    }
 }
 
 public struct Packet {

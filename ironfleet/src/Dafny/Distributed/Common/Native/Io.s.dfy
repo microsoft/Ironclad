@@ -122,6 +122,8 @@ class IPEndPoint
     modifies env.ok
     ensures  env.ok.ok() == ok
     ensures  ok ==> fresh(ep) && ep.env == env && ep.Address() == ipAddress[..] && ep.Port() == port
+
+  static function method{:axiom} DnsResolve(name:seq<uint16>):(resolved_name:seq<uint16>)
 }
 
 function MaxPacketSize() : int { 65507 }
