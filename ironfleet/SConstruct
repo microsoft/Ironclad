@@ -234,13 +234,6 @@ def verify_dafny_file(source):
 #
 ####################################################################
 
-def install_ironfleet_host(target_dir):
-  build_dir = 'src/IronfleetShell/bin/Release/net5.0/'
-  shutil.copytree(build_dir, target_dir)
-  return 0
-
-InstallIronfleetHost = SCons.Action.ActionFactory(install_ironfleet_host, lambda x: "Installing into " + x)
-
 # Only one Ironfleet shell compilation can happen at once since they use the same source directory.
 # So, before performing Ironfleet shell compilation, acquire the following lock, and release it
 # after completion.
@@ -263,13 +256,16 @@ def generate_ironfleet_host_actions(source, target, env, for_signature):
   cs_source_name = re.sub('\.dfy$', '.cs', source_name)
   build_dir = 'src/IronfleetShell/bin/Release/net5.0/'
   target_dir = os.path.dirname(str(target[0]))
+  ironfleet_shell_main = 'src/IronfleetShell/Main.i.cs'
   return [
     dafny_invocation + ['/compile:0', '/spillTargetCode:3', '/noVerify', source_name],
     AcquireIronfleetShellLock(),
-    Copy("src/IronfleetShell/Main.i.cs", cs_source_name),
-    ["dotnet", "build", "--configuration", "Release", "src/IronfleetShell/IronfleetShell.csproj"],
+    Delete(ironfleet_shell_main),
+    Move(ironfleet_shell_main, cs_source_name),
+    Delete(build_dir),
+    ["dotnet", "build", "--no-incremental", "--configuration", "Release", "src/IronfleetShell/IronfleetShell.csproj"],
     Delete(target_dir),
-    InstallIronfleetHost(target_dir),
+    Move(target_dir, build_dir),
     ReleaseIronfleetShellLock()
   ]
 
