@@ -12,15 +12,23 @@ import opened Native__Io_s
 import opened Native__NativeTypes_s
 import opened Collections__Seqs_i
 import opened Math__mod_auto_i
+import opened LiveRSL__AcceptorState_i
+import opened LiveRSL__AppInterface_i
 import opened LiveRSL__CClockReading_i
+import opened LiveRSL__CLastCheckpointedMap_i
 import opened LiveRSL__CMessage_i
 import opened LiveRSL__CMessageRefinements_i
+import opened LiveRSL__ConstantsState_i
 import opened LiveRSL__CPaxosConfiguration_i
 import opened LiveRSL__Configuration_i
 import opened LiveRSL__CTypes_i
 import opened LiveRSL__ElectionState_i
 import opened LiveRSL__Environment_i
+import opened LiveRSL__ExecutorState_i
+import opened LiveRSL__LearnerState_i
 import opened LiveRSL__PacketParsing_i
+import opened LiveRSL__ParametersState_i
+import opened LiveRSL__ProposerState_i
 import opened LiveRSL__Replica_i
 import opened LiveRSL__ReplicaConstantsState_i
 import opened LiveRSL__ReplicaModel_i
@@ -55,6 +63,18 @@ class ReplicaImpl
     var empty_MutableSet:MutableSet<CRequestHeader> := MutableSet.EmptySet();
     cur_req_set := empty_MutableSet;
     prev_req_set := empty_MutableSet;
+    var rcs := ReplicaConstantsState(0, ConstantsState(CPaxosConfiguration([]), ParametersState(0, 0, 0, 0, 0, 0)));
+    var election_state := CElectionState(rcs, CBallot(0, 0), [], 0, 0, [], {}, [], {});
+    var proposer_state :=
+      ProposerState(rcs, 0, [], CBallot(0, 0), 0, {}, map [], CIncompleteBatchTimerOff(), election_state,
+                    COperationNumber(0), COperationNumber(0));
+    var acceptor_state :=
+      AcceptorState(rcs, CBallot(0, 0), CVotes(map []), [], COperationNumber(0), COperationNumber(0));
+    var cpacket :| true;
+    var learner_state := CLearnerState(rcs, CBallot(0, 0), map [], false, COperationNumber(0), false, cpacket);
+    var app_state := CAppState_Init();
+    var executor_state := ExecutorState(rcs, app_state, COperationNumber(0), CBallot(0, 0), COutstandingOpUnknown(), map[]);
+    replica := ReplicaState(rcs, 0, proposer_state, acceptor_state, learner_state, executor_state);
   }
 
   predicate Valid()

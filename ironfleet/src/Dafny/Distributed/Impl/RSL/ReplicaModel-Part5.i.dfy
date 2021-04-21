@@ -191,6 +191,7 @@ method Replica_Next_Spontaneous_MaybeExecute(
   requires MutableSet.SetOf(cur_req_set) == replica.proposer.election_state.cur_req_set
   requires MutableSet.SetOf(prev_req_set) == replica.proposer.election_state.prev_req_set
   requires replica.executor.reply_cache == MutableMap.MapOf(reply_cache_mutable)
+  modifies replica.executor.app
   modifies cur_req_set, prev_req_set, reply_cache_mutable
   ensures Replica_Next_Spontaneous_MaybeExecute_Postconditions(replica, replica', packets_sent)
   ensures  MutableSet.SetOf(cur_req_set) == replica'.proposer.election_state.cur_req_set

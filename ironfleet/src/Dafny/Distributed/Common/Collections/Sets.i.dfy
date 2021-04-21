@@ -176,6 +176,11 @@ function/*TODO:{:opaque}*/ MapSeqToSet<X(!new), Y>(xs:seq<X>, f:X-->Y):set<Y>
   set x | x in xs :: f(x)
 }
 
+function SeqToSet<X(!new)>(xs:seq<X>):set<X>
+{
+  set x | x in xs
+}
+
 lemma lemma_SubsetCardinality<X>(xs:set<X>, ys:set<X>, f:X-->bool)
   requires forall x :: x in xs ==> f.requires(x)
   requires forall x :: x in ys ==> x in xs && f(x)

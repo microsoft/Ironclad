@@ -39,6 +39,7 @@ import opened Common__UdpClient_i
 import opened Common__UpperBound_s
 import opened Common__UpperBound_i
 import opened Common__Util_i
+import opened AppStateMachine_i
 
 // Same as x == y, but triggers extensional equality on fields and provides better error diagnostics
 predicate Eq_LProposer(x:LProposer, y:LProposer)
@@ -112,7 +113,7 @@ method {:timeLimitMultiplier 2} ProposerProcessRequest(proposer:ProposerState, p
   requires ProposerIsValid(proposer)
   requires CPacketIsAbstractable(packet)
   requires packet.msg.CMessage_Request?
-  requires ValidAppMessage(packet.msg.val)
+  requires ValidCAppMessage(packet.msg.val)
   requires cur_req_set != prev_req_set
   requires MutableSet.SetOf(cur_req_set) == proposer.election_state.cur_req_set
   requires MutableSet.SetOf(prev_req_set) == proposer.election_state.prev_req_set

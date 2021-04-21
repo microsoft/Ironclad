@@ -38,7 +38,7 @@ datatype CLearnerState =
 predicate CLearnerTupleIsValid(tuple:CLearnerTuple) 
 {
   && SeqIsUnique(tuple.received_2b_message_senders)
-  && |tuple.candidate_learned_value| <= RequestBatchSizeLimit()
+  && ValidRequestBatch(tuple.candidate_learned_value)
 }
 
 predicate LearnerState_IsValid(learner:CLearnerState)
@@ -56,12 +56,12 @@ predicate LearnerTupleIsAbstractable(tuple:CLearnerTuple)
 }
 
 function AbstractifyCLearnerTupleToLearnerTuple(tuple:CLearnerTuple) : LearnerTuple
-  ensures LearnerTupleIsAbstractable(tuple) ==> AbstractifyCLearnerTupleToLearnerTuple(tuple) == LearnerTuple(MapSeqToSet(AbstractifyEndPointsToNodeIdentities(tuple.received_2b_message_senders), x=>x), AbstractifyCRequestBatchToRequestBatch(tuple.candidate_learned_value))
+  ensures LearnerTupleIsAbstractable(tuple) ==> AbstractifyCLearnerTupleToLearnerTuple(tuple) == LearnerTuple(SeqToSet(AbstractifyEndPointsToNodeIdentities(tuple.received_2b_message_senders)), AbstractifyCRequestBatchToRequestBatch(tuple.candidate_learned_value))
 {
   if (LearnerTupleIsAbstractable(tuple)) then 
     var pkts := AbstractifyEndPointsToNodeIdentities(tuple.received_2b_message_senders);
     var value := AbstractifyCRequestBatchToRequestBatch(tuple.candidate_learned_value);
-    LearnerTuple(MapSeqToSet(pkts, x=>x), value)
+    LearnerTuple(SeqToSet(pkts), value)
   else 
     var lt:LearnerTuple :| (true); lt
 }

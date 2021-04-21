@@ -120,7 +120,7 @@ function AbstractifyCOperationNumberToOperationNumber(opn:COperationNumber) : Op
 }
 
 lemma lemma_AbstractifyCOperationNumberToOperationNumber_isInjective() 
-  ensures forall opn1, opn2 :: COperationNumberIsAbstractable(opn1) && COperationNumberIsAbstractable(opn2) && AbstractifyCOperationNumberToOperationNumber(opn1) == AbstractifyCOperationNumberToOperationNumber(opn2) ==> opn1 == opn2
+  ensures forall opn1, opn2 {:trigger AbstractifyCOperationNumberToOperationNumber(opn1), AbstractifyCOperationNumberToOperationNumber(opn2)} :: COperationNumberIsAbstractable(opn1) && COperationNumberIsAbstractable(opn2) && AbstractifyCOperationNumberToOperationNumber(opn1) == AbstractifyCOperationNumberToOperationNumber(opn2) ==> opn1 == opn2
 {
 }
 
