@@ -17,7 +17,7 @@ datatype CMessage =
   | CMessage_Heartbeat(bal_heartbeat:CBallot, suspicious:bool, opn_ckpt:COperationNumber)
   | CMessage_Reply(seqno_reply:uint64, reply:CAppMessage)
   | CMessage_AppStateRequest(bal_state_req:CBallot, opn_state_req:COperationNumber)
-  | CMessage_AppStateSupply(bal_state_supply:CBallot, opn_state_supply:COperationNumber, app_state:CAppState, reply_cache:CReplyCache)
+  | CMessage_AppStateSupply(bal_state_supply:CBallot, opn_state_supply:COperationNumber, app_state:CTransferableAppState, reply_cache:CReplyCache)
   | CMessage_StartingPhase2(bal_2:CBallot, logTruncationPoint_2:COperationNumber)
 
 datatype CPacket = CPacket(dst:EndPoint, src:EndPoint, msg:CMessage)

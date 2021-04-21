@@ -157,7 +157,7 @@ datatype CRequest = CRequest(client:EndPoint, seqno:uint64, request:CAppMessage)
 
 predicate method ValidRequest(c:CRequest)
 {
-  c.CRequest? ==> EndPointIsValidIPV4(c.client) && ValidAppMessage(c.request)
+  c.CRequest? ==> EndPointIsValidIPV4(c.client) && ValidCAppMessage(c.request)
 }
 
 predicate CRequestIsAbstractable(c:CRequest)
@@ -293,7 +293,7 @@ datatype CReply   = CReply  (client:EndPoint, seqno:uint64, reply  :CAppMessage)
 
 predicate method ValidReply(c:CReply)
 {
-  c.CReply? ==> EndPointIsValidIPV4(c.client) && ValidAppMessage(c.reply)
+  c.CReply? ==> EndPointIsValidIPV4(c.client) && ValidCAppMessage(c.reply)
 }
 
 predicate CReplyIsAbstractable(c:CReply)

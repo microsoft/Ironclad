@@ -126,7 +126,7 @@ class IPEndPoint
   static function method{:axiom} DnsResolve(name:seq<uint16>):(resolved_name:seq<uint16>)
 }
 
-function MaxPacketSize() : int { 65507 }
+function MaxPacketSize() : int { 0xFFFF_FFFF_FFFF_FFFF }
 
 class UdpClient
 {
@@ -242,6 +242,19 @@ class MutableSet<T(0,==,!new)>
     ensures SetOf(this) == {}
 }
 
+function KVTupleSeqToMap<K(!new), V(!new)>(kvs: seq<(K, V)>) : (m: map<K, V>)
+  ensures  forall k, v :: (k, v) in kvs ==> k in m
+  ensures  forall k :: k in m ==> (k, m[k]) in kvs
+{
+  if |kvs| == 0 then
+    map []
+  else
+    var kvs_prefix := kvs[..|kvs|-1];
+    var m_prefix := KVTupleSeqToMap(kvs_prefix);
+    var kv_last := kvs[|kvs|-1];
+    m_prefix[kv_last.0 := kv_last.1]
+}
+
 class MutableMap<K(==),V>
 {
   static function method {:axiom} MapOf(m:MutableMap<K,V>) : map<K,V>
@@ -254,6 +267,9 @@ class MutableMap<K(==),V>
   static method {:axiom} FromMap(dafny_map:map<K,V>) returns (m:MutableMap<K,V>)
     ensures MapOf(m) == dafny_map
     ensures fresh(m)
+
+  static method {:axiom} FromKVTuples(kvs:seq<(K, V)>) returns (m:MutableMap<K, V>)
+    ensures MapOf(m) == KVTupleSeqToMap(kvs)
 
   constructor{:axiom} () requires false
 
@@ -278,7 +294,12 @@ class MutableMap<K(==),V>
 
   method {:axiom} Remove(key:K) 
     modifies this
-    ensures MapOf(this) == map k | k != key && k in old(MapOf(this)) :: old(MapOf(this))[k]
+    ensures MapOf(this) == old(MapOf(this)) - { key }
+
+  method {:axiom} AsKVTuples() returns (kvs:seq<(K, V)>)
+    ensures |kvs| == |MapOf(this).Keys|
+    ensures forall k :: k in MapOf(this) ==> (k, MapOf(this)[k]) in kvs
+    ensures forall k, v :: (k, v) in kvs ==> k in MapOf(this) && MapOf(this)[k] == v
 }
 
 // Leverage .NET's ability to perform copies faster than one element at a time

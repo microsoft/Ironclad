@@ -139,6 +139,7 @@ method ReplicaNextSpontaneousMaybeExecuteActual(
   requires replica.executor.reply_cache == MutableMap.MapOf(reply_cache_mutable)
   requires replica.executor.next_op_to_execute.COutstandingOpKnown?
   requires replica.executor.ops_complete.n < replica.executor.constants.all.params.max_integer_val
+  modifies replica.executor.app
   modifies cur_req_set, prev_req_set, reply_cache_mutable
   ensures  Replica_Next_Spontaneous_MaybeExecute_Postconditions(replica, replica', packets_sent)
   ensures  MutableSet.SetOf(cur_req_set) == replica'.proposer.election_state.cur_req_set

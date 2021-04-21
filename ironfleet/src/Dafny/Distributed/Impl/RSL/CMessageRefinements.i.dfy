@@ -32,7 +32,7 @@ predicate CMessageIsAbstractable(msg:CMessage)
     case CMessage_Heartbeat(bal_heartbeat, suspicious, opn_ckpt) => CBallotIsAbstractable(bal_heartbeat) && COperationNumberIsAbstractable(opn_ckpt)
     case CMessage_Reply(seqno, reply) => CAppMessageIsAbstractable(reply)
     case CMessage_AppStateRequest(bal_state_req, opn_state_req) => CBallotIsAbstractable(bal_state_req) && COperationNumberIsAbstractable(opn_state_req)
-    case CMessage_AppStateSupply(bal_state_supply, opn_state_supply, app_state, reply_cache) => CBallotIsAbstractable(bal_state_supply) && COperationNumberIsAbstractable(opn_state_supply) && CAppStateIsAbstractable(app_state) && CReplyCacheIsAbstractable(reply_cache)
+    case CMessage_AppStateSupply(bal_state_supply, opn_state_supply, app_state, reply_cache) => CBallotIsAbstractable(bal_state_supply) && COperationNumberIsAbstractable(opn_state_supply) && CTransferableAppStateIsAbstractable(app_state) && CReplyCacheIsAbstractable(reply_cache)
     case CMessage_StartingPhase2(bal_2, logTruncationPoint_2) => CBallotIsAbstractable(bal_2) && COperationNumberIsAbstractable(logTruncationPoint_2)
 
 }
@@ -50,7 +50,7 @@ function AbstractifyCMessageToRslMessage(msg:CMessage) : RslMessage
     case CMessage_Heartbeat(bal_heartbeat, suspicious, opn_ckpt) => RslMessage_Heartbeat(AbstractifyCBallotToBallot(bal_heartbeat), suspicious, AbstractifyCOperationNumberToOperationNumber(opn_ckpt))
     case CMessage_Reply(seqno, reply) => RslMessage_Reply(seqno as int, AbstractifyCAppMessageToAppMessage(reply))
     case CMessage_AppStateRequest(bal_state_req, opn_state_req) => RslMessage_AppStateRequest(AbstractifyCBallotToBallot(bal_state_req), AbstractifyCOperationNumberToOperationNumber(opn_state_req))
-    case CMessage_AppStateSupply(bal_state_supply, opn_state_supply, app_state, reply_cache) => RslMessage_AppStateSupply(AbstractifyCBallotToBallot(bal_state_supply), AbstractifyCOperationNumberToOperationNumber(opn_state_supply), AbstractifyCAppStateToAppState(app_state), AbstractifyCReplyCacheToReplyCache(reply_cache))
+    case CMessage_AppStateSupply(bal_state_supply, opn_state_supply, app_state, reply_cache) => RslMessage_AppStateSupply(AbstractifyCBallotToBallot(bal_state_supply), AbstractifyCOperationNumberToOperationNumber(opn_state_supply), AbstractifyCTransferableAppStateToAppState(app_state), AbstractifyCReplyCacheToReplyCache(reply_cache))
     case CMessage_StartingPhase2(bal_2, logTruncationPoint_2) => RslMessage_StartingPhase2(AbstractifyCBallotToBallot(bal_2), AbstractifyCOperationNumberToOperationNumber(logTruncationPoint_2))
 }
 
@@ -342,7 +342,7 @@ predicate OutboundPacketsIsAbstractable(out:OutboundPackets)
 } 
 
 function AbstractifyOutboundCPacketsToSeqOfRslPackets(out:OutboundPackets) : seq<RslPacket>
-    requires OutboundPacketsIsAbstractable(out);
+  requires OutboundPacketsIsAbstractable(out)
 {
   match out
     case Broadcast(broadcast) => AbstractifyCBroadcastToRlsPacketSeq(broadcast)
