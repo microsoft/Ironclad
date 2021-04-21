@@ -79,6 +79,7 @@ class ReplicaImpl
 
   predicate Valid()
     reads this
+    reads this.replica.executor.app
     reads this.cur_req_set
     reads this.prev_req_set
     reads this.reply_cache_mutable
@@ -108,6 +109,7 @@ class ReplicaImpl
 
   function AbstractifyToLReplica() : LReplica
     reads this
+    reads this.replica.executor.app
     requires ReplicaStateIsAbstractable(replica)
   {
     AbstractifyReplicaStateToLReplica(replica)
@@ -115,6 +117,7 @@ class ReplicaImpl
 
   function AbstractifyToLScheduler() : LScheduler
     reads this
+    reads this.replica.executor.app
     requires ReplicaStateIsAbstractable(replica)
   {
     LScheduler(

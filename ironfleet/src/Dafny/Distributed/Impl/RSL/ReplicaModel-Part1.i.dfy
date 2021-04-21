@@ -74,7 +74,8 @@ method ReplicaNextProcessRequestImplCaseUncached(
   requires replica.executor.reply_cache == MutableMap.MapOf(reply_cache_mutable)
   requires inp.src !in MutableMap.MapOf(reply_cache_mutable)
   modifies cur_req_set, prev_req_set, reply_cache_mutable
-  ensures  Replica_Next_Process_Request_Postconditions(replica, replica', inp, packets_sent)
+  ensures  Replica_Next_Process_Request_Postconditions(old(AbstractifyReplicaStateToLReplica(replica)), replica',
+                                                       inp, packets_sent)
   ensures  MutableSet.SetOf(cur_req_set) == replica'.proposer.election_state.cur_req_set
   ensures  MutableSet.SetOf(prev_req_set) == replica'.proposer.election_state.prev_req_set
   ensures  replica'.executor.reply_cache == MutableMap.MapOf(reply_cache_mutable)
@@ -93,7 +94,7 @@ method ReplicaNextProcessRequestImplCaseUncached(
   var notCachedTime := Time.GetDebugTimeTicks();
   //RecordTimingSeq("Replica_Next_Process_Request_isNotCached_ProposerProcessRequest", start_time, notCachedTime);
   assert LProposerProcessRequest(s.proposer, s'.proposer, received_packet);
-  assert Replica_Next_Process_Request_Postconditions(replica, replica', inp, packets_sent);
+  assert Replica_Next_Process_Request_Postconditions(s, replica', inp, packets_sent);
 }
 
 method ReplicaNextProcessRequestImplCaseCachedNonReply(
@@ -116,7 +117,8 @@ method ReplicaNextProcessRequestImplCaseCachedNonReply(
   requires cached_reply == MutableMap.MapOf(reply_cache_mutable)[inp.src]
   requires !cached_reply.CReply?
   modifies cur_req_set, prev_req_set, reply_cache_mutable
-  ensures  Replica_Next_Process_Request_Postconditions(replica, replica', inp, packets_sent)
+  ensures  Replica_Next_Process_Request_Postconditions(old(AbstractifyReplicaStateToLReplica(replica)), replica',
+                                                       inp, packets_sent)
   ensures  MutableSet.SetOf(cur_req_set) == replica'.proposer.election_state.cur_req_set
   ensures  MutableSet.SetOf(prev_req_set) == replica'.proposer.election_state.prev_req_set
   ensures  replica'.executor.reply_cache == MutableMap.MapOf(reply_cache_mutable)
@@ -133,7 +135,7 @@ method ReplicaNextProcessRequestImplCaseCachedNonReply(
   assert OutboundPacketsIsValid(packets_sent);
   var notReplyTime := Time.GetDebugTimeTicks();
   //RecordTimingSeq("Replica_Next_Process_Request_isNotReply_ProposerProcessRequest", start_time, notReplyTime);
-  assert Replica_Next_Process_Request_Postconditions(replica, replica', inp, packets_sent);
+  assert Replica_Next_Process_Request_Postconditions(s, replica', inp, packets_sent);
 }
 
 method ReplicaNextProcessRequestImplCaseCachedOld(
@@ -157,7 +159,8 @@ method ReplicaNextProcessRequestImplCaseCachedOld(
   requires cached_reply.CReply?
   requires inp.msg.seqno > cached_reply.seqno
   modifies cur_req_set, prev_req_set, reply_cache_mutable
-  ensures  Replica_Next_Process_Request_Postconditions(replica, replica', inp, packets_sent)
+  ensures  Replica_Next_Process_Request_Postconditions(old(AbstractifyReplicaStateToLReplica(replica)), replica',
+                                                       inp, packets_sent)
   ensures  MutableSet.SetOf(cur_req_set) == replica'.proposer.election_state.cur_req_set
   ensures  MutableSet.SetOf(prev_req_set) == replica'.proposer.election_state.prev_req_set
   ensures  replica'.executor.reply_cache == MutableMap.MapOf(reply_cache_mutable)
@@ -176,7 +179,7 @@ method ReplicaNextProcessRequestImplCaseCachedOld(
   var seqnoIsBeyondTime := Time.GetDebugTimeTicks();
   //RecordTimingSeq("Replica_Next_Process_Request_seqnoIsBeyond_ProposerProcessRequest", start_time, seqnoIsBeyondTime);
   assert LProposerProcessRequest(AbstractifyReplicaStateToLReplica(replica).proposer, AbstractifyReplicaStateToLReplica(replica').proposer, received_packet);
-  assert Replica_Next_Process_Request_Postconditions(replica, replica', inp, packets_sent);
+  assert Replica_Next_Process_Request_Postconditions(s, replica', inp, packets_sent);
 }
 
 method ReplicaNextProcessRequestImplCaseCachedFresh(
@@ -194,7 +197,8 @@ method ReplicaNextProcessRequestImplCaseCachedFresh(
   requires cached_reply == MutableMap.MapOf(reply_cache_mutable)[inp.src]
   requires cached_reply.CReply?
   requires inp.msg.seqno <= cached_reply.seqno
-  ensures  Replica_Next_Process_Request_Postconditions(replica, replica', inp, packets_sent)
+  ensures  Replica_Next_Process_Request_Postconditions(old(AbstractifyReplicaStateToLReplica(replica)), replica',
+                                                       inp, packets_sent)
   ensures  replica' == replica
 {
   //var start_time := Time.GetDebugTimeTicks();
@@ -208,7 +212,7 @@ method ReplicaNextProcessRequestImplCaseCachedFresh(
   replica' := replica;
   var isCachedTime := Time.GetDebugTimeTicks();
   //RecordTimingSeq("Replica_Next_Process_Request_isCached_ExecutorProcessRequest", start_time, isCachedTime);
-  assert Replica_Next_Process_Request_Postconditions(replica, replica', inp, packets_sent);
+  assert Replica_Next_Process_Request_Postconditions(s, replica', inp, packets_sent);
 }
 
 method Replica_Next_Process_Request(
@@ -227,7 +231,8 @@ method Replica_Next_Process_Request(
   requires MutableSet.SetOf(prev_req_set) == replica.proposer.election_state.prev_req_set
   requires replica.executor.reply_cache == MutableMap.MapOf(reply_cache_mutable)
   modifies cur_req_set, prev_req_set, reply_cache_mutable
-  ensures  Replica_Next_Process_Request_Postconditions(replica, replica', inp, packets_sent)
+  ensures  Replica_Next_Process_Request_Postconditions(old(AbstractifyReplicaStateToLReplica(replica)), replica',
+                                                       inp, packets_sent)
   ensures  MutableSet.SetOf(cur_req_set) == replica'.proposer.election_state.cur_req_set
   ensures  MutableSet.SetOf(prev_req_set) == replica'.proposer.election_state.prev_req_set
   ensures  replica'.executor.reply_cache == MutableMap.MapOf(reply_cache_mutable)
@@ -251,7 +256,7 @@ method Replica_Next_Process_Request(
 }
 method Replica_Next_Process_1a(replica:ReplicaState, inp:CPacket) returns (replica':ReplicaState, packets_sent:OutboundPackets)
   requires Replica_Next_Process_1a_Preconditions(replica, inp)
-  ensures Replica_Next_Process_1a_Postconditions(replica, replica', inp, packets_sent)
+  ensures Replica_Next_Process_1a_Postconditions(old(AbstractifyReplicaStateToLReplica(replica)), replica', inp, packets_sent)
   ensures replica'.proposer.election_state.cur_req_set == replica.proposer.election_state.cur_req_set
   ensures replica'.proposer.election_state.prev_req_set == replica.proposer.election_state.prev_req_set
   ensures  replica'.executor.reply_cache == replica.executor.reply_cache

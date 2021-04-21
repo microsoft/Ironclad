@@ -53,6 +53,7 @@ predicate ExecutorState_IsAbstractable(executor:ExecutorState)
 }
 
 function AbstractifyExecutorStateToLExecutor(executor:ExecutorState) : LExecutor
+  reads executor.app
   requires ExecutorState_IsAbstractable(executor)
 {
   LExecutor(
@@ -65,6 +66,7 @@ function AbstractifyExecutorStateToLExecutor(executor:ExecutorState) : LExecutor
 }
 
 predicate ExecutorState_IsValid(executor:ExecutorState)
+  reads executor.app
 {
   && ExecutorState_IsAbstractable(executor)
   && ReplicaConstantsState_IsValid(executor.constants)
@@ -74,6 +76,7 @@ predicate ExecutorState_IsValid(executor:ExecutorState)
 }
 
 predicate ExecutorState_CommonPreconditions(executor:ExecutorState)
+  reads executor.app
 {
   && ExecutorState_IsValid(executor)
   && ExecutorState_IsAbstractable(executor)    // Can I have this too?

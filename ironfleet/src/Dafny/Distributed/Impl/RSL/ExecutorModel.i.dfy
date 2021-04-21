@@ -589,7 +589,7 @@ method {:timeLimitMultiplier 4} ExecutorExecute(cs:ExecutorState, reply_cache_mu
   ensures  OutboundPacketsHasCorrectSrc(cout, cs.constants.all.config.replica_ids[cs.constants.my_index])
   ensures  OutboundPacketsIsAbstractable(cout)
   ensures  LtUpperBound(AbstractifyExecutorStateToLExecutor(cs).ops_complete, AbstractifyExecutorStateToLExecutor(cs).constants.all.params.max_integer_val)
-  ensures  LExecutorExecute(AbstractifyExecutorStateToLExecutor(cs), AbstractifyExecutorStateToLExecutor(cs'), AbstractifyOutboundCPacketsToSeqOfRslPackets(cout))
+  ensures  LExecutorExecute(old(AbstractifyExecutorStateToLExecutor(cs)), AbstractifyExecutorStateToLExecutor(cs'), AbstractifyOutboundCPacketsToSeqOfRslPackets(cout))
   ensures  cs.constants == cs'.constants
   ensures  cs'.reply_cache == MutableMap.MapOf(reply_cache_mutable)
 {
@@ -646,7 +646,7 @@ method {:timeLimitMultiplier 4} ExecutorExecute(cs:ExecutorState, reply_cache_mu
     |states|-1;
   }
   assert AbstractifyExecutorStateToLExecutor(cs').app == new_state;
-    
+
   var cme := cs.constants.all.config.replica_ids[cs.constants.my_index];
   assert forall r :: r in creplies ==> ValidReply(r) && CReplyIsAbstractable(r);
   assert cme == cs.constants.all.config.replica_ids[cs.constants.my_index];
@@ -669,7 +669,7 @@ method {:timeLimitMultiplier 4} ExecutorExecute(cs:ExecutorState, reply_cache_mu
   assert OutboundPacketsIsValid(cout);
     
   assert OutboundPacketsHasCorrectSrc(cout, cme);
-    
+
   ghost var out := AbstractifyOutboundCPacketsToSeqOfRslPackets(cout);
   ghost var refinedSeq := AbstractifySeqOfCPacketsToSeqOfRslPackets(cout.s);
   assert out == refinedSeq;

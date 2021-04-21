@@ -53,14 +53,13 @@ lemma lemma_ReplicaNoReceiveReadClockNextHelper2(
 }
 
 lemma lemma_RevealQFromReplicaNextMaybeNominateValueAndSend2aPostconditions(
-  replica:ReplicaState,
+  replica:LReplica,
   replica':ReplicaState,
   clock:CClockReading,
   packets_sent:OutboundPackets
   )
-  requires Replica_Next_ReadClock_MaybeNominateValueAndSend2a_Preconditions(replica)
   requires Replica_Next_ReadClock_MaybeNominateValueAndSend2a_Postconditions(replica, replica', clock, packets_sent)
-  ensures  Q_LReplica_Next_ReadClock_MaybeNominateValueAndSend2a(AbstractifyReplicaStateToLReplica(replica), AbstractifyReplicaStateToLReplica(replica'),
+  ensures  Q_LReplica_Next_ReadClock_MaybeNominateValueAndSend2a(replica, AbstractifyReplicaStateToLReplica(replica'),
                                                                  AbstractifyCClockReadingToClockReading(clock), AbstractifyOutboundCPacketsToSeqOfRslPackets(packets_sent))
 {
   reveal Q_LReplica_Next_ReadClock_MaybeNominateValueAndSend2a();
@@ -89,7 +88,7 @@ method {:fuel ReplicaStateIsValid,0,0}{:timeLimitMultiplier 3} ReplicaNoReceiveR
             && RawIoConsistentWithSpecIO(udpEventLog, ios)
             && old(r.Env().udp.history()) + udpEventLog == r.Env().udp.history()
 {
-  ghost var replica_old := r.replica;
+  ghost var replica_old := AbstractifyReplicaStateToLReplica(r.replica);
   var clock,udpEvent0 := ReadClock(r.udpClient);
   ghost var io0 := LIoOpReadClock(clock.t as int);
 
@@ -111,20 +110,19 @@ method {:fuel ReplicaStateIsValid,0,0}{:timeLimitMultiplier 3} ReplicaNoReceiveR
   lemma_ReplicaNoReceiveReadClockNextHelper2(old(r.Env().udp.history()), preDeliveryHistory, r.Env().udp.history(),
                                              log_head, log_tail, udpEventLog);
   lemma_ReplicaNoReceiveReadClockNextHelper(
-            old(r.replica), r.replica, clock, sent_packets, r.nextActionIndex as int,
+            replica_old, r.replica, clock, sent_packets, r.nextActionIndex as int,
             ios, io0, ios_head, ios_tail, 
             udpEvent0, log_head, log_tail, udpEventLog);
 }
 
 lemma lemma_RevealQFromReplicaNextCheckForViewTimeoutPostconditions(
-  replica:ReplicaState,
+  replica:LReplica,
   replica':ReplicaState,
   clock:CClockReading,
   packets_sent:OutboundPackets
   )
-  requires Replica_Next_ReadClock_CheckForViewTimeout_Preconditions(replica)
   requires Replica_Next_ReadClock_CheckForViewTimeout_Postconditions(replica, replica', clock, packets_sent)
-  ensures  Q_LReplica_Next_ReadClock_CheckForViewTimeout(AbstractifyReplicaStateToLReplica(replica), AbstractifyReplicaStateToLReplica(replica'),
+  ensures  Q_LReplica_Next_ReadClock_CheckForViewTimeout(replica, AbstractifyReplicaStateToLReplica(replica'),
                                                          AbstractifyCClockReadingToClockReading(clock), AbstractifyOutboundCPacketsToSeqOfRslPackets(packets_sent))
 {
   reveal Q_LReplica_Next_ReadClock_CheckForViewTimeout();
@@ -153,7 +151,7 @@ method {:fuel ReplicaStateIsValid,0,0}{:timeLimitMultiplier 3} ReplicaNoReceiveR
             && RawIoConsistentWithSpecIO(udpEventLog, ios)
             && old(r.Env().udp.history()) + udpEventLog == r.Env().udp.history()
 {
-  ghost var replica_old := r.replica;
+  ghost var replica_old := AbstractifyReplicaStateToLReplica(r.replica);
   var clock,udpEvent0 := ReadClock(r.udpClient);
   ghost var io0 := LIoOpReadClock(clock.t as int);
 
@@ -175,20 +173,19 @@ method {:fuel ReplicaStateIsValid,0,0}{:timeLimitMultiplier 3} ReplicaNoReceiveR
   lemma_ReplicaNoReceiveReadClockNextHelper2(old(r.Env().udp.history()), preDeliveryHistory, r.Env().udp.history(),
                                              log_head, log_tail, udpEventLog);
   lemma_ReplicaNoReceiveReadClockNextHelper(
-            old(r.replica), r.replica, clock, sent_packets, r.nextActionIndex as int,
+            replica_old, r.replica, clock, sent_packets, r.nextActionIndex as int,
             ios, io0, ios_head, ios_tail, 
             udpEvent0, log_head, log_tail, udpEventLog);
 }
 
 lemma lemma_RevealQFromReplicaNextCheckForQuorumOfViewSuspicionsPostconditions(
-  replica:ReplicaState,
+  replica:LReplica,
   replica':ReplicaState,
   clock:CClockReading,
   packets_sent:OutboundPackets
   )
-  requires Replica_Next_ReadClock_CheckForQuorumOfViewSuspicions_Preconditions(replica)
   requires Replica_Next_ReadClock_CheckForQuorumOfViewSuspicions_Postconditions(replica, replica', clock, packets_sent)
-  ensures  Q_LReplica_Next_ReadClock_CheckForQuorumOfViewSuspicions(AbstractifyReplicaStateToLReplica(replica), AbstractifyReplicaStateToLReplica(replica'),
+  ensures  Q_LReplica_Next_ReadClock_CheckForQuorumOfViewSuspicions(replica, AbstractifyReplicaStateToLReplica(replica'),
                                                                     AbstractifyCClockReadingToClockReading(clock), AbstractifyOutboundCPacketsToSeqOfRslPackets(packets_sent))
 {
   reveal Q_LReplica_Next_ReadClock_CheckForQuorumOfViewSuspicions();
@@ -217,7 +214,7 @@ method {:fuel ReplicaStateIsValid,0,0}{:timeLimitMultiplier 3} ReplicaNoReceiveR
             && RawIoConsistentWithSpecIO(udpEventLog, ios)
             && old(r.Env().udp.history()) + udpEventLog == r.Env().udp.history()
 {
-  ghost var replica_old := r.replica;
+  ghost var replica_old := AbstractifyReplicaStateToLReplica(r.replica);
   var clock,udpEvent0 := ReadClock(r.udpClient);
   ghost var io0 := LIoOpReadClock(clock.t as int);
 
@@ -239,20 +236,19 @@ method {:fuel ReplicaStateIsValid,0,0}{:timeLimitMultiplier 3} ReplicaNoReceiveR
   lemma_ReplicaNoReceiveReadClockNextHelper2(old(r.Env().udp.history()), preDeliveryHistory, r.Env().udp.history(),
                                              log_head, log_tail, udpEventLog);
   lemma_ReplicaNoReceiveReadClockNextHelper(
-            old(r.replica), r.replica, clock, sent_packets, r.nextActionIndex as int,
+            replica_old, r.replica, clock, sent_packets, r.nextActionIndex as int,
             ios, io0, ios_head, ios_tail, 
             udpEvent0, log_head, log_tail, udpEventLog);
 }
 
 lemma lemma_RevealQFromReplicaNextMaybeSendHeartbeatPostconditions(
-  replica:ReplicaState,
+  replica:LReplica,
   replica':ReplicaState,
   clock:CClockReading,
   packets_sent:OutboundPackets
   )
-  requires Replica_Next_ReadClock_MaybeSendHeartbeat_Preconditions(replica)
   requires Replica_Next_ReadClock_MaybeSendHeartbeat_Postconditions(replica, replica', clock, packets_sent)
-  ensures  Q_LReplica_Next_ReadClock_MaybeSendHeartbeat(AbstractifyReplicaStateToLReplica(replica), AbstractifyReplicaStateToLReplica(replica'),
+  ensures  Q_LReplica_Next_ReadClock_MaybeSendHeartbeat(replica, AbstractifyReplicaStateToLReplica(replica'),
                                                         AbstractifyCClockReadingToClockReading(clock), AbstractifyOutboundCPacketsToSeqOfRslPackets(packets_sent))
 {
   reveal Q_LReplica_Next_ReadClock_MaybeSendHeartbeat();
@@ -281,7 +277,7 @@ method {:fuel ReplicaStateIsValid,0,0}{:timeLimitMultiplier 3} ReplicaNoReceiveR
             && RawIoConsistentWithSpecIO(udpEventLog, ios)
             && old(r.Env().udp.history()) + udpEventLog == r.Env().udp.history()
 {
-  ghost var replica_old := r.replica;
+  ghost var replica_old := AbstractifyReplicaStateToLReplica(r.replica);
   var clock,udpEvent0 := ReadClock(r.udpClient);
   ghost var io0 := LIoOpReadClock(clock.t as int);
 
@@ -303,7 +299,7 @@ method {:fuel ReplicaStateIsValid,0,0}{:timeLimitMultiplier 3} ReplicaNoReceiveR
   lemma_ReplicaNoReceiveReadClockNextHelper2(old(r.Env().udp.history()), preDeliveryHistory, r.Env().udp.history(),
                                              log_head, log_tail, udpEventLog);
   lemma_ReplicaNoReceiveReadClockNextHelper(
-            old(r.replica), r.replica, clock, sent_packets, r.nextActionIndex as int,
+            replica_old, r.replica, clock, sent_packets, r.nextActionIndex as int,
             ios, io0, ios_head, ios_tail, 
             udpEvent0, log_head, log_tail, udpEventLog);
 }

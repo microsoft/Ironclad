@@ -267,7 +267,7 @@ lemma lemma_YesWeHaveNoPackets()
 }
 
 lemma {:timeLimitMultiplier 3} lemma_ReplicaNextProcessPacketWithoutReadingClockHelper(
-  replica:ReplicaState, replica':ReplicaState, cpacket:CPacket, sent_packets:OutboundPackets,
+  replica:LReplica, replica':ReplicaState, cpacket:CPacket, sent_packets:OutboundPackets,
   ios:seq<RslIo>, io0:RslIo, ios_head:seq<RslIo>, ios_tail:seq<RslIo>, 
   udpEvent0:UdpEvent, log_head:seq<UdpEvent>, log_tail:seq<UdpEvent>, udpEventLog:seq<UdpEvent>)
   // From Receive:
@@ -279,7 +279,7 @@ lemma {:timeLimitMultiplier 3} lemma_ReplicaNextProcessPacketWithoutReadingClock
 
   // From downcalls:
   requires ReplicaCommonPostconditions(replica, replica', sent_packets)
-  requires Establish_Q_LReplica_Next_ProcessPacketWithoutReadingClock_preconditions(AbstractifyReplicaStateToLReplica(replica), AbstractifyReplicaStateToLReplica(replica'), AbstractifyCPacketToRslPacket(cpacket), AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets), ios)
+  requires Establish_Q_LReplica_Next_ProcessPacketWithoutReadingClock_preconditions(replica, AbstractifyReplicaStateToLReplica(replica'), AbstractifyCPacketToRslPacket(cpacket), AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets), ios)
 
   // From DeliverOutboundPackets:
   requires AllIosAreSends(ios_tail)
@@ -294,7 +294,7 @@ lemma {:timeLimitMultiplier 3} lemma_ReplicaNextProcessPacketWithoutReadingClock
 //  ensures AllIosAreSends(ios);  // bad idea
   //ensures Establish_Q_LReplica_NoReceive_Next_preconditions(replica, replica', clock, sent_packets, nextActionIndex, ios);
   ensures RawIoConsistentWithSpecIO(udpEventLog, ios)
-  ensures Q_LReplica_Next_ProcessPacketWithoutReadingClock(AbstractifyReplicaStateToLReplica(replica), AbstractifyReplicaStateToLReplica(replica'), ios)
+  ensures Q_LReplica_Next_ProcessPacketWithoutReadingClock(replica, AbstractifyReplicaStateToLReplica(replica'), ios)
   ensures RawIoConsistentWithSpecIO(udpEventLog, ios)
   ensures forall io :: io in ios[1..] ==> io.LIoOpSend?
 {
@@ -330,7 +330,7 @@ lemma {:timeLimitMultiplier 3} lemma_ReplicaNextProcessPacketWithoutReadingClock
 
   lemma_ExtractSentPacketsFromIosDoesNotMindSomeClutter(ios_head, ios_tail);
 
-  lemma_EstablishQLReplicaNextProcessPacketWithoutReadingClock(AbstractifyReplicaStateToLReplica(replica), AbstractifyReplicaStateToLReplica(replica'), AbstractifyCPacketToRslPacket(cpacket), AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets), ios);
+  lemma_EstablishQLReplicaNextProcessPacketWithoutReadingClock(replica, AbstractifyReplicaStateToLReplica(replica'), AbstractifyCPacketToRslPacket(cpacket), AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets), ios);
   assert RawIoConsistentWithSpecIO(udpEventLog, ios);
 }
     
@@ -356,7 +356,7 @@ lemma lemma_UdpEventLogIsAbstractableExtend(log_head:seq<UdpEvent>, log_tail:seq
 }
 
 lemma lemma_ReplicaNoReceiveReadClockNextHelper(
-  replica:ReplicaState, replica':ReplicaState, clock:CClockReading, sent_packets:OutboundPackets, nextActionIndex:int,
+  replica:LReplica, replica':ReplicaState, clock:CClockReading, sent_packets:OutboundPackets, nextActionIndex:int,
   ios:seq<RslIo>, io0:RslIo, ios_head:seq<RslIo>, ios_tail:seq<RslIo>, 
   udpEvent0:UdpEvent, log_head:seq<UdpEvent>, log_tail:seq<UdpEvent>, udpEventLog:seq<UdpEvent>)
   // From ReadClock:
@@ -368,15 +368,14 @@ lemma lemma_ReplicaNoReceiveReadClockNextHelper(
   // From downcalls:
   requires ReplicaCommonPostconditions(replica, replica', sent_packets)
   requires
-        var lreplica  := AbstractifyReplicaStateToLReplica(replica);
         var lreplica' := AbstractifyReplicaStateToLReplica(replica');
         var lclock := AbstractifyCClockReadingToClockReading(clock);
         var lsent_packets := AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets);
         && (nextActionIndex == 3 || 7 <= nextActionIndex <= 9)
-        && (nextActionIndex==3 ==> Q_LReplica_Next_ReadClock_MaybeNominateValueAndSend2a(lreplica, lreplica', lclock, lsent_packets))
-        && (nextActionIndex==7 ==> Q_LReplica_Next_ReadClock_CheckForViewTimeout(lreplica, lreplica', lclock, lsent_packets))
-        && (nextActionIndex==8 ==> Q_LReplica_Next_ReadClock_CheckForQuorumOfViewSuspicions(lreplica, lreplica', lclock, lsent_packets))
-        && (nextActionIndex==9 ==> Q_LReplica_Next_ReadClock_MaybeSendHeartbeat(lreplica, lreplica', lclock, lsent_packets))
+        && (nextActionIndex==3 ==> Q_LReplica_Next_ReadClock_MaybeNominateValueAndSend2a(replica, lreplica', lclock, lsent_packets))
+        && (nextActionIndex==7 ==> Q_LReplica_Next_ReadClock_CheckForViewTimeout(replica, lreplica', lclock, lsent_packets))
+        && (nextActionIndex==8 ==> Q_LReplica_Next_ReadClock_CheckForQuorumOfViewSuspicions(replica, lreplica', lclock, lsent_packets))
+        && (nextActionIndex==9 ==> Q_LReplica_Next_ReadClock_MaybeSendHeartbeat(replica, lreplica', lclock, lsent_packets))
 
   // From DeliverOutboundPackets:
   requires AllIosAreSends(ios_tail)
@@ -391,10 +390,9 @@ lemma lemma_ReplicaNoReceiveReadClockNextHelper(
 //  ensures AllIosAreSends(ios);  // bad idea
   //ensures Establish_Q_LReplica_NoReceive_Next_preconditions(replica, replica', clock, sent_packets, nextActionIndex, ios);
   ensures RawIoConsistentWithSpecIO(udpEventLog, ios)
-  ensures Q_LReplica_NoReceive_Next(AbstractifyReplicaStateToLReplica(replica), nextActionIndex as int, AbstractifyReplicaStateToLReplica(replica'), ios)
+  ensures Q_LReplica_NoReceive_Next(replica, nextActionIndex as int, AbstractifyReplicaStateToLReplica(replica'), ios)
   ensures forall io :: io in ios[1..] ==> io.LIoOpSend?
 {
-  var lreplica  := AbstractifyReplicaStateToLReplica(replica);
   var lreplica' := AbstractifyReplicaStateToLReplica(replica');
   var lclock := AbstractifyCClockReadingToClockReading(clock);
   var lsent_packets := AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets);
@@ -435,7 +433,7 @@ lemma lemma_ReplicaNoReceiveReadClockNextHelper(
   assert AbstractifyCClockReadingToClockReading(clock) == ClockReading(ios[0].t);
   assert AbstractifyCClockReadingToClockReading(clock) == SpontaneousClock(ios);
 
-  lemma_EstablishQLReplicaNoReceiveNextFromReadClock(lreplica, lreplica', lclock, lsent_packets, nextActionIndex as int, ios);
+  lemma_EstablishQLReplicaNoReceiveNextFromReadClock(replica, lreplica', lclock, lsent_packets, nextActionIndex as int, ios);
 }
 
 lemma lemma_SingletonSeqPrependSilly<T>(log_head:seq<T>, log_tail:seq<T>, log:seq<T>)

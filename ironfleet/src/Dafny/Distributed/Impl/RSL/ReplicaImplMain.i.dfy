@@ -112,7 +112,7 @@ method ReplicaNextMainNoClock(r:ReplicaImpl)
   returns (ok:bool, ghost udpEventLog:seq<UdpEvent>, ghost ios:seq<RslIo>)
   requires r.Valid()
   requires r.nextActionIndex == 1 || r.nextActionIndex == 2 || r.nextActionIndex == 4 || r.nextActionIndex == 5 || r.nextActionIndex == 6
-  modifies r.Repr, r.cur_req_set, r.prev_req_set, r.reply_cache_mutable
+  modifies r.replica.executor.app, r.Repr, r.cur_req_set, r.prev_req_set, r.reply_cache_mutable
   ensures r.Repr == old(r.Repr)
   ensures r.udpClient != null
   ensures r.Env().Valid() && r.Env().ok.ok() ==> ok
@@ -224,7 +224,7 @@ method ReplicaNextMainReadClock(r:ReplicaImpl)
 method Replica_Next_main(r:ReplicaImpl)
   returns (ok:bool, ghost udpEventLog:seq<UdpEvent>, ghost ios:seq<RslIo>)
   requires r.Valid()
-  modifies r.Repr, r.cur_req_set, r.prev_req_set, r.reply_cache_mutable
+  modifies r.replica.executor.app, r.Repr, r.cur_req_set, r.prev_req_set, r.reply_cache_mutable
   ensures r.Repr == old(r.Repr)
   ensures r.udpClient != null
   ensures r.Env().Valid() && r.Env().ok.ok() ==> ok

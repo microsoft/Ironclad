@@ -1200,7 +1200,22 @@ method MarshallUint64(n:uint64, data:array<byte>, index:uint64)
   ensures  forall i :: (index as int) + (Uint64Size() as int) <= i < data.Length ==> data[i] == old(data[i])
 {
   MarshallUint64_guts(n, data, index);
-  var tuple := parse_Uint64(data[index .. ]);
+  calc {
+    parse_Uint64(data[index .. index+Uint64Size()]).0.v.u;
+    (Some(VUint64(SeqByteToUint64(data[index .. index+Uint64Size()][..Uint64Size()]))), data[Uint64Size()..]).0.v.u;
+    SeqByteToUint64(data[index .. index+Uint64Size()][..Uint64Size()]);
+    SeqByteToUint64(data[index .. index+Uint64Size()]);
+    SeqByteToUint64(data[index .. index+(Uint64Size() as uint64)]);
+    n;
+  }
+  calc {
+    parse_Uint64(data[index..]).0.v.u;
+    (Some(VUint64(SeqByteToUint64(data[index..][..Uint64Size()]))), data[Uint64Size()..]).0.v.u;
+    SeqByteToUint64(data[index..][..Uint64Size()]);
+    SeqByteToUint64(data[index .. index+Uint64Size()]);
+    SeqByteToUint64(data[index .. index+(Uint64Size() as uint64)]);
+    n;
+  }
 }
 
 lemma lemma_marshall_array_contents(contents:seq<V>, eltType:G, marshalled_bytes:seq<byte>, trace:seq<seq<byte>>)

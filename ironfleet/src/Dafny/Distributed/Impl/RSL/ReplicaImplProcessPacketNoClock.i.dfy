@@ -14,6 +14,7 @@ import opened Native__Io_s
 import opened Native__NativeTypes_s
 import opened Collections__Seqs_i
 import opened Math__mod_auto_i
+import opened LiveRSL__AppInterface_i
 import opened LiveRSL__CClockReading_i
 import opened LiveRSL__CMessage_i
 import opened LiveRSL__CMessageRefinements_i
@@ -22,6 +23,7 @@ import opened LiveRSL__Environment_i
 import opened LiveRSL__PacketParsing_i
 import opened LiveRSL__QRelations_i
 import opened LiveRSL__Replica_i
+import opened LiveRSL__ReplicaConstantsState_i
 import opened LiveRSL__ReplicaImplLemmas_i
 import opened LiveRSL__ReplicaImplClass_i
 import opened LiveRSL__ReplicaImplDelivery_i
@@ -128,7 +130,7 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
   ensures  OnlySentMarshallableData(udpEventLog)
 {
   //print ("Replica_Next_ProcessPacketWithoutReadingClock_body: Enter\n"); 
-  ghost var replica_old := r.replica;
+  ghost var replica_old := AbstractifyReplicaStateToLReplica(r.replica);
   ghost var rreplica := AbstractifyReplicaStateToLReplica(r.replica);
   ghost var lpacket := AbstractifyCPacketToRslPacket(cpacket);
   //print ("Replica_Next_ProcessPacketWithoutReadingClock_body: Processing a CMessage_Invalid\n");
@@ -151,14 +153,13 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
 }
 
 lemma lemma_RevealQFromReplicaNextProcessRequestPostconditions(
-  replica:ReplicaState,
+  replica:LReplica,
   replica':ReplicaState,
   inp:CPacket,
   packets_sent:OutboundPackets
   )
-  requires Replica_Next_Process_Request_Preconditions(replica, inp)
   requires Replica_Next_Process_Request_Postconditions(replica, replica', inp, packets_sent)
-  ensures  Q_LReplica_Next_Process_Request(AbstractifyReplicaStateToLReplica(replica), AbstractifyReplicaStateToLReplica(replica'),
+  ensures  Q_LReplica_Next_Process_Request(replica, AbstractifyReplicaStateToLReplica(replica'),
                                            AbstractifyCPacketToRslPacket(inp), AbstractifyOutboundCPacketsToSeqOfRslPackets(packets_sent));
 {
   reveal Q_LReplica_Next_Process_Request();
@@ -207,8 +208,7 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
     print("\n");
   }
   //print ("Replica_Next_ProcessPacketWithoutReadingClock_body: Enter\n"); 
-  ghost var replica_old := r.replica;
-  ghost var rreplica := AbstractifyReplicaStateToLReplica(r.replica);
+  ghost var replica_old := AbstractifyReplicaStateToLReplica(r.replica);
   ghost var lpacket := AbstractifyCPacketToRslPacket(cpacket);
   //print ("Replica_Next_ProcessPacketWithoutReadingClock_body: Processing a CMessage_Request\n");
 
@@ -238,20 +238,19 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
                                                                               old_udp_history, old(r.Env().udp.history()),
                                                                               r.Env().udp.history(),
                                                                               receive_event, send_events, receive_io, send_ios);
-  lemma_EstablishQLReplicaNextProcessPacketWithoutReadingClock(rreplica, AbstractifyReplicaStateToLReplica(r.replica),
+  lemma_EstablishQLReplicaNextProcessPacketWithoutReadingClock(replica_old, AbstractifyReplicaStateToLReplica(r.replica),
                                                                lpacket, AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets), ios);
   //print ("Replica_Next_ProcessPacketWithoutReadingClock_body: Exit\n");
 }
 
 lemma lemma_RevealQFromReplicaNextProcess1aPostconditions(
-  replica:ReplicaState,
+  replica:LReplica,
   replica':ReplicaState,
   inp:CPacket,
   packets_sent:OutboundPackets
   )
-  requires Replica_Next_Process_1a_Preconditions(replica, inp)
   requires Replica_Next_Process_1a_Postconditions(replica, replica', inp, packets_sent)
-  ensures  Q_LReplica_Next_Process_1a(AbstractifyReplicaStateToLReplica(replica), AbstractifyReplicaStateToLReplica(replica'),
+  ensures  Q_LReplica_Next_Process_1a(replica, AbstractifyReplicaStateToLReplica(replica'),
                                       AbstractifyCPacketToRslPacket(inp), AbstractifyOutboundCPacketsToSeqOfRslPackets(packets_sent));
 {
   reveal Q_LReplica_Next_Process_1a();
@@ -291,8 +290,7 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
             && old_udp_history + udpEventLog == r.Env().udp.history()
 {
   //print ("Replica_Next_ProcessPacketWithoutReadingClock_body: Enter\n"); 
-  ghost var replica_old := r.replica;
-  ghost var rreplica := AbstractifyReplicaStateToLReplica(r.replica);
+  ghost var replica_old := AbstractifyReplicaStateToLReplica(r.replica);
   ghost var lpacket := AbstractifyCPacketToRslPacket(cpacket);
   //print ("Replica_Next_ProcessPacketWithoutReadingClock_body: Processing a CMessage_1a\n");
 
@@ -322,20 +320,19 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
                                                                               old_udp_history, old(r.Env().udp.history()),
                                                                               r.Env().udp.history(),
                                                                               receive_event, send_events, receive_io, send_ios);
-  lemma_EstablishQLReplicaNextProcessPacketWithoutReadingClock(rreplica, AbstractifyReplicaStateToLReplica(r.replica),
+  lemma_EstablishQLReplicaNextProcessPacketWithoutReadingClock(replica_old, AbstractifyReplicaStateToLReplica(r.replica),
                                                                lpacket, AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets), ios);
   //print ("Replica_Next_ProcessPacketWithoutReadingClock_body: Exit\n");
 }
 
 lemma lemma_RevealQFromReplicaNextProcess1bPostconditions(
-  replica:ReplicaState,
+  replica:LReplica,
   replica':ReplicaState,
   inp:CPacket,
   packets_sent:OutboundPackets
   )
-  requires Replica_Next_Process_1b_Preconditions(replica, inp)
   requires Replica_Next_Process_1b_Postconditions(replica, replica', inp, packets_sent)
-  ensures  Q_LReplica_Next_Process_1b(AbstractifyReplicaStateToLReplica(replica), AbstractifyReplicaStateToLReplica(replica'),
+  ensures  Q_LReplica_Next_Process_1b(replica, AbstractifyReplicaStateToLReplica(replica'),
                                       AbstractifyCPacketToRslPacket(inp), AbstractifyOutboundCPacketsToSeqOfRslPackets(packets_sent));
 {
   reveal Q_LReplica_Next_Process_1b();
@@ -375,8 +372,7 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
             && old_udp_history + udpEventLog == r.Env().udp.history()
 {
   //print ("Replica_Next_ProcessPacketWithoutReadingClock_body: Enter\n"); 
-  ghost var replica_old := r.replica;
-  ghost var rreplica := AbstractifyReplicaStateToLReplica(r.replica);
+  ghost var replica_old := AbstractifyReplicaStateToLReplica(r.replica);
   ghost var lpacket := AbstractifyCPacketToRslPacket(cpacket);
   //print ("Replica_Next_ProcessPacketWithoutReadingClock_body: Processing a CMessage_1b\n");
 
@@ -406,20 +402,19 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
                                                                               old_udp_history, old(r.Env().udp.history()),
                                                                               r.Env().udp.history(),
                                                                               receive_event, send_events, receive_io, send_ios);
-  lemma_EstablishQLReplicaNextProcessPacketWithoutReadingClock(rreplica, AbstractifyReplicaStateToLReplica(r.replica),
+  lemma_EstablishQLReplicaNextProcessPacketWithoutReadingClock(replica_old, AbstractifyReplicaStateToLReplica(r.replica),
                                                                lpacket, AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets), ios);
   //print ("Replica_Next_ProcessPacketWithoutReadingClock_body: Exit\n");
 }
 
 lemma lemma_RevealQFromReplicaNextProcessStartingPhase2Postconditions(
-  replica:ReplicaState,
+  replica:LReplica,
   replica':ReplicaState,
   inp:CPacket,
   packets_sent:OutboundPackets
   )
-  requires Replica_Next_Process_StartingPhase2_Preconditions(replica, inp)
   requires Replica_Next_Process_StartingPhase2_Postconditions(replica, replica', inp, packets_sent)
-  ensures  Q_LReplica_Next_Process_StartingPhase2(AbstractifyReplicaStateToLReplica(replica), AbstractifyReplicaStateToLReplica(replica'),
+  ensures  Q_LReplica_Next_Process_StartingPhase2(replica, AbstractifyReplicaStateToLReplica(replica'),
                                                   AbstractifyCPacketToRslPacket(inp), AbstractifyOutboundCPacketsToSeqOfRslPackets(packets_sent))
 {
   reveal Q_LReplica_Next_Process_StartingPhase2();
@@ -458,8 +453,7 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
             && old_udp_history + udpEventLog == r.Env().udp.history()
 {
   //print ("Replica_Next_ProcessPacketWithoutReadingClock_body: Enter\n"); 
-  ghost var replica_old := r.replica;
-  ghost var rreplica := AbstractifyReplicaStateToLReplica(r.replica);
+  ghost var replica_old := AbstractifyReplicaStateToLReplica(r.replica);
   ghost var lpacket := AbstractifyCPacketToRslPacket(cpacket);
   //print ("Replica_Next_ProcessPacketWithoutReadingClock_body: Processing a CMessage_StartingPhase2\n");
 
@@ -489,20 +483,19 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
                                                                               old_udp_history, old(r.Env().udp.history()),
                                                                               r.Env().udp.history(),
                                                                               receive_event, send_events, receive_io, send_ios);
-  lemma_EstablishQLReplicaNextProcessPacketWithoutReadingClock(rreplica, AbstractifyReplicaStateToLReplica(r.replica),
+  lemma_EstablishQLReplicaNextProcessPacketWithoutReadingClock(replica_old, AbstractifyReplicaStateToLReplica(r.replica),
                                                                lpacket, AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets), ios);
   //print ("Replica_Next_ProcessPacketWithoutReadingClock_body: Exit\n");
 }
 
 lemma lemma_RevealQFromReplicaNextProcess2aPostconditions(
-  replica:ReplicaState,
+  replica:LReplica,
   replica':ReplicaState,
   inp:CPacket,
   packets_sent:OutboundPackets
   )
-  requires Replica_Next_Process_2a_Preconditions(replica, inp)
   requires Replica_Next_Process_2a_Postconditions(replica, replica', inp, packets_sent)
-  ensures  Q_LReplica_Next_Process_2a(AbstractifyReplicaStateToLReplica(replica), AbstractifyReplicaStateToLReplica(replica'),
+  ensures  Q_LReplica_Next_Process_2a(replica, AbstractifyReplicaStateToLReplica(replica'),
                                       AbstractifyCPacketToRslPacket(inp), AbstractifyOutboundCPacketsToSeqOfRslPackets(packets_sent));
 {
   reveal Q_LReplica_Next_Process_2a();
@@ -542,8 +535,7 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
             && old_udp_history + udpEventLog == r.Env().udp.history()
 {
   //print ("Replica_Next_ProcessPacketWithoutReadingClock_body: Enter\n"); 
-  ghost var replica_old := r.replica;
-  ghost var rreplica := AbstractifyReplicaStateToLReplica(r.replica);
+  ghost var replica_old := AbstractifyReplicaStateToLReplica(r.replica);
   ghost var lpacket := AbstractifyCPacketToRslPacket(cpacket);
   //print ("Replica_Next_ProcessPacketWithoutReadingClock_body: Processing a CMessage_2a\n");
 
@@ -573,20 +565,19 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
                                                                               old_udp_history, old(r.Env().udp.history()),
                                                                               r.Env().udp.history(),
                                                                               receive_event, send_events, receive_io, send_ios);
-  lemma_EstablishQLReplicaNextProcessPacketWithoutReadingClock(rreplica, AbstractifyReplicaStateToLReplica(r.replica),
+  lemma_EstablishQLReplicaNextProcessPacketWithoutReadingClock(replica_old, AbstractifyReplicaStateToLReplica(r.replica),
                                                                lpacket, AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets), ios);
   //print ("Replica_Next_ProcessPacketWithoutReadingClock_body: Exit\n");
 }
 
 lemma lemma_RevealQFromReplicaNextProcess2bPostconditions(
-  replica:ReplicaState,
+  replica:LReplica,
   replica':ReplicaState,
   inp:CPacket,
   packets_sent:OutboundPackets
   )
-  requires Replica_Next_Process_2b_Preconditions(replica, inp)
   requires Replica_Next_Process_2b_Postconditions(replica, replica', inp, packets_sent)
-  ensures  Q_LReplica_Next_Process_2b(AbstractifyReplicaStateToLReplica(replica), AbstractifyReplicaStateToLReplica(replica'),
+  ensures  Q_LReplica_Next_Process_2b(replica, AbstractifyReplicaStateToLReplica(replica'),
                                       AbstractifyCPacketToRslPacket(inp), AbstractifyOutboundCPacketsToSeqOfRslPackets(packets_sent));
 {
   reveal Q_LReplica_Next_Process_2b();
@@ -626,8 +617,7 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
             && old_udp_history + udpEventLog == r.Env().udp.history()
 {
   //print ("Replica_Next_ProcessPacketWithoutReadingClock_body: Enter\n"); 
-  ghost var replica_old := r.replica;
-  ghost var rreplica := AbstractifyReplicaStateToLReplica(r.replica);
+  ghost var replica_old := AbstractifyReplicaStateToLReplica(r.replica);
   ghost var lpacket := AbstractifyCPacketToRslPacket(cpacket);
   //print ("Replica_Next_ProcessPacketWithoutReadingClock_body: Processing a CMessage_2b\n");
 
@@ -657,7 +647,7 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
                                                                               old_udp_history, old(r.Env().udp.history()),
                                                                               r.Env().udp.history(),
                                                                               receive_event, send_events, receive_io, send_ios);
-  lemma_EstablishQLReplicaNextProcessPacketWithoutReadingClock(rreplica, AbstractifyReplicaStateToLReplica(r.replica),
+  lemma_EstablishQLReplicaNextProcessPacketWithoutReadingClock(replica_old, AbstractifyReplicaStateToLReplica(r.replica),
                                                                lpacket, AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets), ios);
   //print ("Replica_Next_ProcessPacketWithoutReadingClock_body: Exit\n");
 }
@@ -685,15 +675,14 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
   ensures  old_udp_history + udpEventLog == r.Env().udp.history()
 {
   //print ("Replica_Next_ProcessPacketWithoutReadingClock_body: Enter\n"); 
-  ghost var replica_old := r.replica;
-  ghost var rreplica := AbstractifyReplicaStateToLReplica(r.replica);
+  ghost var replica_old := AbstractifyReplicaStateToLReplica(r.replica);
   ghost var lpacket := AbstractifyCPacketToRslPacket(cpacket);
   //print ("Replica_Next_ProcessPacketWithoutReadingClock_body: Processing a CMessage_Reply\n");
 
   var sent_packets := Broadcast(CBroadcastNop);
   lemma_YesWeHaveNoPackets();
   reveal Q_LReplica_Next_Process_Reply();
-  assert Q_LReplica_Next_Process_Reply(rreplica, r.AbstractifyToLReplica(), lpacket, AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets));
+  assert Q_LReplica_Next_Process_Reply(replica_old, r.AbstractifyToLReplica(), lpacket, AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets));
 
   ghost var send_events := [];
   ghost var send_ios := [];
@@ -708,20 +697,19 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
                                                                               old_udp_history, old(r.Env().udp.history()),
                                                                               r.Env().udp.history(),
                                                                               receive_event, send_events, receive_io, send_ios);
-  lemma_EstablishQLReplicaNextProcessPacketWithoutReadingClock(rreplica, AbstractifyReplicaStateToLReplica(r.replica),
+  lemma_EstablishQLReplicaNextProcessPacketWithoutReadingClock(replica_old, AbstractifyReplicaStateToLReplica(r.replica),
                                                                lpacket, AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets), ios);
   //print ("Replica_Next_ProcessPacketWithoutReadingClock_body: Exit\n");
 }
 
 lemma lemma_RevealQFromReplicaNextProcessAppStateRequestPostconditions(
-  replica:ReplicaState,
+  replica:LReplica,
   replica':ReplicaState,
   inp:CPacket,
   packets_sent:OutboundPackets
   )
-  requires Replica_Next_Process_AppStateRequest_Preconditions(replica, inp)
   requires Replica_Next_Process_AppStateRequest_Postconditions(replica, replica', inp, packets_sent)
-  ensures  Q_LReplica_Next_Process_AppStateRequest(AbstractifyReplicaStateToLReplica(replica), AbstractifyReplicaStateToLReplica(replica'),
+  ensures  Q_LReplica_Next_Process_AppStateRequest(replica, AbstractifyReplicaStateToLReplica(replica'),
                                                    AbstractifyCPacketToRslPacket(inp), AbstractifyOutboundCPacketsToSeqOfRslPackets(packets_sent))
 {
   reveal Q_LReplica_Next_Process_AppStateRequest();
@@ -744,6 +732,7 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
   requires r.ReceivedPacketProperties(cpacket, receive_event, receive_io)
   requires cpacket.msg.CMessage_AppStateRequest?
   requires LReplica_Next_ProcessPacketWithoutReadingClock_preconditions([receive_io])
+  requires AppStateMarshallable(r.replica.executor.app)
   modifies r.Repr, r.reply_cache_mutable
   ensures r.Repr==old(r.Repr)
   ensures r.udpClient != null
@@ -760,8 +749,7 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
             && old_udp_history + udpEventLog == r.Env().udp.history()
 {
   //print ("Replica_Next_ProcessPacketWithoutReadingClock_body: Enter\n"); 
-  ghost var replica_old := r.replica;
-  ghost var rreplica := AbstractifyReplicaStateToLReplica(r.replica);
+  ghost var replica_old := AbstractifyReplicaStateToLReplica(r.replica);
   ghost var lpacket := AbstractifyCPacketToRslPacket(cpacket);
   //print ("Replica_Next_ProcessPacketWithoutReadingClock_body: Processing a CMessage_AppStateRequest\n");
 
@@ -791,20 +779,19 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
                                                                               old_udp_history, old(r.Env().udp.history()),
                                                                               r.Env().udp.history(),
                                                                               receive_event, send_events, receive_io, send_ios);
-  lemma_EstablishQLReplicaNextProcessPacketWithoutReadingClock(rreplica, AbstractifyReplicaStateToLReplica(r.replica),
+  lemma_EstablishQLReplicaNextProcessPacketWithoutReadingClock(replica_old, AbstractifyReplicaStateToLReplica(r.replica),
                                                                lpacket, AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets), ios);
   //print ("Replica_Next_ProcessPacketWithoutReadingClock_body: Exit\n");
 }
 
 lemma lemma_RevealQFromReplicaNextProcessAppStateSupplyPostconditions(
-  replica:ReplicaState,
+  replica:LReplica,
   replica':ReplicaState,
   inp:CPacket,
   packets_sent:OutboundPackets
   )
-  requires Replica_Next_Process_AppStateSupply_Preconditions(replica, inp)
   requires Replica_Next_Process_AppStateSupply_Postconditions(replica, replica', inp, packets_sent)
-  ensures  Q_LReplica_Next_Process_AppStateSupply(AbstractifyReplicaStateToLReplica(replica), AbstractifyReplicaStateToLReplica(replica'),
+  ensures  Q_LReplica_Next_Process_AppStateSupply(replica, AbstractifyReplicaStateToLReplica(replica'),
                                                   AbstractifyCPacketToRslPacket(inp), AbstractifyOutboundCPacketsToSeqOfRslPackets(packets_sent))
 {
   reveal Q_LReplica_Next_Process_AppStateSupply();
@@ -844,8 +831,7 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
             && old_udp_history + udpEventLog == r.Env().udp.history()
 {
   //print ("Replica_Next_ProcessPacketWithoutReadingClock_body: Enter\n"); 
-  ghost var replica_old := r.replica;
-  ghost var rreplica := AbstractifyReplicaStateToLReplica(r.replica);
+  ghost var replica_old := AbstractifyReplicaStateToLReplica(r.replica);
   ghost var lpacket := AbstractifyCPacketToRslPacket(cpacket);
   //print ("Replica_Next_ProcessPacketWithoutReadingClock_body: Processing a CMessage_AppStateSupply\n");
 
@@ -879,7 +865,7 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
                                                                               r.Env().udp.history(),
                                                                               receive_event, send_events, receive_io, send_ios);
 
-  lemma_EstablishQLReplicaNextProcessPacketWithoutReadingClock(rreplica, AbstractifyReplicaStateToLReplica(r.replica),
+  lemma_EstablishQLReplicaNextProcessPacketWithoutReadingClock(replica_old, AbstractifyReplicaStateToLReplica(r.replica),
                                                                lpacket, AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets), ios);
   //print ("Replica_Next_ProcessPacketWithoutReadingClock_body: Exit\n");
 }
@@ -901,6 +887,7 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
   requires r.ReceivedPacketProperties(cpacket, receive_event, receive_io)
   requires NoClockMessage(cpacket.msg)
   requires LReplica_Next_ProcessPacketWithoutReadingClock_preconditions([receive_io])
+  requires cpacket.msg.CMessage_AppStateRequest? ==> Replica_Next_Process_AppStateRequest_Preconditions(r.replica,cpacket)
   requires cpacket.msg.CMessage_AppStateSupply? ==> Replica_Next_Process_AppStateSupply_Preconditions(r.replica,cpacket)
   requires cpacket.msg.CMessage_2b? ==> Replica_Next_Process_2b_Preconditions(r.replica,cpacket)
   requires cpacket.msg.CMessage_2a? ==> Replica_Next_Process_2a_Preconditions(r.replica,cpacket)

@@ -43,7 +43,8 @@ method Replica_Next_Process_AppStateRequest(
   )
   requires Replica_Next_Process_AppStateRequest_Preconditions(replica, inp)
   requires replica.executor.reply_cache == MutableMap.MapOf(reply_cache_mutable)
-  ensures  Replica_Next_Process_AppStateRequest_Postconditions(replica, replica', inp, packets_sent)
+  ensures  Replica_Next_Process_AppStateRequest_Postconditions(old(AbstractifyReplicaStateToLReplica(replica)), replica',
+                                                               inp, packets_sent)
   ensures  replica'.proposer.election_state.cur_req_set == replica.proposer.election_state.cur_req_set
   ensures  replica'.proposer.election_state.prev_req_set == replica.proposer.election_state.prev_req_set
   ensures  replica'.executor == replica.executor
@@ -80,7 +81,8 @@ method Replica_Next_Process_Heartbeat(
   requires MutableSet.SetOf(cur_req_set) == replica.proposer.election_state.cur_req_set
   requires MutableSet.SetOf(prev_req_set) == replica.proposer.election_state.prev_req_set
   modifies cur_req_set, prev_req_set
-  ensures  Replica_Next_Process_Heartbeat_Postconditions(replica, replica', inp, clock, packets_sent)
+  ensures  Replica_Next_Process_Heartbeat_Postconditions(old(AbstractifyReplicaStateToLReplica(replica)), replica',
+                                                         inp, clock, packets_sent)
   ensures  MutableSet.SetOf(cur_req_set) == replica'.proposer.election_state.cur_req_set
   ensures  MutableSet.SetOf(prev_req_set) == replica'.proposer.election_state.prev_req_set
   ensures  replica'.executor.reply_cache == replica.executor.reply_cache
@@ -119,7 +121,8 @@ method {:timeLimitMultiplier 2} Replica_Next_ReadClock_CheckForViewTimeout(
   requires MutableSet.SetOf(cur_req_set) == replica.proposer.election_state.cur_req_set
   requires MutableSet.SetOf(prev_req_set) == replica.proposer.election_state.prev_req_set
   modifies cur_req_set, prev_req_set
-  ensures  Replica_Next_ReadClock_CheckForViewTimeout_Postconditions(replica, replica', clock, packets_sent)
+  ensures  Replica_Next_ReadClock_CheckForViewTimeout_Postconditions(old(AbstractifyReplicaStateToLReplica(replica)),
+                                                                     replica', clock, packets_sent)
   ensures  MutableSet.SetOf(cur_req_set) == replica'.proposer.election_state.cur_req_set
   ensures  MutableSet.SetOf(prev_req_set) == replica'.proposer.election_state.prev_req_set
   ensures  replica'.executor.reply_cache == replica.executor.reply_cache
@@ -155,7 +158,8 @@ method {:timeLimitMultiplier 2} Replica_Next_ReadClock_CheckForQuorumOfViewSuspi
   requires MutableSet.SetOf(cur_req_set) == replica.proposer.election_state.cur_req_set
   requires MutableSet.SetOf(prev_req_set) == replica.proposer.election_state.prev_req_set
   modifies cur_req_set, prev_req_set
-  ensures  Replica_Next_ReadClock_CheckForQuorumOfViewSuspicions_Postconditions(replica, replica', clock, packets_sent)
+  ensures  Replica_Next_ReadClock_CheckForQuorumOfViewSuspicions_Postconditions(old(AbstractifyReplicaStateToLReplica(replica)),
+                                                                                replica', clock, packets_sent)
   ensures  MutableSet.SetOf(cur_req_set) == replica'.proposer.election_state.cur_req_set
   ensures  MutableSet.SetOf(prev_req_set) == replica'.proposer.election_state.prev_req_set
   ensures  replica'.executor.reply_cache == replica.executor.reply_cache

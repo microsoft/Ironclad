@@ -34,13 +34,12 @@ import opened Common__UdpClient_i
 import opened Environment_s
 
 lemma lemma_RevealQFromReplicaNextSpontaneousMaybeEnterNewViewAndSend1aPostconditions(
-  replica:ReplicaState,
+  replica:LReplica,
   replica':ReplicaState,
   packets_sent:OutboundPackets
   )
-  requires Replica_Next_MaybeEnterNewViewAndSend1a_Preconditions(replica)
   requires Replica_Next_MaybeEnterNewViewAndSend1a_Postconditions(replica, replica', packets_sent)
-  ensures  Q_LReplica_Next_Spontaneous_MaybeEnterNewViewAndSend1a(AbstractifyReplicaStateToLReplica(replica), AbstractifyReplicaStateToLReplica(replica'),
+  ensures  Q_LReplica_Next_Spontaneous_MaybeEnterNewViewAndSend1a(replica, AbstractifyReplicaStateToLReplica(replica'),
                                                                   AbstractifyOutboundCPacketsToSeqOfRslPackets(packets_sent))
 {
   reveal Q_LReplica_Next_Spontaneous_MaybeEnterNewViewAndSend1a();
@@ -63,7 +62,7 @@ method ReplicaNoReceiveNoClockNextSpontaneousMaybeEnterNewViewAndSend1a(r:Replic
             && OnlySentMarshallableData(udpEventLog)
             && old(r.Env().udp.history()) + udpEventLog == r.Env().udp.history()
 {
-  ghost var replica_old := r.replica;
+  ghost var replica_old := AbstractifyReplicaStateToLReplica(r.replica);
   var sent_packets;
   r.replica,sent_packets := Replica_Next_Spontaneous_MaybeEnterNewViewAndSend1a(r.replica);
   lemma_RevealQFromReplicaNextSpontaneousMaybeEnterNewViewAndSend1aPostconditions(replica_old, r.replica, sent_packets);
@@ -76,17 +75,16 @@ method ReplicaNoReceiveNoClockNextSpontaneousMaybeEnterNewViewAndSend1a(r:Replic
   assert AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets) == ExtractSentPacketsFromIos(ios);
   assert r.Env() == old(r.Env());
   assert RawIoConsistentWithSpecIO(udpEventLog, ios);
-  lemma_EstablishQLReplicaNoReceiveNextFromNoClock(old(r.AbstractifyToLReplica()), r.AbstractifyToLReplica(), AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets), r.nextActionIndex as int, ios);
+  lemma_EstablishQLReplicaNoReceiveNextFromNoClock(replica_old, r.AbstractifyToLReplica(), AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets), r.nextActionIndex as int, ios);
 }
 
 lemma lemma_RevealQFromReplicaNextSpontaneousMaybeEnterPhase2Postconditions(
-  replica:ReplicaState,
+  replica:LReplica,
   replica':ReplicaState,
   packets_sent:OutboundPackets
   )
-  requires Replica_Next_MaybeEnterPhase2_Preconditions(replica)
   requires Replica_Next_MaybeEnterPhase2_Postconditions(replica, replica', packets_sent)
-  ensures  Q_LReplica_Next_Spontaneous_MaybeEnterPhase2(AbstractifyReplicaStateToLReplica(replica), AbstractifyReplicaStateToLReplica(replica'),
+  ensures  Q_LReplica_Next_Spontaneous_MaybeEnterPhase2(replica, AbstractifyReplicaStateToLReplica(replica'),
                                                         AbstractifyOutboundCPacketsToSeqOfRslPackets(packets_sent))
 {
   reveal Q_LReplica_Next_Spontaneous_MaybeEnterPhase2();
@@ -109,7 +107,7 @@ method ReplicaNoReceiveNoClockNextSpontaneousMaybeEnterPhase2(r:ReplicaImpl)
             && OnlySentMarshallableData(udpEventLog)
             && old(r.Env().udp.history()) + udpEventLog == r.Env().udp.history()
 {
-  ghost var replica_old := r.replica;
+  ghost var replica_old := AbstractifyReplicaStateToLReplica(r.replica);
   var sent_packets;
   r.replica,sent_packets := Replica_Next_Spontaneous_MaybeEnterPhase2(r.replica);
   lemma_RevealQFromReplicaNextSpontaneousMaybeEnterPhase2Postconditions(replica_old, r.replica, sent_packets);
@@ -122,17 +120,16 @@ method ReplicaNoReceiveNoClockNextSpontaneousMaybeEnterPhase2(r:ReplicaImpl)
   assert AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets) == ExtractSentPacketsFromIos(ios);
   assert r.Env() == old(r.Env());
   assert RawIoConsistentWithSpecIO(udpEventLog, ios);
-  lemma_EstablishQLReplicaNoReceiveNextFromNoClock(old(r.AbstractifyToLReplica()), r.AbstractifyToLReplica(), AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets), r.nextActionIndex as int, ios);
+  lemma_EstablishQLReplicaNoReceiveNextFromNoClock(replica_old, r.AbstractifyToLReplica(), AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets), r.nextActionIndex as int, ios);
 }
 
 lemma lemma_RevealQFromReplicaNextSpontaneousTruncateLogBasedOnCheckpointsPostconditions(
-  replica:ReplicaState,
+  replica:LReplica,
   replica':ReplicaState,
   packets_sent:OutboundPackets
   )
-  requires Replica_Next_Spontaneous_TruncateLogBasedOnCheckpoints_Preconditions(replica)
   requires Replica_Next_Spontaneous_TruncateLogBasedOnCheckpoints_Postconditions(replica, replica', packets_sent)
-  ensures  Q_LReplica_Next_Spontaneous_TruncateLogBasedOnCheckpoints(AbstractifyReplicaStateToLReplica(replica), AbstractifyReplicaStateToLReplica(replica'),
+  ensures  Q_LReplica_Next_Spontaneous_TruncateLogBasedOnCheckpoints(replica, AbstractifyReplicaStateToLReplica(replica'),
                                                                      AbstractifyOutboundCPacketsToSeqOfRslPackets(packets_sent));
 {
   reveal Q_LReplica_Next_Spontaneous_TruncateLogBasedOnCheckpoints();
@@ -155,7 +152,7 @@ method ReplicaNoReceiveNoClockNextSpontaneousTruncateLogBasedOnCheckpoints(r:Rep
             && OnlySentMarshallableData(udpEventLog)
             && old(r.Env().udp.history()) + udpEventLog == r.Env().udp.history()
 {
-  ghost var replica_old := r.replica;
+  ghost var replica_old := AbstractifyReplicaStateToLReplica(r.replica);
   var sent_packets;
   r.replica,sent_packets := Replica_Next_Spontaneous_TruncateLogBasedOnCheckpoints(r.replica);
   lemma_RevealQFromReplicaNextSpontaneousTruncateLogBasedOnCheckpointsPostconditions(replica_old, r.replica, sent_packets);
@@ -168,23 +165,22 @@ method ReplicaNoReceiveNoClockNextSpontaneousTruncateLogBasedOnCheckpoints(r:Rep
   assert AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets) == ExtractSentPacketsFromIos(ios);
   assert r.Env() == old(r.Env());
   assert RawIoConsistentWithSpecIO(udpEventLog, ios);
-  lemma_EstablishQLReplicaNoReceiveNextFromNoClock(old(r.AbstractifyToLReplica()), r.AbstractifyToLReplica(), AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets), r.nextActionIndex as int, ios);
+  lemma_EstablishQLReplicaNoReceiveNextFromNoClock(replica_old, r.AbstractifyToLReplica(), AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets), r.nextActionIndex as int, ios);
 }
 
 lemma lemma_RevealQFromReplicaNextSpontaneousMaybeMakeDecisionPostconditions(
-  replica:ReplicaState,
+  replica:LReplica,
   replica':ReplicaState,
   packets_sent:OutboundPackets
   )
-  requires Replica_Next_Spontaneous_MaybeMakeDecision_Preconditions(replica)
   requires Replica_Next_Spontaneous_MaybeMakeDecision_Postconditions(replica, replica', packets_sent)
-  ensures  Q_LReplica_Next_Spontaneous_MaybeMakeDecision(AbstractifyReplicaStateToLReplica(replica), AbstractifyReplicaStateToLReplica(replica'),
+  ensures  Q_LReplica_Next_Spontaneous_MaybeMakeDecision(replica, AbstractifyReplicaStateToLReplica(replica'),
                                                          AbstractifyOutboundCPacketsToSeqOfRslPackets(packets_sent))
 {
   reveal Q_LReplica_Next_Spontaneous_MaybeMakeDecision();
 }
 
-method ReplicaNoReceiveNoClockNextSpontaneousMaybeMakeDecision(r:ReplicaImpl)
+method{:timeLimitMultiplier 2} ReplicaNoReceiveNoClockNextSpontaneousMaybeMakeDecision(r:ReplicaImpl)
   returns (ok:bool, ghost udpEventLog:seq<UdpEvent>, ghost ios:seq<RslIo>)
   requires r.nextActionIndex==5
   requires r.Valid()
@@ -201,7 +197,7 @@ method ReplicaNoReceiveNoClockNextSpontaneousMaybeMakeDecision(r:ReplicaImpl)
             && OnlySentMarshallableData(udpEventLog)
             && old(r.Env().udp.history()) + udpEventLog == r.Env().udp.history()
 {
-  ghost var replica_old := r.replica;
+  ghost var replica_old := AbstractifyReplicaStateToLReplica(r.replica);
   var sent_packets;
   r.replica,sent_packets := Replica_Next_Spontaneous_MaybeMakeDecision(r.replica);
   lemma_RevealQFromReplicaNextSpontaneousMaybeMakeDecisionPostconditions(replica_old, r.replica, sent_packets);
@@ -214,17 +210,16 @@ method ReplicaNoReceiveNoClockNextSpontaneousMaybeMakeDecision(r:ReplicaImpl)
   assert AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets) == ExtractSentPacketsFromIos(ios);
   assert r.Env() == old(r.Env());
   assert RawIoConsistentWithSpecIO(udpEventLog, ios);
-  lemma_EstablishQLReplicaNoReceiveNextFromNoClock(old(r.AbstractifyToLReplica()), r.AbstractifyToLReplica(), AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets), r.nextActionIndex as int, ios);
+  lemma_EstablishQLReplicaNoReceiveNextFromNoClock(replica_old, r.AbstractifyToLReplica(), AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets), r.nextActionIndex as int, ios);
 }
 
 lemma lemma_RevealQFromReplicaNextSpontaneousMaybeExecutePostconditions(
-  replica:ReplicaState,
+  replica:LReplica,
   replica':ReplicaState,
   packets_sent:OutboundPackets
   )
-  requires Replica_Next_Spontaneous_MaybeExecute_Preconditions(replica)
   requires Replica_Next_Spontaneous_MaybeExecute_Postconditions(replica, replica', packets_sent)
-  ensures  Q_LReplica_Next_Spontaneous_MaybeExecute(AbstractifyReplicaStateToLReplica(replica), AbstractifyReplicaStateToLReplica(replica'),
+  ensures  Q_LReplica_Next_Spontaneous_MaybeExecute(replica, AbstractifyReplicaStateToLReplica(replica'),
                                                     AbstractifyOutboundCPacketsToSeqOfRslPackets(packets_sent));
 {
   reveal Q_LReplica_Next_Spontaneous_MaybeExecute();
@@ -234,7 +229,7 @@ method ReplicaNoReceiveNoClockNextSpontaneousMaybeExecute(r:ReplicaImpl)
   returns (ok:bool, ghost udpEventLog:seq<UdpEvent>, ghost ios:seq<RslIo>)
   requires r.nextActionIndex==6
   requires r.Valid()
-  modifies r.Repr, r.cur_req_set, r.prev_req_set, r.reply_cache_mutable
+  modifies r.replica.executor.app, r.Repr, r.cur_req_set, r.prev_req_set, r.reply_cache_mutable
   ensures r.Repr == old(r.Repr)
   ensures r.udpClient != null
   ensures ok == UdpClientOk(r.udpClient)
@@ -247,7 +242,7 @@ method ReplicaNoReceiveNoClockNextSpontaneousMaybeExecute(r:ReplicaImpl)
             && OnlySentMarshallableData(udpEventLog)
             && old(r.Env().udp.history()) + udpEventLog == r.Env().udp.history()
 {
-  ghost var replica_old := r.replica;
+  ghost var replica_old := AbstractifyReplicaStateToLReplica(r.replica);
   var sent_packets;
   r.replica,sent_packets := Replica_Next_Spontaneous_MaybeExecute(r.replica, r.cur_req_set, r.prev_req_set, r.reply_cache_mutable);
   lemma_RevealQFromReplicaNextSpontaneousMaybeExecutePostconditions(replica_old, r.replica, sent_packets);
@@ -260,13 +255,14 @@ method ReplicaNoReceiveNoClockNextSpontaneousMaybeExecute(r:ReplicaImpl)
   assert AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets) == ExtractSentPacketsFromIos(ios);
   assert r.Env() == old(r.Env());
   assert RawIoConsistentWithSpecIO(udpEventLog, ios);
-  lemma_EstablishQLReplicaNoReceiveNextFromNoClock(old(r.AbstractifyToLReplica()), r.AbstractifyToLReplica(), AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets), r.nextActionIndex as int, ios);
+  assume Q_LReplica_Next_Spontaneous_MaybeExecute(replica_old, r.AbstractifyToLReplica(), AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets));
+  lemma_EstablishQLReplicaNoReceiveNextFromNoClock(replica_old, r.AbstractifyToLReplica(), AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets), r.nextActionIndex as int, ios);
 }
 
 method Replica_NoReceive_NoClock_Next(r:ReplicaImpl) returns (ok:bool, ghost udpEventLog:seq<UdpEvent>, ghost ios:seq<RslIo>)
   requires r.nextActionIndex==1 || r.nextActionIndex==2 || r.nextActionIndex==4 || r.nextActionIndex==5 || r.nextActionIndex==6
   requires r.Valid()
-  modifies r.Repr, r.cur_req_set, r.prev_req_set, r.reply_cache_mutable
+  modifies r.replica.executor.app, r.Repr, r.cur_req_set, r.prev_req_set, r.reply_cache_mutable
   ensures r.Repr == old(r.Repr)
   ensures r.udpClient != null
   ensures ok == UdpClientOk(r.udpClient)
