@@ -739,6 +739,13 @@ lemma lemma_GetImplBehaviorRefinement(config:ConcreteConfiguration, db:seq<DS_St
     {
       reveal SeqIsUnique();
     }
+
+    forall i | 0 <= i < |db|
+      ensures DsStateIsAbstractable(db[i]) && protocol_behavior[i] == AbstractifyDsState(db[i])
+    {
+      assert i == 0;
+    }
+      
   } else {
     lemma_DsConsistency(config, db, |db|-1);
     lemma_DeduceTransitionFromDsBehavior(config, db, |db|-2);
