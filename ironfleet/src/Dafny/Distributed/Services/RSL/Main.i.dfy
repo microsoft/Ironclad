@@ -14,6 +14,7 @@ import opened DS_s = RSL_DistributedSystem_i
 import opened DirectRefinement__Refinement_i
 import opened Concrete_NodeIdentity_i
 import opened AS_s = AbstractServiceRSL_s
+import opened AppStateMachine_i
 import opened MarshallProof_i
 import opened LiveRSL__CMessageRefinements_i
 import opened LiveRSL__Configuration_i
@@ -242,7 +243,7 @@ lemma {:timeLimitMultiplier 2} lemma_DsConstantsAllConsistent(config:ConcreteCon
   }
 }
 
-lemma lemma_PacketSentByServerIsMarshallable(
+lemma{:timeLimitMultiplier 4} lemma_PacketSentByServerIsMarshallable(
   config:ConcreteConfiguration,
   db:seq<DS_State>,
   i:int,
@@ -456,9 +457,11 @@ lemma lemma_RefinementOfUnsendablePacketHasLimitedPossibilities(
   requires UdpPacketIsAbstractable(p)
   requires rp == AbstractifyUdpPacketToRslPacket(p)
   ensures  || rp.msg.RslMessage_Invalid?
+           || rp.msg.RslMessage_Request?
            || rp.msg.RslMessage_1b?
            || rp.msg.RslMessage_2a?
            || rp.msg.RslMessage_2b?
+           || rp.msg.RslMessage_Reply?
            || rp.msg.RslMessage_AppStateSupply?
 {
 }
@@ -486,6 +489,45 @@ lemma lemma_IgnoringInvalidMessageIsLSchedulerNext(
   var sent_packets := ExtractSentPacketsFromIos(ios);
   lemma_IgnoringUnsendableGivesEmptySentPackets(ios);
   assert LReplicaNextProcessInvalid(s.replica, s'.replica, ios[0].r, sent_packets);
+  assert LReplicaNextProcessPacketWithoutReadingClock(s.replica, s'.replica, ios);
+  assert LReplicaNextProcessPacket(s.replica, s'.replica, ios);
+}
+
+lemma lemma_IgnoringInvalidRequestIsLSchedulerNext(
+  s:LScheduler,
+  s':LScheduler,
+  ios:seq<RslIo>
+  )
+  requires s.nextActionIndex == 0
+  requires s' == s.(nextActionIndex := (s.nextActionIndex + 1) % LReplicaNumActions())
+  requires |ios| == 1
+  requires ios[0].LIoOpReceive?
+  requires ios[0].r.msg.RslMessage_Request?
+  requires !AppValidRequest(ios[0].r.msg.val)
+  ensures  LSchedulerNext(s, s', ios)
+{
+  var sent_packets := ExtractSentPacketsFromIos(ios);
+  lemma_IgnoringUnsendableGivesEmptySentPackets(ios);
+  assert LReplicaNextProcessRequest(s.replica, s'.replica, ios[0].r, sent_packets);
+  assert LReplicaNextProcessPacketWithoutReadingClock(s.replica, s'.replica, ios);
+  assert LReplicaNextProcessPacket(s.replica, s'.replica, ios);
+}
+
+lemma lemma_IgnoringReplyIsLSchedulerNext(
+  s:LScheduler,
+  s':LScheduler,
+  ios:seq<RslIo>
+  )
+  requires s.nextActionIndex == 0
+  requires s' == s.(nextActionIndex := (s.nextActionIndex + 1) % LReplicaNumActions())
+  requires |ios| == 1
+  requires ios[0].LIoOpReceive?
+  requires ios[0].r.msg.RslMessage_Reply?
+  ensures  LSchedulerNext(s, s', ios)
+{
+  var sent_packets := ExtractSentPacketsFromIos(ios);
+  lemma_IgnoringUnsendableGivesEmptySentPackets(ios);
+  assert LReplicaNextProcessReply(s.replica, s'.replica, ios[0].r, sent_packets);
   assert LReplicaNextProcessPacketWithoutReadingClock(s.replica, s'.replica, ios);
   assert LReplicaNextProcessPacket(s.replica, s'.replica, ios);
 }
@@ -578,6 +620,12 @@ lemma lemma_HostNextIgnoreUnsendableIsLSchedulerNext(
 
   if rp.msg.RslMessage_Invalid? {
     lemma_IgnoringInvalidMessageIsLSchedulerNext(s, s', rios);
+  }
+  else if rp.msg.RslMessage_Request? {
+    lemma_IgnoringInvalidRequestIsLSchedulerNext(s, s', rios);
+  }
+  else if rp.msg.RslMessage_Reply? {
+    lemma_IgnoringReplyIsLSchedulerNext(s, s', rios);
   }
   else {
     lemma_DsConsistency(config, db, i);
@@ -846,7 +894,8 @@ lemma lemma_RslSystemNextImpliesServiceNext(
   assert StateSequenceReflectsBatchExecution(s, s', intermediate_states_renamed, batch_renamed);
 }
 
-lemma lemma_RefinementProofForFixedBehavior(config:ConcreteConfiguration, db:seq<DS_State>) returns (sb:seq<ServiceState>)
+lemma{:timeLimitMultiplier 4} lemma_RefinementProofForFixedBehavior(config:ConcreteConfiguration, db:seq<DS_State>)
+  returns (sb:seq<ServiceState>)
   requires IsValidBehavior(config, db)
   requires last(db).environment.nextStep.LEnvStepStutter?
   ensures  |db| == |sb|

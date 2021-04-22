@@ -43,6 +43,15 @@ predicate CAppMessageIsAbstractable(c:CAppMessage)
   true
 }
 
+predicate method ValidCAppRequest(c:CAppMessage)
+{
+  match c
+    case CAppGetRequest(key)        => |key| <= MaxKeySize()
+    case CAppSetRequest(key, value) => |key| <= MaxKeySize() && |value| <= MaxValueSize()
+    case CAppDeleteRequest(key)     => |key| <= MaxKeySize()
+    case _                          => false
+}
+
 predicate method ValidCAppMessage(c:CAppMessage)
 {
   match c

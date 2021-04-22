@@ -1138,7 +1138,7 @@ lemma lemma_parse_Val_view_specific_size(data:seq<byte>, v:V, grammar:G, index:i
   requires ValidGrammar(grammar)
   requires 0 <= index <= |data|
   requires 0 <= index + SizeOfV(v) <= |data|
-  requires index+SizeOfV(v) <= bound <= |data|;
+  requires index+SizeOfV(v) <= bound <= |data|
   requires parse_Val(data[index..bound], grammar).0 == Some(v)
   decreases grammar, 0
   ensures  parse_Val(data[index..index+SizeOfV(v)], grammar).0 == Some(v)

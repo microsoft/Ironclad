@@ -20,6 +20,7 @@ import opened LiveRSL__Learner_i
 import opened LiveRSL__Executor_i
 import opened LiveRSL__Broadcast_i
 import opened LiveRSL__Message_i
+import opened AppStateMachine_i
 import opened Common__UpperBound_s
 import opened Environment_s
 
@@ -52,11 +53,14 @@ predicate LReplicaNextProcessInvalid(s:LReplica, s':LReplica, received_packet:Rs
 predicate LReplicaNextProcessRequest(s:LReplica, s':LReplica, received_packet:RslPacket, sent_packets:seq<RslPacket>)
   requires received_packet.msg.RslMessage_Request?
 {
-  if  && received_packet.src in s.executor.reply_cache
-      && s.executor.reply_cache[received_packet.src].Reply?
-      && received_packet.msg.seqno_req <= s.executor.reply_cache[received_packet.src].seqno then
-     && LExecutorProcessRequest(s.executor, received_packet, sent_packets)
-     && s' == s
+  if !AppValidRequest(received_packet.msg.val) then
+    && sent_packets == []
+    && s' == s
+  else if && received_packet.src in s.executor.reply_cache
+          && s.executor.reply_cache[received_packet.src].Reply?
+          && received_packet.msg.seqno_req <= s.executor.reply_cache[received_packet.src].seqno then
+    && LExecutorProcessRequest(s.executor, received_packet, sent_packets)
+    && s' == s
   else
     && LProposerProcessRequest(s.proposer, s'.proposer, received_packet)
     && sent_packets == []

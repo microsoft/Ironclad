@@ -28,6 +28,15 @@ function RemoveElementFromMap(m: map<Bytes, Bytes>, s: Bytes) : map<Bytes, Bytes
   m - {s}
 }
 
+predicate AppValidRequest(request: AppMessage)
+{
+  match request
+    case AppGetRequest(key)        => |key| <= MaxKeySize()
+    case AppSetRequest(key, value) => |key| <= MaxKeySize() && |value| <= MaxValueSize()
+    case AppDeleteRequest(key)     => |key| <= MaxKeySize()
+    case _                         => false
+}
+
 function AppHandleRequest(m: AppState, request: AppMessage) : (AppState, AppMessage)
 {
   match request

@@ -7,6 +7,7 @@ include "ExecutorModel.i.dfy"
 include "../Common/Util.i.dfy"
 
 module LiveRSL__ReplicaModel_Part1_i {
+import opened AppStateMachine_i
 import opened Native__Io_s
 import opened Native__NativeTypes_s
 import opened LiveRSL__AcceptorState_i
@@ -57,6 +58,33 @@ method InitReplicaState(constants:ReplicaConstantsState) returns (replica:Replic
   assert AbstractifyReplicaStateToLReplica(replica).constants == AbstractifyReplicaConstantsStateToLReplicaConstants(constants);
 }
 
+method ReplicaNextProcessRequestImplCaseInvalid(
+  replica:ReplicaState,
+  inp:CPacket,
+  cur_req_set:MutableSet<CRequestHeader>,
+  prev_req_set:MutableSet<CRequestHeader>,
+  reply_cache_mutable:MutableMap<EndPoint, CReply>
+  ) returns (
+  replica':ReplicaState,
+  packets_sent:OutboundPackets
+  )
+  requires Replica_Next_Process_Request_Preconditions(replica, inp)
+  requires !AppValidRequest(AbstractifyCAppMessageToAppMessage(inp.msg.val))
+  requires cur_req_set != prev_req_set
+  requires MutableSet.SetOf(cur_req_set) == replica.proposer.election_state.cur_req_set
+  requires MutableSet.SetOf(prev_req_set) == replica.proposer.election_state.prev_req_set
+  requires replica.executor.reply_cache == MutableMap.MapOf(reply_cache_mutable)
+  modifies cur_req_set, prev_req_set, reply_cache_mutable
+  ensures  Replica_Next_Process_Request_Postconditions(old(AbstractifyReplicaStateToLReplica(replica)), replica',
+                                                       inp, packets_sent)
+  ensures  MutableSet.SetOf(cur_req_set) == replica'.proposer.election_state.cur_req_set
+  ensures  MutableSet.SetOf(prev_req_set) == replica'.proposer.election_state.prev_req_set
+  ensures  replica'.executor.reply_cache == MutableMap.MapOf(reply_cache_mutable)
+{
+  replica' := replica;
+  packets_sent := PacketSequence([]);
+}
+
 method ReplicaNextProcessRequestImplCaseUncached(
   replica:ReplicaState,
   inp:CPacket,
@@ -68,6 +96,7 @@ method ReplicaNextProcessRequestImplCaseUncached(
   packets_sent:OutboundPackets
   )
   requires Replica_Next_Process_Request_Preconditions(replica, inp)
+  requires AppValidRequest(AbstractifyCAppMessageToAppMessage(inp.msg.val))
   requires cur_req_set != prev_req_set
   requires MutableSet.SetOf(cur_req_set) == replica.proposer.election_state.cur_req_set
   requires MutableSet.SetOf(prev_req_set) == replica.proposer.election_state.prev_req_set
@@ -109,6 +138,7 @@ method ReplicaNextProcessRequestImplCaseCachedNonReply(
   packets_sent:OutboundPackets
   )
   requires Replica_Next_Process_Request_Preconditions(replica, inp)
+  requires AppValidRequest(AbstractifyCAppMessageToAppMessage(inp.msg.val))
   requires cur_req_set != prev_req_set
   requires MutableSet.SetOf(cur_req_set) == replica.proposer.election_state.cur_req_set
   requires MutableSet.SetOf(prev_req_set) == replica.proposer.election_state.prev_req_set
@@ -150,6 +180,7 @@ method ReplicaNextProcessRequestImplCaseCachedOld(
   packets_sent:OutboundPackets
   )
   requires Replica_Next_Process_Request_Preconditions(replica, inp)
+  requires AppValidRequest(AbstractifyCAppMessageToAppMessage(inp.msg.val))
   requires cur_req_set != prev_req_set
   requires MutableSet.SetOf(cur_req_set) == replica.proposer.election_state.cur_req_set
   requires MutableSet.SetOf(prev_req_set) == replica.proposer.election_state.prev_req_set
@@ -192,6 +223,7 @@ method ReplicaNextProcessRequestImplCaseCachedFresh(
   packets_sent:OutboundPackets
   )
   requires Replica_Next_Process_Request_Preconditions(replica, inp)
+  requires AppValidRequest(AbstractifyCAppMessageToAppMessage(inp.msg.val))
   requires replica.executor.reply_cache == MutableMap.MapOf(reply_cache_mutable)
   requires inp.src in MutableMap.MapOf(reply_cache_mutable)
   requires cached_reply == MutableMap.MapOf(reply_cache_mutable)[inp.src]
@@ -239,16 +271,22 @@ method Replica_Next_Process_Request(
 {
   //var start_time := Time.GetDebugTimeTicks();
   //var afterCheck_time := Time.GetDebugTimeTicks();
-  //RecordTimingSeq("Replica_Next_Process_Request_checkIsCached", start_time, afterCheck_time);
-  var cached, cached_reply := reply_cache_mutable.TryGetValue(inp.src);
-  if !cached { // ==> inp.src !in replica.executor.reply_cache {
-    replica', packets_sent := ReplicaNextProcessRequestImplCaseUncached(replica, inp, cur_req_set, prev_req_set, reply_cache_mutable);
-  } else if (!cached_reply.CReply?){
-    replica', packets_sent := ReplicaNextProcessRequestImplCaseCachedNonReply(replica, inp, cur_req_set, prev_req_set, reply_cache_mutable, cached_reply);
-  } else if (inp.msg.seqno > cached_reply.seqno) {
-    replica', packets_sent := ReplicaNextProcessRequestImplCaseCachedOld(replica, inp, cur_req_set, prev_req_set, reply_cache_mutable, cached_reply);
-  } else {
-    replica', packets_sent := ReplicaNextProcessRequestImplCaseCachedFresh(replica, inp, reply_cache_mutable, cached_reply);
+  //RecordTimingSeq("Replica_Next_Process_Request_checkIsValid", start_time, afterCheck_time);
+  var request_valid := ValidCAppRequest(inp.msg.val);
+  if !request_valid {
+    replica', packets_sent := ReplicaNextProcessRequestImplCaseInvalid(replica, inp, cur_req_set, prev_req_set, reply_cache_mutable);
+  }
+  else {
+    var cached, cached_reply := reply_cache_mutable.TryGetValue(inp.src);
+    if !cached { // ==> inp.src !in replica.executor.reply_cache {
+      replica', packets_sent := ReplicaNextProcessRequestImplCaseUncached(replica, inp, cur_req_set, prev_req_set, reply_cache_mutable);
+    } else if (!cached_reply.CReply?){
+      replica', packets_sent := ReplicaNextProcessRequestImplCaseCachedNonReply(replica, inp, cur_req_set, prev_req_set, reply_cache_mutable, cached_reply);
+    } else if (inp.msg.seqno > cached_reply.seqno) {
+      replica', packets_sent := ReplicaNextProcessRequestImplCaseCachedOld(replica, inp, cur_req_set, prev_req_set, reply_cache_mutable, cached_reply);
+    } else {
+      replica', packets_sent := ReplicaNextProcessRequestImplCaseCachedFresh(replica, inp, reply_cache_mutable, cached_reply);
+    }
   }
   assert OutboundPacketsIsValid(packets_sent);
   //var end_time := Time.GetDebugTimeTicks();
