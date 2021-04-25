@@ -40,6 +40,7 @@ import opened LiveRSL__UdpRSL_i
 import opened Common__GenericMarshalling_i
 import opened Common__UdpClient_i
 import opened Common__Util_i
+import opened AppStateMachine_s
 
 class ReplicaImpl
 {
@@ -72,7 +73,7 @@ class ReplicaImpl
       AcceptorState(rcs, CBallot(0, 0), CVotes(map []), [], COperationNumber(0), COperationNumber(0));
     var cpacket :| true;
     var learner_state := CLearnerState(rcs, CBallot(0, 0), map [], false, COperationNumber(0), false, cpacket);
-    var app_state := CAppState_Init();
+    var app_state := AppStateMachine.Initialize();
     var executor_state := ExecutorState(rcs, app_state, COperationNumber(0), CBallot(0, 0), COutstandingOpUnknown(), map[]);
     replica := ReplicaState(rcs, 0, proposer_state, acceptor_state, learner_state, executor_state);
   }

@@ -732,7 +732,6 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
   requires r.ReceivedPacketProperties(cpacket, receive_event, receive_io)
   requires cpacket.msg.CMessage_AppStateRequest?
   requires LReplica_Next_ProcessPacketWithoutReadingClock_preconditions([receive_io])
-  requires AppStateMarshallable(r.replica.executor.app)
   modifies r.Repr, r.reply_cache_mutable
   ensures r.Repr==old(r.Repr)
   ensures r.udpClient != null

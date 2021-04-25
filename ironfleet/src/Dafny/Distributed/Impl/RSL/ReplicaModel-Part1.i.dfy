@@ -7,7 +7,7 @@ include "ExecutorModel.i.dfy"
 include "../Common/Util.i.dfy"
 
 module LiveRSL__ReplicaModel_Part1_i {
-import opened AppStateMachine_i
+import opened AppStateMachine_s
 import opened Native__Io_s
 import opened Native__NativeTypes_s
 import opened LiveRSL__AcceptorState_i
@@ -69,7 +69,7 @@ method ReplicaNextProcessRequestImplCaseInvalid(
   packets_sent:OutboundPackets
   )
   requires Replica_Next_Process_Request_Preconditions(replica, inp)
-  requires !AppValidRequest(AbstractifyCAppMessageToAppMessage(inp.msg.val))
+  requires !CAppRequestMarshallable(inp.msg.val)
   requires cur_req_set != prev_req_set
   requires MutableSet.SetOf(cur_req_set) == replica.proposer.election_state.cur_req_set
   requires MutableSet.SetOf(prev_req_set) == replica.proposer.election_state.prev_req_set
@@ -96,7 +96,7 @@ method ReplicaNextProcessRequestImplCaseUncached(
   packets_sent:OutboundPackets
   )
   requires Replica_Next_Process_Request_Preconditions(replica, inp)
-  requires AppValidRequest(AbstractifyCAppMessageToAppMessage(inp.msg.val))
+  requires CAppRequestMarshallable(inp.msg.val)
   requires cur_req_set != prev_req_set
   requires MutableSet.SetOf(cur_req_set) == replica.proposer.election_state.cur_req_set
   requires MutableSet.SetOf(prev_req_set) == replica.proposer.election_state.prev_req_set
@@ -138,7 +138,7 @@ method ReplicaNextProcessRequestImplCaseCachedNonReply(
   packets_sent:OutboundPackets
   )
   requires Replica_Next_Process_Request_Preconditions(replica, inp)
-  requires AppValidRequest(AbstractifyCAppMessageToAppMessage(inp.msg.val))
+  requires CAppRequestMarshallable(inp.msg.val)
   requires cur_req_set != prev_req_set
   requires MutableSet.SetOf(cur_req_set) == replica.proposer.election_state.cur_req_set
   requires MutableSet.SetOf(prev_req_set) == replica.proposer.election_state.prev_req_set
@@ -180,7 +180,7 @@ method ReplicaNextProcessRequestImplCaseCachedOld(
   packets_sent:OutboundPackets
   )
   requires Replica_Next_Process_Request_Preconditions(replica, inp)
-  requires AppValidRequest(AbstractifyCAppMessageToAppMessage(inp.msg.val))
+  requires CAppRequestMarshallable(inp.msg.val)
   requires cur_req_set != prev_req_set
   requires MutableSet.SetOf(cur_req_set) == replica.proposer.election_state.cur_req_set
   requires MutableSet.SetOf(prev_req_set) == replica.proposer.election_state.prev_req_set
@@ -223,7 +223,7 @@ method ReplicaNextProcessRequestImplCaseCachedFresh(
   packets_sent:OutboundPackets
   )
   requires Replica_Next_Process_Request_Preconditions(replica, inp)
-  requires AppValidRequest(AbstractifyCAppMessageToAppMessage(inp.msg.val))
+  requires CAppRequestMarshallable(inp.msg.val)
   requires replica.executor.reply_cache == MutableMap.MapOf(reply_cache_mutable)
   requires inp.src in MutableMap.MapOf(reply_cache_mutable)
   requires cached_reply == MutableMap.MapOf(reply_cache_mutable)[inp.src]
@@ -272,7 +272,7 @@ method Replica_Next_Process_Request(
   //var start_time := Time.GetDebugTimeTicks();
   //var afterCheck_time := Time.GetDebugTimeTicks();
   //RecordTimingSeq("Replica_Next_Process_Request_checkIsValid", start_time, afterCheck_time);
-  var request_valid := ValidCAppRequest(inp.msg.val);
+  var request_valid := |inp.msg.val| <= MaxAppRequestSize();
   if !request_valid {
     replica', packets_sent := ReplicaNextProcessRequestImplCaseInvalid(replica, inp, cur_req_set, prev_req_set, reply_cache_mutable);
   }

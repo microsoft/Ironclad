@@ -1,9 +1,9 @@
-include "../../Services/RSL/AppStateMachine.i.dfy"
+include "../../Services/RSL/AppStateMachine.s.dfy"
 include "Types.i.dfy"
     
 module LiveRSL__StateMachine_i {
 
-import opened AppStateMachine_i
+import opened AppStateMachine_s
 import opened LiveRSL__Types_i
 
 function HandleRequest(state:AppState, request:Request) : (AppState, Reply)

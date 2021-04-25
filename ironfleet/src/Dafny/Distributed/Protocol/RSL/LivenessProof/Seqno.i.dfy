@@ -31,7 +31,7 @@ import opened CommonProof__Requests_i
 import opened Temporal__Heuristics_i
 import opened Temporal__Rules_i
 import opened Temporal__Temporal_s
-import opened AppStateMachine_i
+import opened AppStateMachine_s
 import opened Environment_s
 import opened EnvironmentSynchrony_s
 
@@ -590,7 +590,7 @@ lemma lemma_RequestNeverHitsInReplyCache(
   var executor := b[i].replicas[idx].replica.executor;
   var reply_cache := executor.reply_cache;
   var sent_packets := ExtractSentPacketsFromIos(ios);
-  assert AppValidRequest(inp.msg.val);
+  assert |inp.msg.val| <= MaxAppRequestSize();
   if inp.src in reply_cache && reply_cache[inp.src].Reply? && inp.msg.seqno_req <= reply_cache[inp.src].seqno
   {
     lemma_SequenceNumberReplyCacheInvHolds(b, asp, i, idx);

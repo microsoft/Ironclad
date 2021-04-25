@@ -150,7 +150,6 @@ method LearnerState_Init(rcs:ReplicaConstantsState) returns (learner:CLearnerSta
   ensures LLearnerInit(AbstractifyLearnerStateToLLearner(learner), AbstractifyReplicaConstantsStateToLReplicaConstants(learner.rcs))
 {
   var endPoint := rcs.all.config.replica_ids[rcs.my_index];
-  var unknown:CAppMessage := *;
   learner :=
     CLearnerState(
       rcs,
@@ -184,7 +183,6 @@ predicate LearnerState_CommonPostconditions(learner:CLearnerState, learner':CLea
 }
 
 predicate LearnerState_Process2b__Preconditions(learner:CLearnerState, executor:ExecutorState, packet:CPacket)
-  reads executor.app
 {
   && LearnerState_CommonPreconditions(learner)
   && ExecutorState_CommonPreconditions(executor)
@@ -193,7 +191,6 @@ predicate LearnerState_Process2b__Preconditions(learner:CLearnerState, executor:
 }
 
 predicate LearnerState_Process2b__Postconditions(learner:CLearnerState, executor:ExecutorState, packet:CPacket, learner':CLearnerState)
-  reads executor.app
 {
   && LearnerState_Process2b__Preconditions(learner, executor, packet)
   && LearnerState_CommonPostconditions(learner, learner')

@@ -14,8 +14,9 @@ import opened DS_s = RSL_DistributedSystem_i
 import opened DirectRefinement__Refinement_i
 import opened Concrete_NodeIdentity_i
 import opened AS_s = AbstractServiceRSL_s
-import opened AppStateMachine_i
+import opened AppStateMachine_s
 import opened MarshallProof_i
+import opened LiveRSL__AppInterface_i
 import opened LiveRSL__CMessageRefinements_i
 import opened LiveRSL__Configuration_i
 import opened LiveRSL__Constants_i
@@ -503,7 +504,7 @@ lemma lemma_IgnoringInvalidRequestIsLSchedulerNext(
   requires |ios| == 1
   requires ios[0].LIoOpReceive?
   requires ios[0].r.msg.RslMessage_Request?
-  requires !AppValidRequest(ios[0].r.msg.val)
+  requires !CAppRequestMarshallable(ios[0].r.msg.val)
   ensures  LSchedulerNext(s, s', ios)
 {
   var sent_packets := ExtractSentPacketsFromIos(ios);
@@ -802,36 +803,36 @@ lemma lemma_GetImplBehaviorRefinement(config:ConcreteConfiguration, db:seq<DS_St
   }
 }
 
-function RenameToAppRequest(request:Request) : AppRequest
+function RenameToAppRequestMessage(request:Request) : AppRequestMessage
 {
-  AppRequest(request.client, request.seqno, request.request)
+  AppRequestMessage(request.client, request.seqno, request.request)
 }
 
-function RenameToAppReply(reply:Reply) : AppReply
+function RenameToAppReplyMessage(reply:Reply) : AppReplyMessage
 {
-  AppReply(reply.client, reply.seqno, reply.reply)
+  AppReplyMessage(reply.client, reply.seqno, reply.reply)
 }
 
-function RenameToAppRequests(requests:set<Request>) : set<AppRequest>
+function RenameToAppRequestMessages(requests:set<Request>) : set<AppRequestMessage>
 {
-  set r | r in requests :: RenameToAppRequest(r)
+  set r | r in requests :: RenameToAppRequestMessage(r)
 }
 
-function RenameToAppReplies(replies:set<Reply>) : set<AppReply>
+function RenameToAppReplies(replies:set<Reply>) : set<AppReplyMessage>
 {
-  set r | r in replies :: RenameToAppReply(r)
+  set r | r in replies :: RenameToAppReplyMessage(r)
 }
 
-function RenameToAppBatch(batch:seq<Request>) : seq<AppRequest>
+function RenameToAppBatch(batch:seq<Request>) : seq<AppRequestMessage>
   ensures |RenameToAppBatch(batch)| == |batch|
-  ensures forall i :: 0 <= i < |batch| ==> RenameToAppBatch(batch)[i] == RenameToAppRequest(batch[i])
+  ensures forall i :: 0 <= i < |batch| ==> RenameToAppBatch(batch)[i] == RenameToAppRequestMessage(batch[i])
 {
-  if |batch| == 0 then [] else RenameToAppBatch(all_but_last(batch)) + [RenameToAppRequest(last(batch))]
+  if |batch| == 0 then [] else RenameToAppBatch(all_but_last(batch)) + [RenameToAppRequestMessage(last(batch))]
 }
 
 function RenameToServiceState(rs:RSLSystemState) : ServiceState
 {
-  ServiceState'(rs.server_addresses, rs.app, RenameToAppRequests(rs.requests), RenameToAppReplies(rs.replies))
+  ServiceState'(rs.server_addresses, rs.app, RenameToAppRequestMessages(rs.requests), RenameToAppReplies(rs.replies))
 }
 
 function RenameToServiceStates(rs:seq<RSLSystemState>) : seq<ServiceState>
@@ -935,7 +936,7 @@ lemma{:timeLimitMultiplier 4} lemma_RefinementProofForFixedBehavior(config:Concr
     assert RenameToServiceState(rsl) == serviceState;
 
     forall p, seqno, reply | p in concretePkts && p.src in serviceState.serverAddresses && p.msg == MarshallServiceReply(seqno, reply)
-      ensures AppReply(p.dst, seqno, reply) in serviceState.replies;
+      ensures AppReplyMessage(p.dst, seqno, reply) in serviceState.replies;
     {
       var abstract_p := AbstractifyConcretePacket(p);
       lemma_ServiceStateServerAddressesNeverChange(sb, server_addresses, i);
@@ -947,8 +948,8 @@ lemma{:timeLimitMultiplier 4} lemma_RefinementProofForFixedBehavior(config:Concr
       assert abstract_p in ps.environment.sentPackets && abstract_p.src in rsl.server_addresses && abstract_p.msg.RslMessage_Reply?;
       var r := Reply(abstract_p.dst, abstract_p.msg.seqno_reply, abstract_p.msg.reply);
       assert r in rsl.replies;
-      var service_reply := RenameToAppReply(r);
-      assert service_reply == AppReply(p.dst, seqno, reply);
+      var service_reply := RenameToAppReplyMessage(r);
+      assert service_reply == AppReplyMessage(p.dst, seqno, reply);
       assert service_reply in serviceState.replies;
     }
 
@@ -957,7 +958,7 @@ lemma{:timeLimitMultiplier 4} lemma_RefinementProofForFixedBehavior(config:Concr
                                      && p.msg == MarshallServiceRequest(req.seqno, req.request)
                                      && p.src == req.client
     {
-      var r_req :| r_req in rsl.requests && RenameToAppRequest(r_req) == req;
+      var r_req :| r_req in rsl.requests && RenameToAppRequestMessage(r_req) == req;
       var abstract_p :| && abstract_p in ps.environment.sentPackets
                         && abstract_p.dst in rsl.server_addresses
                         && abstract_p.msg.RslMessage_Request?

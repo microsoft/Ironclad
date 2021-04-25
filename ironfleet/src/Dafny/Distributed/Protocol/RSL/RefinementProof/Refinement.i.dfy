@@ -26,7 +26,7 @@ import opened Collections__Seqs_s
 import opened Collections__Sets_i
 import opened Collections__Maps2_s
 import opened Temporal__Temporal_s
-import opened AppStateMachine_i
+import opened AppStateMachine_s
 
 function GetServerAddresses(ps:RslState):set<NodeIdentity>
 {

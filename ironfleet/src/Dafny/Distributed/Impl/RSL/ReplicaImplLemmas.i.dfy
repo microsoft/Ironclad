@@ -227,9 +227,10 @@ lemma lemma_UdpEventLogToBroadcastRefinable(udpEventLog:seq<UdpEvent>, broadcast
 
 lemma lemma_ExtractSentPacketsFromIosDoesNotMindSomeClutter(ios_head:seq<RslIo>, ios_tail:seq<RslIo>)
   requires forall i :: 0<=i<|ios_head| ==> !ios_head[i].LIoOpSend?
-  ensures |ios_head| > 0 ==> (ExtractSentPacketsFromIos(ios_tail) == ExtractSentPacketsFromIos(ios_head + ios_tail))
+  ensures ExtractSentPacketsFromIos(ios_tail) == ExtractSentPacketsFromIos(ios_head + ios_tail)
 {
   if |ios_head| == 0 {
+    assert ios_head + ios_tail == ios_tail;
   } else {
     assert !ios_head[0].LIoOpSend?;
     ghost var ios := [ios_head[0]] + ios_head[1..] + ios_tail;

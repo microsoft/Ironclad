@@ -7,7 +7,7 @@ include "StateTransfer.i.dfy"
 
 module LivenessProof__LivenessProof_i {
 
-import opened AppStateMachine_i
+import opened AppStateMachine_s
 import opened LiveRSL__Constants_i
 import opened LiveRSL__DistributedSystem_i
 import opened LiveRSL__Environment_i

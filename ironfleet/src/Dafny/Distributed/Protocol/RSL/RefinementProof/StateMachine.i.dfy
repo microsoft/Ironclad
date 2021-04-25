@@ -5,7 +5,7 @@ module DirectRefinement__StateMachine_i {
 import opened LiveRSL__DistributedSystem_i
 import opened LiveRSL__Types_i
 import opened Concrete_NodeIdentity_i
-import opened AppStateMachine_i
+import opened AppStateMachine_s
 import opened Collections__Seqs_s
 
 datatype RSLSystemState = RSLSystemState(
