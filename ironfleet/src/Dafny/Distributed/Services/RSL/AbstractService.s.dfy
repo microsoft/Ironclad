@@ -44,6 +44,7 @@ predicate Service_Init(s:ServiceState, serverAddresses:set<EndPoint>)
 
 predicate ServiceExecutesAppRequest(s:ServiceState, s':ServiceState, req:AppRequestMessage)
 {
+  && |req.request| <= MaxAppRequestSize()
   && s'.serverAddresses == s.serverAddresses
   && s'.requests == s.requests + { req }
   && s'.app == AppHandleRequest(s.app, req.request).0

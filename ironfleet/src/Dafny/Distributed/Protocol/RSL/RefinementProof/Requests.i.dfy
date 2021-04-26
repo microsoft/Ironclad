@@ -21,6 +21,7 @@ import opened CommonProof__Message2b_i
 import opened CommonProof__PacketSending_i
 import opened CommonProof__Received1b_i
 import opened CommonProof__Requests_i
+import opened AppStateMachine_s
 import opened DirectRefinement__Chosen_i
 import opened Temporal__Temporal_s
 import opened Environment_s
@@ -42,6 +43,7 @@ lemma lemma_RequestInRequestsReceivedThisEpochHasCorrespondingRequestMessage(
   ensures  p.dst in c.config.replica_ids
   ensures  p.msg.RslMessage_Request?
   ensures  req == Request(p.src, p.msg.seqno_req, p.msg.val)
+  ensures  |p.msg.val| <= MaxAppRequestSize()
   decreases i
 {
   if i == 0 { return; }
@@ -93,6 +95,7 @@ lemma lemma_RequestInRequestsReceivedPrevEpochsHasCorrespondingRequestMessage(
   ensures  p.dst in c.config.replica_ids
   ensures  p.msg.RslMessage_Request?
   ensures  req == Request(p.src, p.msg.seqno_req, p.msg.val)
+  ensures  |p.msg.val| <= MaxAppRequestSize()
   decreases i
 {
   if i == 0 { return; }
@@ -141,6 +144,7 @@ lemma lemma_RequestInRequestQueueHasCorrespondingRequestMessage(
   ensures  p.dst in c.config.replica_ids
   ensures  p.msg.RslMessage_Request?
   ensures  req == Request(p.src, p.msg.seqno_req, p.msg.val)
+  ensures  |p.msg.val| <= MaxAppRequestSize()
   decreases i
 {
   if i == 0 { return; }
@@ -197,6 +201,7 @@ lemma lemma_RequestIn1bMessageHasCorrespondingRequestMessage(
   ensures  p_req.dst in c.config.replica_ids
   ensures  p_req.msg.RslMessage_Request?
   ensures  p_1b.msg.votes[opn].max_val[req_num] == Request(p_req.src, p_req.msg.seqno_req, p_req.msg.val)
+  ensures  |p_req.msg.val| <= MaxAppRequestSize()
   decreases i, 1
 {
   var p_2a := lemma_1bMessageWithOpnImplies2aSent(b, c, i, opn, p_1b);
@@ -222,6 +227,7 @@ lemma lemma_RequestIn2aMessageHasCorrespondingRequestMessage(
   ensures  p_req.dst in c.config.replica_ids
   ensures  p_req.msg.RslMessage_Request?
   ensures  p_2a.msg.val_2a[req_num] == Request(p_req.src, p_req.msg.seqno_req, p_req.msg.val)
+  ensures  |p_req.msg.val| <= MaxAppRequestSize()
   decreases i, 0
 {
   if i == 0
@@ -285,6 +291,7 @@ lemma lemma_DecidedRequestWasSentByClient(
   ensures  p.dst in c.config.replica_ids
   ensures  p.msg.RslMessage_Request?
   ensures  batches[batch_num][req_num] == Request(p.src, p.msg.seqno_req, p.msg.val)
+  ensures  |p.msg.val| <= MaxAppRequestSize()
   decreases i
 {
   lemma_ConstantsAllConsistent(b, c, i);

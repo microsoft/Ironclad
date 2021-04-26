@@ -25,6 +25,7 @@ predicate RslSystemInit(s:RSLSystemState, server_addresses:set<NodeIdentity>)
 
 predicate RslSystemNextServerExecutesRequest(s:RSLSystemState, s':RSLSystemState, req:Request)
 {
+  && |req.request| <= MaxAppRequestSize()
   && s'.server_addresses == s.server_addresses
   && s'.requests == s.requests + { req }
   && s'.app == AppHandleRequest(s.app, req.request).0

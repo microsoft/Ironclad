@@ -35,6 +35,7 @@ import opened Collections__Sets_i
 import opened Common__GenericMarshalling_i
 import opened Common__NodeIdentity_i
 import opened Common__SeqIsUniqueDef_i
+import opened AbstractServiceRSL_s
 import opened DirectRefinement__StateMachine_i
 import opened Environment_s
 import opened Math__mod_auto_i
@@ -902,6 +903,38 @@ lemma lemma_RslSystemNextImpliesServiceNext(
   assert StateSequenceReflectsBatchExecution(s, s', intermediate_states_renamed, batch_renamed);
 }
 
+lemma lemma_RequestSizeBounded(server_addresses:set<NodeIdentity>, rb:seq<RSLSystemState>, pos:int)
+  requires |rb| > 0
+  requires RslSystemInit(rb[0], server_addresses)
+  requires forall i {:trigger RslSystemNext(rb[i], rb[i+1])} :: 0 <= i < |rb| - 1 ==> rb[i] == rb[i+1] || RslSystemNext(rb[i], rb[i+1])
+  requires 0 <= pos < |rb|
+  ensures  forall req :: req in rb[pos].requests ==> |req.request| <= MaxAppRequestSize()
+{
+  if pos == 0 {
+    return;
+  }
+
+  var prev := pos - 1;
+  assert rb[pos] == rb[prev] || RslSystemNext(rb[prev], rb[prev+1]);
+  lemma_RequestSizeBounded(server_addresses, rb, prev);
+  if (rb[pos] == rb[prev]) {
+    return;
+  }
+
+  var s := rb[prev];
+  var s' := rb[prev+1];
+  var intermediate_states:seq<RSLSystemState>, batch:seq<Request> :|
+    RslStateSequenceReflectsBatchExecution(s, s', intermediate_states, batch);
+  var which_req := 0;
+  while which_req < |batch|
+    invariant 0 <= which_req <= |batch|
+    invariant forall req :: req in intermediate_states[which_req].requests ==> |req.request| <= MaxAppRequestSize()
+  {
+    assert RslSystemNextServerExecutesRequest(intermediate_states[which_req], intermediate_states[which_req+1], batch[which_req]);
+    which_req := which_req + 1;
+  }
+}
+
 lemma{:timeLimitMultiplier 4} lemma_RefinementProofForFixedBehavior(config:ConcreteConfiguration, db:seq<DS_State>)
   returns (sb:seq<ServiceState>)
   requires IsValidBehavior(config, db)
@@ -963,6 +996,9 @@ lemma{:timeLimitMultiplier 4} lemma_RefinementProofForFixedBehavior(config:Concr
                         && abstract_p.dst in rsl.server_addresses
                         && abstract_p.msg.RslMessage_Request?
                         && r_req == Request(abstract_p.src, abstract_p.msg.seqno_req, abstract_p.msg.val);
+
+      lemma_RequestSizeBounded(server_addresses, rs, i);
+      assert |r_req.request| <= MaxAppRequestSize();
 
       assert ps.environment.sentPackets == AbstractifyConcreteSentPackets(concretePkts);
       var concrete_p :| concrete_p in concretePkts && AbstractifyConcretePacket(concrete_p) == abstract_p;

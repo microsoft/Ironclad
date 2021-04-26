@@ -255,7 +255,7 @@ method ReplicaNoReceiveNoClockNextSpontaneousMaybeExecute(r:ReplicaImpl)
   assert AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets) == ExtractSentPacketsFromIos(ios);
   assert r.Env() == old(r.Env());
   assert RawIoConsistentWithSpecIO(udpEventLog, ios);
-  assume Q_LReplica_Next_Spontaneous_MaybeExecute(replica_old, r.AbstractifyToLReplica(), AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets));
+  assert Q_LReplica_Next_Spontaneous_MaybeExecute(replica_old, r.AbstractifyToLReplica(), AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets));
   lemma_EstablishQLReplicaNoReceiveNextFromNoClock(replica_old, r.AbstractifyToLReplica(), AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets), r.nextActionIndex as int, ios);
 }
 

@@ -71,8 +71,8 @@ class ReplicaImpl
                     COperationNumber(0), COperationNumber(0));
     var acceptor_state :=
       AcceptorState(rcs, CBallot(0, 0), CVotes(map []), [], COperationNumber(0), COperationNumber(0));
-    var cpacket :| true;
-    var learner_state := CLearnerState(rcs, CBallot(0, 0), map [], false, COperationNumber(0), false, cpacket);
+    var ep := EndPoint([], 0);
+    var learner_state := CLearnerState(rcs, CBallot(0, 0), map [], false, COperationNumber(0), false, CPacket(ep, ep, CMessage_Invalid()));
     var app_state := AppStateMachine.Initialize();
     var executor_state := ExecutorState(rcs, app_state, COperationNumber(0), CBallot(0, 0), COutstandingOpUnknown(), map[]);
     replica := ReplicaState(rcs, 0, proposer_state, acceptor_state, learner_state, executor_state);
