@@ -7,7 +7,7 @@ include "ReplicaImplClass.i.dfy"
 include "ReplicaImplProcessPacketX.i.dfy"
 include "ReplicaImplNoReceiveNoClock.i.dfy"
 include "ReplicaImplNoReceiveClock.i.dfy"
-include "UdpRSL.i.dfy"
+include "NetRSL.i.dfy"
 include "CClockReading.i.dfy"
 
 module LiveRSL__ReplicaImplMain_i {
@@ -26,9 +26,9 @@ import opened LiveRSL__ReplicaImplNoReceiveClock_i
 import opened LiveRSL__ReplicaImplNoReceiveNoClock_i
 import opened LiveRSL__ReplicaImplProcessPacketX_i
 import opened LiveRSL__ReplicaModel_i
-import opened LiveRSL__UdpRSL_i
+import opened LiveRSL__NetRSL_i
 import opened LiveRSL__Unsendable_i
-import opened Common__UdpClient_i
+import opened Common__NetClient_i
 
 
 method rollActionIndex(a:uint64) returns (a':uint64)
@@ -44,21 +44,21 @@ method rollActionIndex(a:uint64) returns (a':uint64)
 }
 
 method {:timeLimitMultiplier 2} ReplicaNextMainProcessPacketX(r:ReplicaImpl)
-  returns (ok:bool, ghost udpEventLog:seq<UdpEvent>, ghost ios:seq<RslIo>)
+  returns (ok:bool, ghost netEventLog:seq<NetEvent>, ghost ios:seq<RslIo>)
   requires r.Valid()
   requires r.nextActionIndex == 0
   modifies r.Repr, r.cur_req_set, r.prev_req_set, r.reply_cache_mutable
   ensures r.Repr == old(r.Repr)
-  ensures r.udpClient != null
+  ensures r.netClient != null
   ensures r.Env().Valid() && r.Env().ok.ok() ==> ok
   ensures r.Env() == old(r.Env());
   ensures ok ==>
             && r.Valid()
             && (|| Q_LScheduler_Next(old(r.AbstractifyToLScheduler()), r.AbstractifyToLScheduler(), ios)
-               || HostNextIgnoreUnsendable(old(r.AbstractifyToLScheduler()), r.AbstractifyToLScheduler(), udpEventLog))
-            && RawIoConsistentWithSpecIO(udpEventLog, ios)
-            && OnlySentMarshallableData(udpEventLog)
-            && old(r.Env().udp.history()) + udpEventLog == r.Env().udp.history()
+               || HostNextIgnoreUnsendable(old(r.AbstractifyToLScheduler()), r.AbstractifyToLScheduler(), netEventLog))
+            && RawIoConsistentWithSpecIO(netEventLog, ios)
+            && OnlySentMarshallableData(netEventLog)
+            && old(r.Env().net.history()) + netEventLog == r.Env().net.history()
 {
   ghost var replica_old := old(r.AbstractifyToLReplica());
   ghost var scheduler_old := old(r.AbstractifyToLScheduler());
@@ -67,24 +67,24 @@ method {:timeLimitMultiplier 2} ReplicaNextMainProcessPacketX(r:ReplicaImpl)
 
   //print ("Replica_Next_main Enter\n");
   assert scheduler_old.replica == replica_old;
-  ok, udpEventLog, ios := Replica_Next_ProcessPacketX(r);
+  ok, netEventLog, ios := Replica_Next_ProcessPacketX(r);
   if (!ok) { return; }
 
   assert r.Valid();
 
   // Mention unchanged predicates over mutable state in the old heap.
-  ghost var udp_client_old := r.udpClient;
-  ghost var udp_addr_old := r.udpClient.LocalEndPoint();
-  assert UdpClientIsValid(udp_client_old);
+  ghost var net_client_old := r.netClient;
+  ghost var net_addr_old := r.netClient.LocalEndPoint();
+  assert NetClientIsValid(net_client_old);
 
   ghost var replica := r.AbstractifyToLReplica();
   r.nextActionIndex := 1;
   ghost var scheduler := r.AbstractifyToLScheduler();
 
   // Mention unchanged predicates over mutable state in the new heap.
-  assert udp_client_old == r.udpClient;
-  assert UdpClientIsValid(r.udpClient);
-  assert udp_addr_old == r.udpClient.LocalEndPoint();
+  assert net_client_old == r.netClient;
+  assert NetClientIsValid(r.netClient);
+  assert net_addr_old == r.netClient.LocalEndPoint();
 
   assert r.Valid();
 
@@ -102,27 +102,27 @@ method {:timeLimitMultiplier 2} ReplicaNextMainProcessPacketX(r:ReplicaImpl)
     assert Q_LScheduler_Next(old(r.AbstractifyToLScheduler()), r.AbstractifyToLScheduler(), ios);
   }
   else {
-    assert IosReflectIgnoringUnsendable(udpEventLog);
+    assert IosReflectIgnoringUnsendable(netEventLog);
     assert old(r.AbstractifyToLReplica()) == r.AbstractifyToLReplica();
-    assert HostNextIgnoreUnsendable(old(r.AbstractifyToLScheduler()), r.AbstractifyToLScheduler(), udpEventLog);
+    assert HostNextIgnoreUnsendable(old(r.AbstractifyToLScheduler()), r.AbstractifyToLScheduler(), netEventLog);
   }
 }
 
 method ReplicaNextMainNoClock(r:ReplicaImpl)
-  returns (ok:bool, ghost udpEventLog:seq<UdpEvent>, ghost ios:seq<RslIo>)
+  returns (ok:bool, ghost netEventLog:seq<NetEvent>, ghost ios:seq<RslIo>)
   requires r.Valid()
   requires r.nextActionIndex == 1 || r.nextActionIndex == 2 || r.nextActionIndex == 4 || r.nextActionIndex == 5 || r.nextActionIndex == 6
   modifies r.replica.executor.app, r.Repr, r.cur_req_set, r.prev_req_set, r.reply_cache_mutable
   ensures r.Repr == old(r.Repr)
-  ensures r.udpClient != null
+  ensures r.netClient != null
   ensures r.Env().Valid() && r.Env().ok.ok() ==> ok
   ensures r.Env() == old(r.Env());
   ensures ok ==>
             && r.Valid()
             && Q_LScheduler_Next(old(r.AbstractifyToLScheduler()), r.AbstractifyToLScheduler(), ios)
-            && RawIoConsistentWithSpecIO(udpEventLog, ios)
-            && OnlySentMarshallableData(udpEventLog)
-            && old(r.Env().udp.history()) + udpEventLog == r.Env().udp.history()
+            && RawIoConsistentWithSpecIO(netEventLog, ios)
+            && OnlySentMarshallableData(netEventLog)
+            && old(r.Env().net.history()) + netEventLog == r.Env().net.history()
 {
   var curActionIndex := r.nextActionIndex;
 
@@ -130,15 +130,15 @@ method ReplicaNextMainNoClock(r:ReplicaImpl)
   ghost var scheduler_old := old(r.AbstractifyToLScheduler());
 
   assert scheduler_old.replica == replica_old;
-  ok, udpEventLog, ios := Replica_NoReceive_NoClock_Next(r);
+  ok, netEventLog, ios := Replica_NoReceive_NoClock_Next(r);
   if (!ok) { return; }
 
   assert r.Valid();
 
   // Mention unchanged predicates over mutable state in the old heap.
-  ghost var udp_client_old := r.udpClient;
-  ghost var udp_addr_old := r.udpClient.LocalEndPoint();
-  assert UdpClientIsValid(udp_client_old);
+  ghost var net_client_old := r.netClient;
+  ghost var net_addr_old := r.netClient.LocalEndPoint();
+  assert NetClientIsValid(net_client_old);
 
   ghost var replica := r.AbstractifyToLReplica();
   var nextActionIndex' := r.nextActionIndex + 1; // rollActionIndex(r.nextActionIndex);
@@ -146,9 +146,9 @@ method ReplicaNextMainNoClock(r:ReplicaImpl)
   ghost var scheduler := r.AbstractifyToLScheduler();
 
   // Mention unchanged predicates over mutable state in the new heap.
-  assert udp_client_old == r.udpClient;
-  assert UdpClientIsValid(r.udpClient);
-  assert udp_addr_old == r.udpClient.LocalEndPoint();
+  assert net_client_old == r.netClient;
+  assert NetClientIsValid(r.netClient);
+  assert net_addr_old == r.netClient.LocalEndPoint();
 
   assert r.Valid();
         
@@ -166,20 +166,20 @@ method ReplicaNextMainNoClock(r:ReplicaImpl)
 }
 
 method ReplicaNextMainReadClock(r:ReplicaImpl)
-  returns (ok:bool, ghost udpEventLog:seq<UdpEvent>, ghost ios:seq<RslIo>)
+  returns (ok:bool, ghost netEventLog:seq<NetEvent>, ghost ios:seq<RslIo>)
   requires r.Valid()
   requires r.nextActionIndex == 3 || r.nextActionIndex == 7 || r.nextActionIndex == 8 || r.nextActionIndex == 9
   modifies r.Repr, r.cur_req_set, r.prev_req_set, r.reply_cache_mutable
   ensures r.Repr == old(r.Repr)
-  ensures r.udpClient != null
+  ensures r.netClient != null
   ensures r.Env().Valid() && r.Env().ok.ok() ==> ok
   ensures r.Env() == old(r.Env());
   ensures ok ==>
             && r.Valid()
             && Q_LScheduler_Next(old(r.AbstractifyToLScheduler()), r.AbstractifyToLScheduler(), ios)
-            && RawIoConsistentWithSpecIO(udpEventLog, ios)
-            && OnlySentMarshallableData(udpEventLog)
-            && old(r.Env().udp.history()) + udpEventLog == r.Env().udp.history()
+            && RawIoConsistentWithSpecIO(netEventLog, ios)
+            && OnlySentMarshallableData(netEventLog)
+            && old(r.Env().net.history()) + netEventLog == r.Env().net.history()
 {
   var curActionIndex := r.nextActionIndex;
 
@@ -187,15 +187,15 @@ method ReplicaNextMainReadClock(r:ReplicaImpl)
   ghost var scheduler_old := old(r.AbstractifyToLScheduler());
 
   assert scheduler_old.replica == replica_old;
-  ok, udpEventLog, ios := Replica_NoReceive_ReadClock_Next(r);
+  ok, netEventLog, ios := Replica_NoReceive_ReadClock_Next(r);
   if (!ok) { return; }
 
   assert r.Valid();
 
   // Mention unchanged predicates over mutable state in the old heap.
-  ghost var udp_client_old := r.udpClient;
-  ghost var udp_addr_old := r.udpClient.LocalEndPoint();
-  assert UdpClientIsValid(udp_client_old);
+  ghost var net_client_old := r.netClient;
+  ghost var net_addr_old := r.netClient.LocalEndPoint();
+  assert NetClientIsValid(net_client_old);
 
   ghost var replica := r.AbstractifyToLReplica();
   var nextActionIndex' := rollActionIndex(r.nextActionIndex);
@@ -203,9 +203,9 @@ method ReplicaNextMainReadClock(r:ReplicaImpl)
   ghost var scheduler := r.AbstractifyToLScheduler();
 
   // Mention unchanged predicates over mutable state in the new heap.
-  assert udp_client_old == r.udpClient;
-  assert UdpClientIsValid(r.udpClient);
-  assert udp_addr_old == r.udpClient.LocalEndPoint();
+  assert net_client_old == r.netClient;
+  assert NetClientIsValid(r.netClient);
+  assert net_addr_old == r.netClient.LocalEndPoint();
 
   assert r.Valid();
         
@@ -222,30 +222,30 @@ method ReplicaNextMainReadClock(r:ReplicaImpl)
 }
 
 method Replica_Next_main(r:ReplicaImpl)
-  returns (ok:bool, ghost udpEventLog:seq<UdpEvent>, ghost ios:seq<RslIo>)
+  returns (ok:bool, ghost netEventLog:seq<NetEvent>, ghost ios:seq<RslIo>)
   requires r.Valid()
   modifies r.replica.executor.app, r.Repr, r.cur_req_set, r.prev_req_set, r.reply_cache_mutable
   ensures r.Repr == old(r.Repr)
-  ensures r.udpClient != null
+  ensures r.netClient != null
   ensures r.Env().Valid() && r.Env().ok.ok() ==> ok
   ensures r.Env() == old(r.Env());
   ensures ok ==>
             && r.Valid()
             && (|| Q_LScheduler_Next(old(r.AbstractifyToLScheduler()), r.AbstractifyToLScheduler(), ios)
-               || HostNextIgnoreUnsendable(old(r.AbstractifyToLScheduler()), r.AbstractifyToLScheduler(), udpEventLog))
-            && RawIoConsistentWithSpecIO(udpEventLog, ios)
-            && OnlySentMarshallableData(udpEventLog)
-            && old(r.Env().udp.history()) + udpEventLog == r.Env().udp.history()
+               || HostNextIgnoreUnsendable(old(r.AbstractifyToLScheduler()), r.AbstractifyToLScheduler(), netEventLog))
+            && RawIoConsistentWithSpecIO(netEventLog, ios)
+            && OnlySentMarshallableData(netEventLog)
+            && old(r.Env().net.history()) + netEventLog == r.Env().net.history()
 {
   //print ("Replica_Next_main Enter\n");
   if r.nextActionIndex == 0 {
-    ok, udpEventLog, ios := ReplicaNextMainProcessPacketX(r);
+    ok, netEventLog, ios := ReplicaNextMainProcessPacketX(r);
   }
   else if r.nextActionIndex == 1 || r.nextActionIndex == 2 || r.nextActionIndex == 4 || r.nextActionIndex == 5 || r.nextActionIndex == 6 {
-    ok, udpEventLog, ios := ReplicaNextMainNoClock(r);
+    ok, netEventLog, ios := ReplicaNextMainNoClock(r);
   }
   else if (r.nextActionIndex == 3 || 7 <= r.nextActionIndex <= 9) {
-    ok, udpEventLog, ios := ReplicaNextMainReadClock(r);
+    ok, netEventLog, ios := ReplicaNextMainReadClock(r);
   }
   //print ("Replica_Next_main Exit\n");
 }

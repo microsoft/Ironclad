@@ -3,7 +3,7 @@ include "../../Protocol/LiveSHT/Scheduler.i.dfy"
 include "../../Common/Collections/Seqs.i.dfy"
 include "../../../Libraries/Math/mod_auto.i.dfy"
 include "../../Protocol/SHT/Host.i.dfy"
-include "UdpSHT.i.dfy"
+include "NetSHT.i.dfy"
 include "SchedulerModel.i.dfy"
 include "Unsendable.i.dfy"
 //include "CBoundedClock.i.dfy"
@@ -26,11 +26,11 @@ import opened SHT__SingleDeliveryState_i
 import opened SHT__SingleDelivery_i
 import opened Impl_Parameters_i
 import opened LiveSHT__Scheduler_i
-import opened LiveSHT__UdpSHT_i
+import opened LiveSHT__NetSHT_i
 import opened LiveSHT__SchedulerModel_i
 import opened LiveSHT__Unsendable_i
 import opened LiveSHT__Environment_i
-import opened Common__UdpClient_i
+import opened Common__NetClient_i
 import opened Common__NodeIdentity_i 
 import opened Common__Util_i
 
@@ -39,7 +39,7 @@ class SchedulerImpl
     var host:HostState;
     var nextActionIndex:uint64;
     var resendCount:uint64;
-    var udpClient:UdpClient?;
+    var netClient:NetClient?;
     var localAddr:EndPoint;
 
     ghost var Repr : set<object>;
@@ -50,24 +50,24 @@ class SchedulerImpl
 
     predicate Valid()
         reads this;
-        reads UdpClientIsValid.reads(udpClient);
+        reads NetClientIsValid.reads(netClient);
     {
            HostStateIsValid(host)
         && HostStateIsAbstractable(host)
         && (0 <= nextActionIndex as int < LHost_NumActions())
         && (0 <= resendCount as int < 100000000)
-        && UdpClientIsValid(udpClient)
-        && udpClient.LocalEndPoint() == localAddr
-        && udpClient.LocalEndPoint() == host.me
+        && NetClientIsValid(netClient)
+        && netClient.LocalEndPoint() == localAddr
+        && netClient.LocalEndPoint() == host.me
         && HostStateIsValid(host)
-        && Repr == { this } + UdpClientRepr(udpClient)
+        && Repr == { this } + NetClientRepr(netClient)
         && CSingleDeliveryAccountIsValid(host.sd, host.constants.params)
     }
         
     function Env() : HostEnvironment?
-        reads this, UdpClientIsValid.reads(udpClient);
+        reads this, NetClientIsValid.reads(netClient);
     {
-        if udpClient!=null then udpClient.env else null
+        if netClient!=null then netClient.env else null
     }
    
     function AbstractifyToHost() : Host
@@ -87,12 +87,12 @@ class SchedulerImpl
             resendCount as int)
     }
       
-    method ConstructUdpClient(constants:ConstantsState, me:EndPoint, ghost env_:HostEnvironment) returns (ok:bool, client:UdpClient?)
+    method ConstructNetClient(constants:ConstantsState, me:EndPoint, ghost env_:HostEnvironment) returns (ok:bool, client:NetClient?)
         requires env_.Valid() && env_.ok.ok();
         requires ConstantsStateIsValid(constants);
         requires EndPointIsAbstractable(me);
         modifies env_.ok;
-        ensures ok ==> UdpClientIsValid(client)
+        ensures ok ==> NetClientIsValid(client)
                     && client.LocalEndPoint() == me
                     && client.env == env_;
     {
@@ -103,7 +103,7 @@ class SchedulerImpl
         var ip_endpoint;
         ok, ip_endpoint := IPEndPoint.Construct(ip_byte_array, my_ep.port, env_);
         if !ok { return; }
-        ok, client := UdpClient.Construct(ip_endpoint, env_);
+        ok, client := NetClient.Construct(ip_endpoint, env_);
         if ok {
             calc {
                 client.LocalEndPoint();
@@ -118,7 +118,7 @@ class SchedulerImpl
         requires env_.Valid() && env_.ok.ok();
         requires ConstantsStateIsValid(constants);
         requires EndPointIsAbstractable(me);
-        modifies this, udpClient;
+        modifies this, netClient;
         modifies env_.ok;
         ensures ok ==>
                Valid()
@@ -126,7 +126,7 @@ class SchedulerImpl
             && LScheduler_Init(AbstractifyToLScheduler(), AbstractifyEndPointToNodeIdentity(me), AbstractifyEndPointToNodeIdentity(constants.rootIdentity), AbstractifyEndPointsToNodeIdentities(constants.hostIds), AbstractifyCParametersToParameters(constants.params))
             && host.constants == constants;
     {
-        ok, udpClient := ConstructUdpClient(constants, me, env_); 
+        ok, netClient := ConstructNetClient(constants, me, env_); 
 
         if (ok)
         {
@@ -135,7 +135,7 @@ class SchedulerImpl
             nextActionIndex := 0;
             resendCount := 0;
             localAddr := host.me;
-            Repr := { this } + UdpClientRepr(udpClient);
+            Repr := { this } + NetClientRepr(netClient);
             
         }
     }
@@ -173,14 +173,14 @@ class SchedulerImpl
     }
 
 
-    method DeliverPacketSeq(packets:seq<CPacket>) returns (ok:bool, ghost udpEventLog:seq<UdpEvent>, ghost ios:seq<LSHTIo>)
+    method DeliverPacketSeq(packets:seq<CPacket>) returns (ok:bool, ghost netEventLog:seq<NetEvent>, ghost ios:seq<LSHTIo>)
         requires Valid();
         requires OutboundPacketsSeqIsValid(packets);
         requires OutboundPacketsSeqHasCorrectSrc(packets, host.me);
         modifies Repr;
         ensures Repr == old(Repr);
         ensures Env() == old(Env());
-        ensures ok == UdpClientOk(udpClient);
+        ensures ok == NetClientOk(netClient);
         ensures ok ==> (
                Valid()
             && host == old(host)
@@ -188,12 +188,12 @@ class SchedulerImpl
             && resendCount == old(resendCount)
             && AllIosAreSends(ios)
             && AbstractifyOutboundPacketsToSeqOfLSHTPackets(packets) == ExtractSentPacketsFromIos(ios)
-            && RawIoConsistentWithSpecIO(udpEventLog, ios)
-            && OnlySentMarshallableData(udpEventLog)
-            && old(Env().udp.history()) + udpEventLog == Env().udp.history());
+            && RawIoConsistentWithSpecIO(netEventLog, ios)
+            && OnlySentMarshallableData(netEventLog)
+            && old(Env().net.history()) + netEventLog == Env().net.history());
     {
         var start_time := Time.GetDebugTimeTicks();
-        ok, udpEventLog := SendPacketSeq(udpClient, packets, localAddr);
+        ok, netEventLog := SendPacketSeq(netClient, packets, localAddr);
         if (!ok) { return; }
 
         ios := MapSentPacketSeqToIos(packets);
@@ -203,14 +203,14 @@ class SchedulerImpl
         
     }
 
-    method DeliverOutboundPackets(packets:seq<CPacket>) returns (ok:bool, ghost udpEventLog:seq<UdpEvent>, ghost ios:seq<LSHTIo>)
+    method DeliverOutboundPackets(packets:seq<CPacket>) returns (ok:bool, ghost netEventLog:seq<NetEvent>, ghost ios:seq<LSHTIo>)
         requires Valid();
         requires OutboundPacketsSeqIsValid(packets);
         requires OutboundPacketsSeqHasCorrectSrc(packets, host.me); 
         modifies Repr;
         ensures Repr == old(Repr);
         ensures Env() == old(Env());
-        ensures ok == UdpClientOk(udpClient);
+        ensures ok == NetClientOk(netClient);
         ensures ok ==> (
                Valid()
             && host == old(host)
@@ -218,25 +218,25 @@ class SchedulerImpl
             && resendCount == old(resendCount)
             && AllIosAreSends(ios)
             && AbstractifyOutboundPacketsToSeqOfLSHTPackets(packets) == ExtractSentPacketsFromIos(ios)
-            && RawIoConsistentWithSpecIO(udpEventLog, ios)
-            && OnlySentMarshallableData(udpEventLog)
-            && old(Env().udp.history()) + udpEventLog == Env().udp.history());
+            && RawIoConsistentWithSpecIO(netEventLog, ios)
+            && OnlySentMarshallableData(netEventLog)
+            && old(Env().net.history()) + netEventLog == Env().net.history());
     {
-        ok, udpEventLog, ios := DeliverPacketSeq(packets);
+        ok, netEventLog, ios := DeliverPacketSeq(packets);
     }
 
 
-    predicate ReceivedPacketProperties(cpacket:CPacket, udpEvent0:UdpEvent, io0:LSHTIo)
+    predicate ReceivedPacketProperties(cpacket:CPacket, netEvent0:NetEvent, io0:LSHTIo)
         reads this;
         //requires SHTConcreteConfigurationIsValid(host.constants.all.config);
     {
            CPacketIsSendable(cpacket)
         && EndPointIsValidIPV4(host.me)
         && io0.LIoOpReceive?
-        && UdpEventIsAbstractable(udpEvent0)
-        && io0 == AbstractifyUdpEventToLSHTIo(udpEvent0)
-        && UdpEventIsAbstractable(udpEvent0)
-        && udpEvent0.LIoOpReceive? && AbstractifyCPacketToShtPacket(cpacket) == AbstractifyUdpPacketToShtPacket(udpEvent0.r)
+        && NetEventIsAbstractable(netEvent0)
+        && io0 == AbstractifyNetEventToLSHTIo(netEvent0)
+        && NetEventIsAbstractable(netEvent0)
+        && netEvent0.LIoOpReceive? && AbstractifyCPacketToShtPacket(cpacket) == AbstractifyNetPacketToShtPacket(netEvent0.r)
     }
 
     static lemma ExtractSentPacketsFromIos_DoesNotMindSomeClutter(ios_head:seq<LSHTIo>, ios_tail:seq<LSHTIo>)
@@ -264,31 +264,31 @@ class SchedulerImpl
         }
     }
 
-    method Host_NoReceive_NoClock_Next() returns (ok:bool, ghost udpEventLog:seq<UdpEvent>, ghost ios:seq<LSHTIo>)
+    method Host_NoReceive_NoClock_Next() returns (ok:bool, ghost netEventLog:seq<NetEvent>, ghost ios:seq<LSHTIo>)
         requires nextActionIndex == 2;
         requires Valid();
         modifies Repr;
         ensures Repr == old(Repr);
         ensures Env() == old(Env());
-        ensures ok == UdpClientOk(udpClient);
+        ensures ok == NetClientOk(netClient);
         ensures ok ==> (
                Valid()
             && nextActionIndex == old(nextActionIndex)
             && resendCount == old(resendCount)
             && LHost_NoReceive_Next(old(AbstractifyToHost()), AbstractifyToHost(), ios)
-            && RawIoConsistentWithSpecIO(udpEventLog, ios)
-            && OnlySentMarshallableData(udpEventLog) 
+            && RawIoConsistentWithSpecIO(netEventLog, ios)
+            && OnlySentMarshallableData(netEventLog) 
             && LIoOpSeqCompatibleWithReduction(ios)
-            && old(Env().udp.history()) + udpEventLog == Env().udp.history());
+            && old(Env().net.history()) + netEventLog == Env().net.history());
     {
     
         var sent_packets;
         
         host,sent_packets := HostModelSpontaneouslyRetransmit(host);
         
-        ok, udpEventLog, ios := DeliverOutboundPackets(sent_packets);
+        ok, netEventLog, ios := DeliverOutboundPackets(sent_packets);
         if (!ok) { return; }
-        assert old(Env().udp.history()) + udpEventLog == Env().udp.history(); // deleteme
+        assert old(Env().net.history()) + netEventLog == Env().net.history(); // deleteme
 
         // The following loop takes the forall that's stated in terms of io indices and turns
         // it into a forall in terms of ios.  In other words, it takes
@@ -304,7 +304,7 @@ class SchedulerImpl
 
         assert AbstractifyOutboundPacketsToSeqOfLSHTPackets(sent_packets) == ExtractSentPacketsFromIos(ios);
         assert Env() == old(Env());
-        assert RawIoConsistentWithSpecIO(udpEventLog, ios);
+        assert RawIoConsistentWithSpecIO(netEventLog, ios);
         reveal_AbstractifyOutboundPacketsToSeqOfLSHTPackets();
 
         assert ExtractPacketsFromLSHTPackets(ExtractSentPacketsFromIos(ios)) == UnAckedMessages(AbstractifyToHost().sd, AbstractifyToHost().me);
@@ -320,24 +320,24 @@ class SchedulerImpl
     {
     }
     
-     static lemma Combine_AbstractifyUdpEventToLSHTIo(ios_head:seq<LSHTIo>, ios_tail:seq<LSHTIo>, ios:seq<LSHTIo>, log_head:seq<UdpEvent>, log_tail:seq<UdpEvent>, log:seq<UdpEvent>)
+     static lemma Combine_AbstractifyNetEventToLSHTIo(ios_head:seq<LSHTIo>, ios_tail:seq<LSHTIo>, ios:seq<LSHTIo>, log_head:seq<NetEvent>, log_tail:seq<NetEvent>, log:seq<NetEvent>)
         requires |log_head| == |ios_head|;
         requires forall i :: 0<=i<|log_head|
-            ==> UdpEventIsAbstractable(log_head[i]) && ios_head[i] == AbstractifyUdpEventToLSHTIo(log_head[i]);
+            ==> NetEventIsAbstractable(log_head[i]) && ios_head[i] == AbstractifyNetEventToLSHTIo(log_head[i]);
         requires |log_tail| == |ios_tail|;
         requires forall i :: 0<=i<|log_tail|
-            ==> UdpEventIsAbstractable(log_tail[i]) && ios_tail[i] == AbstractifyUdpEventToLSHTIo(log_tail[i]);
+            ==> NetEventIsAbstractable(log_tail[i]) && ios_tail[i] == AbstractifyNetEventToLSHTIo(log_tail[i]);
         requires ios == ios_head+ios_tail;
         requires log == log_head+log_tail;
-        ensures forall i :: 0<=i<|log| ==> ios[i] == AbstractifyUdpEventToLSHTIo(log[i]);
+        ensures forall i :: 0<=i<|log| ==> ios[i] == AbstractifyNetEventToLSHTIo(log[i]);
     {
     }
 
-    static lemma UdpEventLogIsAbstractable_Extend(log_head:seq<UdpEvent>, log_tail:seq<UdpEvent>, log:seq<UdpEvent>)
+    static lemma NetEventLogIsAbstractable_Extend(log_head:seq<NetEvent>, log_tail:seq<NetEvent>, log:seq<NetEvent>)
         requires log == log_head+log_tail;
-        requires UdpEventLogIsAbstractable(log_head);
-        requires UdpEventLogIsAbstractable(log_tail);
-        ensures UdpEventLogIsAbstractable(log);
+        requires NetEventLogIsAbstractable(log_head);
+        requires NetEventLogIsAbstractable(log_tail);
+        ensures NetEventLogIsAbstractable(log);
     {
     }
 
@@ -356,32 +356,32 @@ class SchedulerImpl
     {
     }
     
-    method{:timeLimitMultiplier 8} HostNextReceivePacket(ghost udpEventLogOld:seq<UdpEvent>, rr:ReceiveResult, ghost receive_event:UdpEvent) returns (ok:bool, ghost udpEventLog:seq<UdpEvent>, ghost ios:seq<LSHTIo>)
+    method{:timeLimitMultiplier 8} HostNextReceivePacket(ghost netEventLogOld:seq<NetEvent>, rr:ReceiveResult, ghost receive_event:NetEvent) returns (ok:bool, ghost netEventLog:seq<NetEvent>, ghost ios:seq<LSHTIo>)
         requires nextActionIndex == 0;
         requires Valid();
-        requires Env().udp.history() == udpEventLogOld + [receive_event];
+        requires Env().net.history() == netEventLogOld + [receive_event];
         requires rr.RRPacket?;
         requires receive_event.LIoOpReceive?;
         requires CPacketIsAbstractable(rr.cpacket);
-        requires UdpPacketIsAbstractable(receive_event.r);
+        requires NetPacketIsAbstractable(receive_event.r);
         //requires CSingleMessageMarshallable(rr.cpacket.msg);
         requires !rr.cpacket.msg.CInvalidMessage? && CSingleMessageIs64Bit(rr.cpacket.msg);
-        requires AbstractifyCPacketToLSHTPacket(rr.cpacket) == AbstractifyUdpPacketToLSHTPacket(receive_event.r);
+        requires AbstractifyCPacketToLSHTPacket(rr.cpacket) == AbstractifyNetPacketToLSHTPacket(receive_event.r);
         //requires CPacketIsSendable(rr.cpacket);
         requires rr.cpacket.dst == host.me;
         modifies Repr;
         ensures Repr == old(Repr);
-        ensures ok == UdpClientOk(udpClient);
+        ensures ok == NetClientOk(netClient);
         ensures Env() == old(Env());
         ensures ok ==> (
                Valid()
             && nextActionIndex == old(nextActionIndex)
             && resendCount == old(resendCount)
             && LHost_ReceivePacket_Next(old(AbstractifyToHost()), AbstractifyToHost(), ios)
-            && OnlySentMarshallableData(udpEventLog) 
-            && RawIoConsistentWithSpecIO(udpEventLog, ios)
+            && OnlySentMarshallableData(netEventLog) 
+            && RawIoConsistentWithSpecIO(netEventLog, ios)
             && LIoOpSeqCompatibleWithReduction(ios)
-            && udpEventLogOld + udpEventLog == Env().udp.history());
+            && netEventLogOld + netEventLog == Env().net.history());
     {
         var cpacket := rr.cpacket;
         var sent_packets, ack;
@@ -389,40 +389,40 @@ class SchedulerImpl
         assert Valid();
         assert ReceivePacket(old(AbstractifyToHost()), AbstractifyToHost(), AbstractifyCPacketToShtPacket(cpacket), AbstractifySeqOfCPacketsToSetOfShtPackets(sent_packets), AbstractifyCPacketToShtPacket(ack));
 
-        ghost var io0 := LIoOpReceive(AbstractifyUdpPacketToLSHTPacket(receive_event.r));
+        ghost var io0 := LIoOpReceive(AbstractifyNetPacketToLSHTPacket(receive_event.r));
         ghost var log_head, log_tail, ios_head, ios_tail;
 
         ios_head := [io0];
         log_head := [receive_event];
-        ghost var preDeliveryHistory := Env().udp.history();
+        ghost var preDeliveryHistory := Env().net.history();
 
         assert Env() == old(Env());
         assert Valid();
-        assert udpClient.LocalEndPoint() == host.me;
+        assert netClient.LocalEndPoint() == host.me;
         ok, log_tail, ios_tail := DeliverOutboundPackets(sent_packets);
         if (!ok) { return; }
         
         ios := ios_head + ios_tail;
-        udpEventLog := log_head + log_tail;
+        netEventLog := log_head + log_tail;
 
         calc {
-            udpEventLogOld + udpEventLog;
-            udpEventLogOld + (log_head + log_tail);
-                { SeqAdditionIsAssociative(udpEventLogOld, log_head, log_tail); }
-            (udpEventLogOld + log_head) + log_tail;
+            netEventLogOld + netEventLog;
+            netEventLogOld + (log_head + log_tail);
+                { SeqAdditionIsAssociative(netEventLogOld, log_head, log_tail); }
+            (netEventLogOld + log_head) + log_tail;
             preDeliveryHistory + log_tail;
-                { SingletonSeqPrependSilly(log_head, log_tail, udpEventLog); }
-            preDeliveryHistory + udpEventLog[1..];
+                { SingletonSeqPrependSilly(log_head, log_tail, netEventLog); }
+            preDeliveryHistory + netEventLog[1..];
             preDeliveryHistory + log_tail;
-            Env().udp.history();
+            Env().net.history();
         }
 
         reveal_AbstractifyOutboundPacketsToSeqOfLSHTPackets();
 
         assert Env() == old(Env());
 
-        assert io0 == AbstractifyUdpEventToLSHTIo(receive_event);
-        forall i | 0<=i<|log_head| ensures UdpEventIsAbstractable(log_head[i]) && ios_head[i] == AbstractifyUdpEventToLSHTIo(log_head[i]);
+        assert io0 == AbstractifyNetEventToLSHTIo(receive_event);
+        forall i | 0<=i<|log_head| ensures NetEventIsAbstractable(log_head[i]) && ios_head[i] == AbstractifyNetEventToLSHTIo(log_head[i]);
         {
             assert log_head[i] == receive_event;
             assert ios_head[i] == io0;
@@ -432,14 +432,14 @@ class SchedulerImpl
         assert ios_tail == ios[1..];
         assert AllIosAreSends(ios_tail);
         assert forall i{:trigger ios_tail[i].LIoOpSend?} :: 0<=i<|ios_tail| ==> ios_tail[i].LIoOpSend?;
-        Combine_AbstractifyUdpEventToLSHTIo(ios_head, ios_tail, ios, log_head, log_tail, udpEventLog);
+        Combine_AbstractifyNetEventToLSHTIo(ios_head, ios_tail, ios, log_head, log_tail, netEventLog);
 
         assert AbstractifyOutboundPacketsToSeqOfLSHTPackets(sent_packets) == ExtractSentPacketsFromIos(ios);
-        UdpEventLogIsAbstractable_Extend(log_head, log_tail, udpEventLog);
-        assert UdpEventLogIsAbstractable(udpEventLog);
-        lemma_AbstractifyRawLogToIos_properties(udpEventLog, ios);
+        NetEventLogIsAbstractable_Extend(log_head, log_tail, netEventLog);
+        assert NetEventLogIsAbstractable(netEventLog);
+        lemma_AbstractifyRawLogToIos_properties(netEventLog, ios);
 
-        assert RawIoConsistentWithSpecIO(udpEventLog, ios);
+        assert RawIoConsistentWithSpecIO(netEventLog, ios);
         ExtractSentPacketsFromIos_DoesNotMindSomeClutter(ios_head, ios_tail);  
         assert ios[0] == io0;
         assert AbstractifyCPacketToShtPacket(cpacket) == Packet(ios[0].r.dst, ios[0].r.src, ios[0].r.msg);
@@ -459,31 +459,31 @@ class SchedulerImpl
         assert LHost_ReceivePacket_Next(old(AbstractifyToHost()), AbstractifyToHost(), ios);
     }
     
-    method Host_ReceivePacket_Next() returns (ok:bool, ghost udpEventLog:seq<UdpEvent>, ghost ios:seq<LSHTIo>)
+    method Host_ReceivePacket_Next() returns (ok:bool, ghost netEventLog:seq<NetEvent>, ghost ios:seq<LSHTIo>)
         requires nextActionIndex == 0;
         requires Valid();
         modifies Repr;
         ensures Repr == old(Repr);
-        ensures ok == UdpClientOk(udpClient);
+        ensures ok == NetClientOk(netClient);
         ensures Env() == old(Env());
         ensures ok ==> (
                Valid()
             && nextActionIndex == old(nextActionIndex)
             && resendCount == old(resendCount)
             && (   LHost_ReceivePacket_Next(old(AbstractifyToHost()), AbstractifyToHost(), ios)
-                || (   IosReflectIgnoringUnDemarshallable(udpEventLog)
+                || (   IosReflectIgnoringUnDemarshallable(netEventLog)
                     && old(AbstractifyToHost()) == AbstractifyToHost()) )
-            && RawIoConsistentWithSpecIO(udpEventLog, ios)
-            && OnlySentMarshallableData(udpEventLog) 
+            && RawIoConsistentWithSpecIO(netEventLog, ios)
+            && OnlySentMarshallableData(netEventLog) 
             && LIoOpSeqCompatibleWithReduction(ios)
-            && old(Env().udp.history()) + udpEventLog == Env().udp.history());
+            && old(Env().net.history()) + netEventLog == Env().net.history());
     {
         var start_time := Time.GetDebugTimeTicks();
         var rr;
-        ghost var udpEvent0;
+        ghost var netEvent0;
        
-        rr, udpEvent0 := Receive(udpClient, localAddr);
-        ghost var midHistory := Env().udp.history();
+        rr, netEvent0 := Receive(netClient, localAddr);
+        ghost var midHistory := Env().net.history();
         assert Env()==old(Env());
         
 
@@ -495,7 +495,7 @@ class SchedulerImpl
         } else if (rr.RRTimeout?) {
             ok := true;
             ios := [ LIoOpTimeoutReceive() ];
-            udpEventLog := [ udpEvent0 ];
+            netEventLog := [ netEvent0 ];
             var end_time := Time.GetDebugTimeTicks();
             RecordTimingSeq("Host_Next_ProcessPacket_timeout", start_time, end_time);
             return;
@@ -507,59 +507,59 @@ class SchedulerImpl
             //assert Valid();
             if cpacket.msg.CInvalidMessage? {
                 ok := true;
-                udpEventLog := [udpEvent0];
-                ghost var receive_io := LIoOpReceive(AbstractifyUdpPacketToLSHTPacket(udpEvent0.r));
+                netEventLog := [netEvent0];
+                ghost var receive_io := LIoOpReceive(AbstractifyNetPacketToLSHTPacket(netEvent0.r));
                 ios := [receive_io];
             } else {
             //assert CPacketIsAbstractable(cpacket) && CSingleMessageMarshallable(cpacket.msg);
-                ok, udpEventLog, ios := HostNextReceivePacket(old(Env().udp.history()), rr, udpEvent0); 
+                ok, netEventLog, ios := HostNextReceivePacket(old(Env().net.history()), rr, netEvent0); 
 
                /* 
             host, sent_packets, ack := HostModelReceivePacket(host, cpacket); 
                 assert Valid();
             assert ReceivePacket(old(AbstractifyToHost()), AbstractifyToHost(), AbstractifyCPacketToShtPacket(cpacket), AbstractifySeqOfCPacketsToSetOfShtPackets(sent_packets), AbstractifyCPacketToShtPacket(ack));
 
-            ghost var io0 := LIoOpReceive(AbstractifyUdpPacketToLSHTPacket(udpEvent0.r));
+            ghost var io0 := LIoOpReceive(AbstractifyNetPacketToLSHTPacket(netEvent0.r));
             ghost var log_head, log_tail, ios_head, ios_tail;
 
             ios_head := [io0];
-            log_head := [udpEvent0];
-            ghost var preDeliveryHistory := Env().udp.history();
+            log_head := [netEvent0];
+            ghost var preDeliveryHistory := Env().net.history();
 
             calc {
-                old(Env().udp.history()) + log_head;
-                old(Env().udp.history()) + [udpEvent0];
+                old(Env().net.history()) + log_head;
+                old(Env().net.history()) + [netEvent0];
                 preDeliveryHistory;
             }
             assert Env() == old(Env());
                 assert Valid();
-            assert udpClient.LocalEndPoint() == host.me;
+            assert netClient.LocalEndPoint() == host.me;
             ok, log_tail, ios_tail := DeliverOutboundPackets(sent_packets);
             if (!ok) { return; }
             
             ios := ios_head + ios_tail;
-            udpEventLog := log_head + log_tail;
+            netEventLog := log_head + log_tail;
 
             calc {
-                old(Env().udp.history()) + udpEventLog;
-                old(Env().udp.history()) + (log_head + log_tail);
-                    { SeqAdditionIsAssociative(old(Env().udp.history()), log_head, log_tail); }
-                (old(Env().udp.history()) + log_head) + log_tail;
+                old(Env().net.history()) + netEventLog;
+                old(Env().net.history()) + (log_head + log_tail);
+                    { SeqAdditionIsAssociative(old(Env().net.history()), log_head, log_tail); }
+                (old(Env().net.history()) + log_head) + log_tail;
                 preDeliveryHistory + log_tail;
-                    { SingletonSeqPrependSilly(log_head, log_tail, udpEventLog); }
-                preDeliveryHistory + udpEventLog[1..];
+                    { SingletonSeqPrependSilly(log_head, log_tail, netEventLog); }
+                preDeliveryHistory + netEventLog[1..];
                 preDeliveryHistory + log_tail;
-                Env().udp.history();
+                Env().net.history();
             }
 
             reveal_AbstractifyOutboundPacketsToSeqOfLSHTPackets();
 
             assert Env() == old(Env());
 
-            assert io0 == AbstractifyUdpEventToLSHTIo(udpEvent0);
-            forall i | 0<=i<|log_head| ensures UdpEventIsAbstractable(log_head[i]) && ios_head[i] == AbstractifyUdpEventToLSHTIo(log_head[i]);
+            assert io0 == AbstractifyNetEventToLSHTIo(netEvent0);
+            forall i | 0<=i<|log_head| ensures NetEventIsAbstractable(log_head[i]) && ios_head[i] == AbstractifyNetEventToLSHTIo(log_head[i]);
             {
-                assert log_head[i] == udpEvent0;
+                assert log_head[i] == netEvent0;
                 assert ios_head[i] == io0;
             }
 
@@ -567,14 +567,14 @@ class SchedulerImpl
             assert ios_tail == ios[1..];
             assert AllIosAreSends(ios_tail);
             assert forall i{:trigger ios_tail[i].LIoOpSend?} :: 0<=i<|ios_tail| ==> ios_tail[i].LIoOpSend?;
-            Combine_AbstractifyUdpEventToLSHTIo(ios_head, ios_tail, ios, log_head, log_tail, udpEventLog);
+            Combine_AbstractifyNetEventToLSHTIo(ios_head, ios_tail, ios, log_head, log_tail, netEventLog);
 
             assert AbstractifyOutboundPacketsToSeqOfLSHTPackets(sent_packets) == ExtractSentPacketsFromIos(ios);
-            UdpEventLogIsAbstractable_Extend(log_head, log_tail, udpEventLog);
-            assert UdpEventLogIsAbstractable(udpEventLog);
-            lemma_AbstractifyRawLogToIos_properties(udpEventLog, ios);
+            NetEventLogIsAbstractable_Extend(log_head, log_tail, netEventLog);
+            assert NetEventLogIsAbstractable(netEventLog);
+            lemma_AbstractifyRawLogToIos_properties(netEventLog, ios);
 
-            assert RawIoConsistentWithSpecIO(udpEventLog, ios);
+            assert RawIoConsistentWithSpecIO(netEventLog, ios);
             ExtractSentPacketsFromIos_DoesNotMindSomeClutter(ios_head, ios_tail);  
 //                assert LHost_ReceivePacketWithoutReadingClock(old(AbstractifyToHost()), AbstractifyToHost(), ios);
 
@@ -601,25 +601,25 @@ class SchedulerImpl
     {
     }
 
-    method{:timeLimitMultiplier 2} Host_ProcessReceivedPacket_Next() returns (ok:bool, ghost udpEventLog:seq<UdpEvent>, ghost ios:seq<LSHTIo>)
+    method{:timeLimitMultiplier 2} Host_ProcessReceivedPacket_Next() returns (ok:bool, ghost netEventLog:seq<NetEvent>, ghost ios:seq<LSHTIo>)
         requires nextActionIndex == 1;
         requires Valid();
         modifies Repr;
         ensures Repr == old(Repr);
         ensures Env() == old(Env());
-        ensures ok == UdpClientOk(udpClient);
+        ensures ok == NetClientOk(netClient);
         ensures ok ==> (
                Valid()
             && nextActionIndex == old(nextActionIndex)
             && resendCount == old(resendCount)
             && (LHost_ProcessReceivedPacket_Next(old(AbstractifyToHost()), AbstractifyToHost(), ios)
-                || HostNextIgnoreUnsendableProcess(old(AbstractifyToLScheduler()), AbstractifyToLScheduler().(nextActionIndex := 2), udpEventLog))
+                || HostNextIgnoreUnsendableProcess(old(AbstractifyToLScheduler()), AbstractifyToLScheduler().(nextActionIndex := 2), netEventLog))
             && old(AbstractifyToHost()).me == AbstractifyToHost().me
-            && RawIoConsistentWithSpecIO(udpEventLog, ios)
-            && OnlySentMarshallableData(udpEventLog) 
+            && RawIoConsistentWithSpecIO(netEventLog, ios)
+            && OnlySentMarshallableData(netEventLog) 
             && LIoOpSeqCompatibleWithReduction(ios)
             && old(AbstractifyToLScheduler()).host.constants == AbstractifyToLScheduler().host.constants
-            && old(Env().udp.history()) + udpEventLog == Env().udp.history());
+            && old(Env().net.history()) + netEventLog == Env().net.history());
     {
         var sent_packets := [];
         var b;
@@ -647,9 +647,9 @@ class SchedulerImpl
             sent_packets := [];
             
         }
-        ok, udpEventLog, ios := DeliverOutboundPackets(sent_packets);
+        ok, netEventLog, ios := DeliverOutboundPackets(sent_packets);
         if (!ok) { return; }
-        assert old(Env().udp.history()) + udpEventLog == Env().udp.history(); // deleteme
+        assert old(Env().net.history()) + netEventLog == Env().net.history(); // deleteme
         lemma_ExtractSentPacketsFromIos(ios);   // ==>
         assert |sent_packets| == 0 ==> |ios| == 0;
 
@@ -669,7 +669,7 @@ class SchedulerImpl
             if (b) {
                 assert AbstractifyOutboundPacketsToSeqOfLSHTPackets(sent_packets) == ExtractSentPacketsFromIos(ios);
                 assert Env() == old(Env());
-                assert RawIoConsistentWithSpecIO(udpEventLog, ios);
+                assert RawIoConsistentWithSpecIO(netEventLog, ios);
                 reveal_AbstractifyOutboundPacketsToSeqOfLSHTPackets();
                 ghost var packet := old(AbstractifyToHost()).receivedPacket.v;
                 if packet.msg.SingleMessage? {
@@ -687,14 +687,14 @@ class SchedulerImpl
                 } 
 
                 if HostIgnoringUnParseable(old(AbstractifyToHost()), AbstractifyToHost(), AbstractifySeqOfCPacketsToSetOfShtPackets(sent_packets)) {
-                    assert HostNextIgnoreUnsendableProcess(old(AbstractifyToLScheduler()), AbstractifyToLScheduler().(nextActionIndex := 2), udpEventLog);
+                    assert HostNextIgnoreUnsendableProcess(old(AbstractifyToLScheduler()), AbstractifyToLScheduler().(nextActionIndex := 2), netEventLog);
                 }
                 assert LHost_ProcessReceivedPacket_Next(old(AbstractifyToHost()), AbstractifyToHost(), ios)
-                    || HostNextIgnoreUnsendableProcess(old(AbstractifyToLScheduler()), AbstractifyToLScheduler().(nextActionIndex := 2), udpEventLog);
+                    || HostNextIgnoreUnsendableProcess(old(AbstractifyToLScheduler()), AbstractifyToLScheduler().(nextActionIndex := 2), netEventLog);
             } else {
                 assert AbstractifyOutboundPacketsToSeqOfLSHTPackets(sent_packets) == ExtractSentPacketsFromIos(ios);
                 assert Env() == old(Env());
-                assert RawIoConsistentWithSpecIO(udpEventLog, ios);
+                assert RawIoConsistentWithSpecIO(netEventLog, ios);
                 reveal_AbstractifyOutboundPacketsToSeqOfLSHTPackets();
                 assert !ShouldProcessReceivedMessage(old(AbstractifyToHost()));
                 assert ProcessReceivedPacket(old(AbstractifyToHost()), AbstractifyToHost(), ExtractPacketsFromLSHTPackets(ExtractSentPacketsFromIos(ios)));
@@ -703,7 +703,7 @@ class SchedulerImpl
         } else {
             assert AbstractifyOutboundPacketsToSeqOfLSHTPackets(sent_packets) == ExtractSentPacketsFromIos(ios);
             assert Env() == old(Env());
-            assert RawIoConsistentWithSpecIO(udpEventLog, ios);
+            assert RawIoConsistentWithSpecIO(netEventLog, ios);
             reveal_AbstractifyOutboundPacketsToSeqOfLSHTPackets();
             assert host.receivedPacket.Some? == false;
             assert old(AbstractifyToHost()).receivedPacket.Some? == false;
@@ -715,7 +715,7 @@ class SchedulerImpl
     
     
     method {:timeLimitMultiplier 2} Host_Next_main()
-        returns (ok:bool, ghost udpEventLog:seq<UdpEvent>, ghost ios:seq<LSHTIo>)
+        returns (ok:bool, ghost netEventLog:seq<NetEvent>, ghost ios:seq<LSHTIo>)
         requires Valid();
         modifies Repr;
         ensures Repr == old(Repr);
@@ -724,11 +724,11 @@ class SchedulerImpl
         ensures ok ==> (
                Valid()
             && (   LScheduler_Next(old(AbstractifyToLScheduler()), AbstractifyToLScheduler(), ios)
-                || HostNextIgnoreUnsendable(old(AbstractifyToLScheduler()), AbstractifyToLScheduler(), udpEventLog))
+                || HostNextIgnoreUnsendable(old(AbstractifyToLScheduler()), AbstractifyToLScheduler(), netEventLog))
             && LIoOpSeqCompatibleWithReduction(ios)
-            && RawIoConsistentWithSpecIO(udpEventLog, ios)
-            && OnlySentMarshallableData(udpEventLog) 
-            && old(Env().udp.history()) + udpEventLog == Env().udp.history()
+            && RawIoConsistentWithSpecIO(netEventLog, ios)
+            && OnlySentMarshallableData(netEventLog) 
+            && old(Env().net.history()) + netEventLog == Env().net.history()
             );
     {
         var curActionIndex := nextActionIndex;
@@ -744,21 +744,21 @@ class SchedulerImpl
         //print ("Host_Next_main Enter\n");
         assert scheduler_old.host == host_old;
         if (curActionIndex == 0) {
-            ok, udpEventLog, ios := Host_ReceivePacket_Next();
+            ok, netEventLog, ios := Host_ReceivePacket_Next();
             if (!ok) { return; }
         } else if (curActionIndex == 1) {
-            ok, udpEventLog, ios := Host_ProcessReceivedPacket_Next();
+            ok, netEventLog, ios := Host_ProcessReceivedPacket_Next();
             if (!ok) { return; }
         } else if (curActionIndex == 2) {
             curResendCount := resendCount;
             nextResendCount := rollResendCount(curResendCount);
             resendCount := nextResendCount;
             if (nextResendCount == 0) {
-                ok, udpEventLog, ios := Host_NoReceive_NoClock_Next();
+                ok, netEventLog, ios := Host_NoReceive_NoClock_Next();
                 if (!ok) { return; }
             } else {
                 ok := true;
-                udpEventLog := [];
+                netEventLog := [];
                 ios := [];
             }
         } else {
@@ -793,7 +793,7 @@ class SchedulerImpl
         }
 
         //assert  LHost_ReceivePacket_Next(old(AbstractifyToLScheduler()).host, AbstractifyToLScheduler().host, ios) || LHost_ProcessReceivedPacket_Next(old(AbstractifyToLScheduler()).host, AbstractifyToLScheduler().host, ios) || LHost_NoReceive_Next(old(AbstractifyToLScheduler()).host, AbstractifyToLScheduler().host, ios);
-        assert UdpClientIsValid(udpClient);
+        assert NetClientIsValid(netClient);
         assert old(AbstractifyToLScheduler()).host.constants == AbstractifyToLScheduler().host.constants; 
         assert {:split_here} true;
         if (curActionIndex == 0) {
@@ -806,10 +806,10 @@ class SchedulerImpl
                  1;
             }
             assert LScheduler_Next(old(AbstractifyToLScheduler()), AbstractifyToLScheduler(), ios)
-                || HostNextIgnoreUnsendable(old(AbstractifyToLScheduler()), AbstractifyToLScheduler(), udpEventLog);
+                || HostNextIgnoreUnsendable(old(AbstractifyToLScheduler()), AbstractifyToLScheduler(), netEventLog);
         } else if (curActionIndex == 1) {
             assert LScheduler_Next(old(AbstractifyToLScheduler()), AbstractifyToLScheduler(), ios)
-                || HostNextIgnoreUnsendable(old(AbstractifyToLScheduler()), AbstractifyToLScheduler(), udpEventLog);
+                || HostNextIgnoreUnsendable(old(AbstractifyToLScheduler()), AbstractifyToLScheduler(), netEventLog);
         } else if (curActionIndex == 2) {
         assert LScheduler_Next(old(AbstractifyToLScheduler()), AbstractifyToLScheduler(), ios);
     }

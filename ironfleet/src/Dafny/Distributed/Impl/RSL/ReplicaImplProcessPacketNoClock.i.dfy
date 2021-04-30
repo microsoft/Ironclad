@@ -5,7 +5,7 @@ include "ReplicaModel.i.dfy"
 include "ReplicaImplLemmas.i.dfy"
 include "ReplicaImplClass.i.dfy"
 include "ReplicaImplDelivery.i.dfy"
-include "UdpRSL.i.dfy"
+include "NetRSL.i.dfy"
 include "CClockReading.i.dfy"
 
 module LiveRSL__ReplicaImplProcessPacketNoClock_i {
@@ -35,8 +35,8 @@ import opened LiveRSL__ReplicaModel_Part4_i
 import opened LiveRSL__ReplicaModel_Part5_i
 import opened LiveRSL__ReplicaState_i
 import opened LiveRSL__Types_i
-import opened LiveRSL__UdpRSL_i
-import opened Common__UdpClient_i
+import opened LiveRSL__NetRSL_i
+import opened Common__NetClient_i
 import opened Environment_s
 import opened Logic__Option_i
 import opened Common__Util_i
@@ -44,27 +44,27 @@ import opened Common__Util_i
 lemma lemma_ReplicaNextProcessPacketWithoutReadingClockHelper(
   cpacket:CPacket,
   sent_packets:OutboundPackets,
-  old_udp_history:seq<UdpEvent>,
-  post_receive_udp_history:seq<UdpEvent>,
-  current_udp_history:seq<UdpEvent>,
-  receive_event:UdpEvent,
-  send_events:seq<UdpEvent>,
+  old_net_history:seq<NetEvent>,
+  post_receive_net_history:seq<NetEvent>,
+  current_net_history:seq<NetEvent>,
+  receive_event:NetEvent,
+  send_events:seq<NetEvent>,
   receive_io:RslIo,
   send_ios:seq<RslIo>
   ) returns (
-  udpEventLog:seq<UdpEvent>,
+  netEventLog:seq<NetEvent>,
   ios:seq<RslIo>
   )
-  requires post_receive_udp_history == old_udp_history + [receive_event]
-  requires current_udp_history == post_receive_udp_history + send_events
+  requires post_receive_net_history == old_net_history + [receive_event]
+  requires current_net_history == post_receive_net_history + send_events
 
   // From Receive:
   requires receive_event.LIoOpReceive?
   requires !cpacket.msg.CMessage_Heartbeat?
   requires CPacketIsAbstractable(cpacket)
-  requires UdpEventIsAbstractable(receive_event)
-  requires AbstractifyCPacketToRslPacket(cpacket) == AbstractifyUdpPacketToRslPacket(receive_event.r)
-  requires receive_io == AbstractifyUdpEventToRslIo(receive_event)
+  requires NetEventIsAbstractable(receive_event)
+  requires AbstractifyCPacketToRslPacket(cpacket) == AbstractifyNetPacketToRslPacket(receive_event.r)
+  requires receive_io == AbstractifyNetEventToRslIo(receive_event)
     
   // From DeliverOutboundPackets:
   requires AllIosAreSends(send_ios)
@@ -73,17 +73,17 @@ lemma lemma_ReplicaNextProcessPacketWithoutReadingClockHelper(
   requires RawIoConsistentWithSpecIO(send_events, send_ios)
   requires OnlySentMarshallableData(send_events)
         
-  ensures  RawIoConsistentWithSpecIO(udpEventLog, ios)
+  ensures  RawIoConsistentWithSpecIO(netEventLog, ios)
   ensures  |ios| >= 1
   ensures  ios[0] == receive_io
   ensures  AllIosAreSends(ios[1..])
-  ensures  current_udp_history == old_udp_history + udpEventLog
+  ensures  current_net_history == old_net_history + netEventLog
   ensures  AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets) == ExtractSentPacketsFromIos(ios)
-  ensures  OnlySentMarshallableData(udpEventLog)
+  ensures  OnlySentMarshallableData(netEventLog)
 {
   var ios_head := [receive_io];
   ios := ios_head + send_ios;
-  udpEventLog := [receive_event] + send_events;
+  netEventLog := [receive_event] + send_events;
         
   calc {
     AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets);
@@ -101,8 +101,8 @@ lemma lemma_ReplicaNextProcessPacketWithoutReadingClockHelper(
     assert io.LIoOpSend?;
   }
 
-  assert UdpEventLogIsAbstractable(udpEventLog);
-  assert AbstractifyRawLogToIos(udpEventLog) == ios;
+  assert NetEventLogIsAbstractable(netEventLog);
+  assert AbstractifyRawLogToIos(netEventLog) == ios;
     
   lemma_ExtractSentPacketsFromIosDoesNotMindSomeClutter(ios_head, send_ios);
 }
@@ -110,24 +110,24 @@ lemma lemma_ReplicaNextProcessPacketWithoutReadingClockHelper(
 method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,0,0} ReplicaNextProcessPacketInvalid(
   r:ReplicaImpl,
   cpacket:CPacket,
-  ghost old_udp_history:seq<UdpEvent>,
-  ghost receive_event:UdpEvent,
+  ghost old_net_history:seq<NetEvent>,
+  ghost receive_event:NetEvent,
   ghost receive_io:RslIo
   ) returns (
-  ghost udpEventLog:seq<UdpEvent>,
+  ghost netEventLog:seq<NetEvent>,
   ghost ios:seq<RslIo>
   )
   requires r.Valid()
-  requires old_udp_history + [receive_event] == r.Env().udp.history()
+  requires old_net_history + [receive_event] == r.Env().net.history()
   requires CPaxosConfigurationIsValid(r.replica.constants.all.config)
   requires r.ReceivedPacketProperties(cpacket, receive_event, receive_io)
   requires cpacket.msg.CMessage_Invalid?
   requires LReplica_Next_ProcessPacketWithoutReadingClock_preconditions([receive_io])
   ensures  LReplica_Next_ProcessPacketWithoutReadingClock_preconditions(ios)
   ensures  Q_LReplica_Next_ProcessPacketWithoutReadingClock(old(r.AbstractifyToLReplica()), r.AbstractifyToLReplica(), ios)
-  ensures  RawIoConsistentWithSpecIO(udpEventLog, ios)
-  ensures  old_udp_history + udpEventLog == r.Env().udp.history()
-  ensures  OnlySentMarshallableData(udpEventLog)
+  ensures  RawIoConsistentWithSpecIO(netEventLog, ios)
+  ensures  old_net_history + netEventLog == r.Env().net.history()
+  ensures  OnlySentMarshallableData(netEventLog)
 {
   //print ("Replica_Next_ProcessPacketWithoutReadingClock_body: Enter\n"); 
   ghost var replica_old := AbstractifyReplicaStateToLReplica(r.replica);
@@ -143,9 +143,9 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
   ghost var send_events := [];
   ghost var send_ios := [];
 
-  udpEventLog, ios := lemma_ReplicaNextProcessPacketWithoutReadingClockHelper(cpacket, sent_packets,
-                                                                              old_udp_history, old(r.Env().udp.history()),
-                                                                              r.Env().udp.history(),
+  netEventLog, ios := lemma_ReplicaNextProcessPacketWithoutReadingClockHelper(cpacket, sent_packets,
+                                                                              old_net_history, old(r.Env().net.history()),
+                                                                              r.Env().net.history(),
                                                                               receive_event, send_events, receive_io, send_ios);
   lemma_EstablishQLReplicaNextProcessPacketWithoutReadingClock(rreplica, AbstractifyReplicaStateToLReplica(r.replica),
                                                                lpacket, AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets), ios);
@@ -168,16 +168,16 @@ lemma lemma_RevealQFromReplicaNextProcessRequestPostconditions(
 method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,0,0} {:timeLimitMultiplier 2} ReplicaNextProcessPacketRequest(
   r:ReplicaImpl,
   cpacket:CPacket,
-  ghost old_udp_history:seq<UdpEvent>,
-  ghost receive_event:UdpEvent,
+  ghost old_net_history:seq<NetEvent>,
+  ghost receive_event:NetEvent,
   ghost receive_io:RslIo
   ) returns (
   ok:bool,
-  ghost udpEventLog:seq<UdpEvent>,
+  ghost netEventLog:seq<NetEvent>,
   ghost ios:seq<RslIo>
   )
   requires r.Valid()
-  requires old_udp_history + [receive_event] == r.Env().udp.history()
+  requires old_net_history + [receive_event] == r.Env().net.history()
   requires CPaxosConfigurationIsValid(r.replica.constants.all.config)
   requires r.ReceivedPacketProperties(cpacket, receive_event, receive_io)
   requires cpacket.msg.CMessage_Request?
@@ -185,18 +185,18 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
   requires Replica_Next_Process_Request_Preconditions(r.replica, cpacket)
   modifies r.Repr, r.cur_req_set, r.prev_req_set, r.reply_cache_mutable
   ensures r.Repr==old(r.Repr)
-  ensures r.udpClient != null
-  ensures ok == UdpClientOk(r.udpClient)
+  ensures r.netClient != null
+  ensures ok == NetClientOk(r.netClient)
   ensures r.Env() == old(r.Env());
   ensures ok ==>
             && r.Valid()
             && r.nextActionIndex == old(r.nextActionIndex)
             && LReplica_Next_ProcessPacketWithoutReadingClock_preconditions(ios)
             && Q_LReplica_Next_ProcessPacketWithoutReadingClock(old(r.AbstractifyToLReplica()), r.AbstractifyToLReplica(), ios)
-            && OnlySentMarshallableData(udpEventLog)
-            && RawIoConsistentWithSpecIO(udpEventLog, ios)
+            && OnlySentMarshallableData(netEventLog)
+            && RawIoConsistentWithSpecIO(netEventLog, ios)
             && r.Env() == old(r.Env())
-            && old_udp_history + udpEventLog == r.Env().udp.history()
+            && old_net_history + netEventLog == r.Env().net.history()
 {
   if ShouldPrintProgress() {
     print("Received request from client ");
@@ -213,17 +213,17 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
   //print ("Replica_Next_ProcessPacketWithoutReadingClock_body: Processing a CMessage_Request\n");
 
   // Mention unchanged predicates over mutable state in the old heap.
-  ghost var udp_client_old := r.udpClient;
-  ghost var udp_addr_old := r.udpClient.LocalEndPoint();
-  assert UdpClientIsValid(udp_client_old);
+  ghost var net_client_old := r.netClient;
+  ghost var net_addr_old := r.netClient.LocalEndPoint();
+  assert NetClientIsValid(net_client_old);
 
   var sent_packets;
   r.replica, sent_packets := Replica_Next_Process_Request(r.replica, cpacket, r.cur_req_set, r.prev_req_set, r.reply_cache_mutable);
 
   // Mention unchanged predicates over mutable state in the new heap.
-  assert udp_client_old == r.udpClient;
-  assert UdpClientIsValid(r.udpClient);
-  assert udp_addr_old == r.udpClient.LocalEndPoint();
+  assert net_client_old == r.netClient;
+  assert NetClientIsValid(r.netClient);
+  assert net_addr_old == r.netClient.LocalEndPoint();
 
   lemma_RevealQFromReplicaNextProcessRequestPostconditions(replica_old, r.replica, cpacket, sent_packets);
 
@@ -234,9 +234,9 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
   ok, send_events, send_ios := DeliverOutboundPackets(r, sent_packets);
   if (!ok) { return; }
 
-  udpEventLog, ios := lemma_ReplicaNextProcessPacketWithoutReadingClockHelper(cpacket, sent_packets,
-                                                                              old_udp_history, old(r.Env().udp.history()),
-                                                                              r.Env().udp.history(),
+  netEventLog, ios := lemma_ReplicaNextProcessPacketWithoutReadingClockHelper(cpacket, sent_packets,
+                                                                              old_net_history, old(r.Env().net.history()),
+                                                                              r.Env().net.history(),
                                                                               receive_event, send_events, receive_io, send_ios);
   lemma_EstablishQLReplicaNextProcessPacketWithoutReadingClock(replica_old, AbstractifyReplicaStateToLReplica(r.replica),
                                                                lpacket, AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets), ios);
@@ -259,16 +259,16 @@ lemma lemma_RevealQFromReplicaNextProcess1aPostconditions(
 method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,0,0} {:timeLimitMultiplier 2} ReplicaNextProcessPacket1a(
   r:ReplicaImpl,
   cpacket:CPacket,
-  ghost old_udp_history:seq<UdpEvent>,
-  ghost receive_event:UdpEvent,
+  ghost old_net_history:seq<NetEvent>,
+  ghost receive_event:NetEvent,
   ghost receive_io:RslIo
   ) returns (
   ok:bool,
-  ghost udpEventLog:seq<UdpEvent>,
+  ghost netEventLog:seq<NetEvent>,
   ghost ios:seq<RslIo>
   )
   requires r.Valid()
-  requires old_udp_history + [receive_event] == r.Env().udp.history()
+  requires old_net_history + [receive_event] == r.Env().net.history()
   requires CPaxosConfigurationIsValid(r.replica.constants.all.config)
   requires r.ReceivedPacketProperties(cpacket, receive_event, receive_io)
   requires cpacket.msg.CMessage_1a?
@@ -276,18 +276,18 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
   requires Replica_Next_Process_1a_Preconditions(r.replica, cpacket)
   modifies r.Repr
   ensures r.Repr==old(r.Repr)
-  ensures r.udpClient != null
-  ensures ok == UdpClientOk(r.udpClient)
+  ensures r.netClient != null
+  ensures ok == NetClientOk(r.netClient)
   ensures r.Env() == old(r.Env());
   ensures ok ==>
             && r.Valid()
             && r.nextActionIndex == old(r.nextActionIndex)
             && LReplica_Next_ProcessPacketWithoutReadingClock_preconditions(ios)
             && Q_LReplica_Next_ProcessPacketWithoutReadingClock(old(r.AbstractifyToLReplica()), r.AbstractifyToLReplica(), ios)
-            && RawIoConsistentWithSpecIO(udpEventLog, ios)
-            && OnlySentMarshallableData(udpEventLog)
+            && RawIoConsistentWithSpecIO(netEventLog, ios)
+            && OnlySentMarshallableData(netEventLog)
             && r.Env() == old(r.Env())
-            && old_udp_history + udpEventLog == r.Env().udp.history()
+            && old_net_history + netEventLog == r.Env().net.history()
 {
   //print ("Replica_Next_ProcessPacketWithoutReadingClock_body: Enter\n"); 
   ghost var replica_old := AbstractifyReplicaStateToLReplica(r.replica);
@@ -295,17 +295,17 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
   //print ("Replica_Next_ProcessPacketWithoutReadingClock_body: Processing a CMessage_1a\n");
 
   // Mention unchanged predicates over mutable state in the old heap.
-  ghost var udp_client_old := r.udpClient;
-  ghost var udp_addr_old := r.udpClient.LocalEndPoint();
-  assert UdpClientIsValid(udp_client_old);
+  ghost var net_client_old := r.netClient;
+  ghost var net_addr_old := r.netClient.LocalEndPoint();
+  assert NetClientIsValid(net_client_old);
 
   var sent_packets;
   r.replica, sent_packets := Replica_Next_Process_1a(r.replica, cpacket);
 
   // Mention unchanged predicates over mutable state in the new heap.
-  assert udp_client_old == r.udpClient;
-  assert UdpClientIsValid(r.udpClient);
-  assert udp_addr_old == r.udpClient.LocalEndPoint();
+  assert net_client_old == r.netClient;
+  assert NetClientIsValid(r.netClient);
+  assert net_addr_old == r.netClient.LocalEndPoint();
 
   lemma_RevealQFromReplicaNextProcess1aPostconditions(replica_old, r.replica, cpacket, sent_packets);
 
@@ -316,9 +316,9 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
   ok, send_events, send_ios := DeliverOutboundPackets(r, sent_packets);
   if (!ok) { return; }
 
-  udpEventLog, ios := lemma_ReplicaNextProcessPacketWithoutReadingClockHelper(cpacket, sent_packets,
-                                                                              old_udp_history, old(r.Env().udp.history()),
-                                                                              r.Env().udp.history(),
+  netEventLog, ios := lemma_ReplicaNextProcessPacketWithoutReadingClockHelper(cpacket, sent_packets,
+                                                                              old_net_history, old(r.Env().net.history()),
+                                                                              r.Env().net.history(),
                                                                               receive_event, send_events, receive_io, send_ios);
   lemma_EstablishQLReplicaNextProcessPacketWithoutReadingClock(replica_old, AbstractifyReplicaStateToLReplica(r.replica),
                                                                lpacket, AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets), ios);
@@ -341,16 +341,16 @@ lemma lemma_RevealQFromReplicaNextProcess1bPostconditions(
 method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,0,0} {:timeLimitMultiplier 2} ReplicaNextProcessPacket1b(
   r:ReplicaImpl,
   cpacket:CPacket,
-  ghost old_udp_history:seq<UdpEvent>,
-  ghost receive_event:UdpEvent,
+  ghost old_net_history:seq<NetEvent>,
+  ghost receive_event:NetEvent,
   ghost receive_io:RslIo
   ) returns (
   ok:bool,
-  ghost udpEventLog:seq<UdpEvent>,
+  ghost netEventLog:seq<NetEvent>,
   ghost ios:seq<RslIo>
   )
   requires r.Valid()
-  requires old_udp_history + [receive_event] == r.Env().udp.history()
+  requires old_net_history + [receive_event] == r.Env().net.history()
   requires CPaxosConfigurationIsValid(r.replica.constants.all.config)
   requires r.ReceivedPacketProperties(cpacket, receive_event, receive_io)
   requires cpacket.msg.CMessage_1b?
@@ -358,18 +358,18 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
   requires Replica_Next_Process_1b_Preconditions(r.replica,cpacket)
   modifies r.Repr
   ensures r.Repr==old(r.Repr)
-  ensures r.udpClient != null
-  ensures ok == UdpClientOk(r.udpClient)
+  ensures r.netClient != null
+  ensures ok == NetClientOk(r.netClient)
   ensures r.Env() == old(r.Env());
   ensures ok ==>
             && r.Valid()
             && r.nextActionIndex == old(r.nextActionIndex)
             && LReplica_Next_ProcessPacketWithoutReadingClock_preconditions(ios)
             && Q_LReplica_Next_ProcessPacketWithoutReadingClock(old(r.AbstractifyToLReplica()), r.AbstractifyToLReplica(), ios)
-            && RawIoConsistentWithSpecIO(udpEventLog, ios)
-            && OnlySentMarshallableData(udpEventLog)
+            && RawIoConsistentWithSpecIO(netEventLog, ios)
+            && OnlySentMarshallableData(netEventLog)
             && r.Env() == old(r.Env())
-            && old_udp_history + udpEventLog == r.Env().udp.history()
+            && old_net_history + netEventLog == r.Env().net.history()
 {
   //print ("Replica_Next_ProcessPacketWithoutReadingClock_body: Enter\n"); 
   ghost var replica_old := AbstractifyReplicaStateToLReplica(r.replica);
@@ -377,17 +377,17 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
   //print ("Replica_Next_ProcessPacketWithoutReadingClock_body: Processing a CMessage_1b\n");
 
   // Mention unchanged predicates over mutable state in the old heap.
-  ghost var udp_client_old := r.udpClient;
-  ghost var udp_addr_old := r.udpClient.LocalEndPoint();
-  assert UdpClientIsValid(udp_client_old);
+  ghost var net_client_old := r.netClient;
+  ghost var net_addr_old := r.netClient.LocalEndPoint();
+  assert NetClientIsValid(net_client_old);
 
   var sent_packets;
   r.replica, sent_packets := Replica_Next_Process_1b(r.replica, cpacket);
 
   // Mention unchanged predicates over mutable state in the new heap.
-  assert udp_client_old == r.udpClient;
-  assert UdpClientIsValid(r.udpClient);
-  assert udp_addr_old == r.udpClient.LocalEndPoint();
+  assert net_client_old == r.netClient;
+  assert NetClientIsValid(r.netClient);
+  assert net_addr_old == r.netClient.LocalEndPoint();
 
   lemma_RevealQFromReplicaNextProcess1bPostconditions(replica_old, r.replica, cpacket, sent_packets);
 
@@ -398,9 +398,9 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
   ok, send_events, send_ios := DeliverOutboundPackets(r, sent_packets);
   if (!ok) { return; }
 
-  udpEventLog, ios := lemma_ReplicaNextProcessPacketWithoutReadingClockHelper(cpacket, sent_packets,
-                                                                              old_udp_history, old(r.Env().udp.history()),
-                                                                              r.Env().udp.history(),
+  netEventLog, ios := lemma_ReplicaNextProcessPacketWithoutReadingClockHelper(cpacket, sent_packets,
+                                                                              old_net_history, old(r.Env().net.history()),
+                                                                              r.Env().net.history(),
                                                                               receive_event, send_events, receive_io, send_ios);
   lemma_EstablishQLReplicaNextProcessPacketWithoutReadingClock(replica_old, AbstractifyReplicaStateToLReplica(r.replica),
                                                                lpacket, AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets), ios);
@@ -423,34 +423,34 @@ lemma lemma_RevealQFromReplicaNextProcessStartingPhase2Postconditions(
 method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,0,0} {:timeLimitMultiplier 5} ReplicaNextProcessPacketStartingPhase2(
   r:ReplicaImpl,
   cpacket:CPacket,
-  ghost old_udp_history:seq<UdpEvent>,
-  ghost receive_event:UdpEvent,
+  ghost old_net_history:seq<NetEvent>,
+  ghost receive_event:NetEvent,
   ghost receive_io:RslIo
   ) returns (
   ok:bool,
-  ghost udpEventLog:seq<UdpEvent>,
+  ghost netEventLog:seq<NetEvent>,
   ghost ios:seq<RslIo>
   )
   requires r.Valid()
-  requires old_udp_history + [receive_event] == r.Env().udp.history()
+  requires old_net_history + [receive_event] == r.Env().net.history()
   requires CPaxosConfigurationIsValid(r.replica.constants.all.config)
   requires r.ReceivedPacketProperties(cpacket, receive_event, receive_io)
   requires cpacket.msg.CMessage_StartingPhase2?
   requires LReplica_Next_ProcessPacketWithoutReadingClock_preconditions([receive_io])
   modifies r.Repr
   ensures r.Repr==old(r.Repr)
-  ensures r.udpClient != null
-  ensures ok == UdpClientOk(r.udpClient)
+  ensures r.netClient != null
+  ensures ok == NetClientOk(r.netClient)
   ensures r.Env() == old(r.Env());
   ensures ok ==>
             && r.Valid()
             && r.nextActionIndex == old(r.nextActionIndex)
             && LReplica_Next_ProcessPacketWithoutReadingClock_preconditions(ios)
             && Q_LReplica_Next_ProcessPacketWithoutReadingClock(old(r.AbstractifyToLReplica()), r.AbstractifyToLReplica(), ios)
-            && RawIoConsistentWithSpecIO(udpEventLog, ios)
-            && OnlySentMarshallableData(udpEventLog)
+            && RawIoConsistentWithSpecIO(netEventLog, ios)
+            && OnlySentMarshallableData(netEventLog)
             && r.Env() == old(r.Env())
-            && old_udp_history + udpEventLog == r.Env().udp.history()
+            && old_net_history + netEventLog == r.Env().net.history()
 {
   //print ("Replica_Next_ProcessPacketWithoutReadingClock_body: Enter\n"); 
   ghost var replica_old := AbstractifyReplicaStateToLReplica(r.replica);
@@ -458,17 +458,17 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
   //print ("Replica_Next_ProcessPacketWithoutReadingClock_body: Processing a CMessage_StartingPhase2\n");
 
   // Mention unchanged predicates over mutable state in the old heap.
-  ghost var udp_client_old := r.udpClient;
-  ghost var udp_addr_old := r.udpClient.LocalEndPoint();
-  assert UdpClientIsValid(udp_client_old);
+  ghost var net_client_old := r.netClient;
+  ghost var net_addr_old := r.netClient.LocalEndPoint();
+  assert NetClientIsValid(net_client_old);
 
   var sent_packets;
   r.replica, sent_packets := Replica_Next_Process_StartingPhase2(r.replica, cpacket);
 
   // Mention unchanged predicates over mutable state in the new heap.
-  assert udp_client_old == r.udpClient;
-  assert UdpClientIsValid(r.udpClient);
-  assert udp_addr_old == r.udpClient.LocalEndPoint();
+  assert net_client_old == r.netClient;
+  assert NetClientIsValid(r.netClient);
+  assert net_addr_old == r.netClient.LocalEndPoint();
 
   lemma_RevealQFromReplicaNextProcessStartingPhase2Postconditions(replica_old, r.replica, cpacket, sent_packets);
 
@@ -479,9 +479,9 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
   ok, send_events, send_ios := DeliverOutboundPackets(r, sent_packets);
   if (!ok) { return; }
 
-  udpEventLog, ios := lemma_ReplicaNextProcessPacketWithoutReadingClockHelper(cpacket, sent_packets,
-                                                                              old_udp_history, old(r.Env().udp.history()),
-                                                                              r.Env().udp.history(),
+  netEventLog, ios := lemma_ReplicaNextProcessPacketWithoutReadingClockHelper(cpacket, sent_packets,
+                                                                              old_net_history, old(r.Env().net.history()),
+                                                                              r.Env().net.history(),
                                                                               receive_event, send_events, receive_io, send_ios);
   lemma_EstablishQLReplicaNextProcessPacketWithoutReadingClock(replica_old, AbstractifyReplicaStateToLReplica(r.replica),
                                                                lpacket, AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets), ios);
@@ -504,16 +504,16 @@ lemma lemma_RevealQFromReplicaNextProcess2aPostconditions(
 method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,0,0} {:timeLimitMultiplier 2} ReplicaNextProcessPacket2a(
   r:ReplicaImpl,
   cpacket:CPacket,
-  ghost old_udp_history:seq<UdpEvent>,
-  ghost receive_event:UdpEvent,
+  ghost old_net_history:seq<NetEvent>,
+  ghost receive_event:NetEvent,
   ghost receive_io:RslIo
   ) returns (
   ok:bool,
-  ghost udpEventLog:seq<UdpEvent>,
+  ghost netEventLog:seq<NetEvent>,
   ghost ios:seq<RslIo>
   )
   requires r.Valid()
-  requires old_udp_history + [receive_event] == r.Env().udp.history()
+  requires old_net_history + [receive_event] == r.Env().net.history()
   requires CPaxosConfigurationIsValid(r.replica.constants.all.config)
   requires r.ReceivedPacketProperties(cpacket, receive_event, receive_io)
   requires cpacket.msg.CMessage_2a?
@@ -521,18 +521,18 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
   requires Replica_Next_Process_2a_Preconditions(r.replica,cpacket)
   modifies r.Repr
   ensures r.Repr==old(r.Repr)
-  ensures r.udpClient != null
-  ensures ok == UdpClientOk(r.udpClient)
+  ensures r.netClient != null
+  ensures ok == NetClientOk(r.netClient)
   ensures r.Env() == old(r.Env());
   ensures ok ==>
             && r.Valid()
             && r.nextActionIndex == old(r.nextActionIndex)
             && LReplica_Next_ProcessPacketWithoutReadingClock_preconditions(ios)
             && Q_LReplica_Next_ProcessPacketWithoutReadingClock(old(r.AbstractifyToLReplica()), r.AbstractifyToLReplica(), ios)
-            && RawIoConsistentWithSpecIO(udpEventLog, ios)
-            && OnlySentMarshallableData(udpEventLog)
+            && RawIoConsistentWithSpecIO(netEventLog, ios)
+            && OnlySentMarshallableData(netEventLog)
             && r.Env() == old(r.Env())
-            && old_udp_history + udpEventLog == r.Env().udp.history()
+            && old_net_history + netEventLog == r.Env().net.history()
 {
   //print ("Replica_Next_ProcessPacketWithoutReadingClock_body: Enter\n"); 
   ghost var replica_old := AbstractifyReplicaStateToLReplica(r.replica);
@@ -540,17 +540,17 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
   //print ("Replica_Next_ProcessPacketWithoutReadingClock_body: Processing a CMessage_2a\n");
 
   // Mention unchanged predicates over mutable state in the old heap.
-  ghost var udp_client_old := r.udpClient;
-  ghost var udp_addr_old := r.udpClient.LocalEndPoint();
-  assert UdpClientIsValid(udp_client_old);
+  ghost var net_client_old := r.netClient;
+  ghost var net_addr_old := r.netClient.LocalEndPoint();
+  assert NetClientIsValid(net_client_old);
 
   var sent_packets;
   r.replica, sent_packets := Replica_Next_Process_2a(r.replica, cpacket);
 
   // Mention unchanged predicates over mutable state in the new heap.
-  assert udp_client_old == r.udpClient;
-  assert UdpClientIsValid(r.udpClient);
-  assert udp_addr_old == r.udpClient.LocalEndPoint();
+  assert net_client_old == r.netClient;
+  assert NetClientIsValid(r.netClient);
+  assert net_addr_old == r.netClient.LocalEndPoint();
 
   lemma_RevealQFromReplicaNextProcess2aPostconditions(replica_old, r.replica, cpacket, sent_packets);
 
@@ -561,9 +561,9 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
   ok, send_events, send_ios := DeliverOutboundPackets(r, sent_packets);
   if (!ok) { return; }
 
-  udpEventLog, ios := lemma_ReplicaNextProcessPacketWithoutReadingClockHelper(cpacket, sent_packets,
-                                                                              old_udp_history, old(r.Env().udp.history()),
-                                                                              r.Env().udp.history(),
+  netEventLog, ios := lemma_ReplicaNextProcessPacketWithoutReadingClockHelper(cpacket, sent_packets,
+                                                                              old_net_history, old(r.Env().net.history()),
+                                                                              r.Env().net.history(),
                                                                               receive_event, send_events, receive_io, send_ios);
   lemma_EstablishQLReplicaNextProcessPacketWithoutReadingClock(replica_old, AbstractifyReplicaStateToLReplica(r.replica),
                                                                lpacket, AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets), ios);
@@ -586,16 +586,16 @@ lemma lemma_RevealQFromReplicaNextProcess2bPostconditions(
 method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,0,0} {:timeLimitMultiplier 2} ReplicaNextProcessPacket2b(
   r:ReplicaImpl,
   cpacket:CPacket,
-  ghost old_udp_history:seq<UdpEvent>,
-  ghost receive_event:UdpEvent,
+  ghost old_net_history:seq<NetEvent>,
+  ghost receive_event:NetEvent,
   ghost receive_io:RslIo
   ) returns (
   ok:bool,
-  ghost udpEventLog:seq<UdpEvent>,
+  ghost netEventLog:seq<NetEvent>,
   ghost ios:seq<RslIo>
   )
   requires r.Valid()
-  requires old_udp_history + [receive_event] == r.Env().udp.history()
+  requires old_net_history + [receive_event] == r.Env().net.history()
   requires CPaxosConfigurationIsValid(r.replica.constants.all.config)
   requires r.ReceivedPacketProperties(cpacket, receive_event, receive_io)
   requires cpacket.msg.CMessage_2b?
@@ -603,18 +603,18 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
   requires Replica_Next_Process_2b_Preconditions(r.replica,cpacket)
   modifies r.Repr
   ensures r.Repr==old(r.Repr)
-  ensures r.udpClient != null
-  ensures ok == UdpClientOk(r.udpClient)
+  ensures r.netClient != null
+  ensures ok == NetClientOk(r.netClient)
   ensures r.Env() == old(r.Env());
   ensures ok ==>
             && r.Valid()
             && r.nextActionIndex == old(r.nextActionIndex)
             && LReplica_Next_ProcessPacketWithoutReadingClock_preconditions(ios)
             && Q_LReplica_Next_ProcessPacketWithoutReadingClock(old(r.AbstractifyToLReplica()), r.AbstractifyToLReplica(), ios)
-            && RawIoConsistentWithSpecIO(udpEventLog, ios)
-            && OnlySentMarshallableData(udpEventLog)
+            && RawIoConsistentWithSpecIO(netEventLog, ios)
+            && OnlySentMarshallableData(netEventLog)
             && r.Env() == old(r.Env())
-            && old_udp_history + udpEventLog == r.Env().udp.history()
+            && old_net_history + netEventLog == r.Env().net.history()
 {
   //print ("Replica_Next_ProcessPacketWithoutReadingClock_body: Enter\n"); 
   ghost var replica_old := AbstractifyReplicaStateToLReplica(r.replica);
@@ -622,17 +622,17 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
   //print ("Replica_Next_ProcessPacketWithoutReadingClock_body: Processing a CMessage_2b\n");
 
   // Mention unchanged predicates over mutable state in the old heap.
-  ghost var udp_client_old := r.udpClient;
-  ghost var udp_addr_old := r.udpClient.LocalEndPoint();
-  assert UdpClientIsValid(udp_client_old);
+  ghost var net_client_old := r.netClient;
+  ghost var net_addr_old := r.netClient.LocalEndPoint();
+  assert NetClientIsValid(net_client_old);
 
   var sent_packets;
   r.replica, sent_packets := Replica_Next_Process_2b(r.replica, cpacket);
 
   // Mention unchanged predicates over mutable state in the new heap.
-  assert udp_client_old == r.udpClient;
-  assert UdpClientIsValid(r.udpClient);
-  assert udp_addr_old == r.udpClient.LocalEndPoint();
+  assert net_client_old == r.netClient;
+  assert NetClientIsValid(r.netClient);
+  assert net_addr_old == r.netClient.LocalEndPoint();
 
   lemma_RevealQFromReplicaNextProcess2bPostconditions(replica_old, r.replica, cpacket, sent_packets);
 
@@ -643,9 +643,9 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
   ok, send_events, send_ios := DeliverOutboundPackets(r, sent_packets);
   if (!ok) { return; }
 
-  udpEventLog, ios := lemma_ReplicaNextProcessPacketWithoutReadingClockHelper(cpacket, sent_packets,
-                                                                              old_udp_history, old(r.Env().udp.history()),
-                                                                              r.Env().udp.history(),
+  netEventLog, ios := lemma_ReplicaNextProcessPacketWithoutReadingClockHelper(cpacket, sent_packets,
+                                                                              old_net_history, old(r.Env().net.history()),
+                                                                              r.Env().net.history(),
                                                                               receive_event, send_events, receive_io, send_ios);
   lemma_EstablishQLReplicaNextProcessPacketWithoutReadingClock(replica_old, AbstractifyReplicaStateToLReplica(r.replica),
                                                                lpacket, AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets), ios);
@@ -655,24 +655,24 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
 method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,0,0} ReplicaNextProcessPacketReply(
   r:ReplicaImpl,
   cpacket:CPacket,
-  ghost old_udp_history:seq<UdpEvent>,
-  ghost receive_event:UdpEvent,
+  ghost old_net_history:seq<NetEvent>,
+  ghost receive_event:NetEvent,
   ghost receive_io:RslIo
   ) returns (
-  ghost udpEventLog:seq<UdpEvent>,
+  ghost netEventLog:seq<NetEvent>,
   ghost ios:seq<RslIo>
   )
   requires r.Valid()
-  requires old_udp_history + [receive_event] == r.Env().udp.history()
+  requires old_net_history + [receive_event] == r.Env().net.history()
   requires CPaxosConfigurationIsValid(r.replica.constants.all.config)
   requires r.ReceivedPacketProperties(cpacket, receive_event, receive_io)
   requires cpacket.msg.CMessage_Reply?
   requires LReplica_Next_ProcessPacketWithoutReadingClock_preconditions([receive_io])
   ensures  LReplica_Next_ProcessPacketWithoutReadingClock_preconditions(ios)
   ensures  Q_LReplica_Next_ProcessPacketWithoutReadingClock(old(r.AbstractifyToLReplica()), r.AbstractifyToLReplica(), ios)
-  ensures  RawIoConsistentWithSpecIO(udpEventLog, ios)
-  ensures  OnlySentMarshallableData(udpEventLog)
-  ensures  old_udp_history + udpEventLog == r.Env().udp.history()
+  ensures  RawIoConsistentWithSpecIO(netEventLog, ios)
+  ensures  OnlySentMarshallableData(netEventLog)
+  ensures  old_net_history + netEventLog == r.Env().net.history()
 {
   //print ("Replica_Next_ProcessPacketWithoutReadingClock_body: Enter\n"); 
   ghost var replica_old := AbstractifyReplicaStateToLReplica(r.replica);
@@ -693,9 +693,9 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
     [];
   }
 
-  udpEventLog, ios := lemma_ReplicaNextProcessPacketWithoutReadingClockHelper(cpacket, sent_packets,
-                                                                              old_udp_history, old(r.Env().udp.history()),
-                                                                              r.Env().udp.history(),
+  netEventLog, ios := lemma_ReplicaNextProcessPacketWithoutReadingClockHelper(cpacket, sent_packets,
+                                                                              old_net_history, old(r.Env().net.history()),
+                                                                              r.Env().net.history(),
                                                                               receive_event, send_events, receive_io, send_ios);
   lemma_EstablishQLReplicaNextProcessPacketWithoutReadingClock(replica_old, AbstractifyReplicaStateToLReplica(r.replica),
                                                                lpacket, AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets), ios);
@@ -718,34 +718,34 @@ lemma lemma_RevealQFromReplicaNextProcessAppStateRequestPostconditions(
 method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,0,0} {:timeLimitMultiplier 2} ReplicaNextProcessPacketAppStateRequest(
   r:ReplicaImpl,
   cpacket:CPacket,
-  ghost old_udp_history:seq<UdpEvent>,
-  ghost receive_event:UdpEvent,
+  ghost old_net_history:seq<NetEvent>,
+  ghost receive_event:NetEvent,
   ghost receive_io:RslIo
   ) returns (
   ok:bool,
-  ghost udpEventLog:seq<UdpEvent>,
+  ghost netEventLog:seq<NetEvent>,
   ghost ios:seq<RslIo>
   )
   requires r.Valid()
-  requires old_udp_history + [receive_event] == r.Env().udp.history()
+  requires old_net_history + [receive_event] == r.Env().net.history()
   requires CPaxosConfigurationIsValid(r.replica.constants.all.config)
   requires r.ReceivedPacketProperties(cpacket, receive_event, receive_io)
   requires cpacket.msg.CMessage_AppStateRequest?
   requires LReplica_Next_ProcessPacketWithoutReadingClock_preconditions([receive_io])
   modifies r.Repr, r.reply_cache_mutable
   ensures r.Repr==old(r.Repr)
-  ensures r.udpClient != null
-  ensures ok == UdpClientOk(r.udpClient)
+  ensures r.netClient != null
+  ensures ok == NetClientOk(r.netClient)
   ensures r.Env() == old(r.Env());
   ensures ok ==>
             && r.Valid()
             && r.nextActionIndex == old(r.nextActionIndex)
             && LReplica_Next_ProcessPacketWithoutReadingClock_preconditions(ios)
             && Q_LReplica_Next_ProcessPacketWithoutReadingClock(old(r.AbstractifyToLReplica()), r.AbstractifyToLReplica(), ios)
-            && RawIoConsistentWithSpecIO(udpEventLog, ios)
-            && OnlySentMarshallableData(udpEventLog)
+            && RawIoConsistentWithSpecIO(netEventLog, ios)
+            && OnlySentMarshallableData(netEventLog)
             && r.Env() == old(r.Env())
-            && old_udp_history + udpEventLog == r.Env().udp.history()
+            && old_net_history + netEventLog == r.Env().net.history()
 {
   //print ("Replica_Next_ProcessPacketWithoutReadingClock_body: Enter\n"); 
   ghost var replica_old := AbstractifyReplicaStateToLReplica(r.replica);
@@ -753,17 +753,17 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
   //print ("Replica_Next_ProcessPacketWithoutReadingClock_body: Processing a CMessage_AppStateRequest\n");
 
   // Mention unchanged predicates over mutable state in the old heap.
-  ghost var udp_client_old := r.udpClient;
-  ghost var udp_addr_old := r.udpClient.LocalEndPoint();
-  assert UdpClientIsValid(udp_client_old);
+  ghost var net_client_old := r.netClient;
+  ghost var net_addr_old := r.netClient.LocalEndPoint();
+  assert NetClientIsValid(net_client_old);
 
   var sent_packets;
   r.replica, sent_packets := Replica_Next_Process_AppStateRequest(r.replica, cpacket, r.reply_cache_mutable);
 
   // Mention unchanged predicates over mutable state in the new heap.
-  assert udp_client_old == r.udpClient;
-  assert UdpClientIsValid(r.udpClient);
-  assert udp_addr_old == r.udpClient.LocalEndPoint();
+  assert net_client_old == r.netClient;
+  assert NetClientIsValid(r.netClient);
+  assert net_addr_old == r.netClient.LocalEndPoint();
 
   lemma_RevealQFromReplicaNextProcessAppStateRequestPostconditions(replica_old, r.replica, cpacket, sent_packets);
 
@@ -774,9 +774,9 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
   ok, send_events, send_ios := DeliverOutboundPackets(r, sent_packets);
   if (!ok) { return; }
 
-  udpEventLog, ios := lemma_ReplicaNextProcessPacketWithoutReadingClockHelper(cpacket, sent_packets,
-                                                                              old_udp_history, old(r.Env().udp.history()),
-                                                                              r.Env().udp.history(),
+  netEventLog, ios := lemma_ReplicaNextProcessPacketWithoutReadingClockHelper(cpacket, sent_packets,
+                                                                              old_net_history, old(r.Env().net.history()),
+                                                                              r.Env().net.history(),
                                                                               receive_event, send_events, receive_io, send_ios);
   lemma_EstablishQLReplicaNextProcessPacketWithoutReadingClock(replica_old, AbstractifyReplicaStateToLReplica(r.replica),
                                                                lpacket, AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets), ios);
@@ -799,16 +799,16 @@ lemma lemma_RevealQFromReplicaNextProcessAppStateSupplyPostconditions(
 method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,0,0} {:timeLimitMultiplier 5} ReplicaNextProcessPacketAppStateSupply(
   r:ReplicaImpl,
   cpacket:CPacket,
-  ghost old_udp_history:seq<UdpEvent>,
-  ghost receive_event:UdpEvent,
+  ghost old_net_history:seq<NetEvent>,
+  ghost receive_event:NetEvent,
   ghost receive_io:RslIo
   ) returns (
   ok:bool,
-  ghost udpEventLog:seq<UdpEvent>,
+  ghost netEventLog:seq<NetEvent>,
   ghost ios:seq<RslIo>
   )
   requires r.Valid()
-  requires old_udp_history + [receive_event] == r.Env().udp.history()
+  requires old_net_history + [receive_event] == r.Env().net.history()
   requires CPaxosConfigurationIsValid(r.replica.constants.all.config)
   requires r.ReceivedPacketProperties(cpacket, receive_event, receive_io)
   requires cpacket.msg.CMessage_AppStateSupply?
@@ -816,18 +816,18 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
   requires Replica_Next_Process_AppStateSupply_Preconditions(r.replica,cpacket)
   modifies r.Repr
   ensures r.Repr==old(r.Repr)
-  ensures r.udpClient != null
-  ensures ok == UdpClientOk(r.udpClient)
+  ensures r.netClient != null
+  ensures ok == NetClientOk(r.netClient)
   ensures r.Env() == old(r.Env());
   ensures ok ==>
             && r.Valid()
             && r.nextActionIndex == old(r.nextActionIndex)
             && LReplica_Next_ProcessPacketWithoutReadingClock_preconditions(ios)
             && Q_LReplica_Next_ProcessPacketWithoutReadingClock(old(r.AbstractifyToLReplica()), r.AbstractifyToLReplica(), ios)
-            && RawIoConsistentWithSpecIO(udpEventLog, ios)
-            && OnlySentMarshallableData(udpEventLog)
+            && RawIoConsistentWithSpecIO(netEventLog, ios)
+            && OnlySentMarshallableData(netEventLog)
             && r.Env() == old(r.Env())
-            && old_udp_history + udpEventLog == r.Env().udp.history()
+            && old_net_history + netEventLog == r.Env().net.history()
 {
   //print ("Replica_Next_ProcessPacketWithoutReadingClock_body: Enter\n"); 
   ghost var replica_old := AbstractifyReplicaStateToLReplica(r.replica);
@@ -835,9 +835,9 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
   //print ("Replica_Next_ProcessPacketWithoutReadingClock_body: Processing a CMessage_AppStateSupply\n");
 
   // Mention unchanged predicates over mutable state in the old heap.
-  ghost var udp_client_old := r.udpClient;
-  ghost var udp_addr_old := r.udpClient.LocalEndPoint();
-  assert UdpClientIsValid(udp_client_old);
+  ghost var net_client_old := r.netClient;
+  ghost var net_addr_old := r.netClient.LocalEndPoint();
+  assert NetClientIsValid(net_client_old);
 
   var sent_packets, replicaChanged, newCache;
   r.replica, sent_packets, replicaChanged, newCache := Replica_Next_Process_AppStateSupply(r.replica, cpacket);
@@ -846,9 +846,9 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
   }
 
   // Mention unchanged predicates over mutable state in the new heap.
-  assert udp_client_old == r.udpClient;
-  assert UdpClientIsValid(r.udpClient);
-  assert udp_addr_old == r.udpClient.LocalEndPoint();
+  assert net_client_old == r.netClient;
+  assert NetClientIsValid(r.netClient);
+  assert net_addr_old == r.netClient.LocalEndPoint();
 
   lemma_RevealQFromReplicaNextProcessAppStateSupplyPostconditions(replica_old, r.replica, cpacket, sent_packets);
 
@@ -859,9 +859,9 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
   ok, send_events, send_ios := DeliverOutboundPackets(r, sent_packets);
   if (!ok) { return; }
 
-  udpEventLog, ios := lemma_ReplicaNextProcessPacketWithoutReadingClockHelper(cpacket, sent_packets,
-                                                                              old_udp_history, old(r.Env().udp.history()),
-                                                                              r.Env().udp.history(),
+  netEventLog, ios := lemma_ReplicaNextProcessPacketWithoutReadingClockHelper(cpacket, sent_packets,
+                                                                              old_net_history, old(r.Env().net.history()),
+                                                                              r.Env().net.history(),
                                                                               receive_event, send_events, receive_io, send_ios);
 
   lemma_EstablishQLReplicaNextProcessPacketWithoutReadingClock(replica_old, AbstractifyReplicaStateToLReplica(r.replica),
@@ -872,16 +872,16 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
 method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,0,0} Replica_Next_ProcessPacketWithoutReadingClock_body(
   r:ReplicaImpl,
   cpacket:CPacket,
-  ghost old_udp_history:seq<UdpEvent>,
-  ghost receive_event:UdpEvent,
+  ghost old_net_history:seq<NetEvent>,
+  ghost receive_event:NetEvent,
   ghost receive_io:RslIo
   ) returns (
   ok:bool,
-  ghost udpEventLog:seq<UdpEvent>,
+  ghost netEventLog:seq<NetEvent>,
   ghost ios:seq<RslIo>
   )
   requires r.Valid()
-  requires old_udp_history + [receive_event] == r.Env().udp.history()
+  requires old_net_history + [receive_event] == r.Env().net.history()
   requires CPaxosConfigurationIsValid(r.replica.constants.all.config)
   requires r.ReceivedPacketProperties(cpacket, receive_event, receive_io)
   requires NoClockMessage(cpacket.msg)
@@ -896,41 +896,41 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
   // requires Replica_Next_Process_AppStateSupply_Preconditions(r.replica,cpacket)
   modifies r.Repr, r.cur_req_set, r.prev_req_set, r.reply_cache_mutable
   ensures r.Repr==old(r.Repr)
-  ensures r.udpClient != null
-  ensures ok == UdpClientOk(r.udpClient)
+  ensures r.netClient != null
+  ensures ok == NetClientOk(r.netClient)
   ensures r.Env() == old(r.Env());
   ensures ok ==>
             && r.Valid()
             && r.nextActionIndex == old(r.nextActionIndex)
             && LReplica_Next_ProcessPacketWithoutReadingClock_preconditions(ios)
             && Q_LReplica_Next_ProcessPacketWithoutReadingClock(old(r.AbstractifyToLReplica()), r.AbstractifyToLReplica(), ios)
-            && RawIoConsistentWithSpecIO(udpEventLog, ios)
-            && OnlySentMarshallableData(udpEventLog)
+            && RawIoConsistentWithSpecIO(netEventLog, ios)
+            && OnlySentMarshallableData(netEventLog)
             && r.Env() == old(r.Env())
-            && old_udp_history + udpEventLog == r.Env().udp.history()
+            && old_net_history + netEventLog == r.Env().net.history()
 {
   if (cpacket.msg.CMessage_Invalid?) {
     ok := true;
-    udpEventLog, ios := ReplicaNextProcessPacketInvalid(r, cpacket, old_udp_history, receive_event, receive_io);
+    netEventLog, ios := ReplicaNextProcessPacketInvalid(r, cpacket, old_net_history, receive_event, receive_io);
   } else if (cpacket.msg.CMessage_Request?) {
-    ok, udpEventLog, ios := ReplicaNextProcessPacketRequest(r, cpacket, old_udp_history, receive_event, receive_io);
+    ok, netEventLog, ios := ReplicaNextProcessPacketRequest(r, cpacket, old_net_history, receive_event, receive_io);
   } else if (cpacket.msg.CMessage_1a?) {
-    ok, udpEventLog, ios := ReplicaNextProcessPacket1a(r, cpacket, old_udp_history, receive_event, receive_io);
+    ok, netEventLog, ios := ReplicaNextProcessPacket1a(r, cpacket, old_net_history, receive_event, receive_io);
   } else if (cpacket.msg.CMessage_1b?) {
-    ok, udpEventLog, ios := ReplicaNextProcessPacket1b(r, cpacket, old_udp_history, receive_event, receive_io);
+    ok, netEventLog, ios := ReplicaNextProcessPacket1b(r, cpacket, old_net_history, receive_event, receive_io);
   } else if (cpacket.msg.CMessage_StartingPhase2?) {
-    ok, udpEventLog, ios := ReplicaNextProcessPacketStartingPhase2(r, cpacket, old_udp_history, receive_event, receive_io);
+    ok, netEventLog, ios := ReplicaNextProcessPacketStartingPhase2(r, cpacket, old_net_history, receive_event, receive_io);
   } else if (cpacket.msg.CMessage_2a?) {
-    ok, udpEventLog, ios := ReplicaNextProcessPacket2a(r, cpacket, old_udp_history, receive_event, receive_io);
+    ok, netEventLog, ios := ReplicaNextProcessPacket2a(r, cpacket, old_net_history, receive_event, receive_io);
   } else if (cpacket.msg.CMessage_2b?) {
-    ok, udpEventLog, ios := ReplicaNextProcessPacket2b(r, cpacket, old_udp_history, receive_event, receive_io);
+    ok, netEventLog, ios := ReplicaNextProcessPacket2b(r, cpacket, old_net_history, receive_event, receive_io);
   } else if (cpacket.msg.CMessage_Reply?) {
     ok := true;
-    udpEventLog, ios := ReplicaNextProcessPacketReply(r, cpacket, old_udp_history, receive_event, receive_io);
+    netEventLog, ios := ReplicaNextProcessPacketReply(r, cpacket, old_net_history, receive_event, receive_io);
   } else if (cpacket.msg.CMessage_AppStateRequest?) {
-    ok, udpEventLog, ios := ReplicaNextProcessPacketAppStateRequest(r, cpacket, old_udp_history, receive_event, receive_io);
+    ok, netEventLog, ios := ReplicaNextProcessPacketAppStateRequest(r, cpacket, old_net_history, receive_event, receive_io);
   } else if (cpacket.msg.CMessage_AppStateSupply?) {
-    ok, udpEventLog, ios := ReplicaNextProcessPacketAppStateSupply(r, cpacket, old_udp_history, receive_event, receive_io);
+    ok, netEventLog, ios := ReplicaNextProcessPacketAppStateSupply(r, cpacket, old_net_history, receive_event, receive_io);
   } else {
     assert false;
   }

@@ -4,7 +4,7 @@ include "../../Protocol/RSL/Replica.i.dfy"
 include "ReplicaModel.i.dfy"
 include "ReplicaImplLemmas.i.dfy"
 include "ReplicaImplClass.i.dfy"
-include "UdpRSL.i.dfy"
+include "NetRSL.i.dfy"
 include "CClockReading.i.dfy"
 
 module LiveRSL__ReplicaImplDelivery_i {
@@ -25,21 +25,21 @@ import opened LiveRSL__ReplicaImplLemmas_i
 import opened LiveRSL__ReplicaImplClass_i
 import opened LiveRSL__QRelations_i
 import opened LiveRSL__Types_i
-import opened LiveRSL__UdpRSL_i
+import opened LiveRSL__NetRSL_i
 import opened Common__NodeIdentity_i
-import opened Common__UdpClient_i
+import opened Common__NetClient_i
 import opened Common__Util_i
 import opened Environment_s
 
-method DeliverPacket(r:ReplicaImpl, packets:OutboundPackets) returns (ok:bool, ghost udpEventLog:seq<UdpEvent>, ghost ios:seq<RslIo>)
+method DeliverPacket(r:ReplicaImpl, packets:OutboundPackets) returns (ok:bool, ghost netEventLog:seq<NetEvent>, ghost ios:seq<RslIo>)
   requires r.Valid()
   requires packets.OutboundPacket?
   requires OutboundPacketsIsValid(packets)
   requires OutboundPacketsHasCorrectSrc(packets, r.replica.constants.all.config.replica_ids[r.replica.constants.my_index])
   modifies r.Repr
   ensures r.Repr == old(r.Repr)
-  ensures r.udpClient != null
-  ensures ok == UdpClientOk(r.udpClient)
+  ensures r.netClient != null
+  ensures ok == NetClientOk(r.netClient)
   ensures r.Env() == old(r.Env())
   ensures r.replica == old(r.replica)
   ensures ok ==>
@@ -47,12 +47,12 @@ method DeliverPacket(r:ReplicaImpl, packets:OutboundPackets) returns (ok:bool, g
           && r.nextActionIndex == old(r.nextActionIndex)
           && AllIosAreSends(ios)
           && AbstractifyOutboundCPacketsToSeqOfRslPackets(packets) == ExtractSentPacketsFromIos(ios)
-          && OnlySentMarshallableData(udpEventLog)
-          && RawIoConsistentWithSpecIO(udpEventLog, ios)
-          && old(r.Env().udp.history()) + udpEventLog == r.Env().udp.history()
+          && OnlySentMarshallableData(netEventLog)
+          && RawIoConsistentWithSpecIO(netEventLog, ios)
+          && old(r.Env().net.history()) + netEventLog == r.Env().net.history()
 {
   var start_time := Time.GetDebugTimeTicks();
-  ok, udpEventLog := SendPacket(r.udpClient, packets, r.localAddr);
+  ok, netEventLog := SendPacket(r.netClient, packets, r.localAddr);
   if (!ok) { return; }
 
   ios := MapSentPacketToIos(packets.p);
@@ -65,7 +65,7 @@ method DeliverPacket(r:ReplicaImpl, packets:OutboundPackets) returns (ok:bool, g
   } 
 }
 
-method {:timeLimitMultiplier 2} DeliverPacketSequence(r:ReplicaImpl, packets:OutboundPackets) returns (ok:bool, ghost udpEventLog:seq<UdpEvent>, ghost ios:seq<RslIo>)
+method {:timeLimitMultiplier 2} DeliverPacketSequence(r:ReplicaImpl, packets:OutboundPackets) returns (ok:bool, ghost netEventLog:seq<NetEvent>, ghost ios:seq<RslIo>)
   requires r.Valid()
   requires packets.PacketSequence?
   requires OutboundPacketsIsValid(packets)
@@ -73,8 +73,8 @@ method {:timeLimitMultiplier 2} DeliverPacketSequence(r:ReplicaImpl, packets:Out
   requires OutboundPacketsHasCorrectSrc(packets, r.replica.constants.all.config.replica_ids[r.replica.constants.my_index])
   modifies r.Repr
   ensures r.Repr == old(r.Repr)
-  ensures r.udpClient != null
-  ensures ok == UdpClientOk(r.udpClient)
+  ensures r.netClient != null
+  ensures ok == NetClientOk(r.netClient)
   ensures r.Env() == old(r.Env())
   ensures r.replica == old(r.replica)
   ensures ok ==>
@@ -82,12 +82,12 @@ method {:timeLimitMultiplier 2} DeliverPacketSequence(r:ReplicaImpl, packets:Out
           && r.nextActionIndex == old(r.nextActionIndex)
           && AllIosAreSends(ios)
           && AbstractifyOutboundCPacketsToSeqOfRslPackets(packets) == ExtractSentPacketsFromIos(ios)
-          && OnlySentMarshallableData(udpEventLog)
-          && RawIoConsistentWithSpecIO(udpEventLog, ios)
-          && old(r.Env().udp.history()) + udpEventLog == r.Env().udp.history()
+          && OnlySentMarshallableData(netEventLog)
+          && RawIoConsistentWithSpecIO(netEventLog, ios)
+          && old(r.Env().net.history()) + netEventLog == r.Env().net.history()
 {
   var start_time := Time.GetDebugTimeTicks();
-  ok, udpEventLog := SendPacketSequence(r.udpClient, packets, r.localAddr);
+  ok, netEventLog := SendPacketSequence(r.netClient, packets, r.localAddr);
   if (!ok) { return; }
 
   ios := MapSentPacketSeqToIos(packets.s);
@@ -96,14 +96,14 @@ method {:timeLimitMultiplier 2} DeliverPacketSequence(r:ReplicaImpl, packets:Out
   RecordTimingSeq("DeliverPacketSequence", start_time, end_time);
 }
 
-method{:timeLimitMultiplier 2} DeliverBroadcast(r:ReplicaImpl, broadcast:CBroadcast) returns (ok:bool, ghost udpEventLog:seq<UdpEvent>, ghost ios:seq<RslIo>)
+method{:timeLimitMultiplier 2} DeliverBroadcast(r:ReplicaImpl, broadcast:CBroadcast) returns (ok:bool, ghost netEventLog:seq<NetEvent>, ghost ios:seq<RslIo>)
   requires r.Valid()
   requires CBroadcastIsValid(broadcast)
   requires broadcast.CBroadcast? ==> broadcast.src == r.replica.constants.all.config.replica_ids[r.replica.constants.my_index];
   modifies r.Repr
   ensures r.Repr == old(r.Repr)
-  ensures r.udpClient != null
-  ensures ok == UdpClientOk(r.udpClient)
+  ensures r.netClient != null
+  ensures ok == NetClientOk(r.netClient)
   ensures r.Env() == old(r.Env())
   ensures r.replica == old(r.replica)
   ensures ok ==>
@@ -111,38 +111,38 @@ method{:timeLimitMultiplier 2} DeliverBroadcast(r:ReplicaImpl, broadcast:CBroadc
           && r.nextActionIndex == old(r.nextActionIndex)
           && AllIosAreSends(ios)
           && AbstractifyCBroadcastToRlsPacketSeq(broadcast) == ExtractSentPacketsFromIos(ios)
-          && OnlySentMarshallableData(udpEventLog)
-          && RawIoConsistentWithSpecIO(udpEventLog, ios)
-          && old(r.Env().udp.history()) + udpEventLog == r.Env().udp.history()
+          && OnlySentMarshallableData(netEventLog)
+          && RawIoConsistentWithSpecIO(netEventLog, ios)
+          && old(r.Env().net.history()) + netEventLog == r.Env().net.history()
 {
   var start_time := Time.GetDebugTimeTicks();
-  ok, udpEventLog := SendBroadcast(r.udpClient, broadcast, r.localAddr);
+  ok, netEventLog := SendBroadcast(r.netClient, broadcast, r.localAddr);
   if (!ok) { return; }
 
   ios := MapBroadcastToIos(broadcast);
   lemma_MapBroadcastToIosExtractSentPacketsFromIosEquivalence(broadcast, ios);
     
-  lemma_UdpEventLogToBroadcastRefinable(udpEventLog, broadcast);
-  assert UdpEventLogIsAbstractable(udpEventLog);
+  lemma_NetEventLogToBroadcastRefinable(netEventLog, broadcast);
+  assert NetEventLogIsAbstractable(netEventLog);
   if broadcast.CBroadcastNop? {
-    assert RawIoConsistentWithSpecIO(udpEventLog, ios);
+    assert RawIoConsistentWithSpecIO(netEventLog, ios);
   } else {
     ghost var broadcast_ios := BuildBroadcastIos(AbstractifyEndPointToNodeIdentity(broadcast.src), 
                                                  AbstractifyEndPointsToNodeIdentities(broadcast.dsts), 
                                                  AbstractifyCMessageToRslMessage(broadcast.msg));
     calc {
-      AbstractifyRawLogToIos(udpEventLog);
+      AbstractifyRawLogToIos(netEventLog);
       {
-        forall i | 0 <= i < |AbstractifyRawLogToIos(udpEventLog)|
-          ensures AbstractifyRawLogToIos(udpEventLog)[i] == 
+        forall i | 0 <= i < |AbstractifyRawLogToIos(netEventLog)|
+          ensures AbstractifyRawLogToIos(netEventLog)[i] == 
                     LIoOpSend(LPacket(AbstractifyEndPointsToNodeIdentities(broadcast.dsts)[i], 
                                       AbstractifyEndPointToNodeIdentity(broadcast.src), 
                                       AbstractifyCMessageToRslMessage(broadcast.msg)))
         {
           calc {
-            AbstractifyRawLogToIos(udpEventLog)[i];
-            AbstractifyUdpEventToRslIo(udpEventLog[i]);
-              { lemma_UdpEventLogToBroadcast(udpEventLog, broadcast, i); }
+            AbstractifyRawLogToIos(netEventLog)[i];
+            AbstractifyNetEventToRslIo(netEventLog[i]);
+              { lemma_NetEventLogToBroadcast(netEventLog, broadcast, i); }
             LIoOpSend(AbstractifyCBroadcastToRlsPacketSeq(broadcast)[i]);
             LIoOpSend(BuildLBroadcast(AbstractifyEndPointToNodeIdentity(broadcast.src), 
                                       AbstractifyEndPointsToNodeIdentities(broadcast.dsts), 
@@ -175,7 +175,7 @@ method{:timeLimitMultiplier 2} DeliverBroadcast(r:ReplicaImpl, broadcast:CBroadc
       MapBroadcastToIos(broadcast);
       ios;
     }
-    assert RawIoConsistentWithSpecIO(udpEventLog, ios);
+    assert RawIoConsistentWithSpecIO(netEventLog, ios);
   }
 
   var end_time := Time.GetDebugTimeTicks();
@@ -188,15 +188,15 @@ method{:timeLimitMultiplier 2} DeliverBroadcast(r:ReplicaImpl, broadcast:CBroadc
   }
 }
 
-method DeliverOutboundPackets(r:ReplicaImpl, packets:OutboundPackets) returns (ok:bool, ghost udpEventLog:seq<UdpEvent>, ghost ios:seq<RslIo>)
+method DeliverOutboundPackets(r:ReplicaImpl, packets:OutboundPackets) returns (ok:bool, ghost netEventLog:seq<NetEvent>, ghost ios:seq<RslIo>)
   requires r.Valid()
   requires OutboundPacketsIsValid(packets)
   requires OutboundPacketsIsAbstractable(packets)
   requires OutboundPacketsHasCorrectSrc(packets, r.replica.constants.all.config.replica_ids[r.replica.constants.my_index]);
   modifies r.Repr
   ensures r.Repr == old(r.Repr)
-  ensures r.udpClient != null
-  ensures ok == UdpClientOk(r.udpClient)
+  ensures r.netClient != null
+  ensures ok == NetClientOk(r.netClient)
   ensures r.Env() == old(r.Env())
   ensures r.replica == old(r.replica)
   ensures ok ==>
@@ -204,15 +204,15 @@ method DeliverOutboundPackets(r:ReplicaImpl, packets:OutboundPackets) returns (o
             && r.nextActionIndex == old(r.nextActionIndex)
             && AllIosAreSends(ios)
             && AbstractifyOutboundCPacketsToSeqOfRslPackets(packets) == ExtractSentPacketsFromIos(ios)
-            && OnlySentMarshallableData(udpEventLog)
-            && RawIoConsistentWithSpecIO(udpEventLog, ios)
-            && OnlySentMarshallableData(udpEventLog)
-            && old(r.Env().udp.history()) + udpEventLog == r.Env().udp.history()
+            && OnlySentMarshallableData(netEventLog)
+            && RawIoConsistentWithSpecIO(netEventLog, ios)
+            && OnlySentMarshallableData(netEventLog)
+            && old(r.Env().net.history()) + netEventLog == r.Env().net.history()
 {
   match packets {
-    case Broadcast(broadcast) => ok, udpEventLog, ios := DeliverBroadcast(r, broadcast);
-    case OutboundPacket(p) => ok, udpEventLog, ios := DeliverPacket(r, packets);
-    case PacketSequence(s) => ok, udpEventLog, ios := DeliverPacketSequence(r, packets);
+    case Broadcast(broadcast) => ok, netEventLog, ios := DeliverBroadcast(r, broadcast);
+    case OutboundPacket(p) => ok, netEventLog, ios := DeliverPacket(r, packets);
+    case PacketSequence(s) => ok, netEventLog, ios := DeliverPacketSequence(r, packets);
   }
 }
 

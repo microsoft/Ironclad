@@ -35,7 +35,7 @@ import opened Collections__Sets_i
 import opened Common__NodeIdentity_i
 import opened Common__SeqIsUnique_i
 import opened Common__SeqIsUniqueDef_i
-import opened Common__UdpClient_i
+import opened Common__NetClient_i
 import opened Common__UpperBound_s
 import opened Common__UpperBound_i
 import opened Common__Util_i

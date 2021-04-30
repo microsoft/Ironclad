@@ -21,7 +21,7 @@ import opened Collections__Sets_i
 import opened Common__NodeIdentity_i
 import opened Common__SeqIsUnique_i
 import opened Common__SeqIsUniqueDef_i
-import opened Common__UdpClient_i
+import opened Common__NetClient_i
 import opened Concrete_NodeIdentity_i
 
 lemma lemma_Received2bPacketsSameSizeAsAbstraction(l_learner_tuple:CLearnerTuple, h_learner_tuple:LearnerTuple)

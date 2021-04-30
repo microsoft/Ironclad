@@ -5,7 +5,7 @@ include "ReplicaConstantsState.i.dfy"
 module LiveRSL__MinCQuorumSize_i {
 import opened Native__NativeTypes_s
 import opened Common__NodeIdentity_i
-import opened Common__UdpClient_i
+import opened Common__NetClient_i
 import opened LiveRSL__Configuration_i
 import opened LiveRSL__CPaxosConfiguration_i
 import opened LiveRSL__CTypes_i

@@ -6,7 +6,7 @@ import opened Native__NativeTypes_s
 import opened Native__Io_s
 import opened Environment_s
 import opened CmdLineParser_i
-import opened Common__UdpClient_i
+import opened Common__NetClient_i
 import opened Common__SeqIsUniqueDef_i
 
 function method EndPointNull() : EndPoint { EndPoint([0, 0, 0, 0], 0) }

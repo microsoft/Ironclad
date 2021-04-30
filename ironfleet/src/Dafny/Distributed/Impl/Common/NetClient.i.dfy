@@ -1,6 +1,6 @@
 include "../../Common/Native/Io.s.dfy"
 
-module Common__UdpClient_i {
+module Common__NetClient_i {
 import opened Native__Io_s
 
 //////////////////////////////////////////////////////////////////////////////
@@ -9,26 +9,26 @@ import opened Native__Io_s
 function Workaround_CastHostEnvironmentToObject(env:HostEnvironment) : object {env}
 function Workaround_CastOkStateToObject(okState:OkState) : object {okState}
 function Workaround_CastNowStateToObject(nowState:NowState) : object {nowState}
-function Workaround_CastUdpStateToObject(udpState:UdpState) : object {udpState}
+function Workaround_CastNetStateToObject(netState:NetState) : object {netState}
 function Workaround_CastIPEndPointToObject(ip:IPEndPoint) : object {ip}
-function Workaround_CastUdpClientToObject(udpc:UdpClient?) : object? {udpc}
+function Workaround_CastNetClientToObject(netc:NetClient?) : object? {netc}
 
 function HostEnvironmentDefaultFrame(env:HostEnvironment) : set<object>
   reads env
   reads {env.now}
   reads {env.ok}
-  reads {env.udp}
+  reads {env.net}
   reads {env}
 {
-  {Workaround_CastOkStateToObject(env.ok), Workaround_CastNowStateToObject(env.now), Workaround_CastUdpStateToObject(env.udp)}
+  {Workaround_CastOkStateToObject(env.ok), Workaround_CastNowStateToObject(env.now), Workaround_CastNetStateToObject(env.net)}
 }
 
-function UdpClientRepr(udpc:UdpClient?) : set<object?>
-  reads udpc
-  reads if udpc != null then HostEnvironmentDefaultFrame.reads(udpc.env) else {}
+function NetClientRepr(netc:NetClient?) : set<object?>
+  reads netc
+  reads if netc != null then HostEnvironmentDefaultFrame.reads(netc.env) else {}
 {
-  {Workaround_CastUdpClientToObject(udpc)} +
-  (if udpc != null then HostEnvironmentDefaultFrame(udpc.env) else {})
+  {Workaround_CastNetClientToObject(netc)} +
+  (if netc != null then HostEnvironmentDefaultFrame(netc.env) else {})
 }
 
 predicate HostEnvironmentIsValid(env:HostEnvironment)
@@ -40,12 +40,12 @@ predicate HostEnvironmentIsValid(env:HostEnvironment)
   && env.ok.ok()
 }
 
-predicate UdpClientOk(udpc:UdpClient?)
-  reads udpc
-  reads if udpc != null then HostEnvironmentDefaultFrame.reads(udpc.env) else {}
+predicate NetClientOk(netc:NetClient?)
+  reads netc
+  reads if netc != null then HostEnvironmentDefaultFrame.reads(netc.env) else {}
 {
-  && udpc != null
-  && udpc.env.ok.ok()
+  && netc != null
+  && netc.env.ok.ok()
 }
 
 function method EndPointIsValidIPV4(endPoint:EndPoint) : bool
@@ -54,14 +54,14 @@ function method EndPointIsValidIPV4(endPoint:EndPoint) : bool
   && 0 <= endPoint.port <= 65535
 }
 
-predicate UdpClientIsValid(udpc:UdpClient?)
-  reads UdpClientRepr(udpc)
-  reads if udpc != null then HostEnvironmentIsValid.reads(udpc.env) else {}
+predicate NetClientIsValid(netc:NetClient?)
+  reads NetClientRepr(netc)
+  reads if netc != null then HostEnvironmentIsValid.reads(netc.env) else {}
 {
-  && udpc != null
-  && udpc.IsOpen()
-  && HostEnvironmentIsValid(udpc.env)
-  && EndPointIsValidIPV4(udpc.LocalEndPoint())
+  && netc != null
+  && netc.IsOpen()
+  && HostEnvironmentIsValid(netc.env)
+  && EndPointIsValidIPV4(netc.LocalEndPoint())
 }
 
 predicate EndPointsAreValidIPV4(eps:seq<EndPoint>) 

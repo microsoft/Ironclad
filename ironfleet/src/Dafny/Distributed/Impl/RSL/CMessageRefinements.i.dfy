@@ -16,7 +16,7 @@ import opened LiveRSL__Message_i
 import opened LiveRSL__Environment_i
 import opened LiveRSL__Broadcast_i
 import opened Common__NodeIdentity_i
-import opened Common__UdpClient_i
+import opened Common__NetClient_i
 import opened Environment_s
 import opened Collections__Sets_i
 
@@ -93,8 +93,8 @@ function {:opaque} AbstractifySetOfCPacketsToSetOfRslPackets(cps:set<CPacket>) :
   requires CPacketsIsAbstractable(cps)
   //ensures forall p :: p in cps ==> AbstractifyCPacketToRslPacket(p) in AbstractifySetOfCPacketsToSetOfRslPackets(cps)   // Still too trigger happy
 {
-//  set udpp | udpp in udpps ::
-//    var udp := AbstractifyCPacketToShtPacket(udpp); udp
+//  set netp | netp in netps ::
+//    var net := AbstractifyCPacketToShtPacket(netp); net
   AbstractifySetOfCPacketsToSetOfRslPackets_transparent(cps)
 }
 

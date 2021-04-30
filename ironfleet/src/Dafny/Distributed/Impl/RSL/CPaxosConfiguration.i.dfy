@@ -12,7 +12,7 @@ import opened LiveRSL__PacketParsing_i
 import opened LiveRSL__ParametersState_i
 import opened Common__NodeIdentity_i
 import opened Common__SeqIsUniqueDef_i
-import opened Common__UdpClient_i
+import opened Common__NetClient_i
 import opened Collections__Seqs_i
 
 datatype CPaxosConfiguration = CPaxosConfiguration(replica_ids:seq<EndPoint>)

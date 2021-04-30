@@ -14,7 +14,7 @@ import opened Native__NativeTypes_i
 import opened LiveRSL__AppInterface_i
 import opened LiveRSL__Types_i
 import opened Common__NodeIdentity_i
-import opened Common__UdpClient_i
+import opened Common__NetClient_i
 import opened Common__Util_i
 import opened Collections__Maps_i
 import opened Collections__Sets_i

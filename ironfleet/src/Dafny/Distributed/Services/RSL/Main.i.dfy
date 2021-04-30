@@ -28,7 +28,7 @@ import opened LiveRSL__Message_i
 import opened LiveRSL__PacketParsing_i
 import opened LiveRSL__Replica_i
 import opened LiveRSL__Types_i
-import opened LiveRSL__UdpRSL_i
+import opened LiveRSL__NetRSL_i
 import opened LiveRSL__Unsendable_i
 import opened Collections__Maps2_s
 import opened Collections__Sets_i
@@ -62,7 +62,7 @@ function AbstractifyConcretePacket(p:LPacket<EndPoint,seq<byte>>) : LPacket<Node
 predicate LEnvStepIsAbstractable(step:LEnvStep<EndPoint,seq<byte>>)
 {
   match step {
-    case LEnvStepHostIos(actor, ios) => UdpEventLogIsAbstractable(ios)
+    case LEnvStepHostIos(actor, ios) => NetEventLogIsAbstractable(ios)
     case LEnvStepDeliverPacket(p) => LPacketIsAbstractable(p)
     case LEnvStepAdvanceTime => true
     case LEnvStepStutter => true
@@ -255,7 +255,7 @@ lemma{:timeLimitMultiplier 4} lemma_PacketSentByServerIsMarshallable(
   requires 0 <= i < |db|
   requires p.src in config.config.replica_ids
   requires p in db[i].environment.sentPackets
-  ensures  UdpPacketBound(p.msg)
+  ensures  NetPacketBound(p.msg)
   ensures  Marshallable(PaxosDemarshallData(p.msg))
 {
   if i == 0 {
@@ -278,7 +278,7 @@ lemma{:timeLimitMultiplier 4} lemma_PacketSentByServerIsMarshallable(
   assert db[i-1].environment.nextStep.actor == p.src;
   assert DS_NextOneServer(db[i-1], db[i], p.src, ios);
   assert OnlySentMarshallableData(ios);
-  assert UdpPacketBound(io.s.msg);
+  assert NetPacketBound(io.s.msg);
   assert Marshallable(PaxosDemarshallData(io.s.msg));
 }
 
@@ -310,25 +310,25 @@ lemma lemma_SentPacketIsValidPhysicalPacket(
   assert ValidPhysicalEnvironmentStep(db[i-1].environment.nextStep);
 }
 
-lemma lemma_UdpEventIsAbstractable(
+lemma lemma_NetEventIsAbstractable(
   config:ConcreteConfiguration,
   db:seq<DS_State>,
   i:int,
-  udp_event:UdpEvent
+  net_event:NetEvent
   )
   requires IsValidBehavior(config, db)
   requires 0 <= i < |db| - 1
   requires db[i].environment.nextStep.LEnvStepHostIos?
-  requires udp_event in db[i].environment.nextStep.ios
-  ensures  UdpEventIsAbstractable(udp_event)
+  requires net_event in db[i].environment.nextStep.ios
+  ensures  NetEventIsAbstractable(net_event)
 {
-  if udp_event.LIoOpTimeoutReceive? || udp_event.LIoOpReadClock? {
+  if net_event.LIoOpTimeoutReceive? || net_event.LIoOpReadClock? {
     return;
   }
 
   lemma_DeduceTransitionFromDsBehavior(config, db, i);
   assert ValidPhysicalEnvironmentStep(db[i].environment.nextStep);
-  assert ValidPhysicalIo(udp_event);
+  assert ValidPhysicalIo(net_event);
 }
 
 lemma lemma_DsIsAbstractable(config:ConcreteConfiguration, db:seq<DS_State>, i:int)
@@ -353,11 +353,11 @@ lemma lemma_DsIsAbstractable(config:ConcreteConfiguration, db:seq<DS_State>, i:i
   var step := db[i].environment.nextStep;
   if step.LEnvStepHostIos? {
     forall io | io in step.ios
-      ensures UdpEventIsAbstractable(io)
+      ensures NetEventIsAbstractable(io)
     {
-      lemma_UdpEventIsAbstractable(config, db, i, io);
+      lemma_NetEventIsAbstractable(config, db, i, io);
     }
-    assert UdpEventLogIsAbstractable(step.ios);
+    assert NetEventLogIsAbstractable(step.ios);
   }
   else if step.LEnvStepDeliverPacket? {
     lemma_DeduceTransitionFromDsBehavior(config, db, i);
@@ -369,7 +369,7 @@ lemma lemma_DsIsAbstractable(config:ConcreteConfiguration, db:seq<DS_State>, i:i
 
 lemma lemma_IosRelations(ios:seq<LIoOp<EndPoint, seq<byte>>>, r_ios:seq<LIoOp<NodeIdentity, RslMessage>>)
         returns (sends:set<LPacket<EndPoint, seq<byte>>>, r_sends:set<LPacket<NodeIdentity, RslMessage>>)
-  requires UdpEventLogIsAbstractable(ios)
+  requires NetEventLogIsAbstractable(ios)
   requires forall io :: io in ios && io.LIoOpSend? ==> LPacketIsAbstractable(io.s)
   requires r_ios == AbstractifyRawLogToIos(ios)
   ensures    sends == (set io | io in ios && io.LIoOpSend? :: io.s)
@@ -386,7 +386,7 @@ lemma lemma_IosRelations(ios:seq<LIoOp<EndPoint, seq<byte>>>, r_ios:seq<LIoOp<No
   {
     var send :| send in sends && AbstractifyConcretePacket(send) == r;
     var io :| io in ios && io.LIoOpSend? && io.s == send;
-    assert AbstractifyUdpEventToRslIo(io) in r_ios;
+    assert AbstractifyNetEventToRslIo(io) in r_ios;
   }
 
   forall r | r in r_sends
@@ -394,7 +394,7 @@ lemma lemma_IosRelations(ios:seq<LIoOp<EndPoint, seq<byte>>>, r_ios:seq<LIoOp<No
   {
     var r_io :| r_io in r_ios && r_io.LIoOpSend? && r_io.s == r;
     var j :| 0 <= j < |r_ios| && r_ios[j] == r_io;
-    assert AbstractifyUdpEventToRslIo(ios[j]) == r_io;
+    assert AbstractifyNetEventToRslIo(ios[j]) == r_io;
     assert ios[j] in ios;
     assert ios[j].s in sends;
   }
@@ -417,7 +417,7 @@ lemma lemma_IsValidEnvStep(de:LEnvironment<EndPoint, seq<byte>>, le:LEnvironment
     ensures IsValidLIoOp(io, id, le)
   {
     var j :| 0 <= j < |r_ios| && r_ios[j] == io;
-    assert r_ios[j] == AbstractifyUdpEventToRslIo(ios[j]);
+    assert r_ios[j] == AbstractifyNetEventToRslIo(ios[j]);
     assert IsValidLIoOp(ios[j], id, de);
   }
 }
@@ -456,8 +456,8 @@ lemma lemma_RefinementOfUnsendablePacketHasLimitedPossibilities(
   requires g == CMessage_grammar()
   requires ValidGrammar(g)
   requires !Demarshallable(p.msg, g) || !Marshallable(parse_Message(DemarshallFunc(p.msg, g)))
-  requires UdpPacketIsAbstractable(p)
-  requires rp == AbstractifyUdpPacketToRslPacket(p)
+  requires NetPacketIsAbstractable(p)
+  requires rp == AbstractifyNetPacketToRslPacket(p)
   ensures  || rp.msg.RslMessage_Invalid?
            || rp.msg.RslMessage_Request?
            || rp.msg.RslMessage_1b?
@@ -582,11 +582,11 @@ lemma lemma_HostNextIgnoreUnsendableIsLSchedulerNext(
   requires LEnvironment_Next(db[i].environment, db[i+1].environment)
   requires ValidPhysicalEnvironmentStep(db[i].environment.nextStep)
   requires HostNextIgnoreUnsendable(db[i].servers[id].sched, db[i+1].servers[id].sched, ios)
-  requires UdpEventLogIsAbstractable(ios)
+  requires NetEventLogIsAbstractable(ios)
   ensures  LSchedulerNext(db[i].servers[id].sched, db[i+1].servers[id].sched, AbstractifyRawLogToIos(ios))
 {
   var p := ios[0].r;
-  var rp := AbstractifyUdpPacketToRslPacket(p);
+  var rp := AbstractifyNetPacketToRslPacket(p);
   var g := CMessage_grammar();
   assert !Demarshallable(p.msg, g) || !Marshallable(parse_Message(DemarshallFunc(p.msg, g)));
   assert IsValidLIoOp(ios[0], id, db[i].environment);
@@ -597,7 +597,7 @@ lemma lemma_HostNextIgnoreUnsendableIsLSchedulerNext(
     assert false;
   }
 
-  lemma_UdpEventIsAbstractable(config, db, i, ios[0]);
+  lemma_NetEventIsAbstractable(config, db, i, ios[0]);
   lemma_CMessageGrammarValid();
   assert ValidPhysicalIo(ios[0]);
   assert |p.msg| < 0x1_0000_0000_0000_0000;

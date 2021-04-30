@@ -6,7 +6,7 @@ using System.Threading;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using FStream = System.IO.FileStream;
-using UClient = System.Net.Sockets.UdpClient;
+using OSNetClient = System.Net.Sockets.TcpClient;
 using IEndPoint = System.Net.IPEndPoint;
 
 
@@ -98,15 +98,15 @@ public struct Packet {
     public byte[] buffer;
 }
 
-public partial class UdpClient
+public partial class NetClient
 {
-    internal UClient client;
+    internal OSNetClient client;
     internal Thread sender;
     internal Thread receiver;
     internal ConcurrentQueue<Packet> send_queue;
     internal ConcurrentQueue<Packet> receive_queue;
 
-    internal UdpClient(UClient client) { 
+    internal NetClient(OSNetClient client) { 
       this.client = client;
       this.send_queue = new ConcurrentQueue<Packet>();
       this.receive_queue = new ConcurrentQueue<Packet>();
@@ -126,18 +126,18 @@ public partial class UdpClient
       return false;
     }
 
-    public static void Construct(IPEndPoint localEP, out bool ok, out UdpClient udp)
+    public static void Construct(IPEndPoint localEP, out bool ok, out NetClient net)
     {
         try
         {
-            udp = new UdpClient(new UClient(localEP.endpoint));
-            udp.client.Client.ReceiveBufferSize = 8192 * 100;
+            net = new NetClient(new OSNetClient(localEP.endpoint));
+            net.client.Client.ReceiveBufferSize = 0x100000;
             ok = true;
         }
         catch (Exception e)
         {
             System.Console.Error.WriteLine(e);
-            udp = null;
+            net = null;
             ok = false;
         }
     }

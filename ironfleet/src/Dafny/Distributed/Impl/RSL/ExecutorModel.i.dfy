@@ -23,7 +23,7 @@ import opened LiveRSL__StateMachine_i
 import opened LiveRSL__Types_i
 import opened Impl__LiveRSL__Broadcast_i
 import opened Common__NodeIdentity_i
-import opened Common__UdpClient_i
+import opened Common__NetClient_i
 import opened Common__UpperBound_s
 import opened Common__UpperBound_i
 import opened Common__Util_i

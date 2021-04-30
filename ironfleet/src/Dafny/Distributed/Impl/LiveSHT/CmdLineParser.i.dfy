@@ -7,7 +7,7 @@ import opened Native__Io_s
 import opened CmdLineParser_i
 import opened SHT__ConstantsState_i
 import opened Impl_Parameters_i
-import opened Common__UdpClient_i
+import opened Common__NetClient_i
 import opened Common__SeqIsUniqueDef_i
 import opened Common__NodeIdentity_i
 

@@ -6,7 +6,7 @@ module PaxosCmdLineParser_i {
 import opened Native__Io_s
 import opened Native__NativeTypes_s
 import opened CmdLineParser_i
-import opened Common__UdpClient_i
+import opened Common__NetClient_i
 import opened LiveRSL__CPaxosConfiguration_i
 
 function paxos_config_parsing(args:seq<seq<uint16>>) : CPaxosConfiguration

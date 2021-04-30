@@ -19,7 +19,7 @@ import opened SHT__HT_s
 import opened Logic__Option_i
 import opened AbstractServiceSHT_s`All
 import opened SHT__CMessage_i
-import opened Common__UdpClient_i
+import opened Common__NetClient_i
 import opened AppInterface_i`Spec
 import opened Common__NodeIdentity_i
 import opened Impl_Parameters_i

@@ -3,7 +3,7 @@ include "../../Common/Framework/Environment.s.dfy"
 include "../../../Libraries/Math/mod_auto.i.dfy"
 include "../../Protocol/RSL/Replica.i.dfy"
 include "ReplicaModel.i.dfy"
-include "UdpRSL.i.dfy"
+include "NetRSL.i.dfy"
 include "CClockReading.i.dfy"
 include "QRelations.i.dfy"
 
@@ -24,7 +24,7 @@ import opened LiveRSL__QRelations_i
 import opened LiveRSL__Replica_i
 import opened LiveRSL__ReplicaModel_i
 import opened LiveRSL__ReplicaState_i
-import opened LiveRSL__UdpRSL_i
+import opened LiveRSL__NetRSL_i
 import opened Common__NodeIdentity_i
 import opened Concrete_NodeIdentity_i
 import opened Logic__Option_i
@@ -190,37 +190,37 @@ lemma lemma_MapBroadcastToIosExtractSentPacketsFromIosEquivalence(broadcast:CBro
   }
 }
 
-lemma lemma_UdpEventLogToBroadcast(udpEventLog:seq<UdpEvent>, broadcast:CBroadcast, index:int)
+lemma lemma_NetEventLogToBroadcast(netEventLog:seq<NetEvent>, broadcast:CBroadcast, index:int)
   requires CBroadcastIsValid(broadcast)
   requires broadcast.CBroadcast?
-  requires 0 <= index < |udpEventLog|
-  requires SendLogReflectsBroadcast(udpEventLog, broadcast)
-  ensures  udpEventLog[index].LIoOpSend?
-  ensures  UdpPacketIsAbstractable(udpEventLog[index].s)
-  ensures  AbstractifyUdpPacketToRslPacket(udpEventLog[index].s) == AbstractifyCBroadcastToRlsPacketSeq(broadcast)[index]
+  requires 0 <= index < |netEventLog|
+  requires SendLogReflectsBroadcast(netEventLog, broadcast)
+  ensures  netEventLog[index].LIoOpSend?
+  ensures  NetPacketIsAbstractable(netEventLog[index].s)
+  ensures  AbstractifyNetPacketToRslPacket(netEventLog[index].s) == AbstractifyCBroadcastToRlsPacketSeq(broadcast)[index]
 {
   calc ==> {
     true;
-    SendLogReflectsBroadcast(udpEventLog, broadcast);
-    SendLogReflectsBroadcastPrefix(udpEventLog, broadcast);
-    SendLogMatchesRefinement(udpEventLog, broadcast, index);
-    udpEventLog[index].LIoOpSend? && UdpPacketIsAbstractable(udpEventLog[index].s)
-      && AbstractifyCBroadcastToRlsPacketSeq(broadcast)[index] == AbstractifyUdpPacketToRslPacket(udpEventLog[index].s);
+    SendLogReflectsBroadcast(netEventLog, broadcast);
+    SendLogReflectsBroadcastPrefix(netEventLog, broadcast);
+    SendLogMatchesRefinement(netEventLog, broadcast, index);
+    netEventLog[index].LIoOpSend? && NetPacketIsAbstractable(netEventLog[index].s)
+      && AbstractifyCBroadcastToRlsPacketSeq(broadcast)[index] == AbstractifyNetPacketToRslPacket(netEventLog[index].s);
   }
 }
 
-lemma lemma_UdpEventLogToBroadcastRefinable(udpEventLog:seq<UdpEvent>, broadcast:CBroadcast)
+lemma lemma_NetEventLogToBroadcastRefinable(netEventLog:seq<NetEvent>, broadcast:CBroadcast)
   requires CBroadcastIsValid(broadcast)
-  requires SendLogReflectsBroadcast(udpEventLog, broadcast)
-  ensures  UdpEventLogIsAbstractable(udpEventLog)
+  requires SendLogReflectsBroadcast(netEventLog, broadcast)
+  ensures  NetEventLogIsAbstractable(netEventLog)
 {
   if broadcast.CBroadcastNop? {
-    assert udpEventLog == [];
+    assert netEventLog == [];
   } else {
-    forall i | 0 <= i < |udpEventLog|
-      ensures UdpEventIsAbstractable(udpEventLog[i])
+    forall i | 0 <= i < |netEventLog|
+      ensures NetEventIsAbstractable(netEventLog[i])
     {
-      lemma_UdpEventLogToBroadcast(udpEventLog, broadcast, i);
+      lemma_NetEventLogToBroadcast(netEventLog, broadcast, i);
     }
   }
 }
@@ -270,13 +270,13 @@ lemma lemma_YesWeHaveNoPackets()
 lemma {:timeLimitMultiplier 3} lemma_ReplicaNextProcessPacketWithoutReadingClockHelper(
   replica:LReplica, replica':ReplicaState, cpacket:CPacket, sent_packets:OutboundPackets,
   ios:seq<RslIo>, io0:RslIo, ios_head:seq<RslIo>, ios_tail:seq<RslIo>, 
-  udpEvent0:UdpEvent, log_head:seq<UdpEvent>, log_tail:seq<UdpEvent>, udpEventLog:seq<UdpEvent>)
+  netEvent0:NetEvent, log_head:seq<NetEvent>, log_tail:seq<NetEvent>, netEventLog:seq<NetEvent>)
   // From Receive:
-  requires udpEvent0.LIoOpReceive?
+  requires netEvent0.LIoOpReceive?
   requires CPacketIsAbstractable(cpacket)
-  requires UdpEventIsAbstractable(udpEvent0)
-  requires AbstractifyCPacketToRslPacket(cpacket) == AbstractifyUdpPacketToRslPacket(udpEvent0.r)
-  requires io0 == LIoOpReceive(AbstractifyUdpPacketToRslPacket(udpEvent0.r))
+  requires NetEventIsAbstractable(netEvent0)
+  requires AbstractifyCPacketToRslPacket(cpacket) == AbstractifyNetPacketToRslPacket(netEvent0.r)
+  requires io0 == LIoOpReceive(AbstractifyNetPacketToRslPacket(netEvent0.r))
 
   // From downcalls:
   requires ReplicaCommonPostconditions(replica, replica', sent_packets)
@@ -288,15 +288,15 @@ lemma {:timeLimitMultiplier 3} lemma_ReplicaNextProcessPacketWithoutReadingClock
   requires RawIoConsistentWithSpecIO(log_tail, ios_tail)
 
   requires ios_head == [io0]
-  requires log_head == [udpEvent0]
+  requires log_head == [netEvent0]
   requires ios == ios_head+ios_tail
-  requires udpEventLog == log_head+log_tail
+  requires netEventLog == log_head+log_tail
     
 //  ensures AllIosAreSends(ios);  // bad idea
   //ensures Establish_Q_LReplica_NoReceive_Next_preconditions(replica, replica', clock, sent_packets, nextActionIndex, ios);
-  ensures RawIoConsistentWithSpecIO(udpEventLog, ios)
+  ensures RawIoConsistentWithSpecIO(netEventLog, ios)
   ensures Q_LReplica_Next_ProcessPacketWithoutReadingClock(replica, AbstractifyReplicaStateToLReplica(replica'), ios)
-  ensures RawIoConsistentWithSpecIO(udpEventLog, ios)
+  ensures RawIoConsistentWithSpecIO(netEventLog, ios)
   ensures forall io :: io in ios[1..] ==> io.LIoOpSend?
 {
   forall io | io in ios[1..] ensures io.LIoOpSend?
@@ -307,63 +307,63 @@ lemma {:timeLimitMultiplier 3} lemma_ReplicaNextProcessPacketWithoutReadingClock
     assert io.LIoOpSend?;
   }
 
-  forall i | 0<=i<|udpEventLog|
-    ensures UdpEventIsAbstractable(udpEventLog[i])
-    ensures ios[i] == AbstractifyUdpEventToRslIo(udpEventLog[i])
+  forall i | 0<=i<|netEventLog|
+    ensures NetEventIsAbstractable(netEventLog[i])
+    ensures ios[i] == AbstractifyNetEventToRslIo(netEventLog[i])
   {
     if (i==0) {
-      assert udpEventLog[i]==udpEvent0;
-      assert UdpEventIsAbstractable(udpEventLog[i]);
-      assert ios[i] == AbstractifyUdpEventToRslIo(udpEventLog[i]);
+      assert netEventLog[i]==netEvent0;
+      assert NetEventIsAbstractable(netEventLog[i]);
+      assert ios[i] == AbstractifyNetEventToRslIo(netEventLog[i]);
     } else {
       calc {
-        udpEventLog[i];
-        ([udpEvent0] + log_tail)[i];
+        netEventLog[i];
+        ([netEvent0] + log_tail)[i];
         log_tail[i-1];
       }
-      assert udpEventLog[i]==log_tail[i-1];
-      assert UdpEventIsAbstractable(udpEventLog[i]);
-      assert ios[i] == AbstractifyUdpEventToRslIo(udpEventLog[i]);
+      assert netEventLog[i]==log_tail[i-1];
+      assert NetEventIsAbstractable(netEventLog[i]);
+      assert ios[i] == AbstractifyNetEventToRslIo(netEventLog[i]);
     }
   }
-  assert UdpEventLogIsAbstractable(udpEventLog);
-  assert AbstractifyRawLogToIos(udpEventLog) == ios;
+  assert NetEventLogIsAbstractable(netEventLog);
+  assert AbstractifyRawLogToIos(netEventLog) == ios;
 
   lemma_ExtractSentPacketsFromIosDoesNotMindSomeClutter(ios_head, ios_tail);
 
   lemma_EstablishQLReplicaNextProcessPacketWithoutReadingClock(replica, AbstractifyReplicaStateToLReplica(replica'), AbstractifyCPacketToRslPacket(cpacket), AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets), ios);
-  assert RawIoConsistentWithSpecIO(udpEventLog, ios);
+  assert RawIoConsistentWithSpecIO(netEventLog, ios);
 }
     
-lemma lemma_CombineAbstractifyUdpEventToRslIo(ios_head:seq<RslIo>, ios_tail:seq<RslIo>, ios:seq<RslIo>, log_head:seq<UdpEvent>, log_tail:seq<UdpEvent>, log:seq<UdpEvent>)
+lemma lemma_CombineAbstractifyNetEventToRslIo(ios_head:seq<RslIo>, ios_tail:seq<RslIo>, ios:seq<RslIo>, log_head:seq<NetEvent>, log_tail:seq<NetEvent>, log:seq<NetEvent>)
   requires |log_head| == |ios_head|
   requires forall i :: 0<=i<|log_head|
-             ==> UdpEventIsAbstractable(log_head[i]) && ios_head[i] == AbstractifyUdpEventToRslIo(log_head[i])
+             ==> NetEventIsAbstractable(log_head[i]) && ios_head[i] == AbstractifyNetEventToRslIo(log_head[i])
   requires |log_tail| == |ios_tail|
   requires forall i :: 0<=i<|log_tail|
-             ==> UdpEventIsAbstractable(log_tail[i]) && ios_tail[i] == AbstractifyUdpEventToRslIo(log_tail[i])
+             ==> NetEventIsAbstractable(log_tail[i]) && ios_tail[i] == AbstractifyNetEventToRslIo(log_tail[i])
   requires ios == ios_head+ios_tail
   requires log == log_head+log_tail
-  ensures forall i :: 0<=i<|log| ==> ios[i] == AbstractifyUdpEventToRslIo(log[i])
+  ensures forall i :: 0<=i<|log| ==> ios[i] == AbstractifyNetEventToRslIo(log[i])
 {
 }
 
-lemma lemma_UdpEventLogIsAbstractableExtend(log_head:seq<UdpEvent>, log_tail:seq<UdpEvent>, log:seq<UdpEvent>)
+lemma lemma_NetEventLogIsAbstractableExtend(log_head:seq<NetEvent>, log_tail:seq<NetEvent>, log:seq<NetEvent>)
   requires log == log_head+log_tail
-  requires UdpEventLogIsAbstractable(log_head)
-  requires UdpEventLogIsAbstractable(log_tail)
-  ensures UdpEventLogIsAbstractable(log)
+  requires NetEventLogIsAbstractable(log_head)
+  requires NetEventLogIsAbstractable(log_tail)
+  ensures NetEventLogIsAbstractable(log)
 {
 }
 
 lemma lemma_ReplicaNoReceiveReadClockNextHelper(
   replica:LReplica, replica':ReplicaState, clock:CClockReading, sent_packets:OutboundPackets, nextActionIndex:int,
   ios:seq<RslIo>, io0:RslIo, ios_head:seq<RslIo>, ios_tail:seq<RslIo>, 
-  udpEvent0:UdpEvent, log_head:seq<UdpEvent>, log_tail:seq<UdpEvent>, udpEventLog:seq<UdpEvent>)
+  netEvent0:NetEvent, log_head:seq<NetEvent>, log_tail:seq<NetEvent>, netEventLog:seq<NetEvent>)
   // From ReadClock:
-  requires udpEvent0.LIoOpReadClock?
-  requires clock.t as int == udpEvent0.t
-  requires UdpEventIsAbstractable(udpEvent0)
+  requires netEvent0.LIoOpReadClock?
+  requires clock.t as int == netEvent0.t
+  requires NetEventIsAbstractable(netEvent0)
   requires io0 == LIoOpReadClock(clock.t as int)
 
   // From downcalls:
@@ -384,13 +384,13 @@ lemma lemma_ReplicaNoReceiveReadClockNextHelper(
   requires RawIoConsistentWithSpecIO(log_tail, ios_tail)
 
   requires ios_head == [io0]
-  requires log_head == [udpEvent0]
+  requires log_head == [netEvent0]
   requires ios == ios_head+ios_tail
-  requires udpEventLog == log_head+log_tail
+  requires netEventLog == log_head+log_tail
     
 //  ensures AllIosAreSends(ios);  // bad idea
   //ensures Establish_Q_LReplica_NoReceive_Next_preconditions(replica, replica', clock, sent_packets, nextActionIndex, ios);
-  ensures RawIoConsistentWithSpecIO(udpEventLog, ios)
+  ensures RawIoConsistentWithSpecIO(netEventLog, ios)
   ensures Q_LReplica_NoReceive_Next(replica, nextActionIndex as int, AbstractifyReplicaStateToLReplica(replica'), ios)
   ensures forall io :: io in ios[1..] ==> io.LIoOpSend?
 {
@@ -411,24 +411,24 @@ lemma lemma_ReplicaNoReceiveReadClockNextHelper(
 //  }
 //  assert AllIosAreSends(ios);
 
-  assert io0 == AbstractifyUdpEventToRslIo(udpEvent0);
-  forall i | 0<=i<|log_head| ensures UdpEventIsAbstractable(log_head[i]) && ios_head[i] == AbstractifyUdpEventToRslIo(log_head[i])
+  assert io0 == AbstractifyNetEventToRslIo(netEvent0);
+  forall i | 0<=i<|log_head| ensures NetEventIsAbstractable(log_head[i]) && ios_head[i] == AbstractifyNetEventToRslIo(log_head[i])
   {
-    assert log_head[i] == udpEvent0;
+    assert log_head[i] == netEvent0;
     assert ios_head[i] == io0;
   }
 
   lemma_ExtractSentPacketsFromIosDoesNotMindSomeClutter(ios_head, ios_tail);
   assert forall io :: io in ios[1..] ==> io.LIoOpSend?;   // OBSERVE trigger
-  ghost var log_head := [udpEvent0];
-  lemma_CombineAbstractifyUdpEventToRslIo(ios_head, ios_tail, ios, log_head, log_tail, udpEventLog);
+  ghost var log_head := [netEvent0];
+  lemma_CombineAbstractifyNetEventToRslIo(ios_head, ios_tail, ios, log_head, log_tail, netEventLog);
 
   assert AbstractifyOutboundCPacketsToSeqOfRslPackets(sent_packets) == ExtractSentPacketsFromIos(ios);
-  lemma_UdpEventLogIsAbstractableExtend(log_head, log_tail, udpEventLog);
-  assert UdpEventLogIsAbstractable(udpEventLog);
-  lemma_EstablishAbstractifyRawLogToIos(udpEventLog, ios);
-  assert AbstractifyRawLogToIos(udpEventLog) == ios;
-  assert RawIoConsistentWithSpecIO(udpEventLog, ios);
+  lemma_NetEventLogIsAbstractableExtend(log_head, log_tail, netEventLog);
+  assert NetEventLogIsAbstractable(netEventLog);
+  lemma_EstablishAbstractifyRawLogToIos(netEventLog, ios);
+  assert AbstractifyRawLogToIos(netEventLog) == ios;
+  assert RawIoConsistentWithSpecIO(netEventLog, ios);
 
   assert SpontaneousIos(ios, 1);
   assert AbstractifyCClockReadingToClockReading(clock) == ClockReading(ios[0].t);

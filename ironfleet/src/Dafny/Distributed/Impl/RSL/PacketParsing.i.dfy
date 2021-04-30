@@ -21,7 +21,7 @@ import opened LiveRSL__Message_i
 import opened LiveRSL__Types_i
 import opened Common__GenericMarshalling_i
 import opened Common__NodeIdentity_i
-import opened Common__UdpClient_i
+import opened Common__NetClient_i
 import opened Common__Util_i
 import opened AppStateMachine_s
 import opened Environment_s
@@ -69,7 +69,7 @@ function method CMessage_grammar() : G { GTaggedUnion([
   CMessage_StartingPhase2_grammar()
   ]) }
 
-predicate UdpPacketBound(data:seq<byte>) 
+predicate NetPacketBound(data:seq<byte>) 
 {
   |data| < MaxPacketSize()
 }
@@ -1573,21 +1573,21 @@ predicate BufferRefinementAgreesWithMessageRefinement(msg:CMessage, marshalled:s
             == LPacket(AbstractifyEndPointToNodeIdentity(dst), AbstractifyEndPointToNodeIdentity(src), AbstractifyCMessageToRslMessage(msg)))
 }
 
-function AbstractifyUdpPacketToRslPacket(udp:UdpPacket) : RslPacket
-  requires UdpPacketIsAbstractable(udp)
+function AbstractifyNetPacketToRslPacket(net:NetPacket) : RslPacket
+  requires NetPacketIsAbstractable(net)
 {
-  AbstractifyBufferToRslPacket(udp.src, udp.dst, udp.msg)
+  AbstractifyBufferToRslPacket(net.src, net.dst, net.msg)
 }
 
-predicate UdpPacketIsAbstractable(udp:UdpPacket)
+predicate NetPacketIsAbstractable(net:NetPacket)
 {
-  && EndPointIsValidIPV4(udp.src)
-  && EndPointIsValidIPV4(udp.dst)
+  && EndPointIsValidIPV4(net.src)
+  && EndPointIsValidIPV4(net.dst)
 }
 
-predicate UdpPacketsIsAbstractable(udpps:set<UdpPacket>)
+predicate NetPacketsIsAbstractable(netps:set<NetPacket>)
 {
-  forall p :: p in udpps ==> UdpPacketIsAbstractable(p)
+  forall p :: p in netps ==> NetPacketIsAbstractable(p)
 }
 
 lemma lemma_CMessageGrammarValid()
@@ -1611,7 +1611,7 @@ method PaxosMarshall(msg:CMessage) returns (data:array<byte>)
   requires CMessageIsAbstractable(msg)
   requires Marshallable(msg)
   ensures fresh(data)
-  ensures UdpPacketBound(data[..])
+  ensures NetPacketBound(data[..])
   ensures Marshallable(PaxosDemarshallData(data[..]))
   ensures BufferRefinementAgreesWithMessageRefinement(msg, data[..])
 {

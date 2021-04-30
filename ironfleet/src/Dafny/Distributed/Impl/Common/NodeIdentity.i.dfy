@@ -1,5 +1,5 @@
 include "Util.i.dfy"
-include "UdpClient.i.dfy"
+include "NetClient.i.dfy"
 include "SeqIsUnique.i.dfy"
 include "../../Protocol/Common/NodeIdentity.i.dfy"
 include "GenericRefinement.i.dfy"
@@ -9,7 +9,7 @@ module Common__NodeIdentity_i {
 import opened Native__NativeTypes_s
 import opened Native__Io_s
 import opened Common__Util_i
-import opened Common__UdpClient_i
+import opened Common__NetClient_i
 import opened Common__SeqIsUniqueDef_i
 import opened Common__SeqIsUnique_i
 import opened Concrete_NodeIdentity_i

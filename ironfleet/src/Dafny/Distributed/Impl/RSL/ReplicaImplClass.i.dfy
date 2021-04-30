@@ -3,7 +3,7 @@ include "../../../Libraries/Math/mod_auto.i.dfy"
 include "../../Protocol/RSL/Replica.i.dfy"
 include "ReplicaModel.i.dfy"
 include "ReplicaImplLemmas.i.dfy"
-include "UdpRSL.i.dfy"
+include "NetRSL.i.dfy"
 include "CClockReading.i.dfy"
 
 module LiveRSL__ReplicaImplClass_i {
@@ -36,9 +36,9 @@ import opened LiveRSL__ReplicaModel_Part1_i
 import opened LiveRSL__ReplicaState_i
 import opened LiveRSL__ReplicaImplLemmas_i
 import opened LiveRSL__Types_i
-import opened LiveRSL__UdpRSL_i
+import opened LiveRSL__NetRSL_i
 import opened Common__GenericMarshalling_i
-import opened Common__UdpClient_i
+import opened Common__NetClient_i
 import opened Common__Util_i
 import opened AppStateMachine_s
 
@@ -46,7 +46,7 @@ class ReplicaImpl
 {
   var replica:ReplicaState;
   var nextActionIndex:uint64;
-  var udpClient:UdpClient?;
+  var netClient:NetClient?;
   var localAddr:EndPoint;
   // Optimized mutable sets for ElectionState
   var cur_req_set:MutableSet<CRequestHeader>;
@@ -58,7 +58,7 @@ class ReplicaImpl
 
   constructor()
   {
-    udpClient := null;
+    netClient := null;
     var empty_MutableMap:MutableMap<EndPoint, CReply> := MutableMap.EmptyMap();
     reply_cache_mutable := empty_MutableMap;
     var empty_MutableSet:MutableSet<CRequestHeader> := MutableSet.EmptySet();
@@ -84,16 +84,16 @@ class ReplicaImpl
     reads this.cur_req_set
     reads this.prev_req_set
     reads this.reply_cache_mutable
-    reads if udpClient != null then UdpClientIsValid.reads(udpClient) else {}
+    reads if netClient != null then NetClientIsValid.reads(netClient) else {}
   {
     && ReplicaStateIsAbstractable(replica)
     && (0 <= nextActionIndex as int < 10)
-    && udpClient != null
-    && UdpClientIsValid(udpClient)
-    && udpClient.LocalEndPoint() == localAddr
-    && udpClient.LocalEndPoint() == replica.constants.all.config.replica_ids[replica.constants.my_index]
+    && netClient != null
+    && NetClientIsValid(netClient)
+    && netClient.LocalEndPoint() == localAddr
+    && netClient.LocalEndPoint() == replica.constants.all.config.replica_ids[replica.constants.my_index]
     && ReplicaStateIsValid(replica)
-    && Repr == { this } + UdpClientRepr(udpClient)
+    && Repr == { this } + NetClientRepr(netClient)
     && cur_req_set != prev_req_set
     && MutableSet.SetOf(cur_req_set) == replica.proposer.election_state.cur_req_set
     && MutableSet.SetOf(prev_req_set) == replica.proposer.election_state.prev_req_set
@@ -102,10 +102,10 @@ class ReplicaImpl
   }
 
   function Env() : HostEnvironment
-    requires udpClient != null
-    reads this, UdpClientIsValid.reads(udpClient)
+    requires netClient != null
+    reads this, NetClientIsValid.reads(netClient)
   {
-    udpClient.env
+    netClient.env
   }
 
   function AbstractifyToLReplica() : LReplica
@@ -126,12 +126,12 @@ class ReplicaImpl
       nextActionIndex as int)
   }
 
-  method ConstructUdpClient(constants:ReplicaConstantsState, ghost env_:HostEnvironment) returns (ok:bool, client:UdpClient?)
+  method ConstructNetClient(constants:ReplicaConstantsState, ghost env_:HostEnvironment) returns (ok:bool, client:NetClient?)
     requires env_.Valid() && env_.ok.ok()
     requires ReplicaConstantsState_IsValid(constants)
     modifies env_.ok
     ensures ok ==> && client != null
-                   && UdpClientIsValid(client)
+                   && NetClientIsValid(client)
                    && client.LocalEndPoint() == constants.all.config.replica_ids[constants.my_index]
                    && client.env == env_
   {
@@ -142,7 +142,7 @@ class ReplicaImpl
     var ip_endpoint;
     ok, ip_endpoint := IPEndPoint.Construct(ip_byte_array, my_ep.port, env_);
     if !ok { return; }
-    ok, client := UdpClient.Construct(ip_endpoint, env_);
+    ok, client := NetClient.Construct(ip_endpoint, env_);
     if ok {
       calc {
         client.LocalEndPoint();
@@ -157,7 +157,7 @@ class ReplicaImpl
     requires ReplicaConstantsState_IsValid(constants)
     requires WellFormedLConfiguration(AbstractifyReplicaConstantsStateToLReplicaConstants(constants).all.config)
     //requires KnownSendersMatchConfig(constants.all.config)
-    modifies this, udpClient
+    modifies this, netClient
     modifies env_.ok
     ensures ok ==>
             && Valid()
@@ -165,29 +165,29 @@ class ReplicaImpl
             && this.replica.constants == constants
             && LSchedulerInit(AbstractifyToLScheduler(), AbstractifyReplicaConstantsStateToLReplicaConstants(constants))
   {
-    ok, udpClient := ConstructUdpClient(constants, env_); 
+    ok, netClient := ConstructNetClient(constants, env_); 
 
     if (ok)
     {
       replica, cur_req_set, prev_req_set, reply_cache_mutable := InitReplicaState(constants);
       nextActionIndex := 0;
       localAddr := replica.constants.all.config.replica_ids[replica.constants.my_index];
-      Repr := { this } + UdpClientRepr(udpClient);
+      Repr := { this } + NetClientRepr(netClient);
       this.msg_grammar := CMessage_grammar();
     }
   }
 
-  predicate ReceivedPacketProperties(cpacket:CPacket, udpEvent0:UdpEvent, io0:RslIo)
+  predicate ReceivedPacketProperties(cpacket:CPacket, netEvent0:NetEvent, io0:RslIo)
     reads this
     requires CPaxosConfigurationIsValid(replica.constants.all.config)
   {
     && CPacketIsSendable(cpacket)
     && PaxosEndPointIsValid(cpacket.src, replica.constants.all.config)
     && io0.LIoOpReceive?
-    && UdpEventIsAbstractable(udpEvent0)
-    && io0 == AbstractifyUdpEventToRslIo(udpEvent0)
-    && UdpEventIsAbstractable(udpEvent0)
-    && udpEvent0.LIoOpReceive? && AbstractifyCPacketToRslPacket(cpacket) == AbstractifyUdpPacketToRslPacket(udpEvent0.r)
+    && NetEventIsAbstractable(netEvent0)
+    && io0 == AbstractifyNetEventToRslIo(netEvent0)
+    && NetEventIsAbstractable(netEvent0)
+    && netEvent0.LIoOpReceive? && AbstractifyCPacketToRslPacket(cpacket) == AbstractifyNetPacketToRslPacket(netEvent0.r)
   }
 }
 

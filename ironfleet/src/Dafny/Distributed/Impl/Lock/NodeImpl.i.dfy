@@ -1,5 +1,5 @@
 include "Node.i.dfy"
-include "UdpLock.i.dfy"
+include "NetLock.i.dfy"
 
 module NodeImpl_i {
 import opened Native__NativeTypes_s
@@ -8,46 +8,46 @@ import opened Environment_s
 import opened Types_i
 import opened Message_i
 import opened Impl_Node_i
-import opened UdpLock_i
+import opened NetLock_i
 import opened Protocol_Node_i
 import opened Common__Util_i
-import opened Common__UdpClient_i
+import opened Common__NetClient_i
 
 class NodeImpl
 {
     var node:CNode;
-    var udpClient:UdpClient?;
+    var netClient:NetClient?;
     var localAddr:EndPoint;
 
     ghost var Repr : set<object>;
 
     constructor () {
-        udpClient := null;
+        netClient := null;
     }
 
     predicate Valid()
         reads this;
-        reads UdpClientIsValid.reads(udpClient);
+        reads NetClientIsValid.reads(netClient);
     {
            CNodeValid(node)
-        && UdpClientIsValid(udpClient)
-        && udpClient.LocalEndPoint() == localAddr
-        && udpClient.LocalEndPoint() == node.config[node.my_index]
-        && Repr == { this } + UdpClientRepr(udpClient)
+        && NetClientIsValid(netClient)
+        && netClient.LocalEndPoint() == localAddr
+        && netClient.LocalEndPoint() == node.config[node.my_index]
+        && Repr == { this } + NetClientRepr(netClient)
     }
         
     function Env() : HostEnvironment?
-        reads this, UdpClientIsValid.reads(udpClient);
+        reads this, NetClientIsValid.reads(netClient);
     {
-        if udpClient!=null then udpClient.env else null
+        if netClient!=null then netClient.env else null
     }
    
-    method ConstructUdpClient(me:EndPoint, ghost env_:HostEnvironment) 
-        returns (ok:bool, client:UdpClient?)
+    method ConstructNetClient(me:EndPoint, ghost env_:HostEnvironment) 
+        returns (ok:bool, client:NetClient?)
         requires env_.Valid() && env_.ok.ok();
         requires EndPointIsValidIPV4(me);
         modifies env_.ok;
-        ensures ok ==> UdpClientIsValid(client)
+        ensures ok ==> NetClientIsValid(client)
                     && client.LocalEndPoint() == me
                     && client.env == env_;
     {
@@ -60,7 +60,7 @@ class NodeImpl
         ok, ip_endpoint := IPEndPoint.Construct(ip_byte_array, my_ep.port, env_);
         if !ok { return; }
 
-        ok, client := UdpClient.Construct(ip_endpoint, env_);
+        ok, client := NetClient.Construct(ip_endpoint, env_);
         if ok {
             calc {
                 client.LocalEndPoint();
@@ -73,7 +73,7 @@ class NodeImpl
     method InitNode(config:Config, my_index:uint64, ghost env_:HostEnvironment) returns (ok:bool)
         requires env_.Valid() && env_.ok.ok();
         requires ValidConfig(config) && ValidConfigIndex(config, my_index);
-        modifies this, udpClient;
+        modifies this, netClient;
         modifies env_.ok;
         ensures ok ==>
                Valid()
@@ -82,29 +82,29 @@ class NodeImpl
             && node.config == config 
             && node.my_index == my_index;
     {
-        ok, udpClient := ConstructUdpClient(config[my_index], env_); 
+        ok, netClient := ConstructNetClient(config[my_index], env_); 
 
         if (ok) {
             node := NodeInitImpl(my_index, config);
             assert node.my_index == my_index;
             localAddr := node.config[my_index];
-            Repr := { this } + UdpClientRepr(udpClient);
+            Repr := { this } + NetClientRepr(netClient);
             
         }
     }
 
-    method NodeNextGrant() returns (ok:bool, ghost udpEventLog:seq<UdpEvent>, ghost ios:seq<LockIo>)
+    method NodeNextGrant() returns (ok:bool, ghost netEventLog:seq<NetEvent>, ghost ios:seq<LockIo>)
         requires Valid();
         modifies Repr;
         ensures Repr == old(Repr);
-        ensures ok == UdpClientOk(udpClient);
+        ensures ok == NetClientOk(netClient);
         ensures Env() == old(Env());
         ensures ok ==> (
                Valid()
             && NodeGrant(old(AbstractifyCNode(node)), AbstractifyCNode(node), ios)
-            && AbstractifyRawLogToIos(udpEventLog) == ios
-            && OnlySentMarshallableData(udpEventLog)
-            && old(Env().udp.history()) + udpEventLog == Env().udp.history());
+            && AbstractifyRawLogToIos(netEventLog) == ios
+            && OnlySentMarshallableData(netEventLog)
+            && old(Env().net.history()) + netEventLog == Env().net.history());
     {
         var transfer_packet;
         node, transfer_packet, ios := NodeGrantImpl(node);
@@ -112,32 +112,32 @@ class NodeImpl
 
         if transfer_packet.Some? {
             ghost var sendEventLog;
-            ok, sendEventLog := SendPacket(udpClient, transfer_packet, localAddr); 
-            udpEventLog := sendEventLog;
+            ok, sendEventLog := SendPacket(netClient, transfer_packet, localAddr); 
+            netEventLog := sendEventLog;
         } else {
-            udpEventLog := [];
-            assert AbstractifyRawLogToIos(udpEventLog) == ios;
+            netEventLog := [];
+            assert AbstractifyRawLogToIos(netEventLog) == ios;
         }
     }
 
-    method NodeNextAccept() returns (ok:bool, ghost udpEventLog:seq<UdpEvent>, ghost ios:seq<LockIo>)
+    method NodeNextAccept() returns (ok:bool, ghost netEventLog:seq<NetEvent>, ghost ios:seq<LockIo>)
         requires Valid();
         modifies Repr;
         ensures Repr == old(Repr);
-        ensures ok == UdpClientOk(udpClient);
+        ensures ok == NetClientOk(netClient);
         ensures Env() == old(Env());
         ensures ok ==> (
                Valid()
             && NodeAccept(old(AbstractifyCNode(node)), AbstractifyCNode(node), ios)
-            && AbstractifyRawLogToIos(udpEventLog) == ios
-            && OnlySentMarshallableData(udpEventLog)
-            && old(Env().udp.history()) + udpEventLog == Env().udp.history());
+            && AbstractifyRawLogToIos(netEventLog) == ios
+            && OnlySentMarshallableData(netEventLog)
+            && old(Env().net.history()) + netEventLog == Env().net.history());
     {
         var rr;
         ghost var receiveEvent;
-        rr, receiveEvent := Receive(udpClient, localAddr);
+        rr, receiveEvent := Receive(netClient, localAddr);
 
-        udpEventLog := [ receiveEvent ];
+        netEventLog := [ receiveEvent ];
         if (rr.RRFail?) {
             ok := false;
             return;
@@ -152,15 +152,15 @@ class NodeImpl
 
             if locked_packet.Some? {
                 ghost var sendEventLog;
-                ok, sendEventLog := SendPacket(udpClient, locked_packet, localAddr); 
-                udpEventLog := udpEventLog + sendEventLog;
+                ok, sendEventLog := SendPacket(netClient, locked_packet, localAddr); 
+                netEventLog := netEventLog + sendEventLog;
             }
         }
     }
 
 
     method HostNextMain()
-        returns (ok:bool, ghost udpEventLog:seq<UdpEvent>, ghost ios:seq<LockIo>)
+        returns (ok:bool, ghost netEventLog:seq<NetEvent>, ghost ios:seq<LockIo>)
         requires Valid();
         modifies Repr;
         ensures  Repr == old(Repr);
@@ -169,15 +169,15 @@ class NodeImpl
         ensures  ok ==> (
                    Valid()
                 && NodeNext(old(AbstractifyCNode(node)), AbstractifyCNode(node), ios)
-                && AbstractifyRawLogToIos(udpEventLog) == ios
-                && OnlySentMarshallableData(udpEventLog)
-                && old(Env().udp.history()) + udpEventLog == Env().udp.history()
+                && AbstractifyRawLogToIos(netEventLog) == ios
+                && OnlySentMarshallableData(netEventLog)
+                && old(Env().net.history()) + netEventLog == Env().net.history()
                 );
     {
         if node.held {
-            ok, udpEventLog, ios := NodeNextGrant();
+            ok, netEventLog, ios := NodeNextGrant();
         } else {
-            ok, udpEventLog, ios := NodeNextAccept();
+            ok, netEventLog, ios := NodeNextAccept();
         }
     }
 }

@@ -12,7 +12,7 @@ import opened Collections__Seqs_s
 
 method {:main} Main(ghost env:HostEnvironment)
   requires env.Valid() && env.ok.ok()
-  requires env.udp.history() == []
+  requires env.net.history() == []
   requires |env.constants.CommandLineArgs()| >= 2
   modifies set x:object | DS_s.H_s.ArbitraryObject(x)     // Everything!
   decreases *
@@ -25,7 +25,7 @@ method {:main} Main(ghost env:HostEnvironment)
     invariant ok ==> env.Valid() && env.ok.ok()
     decreases *
   {
-    ghost var old_udp_history := env.udp.history();
+    ghost var old_net_history := env.net.history();
     ghost var old_state := host_state;
 
     ghost var recvs, clocks, sends, ios;
@@ -39,7 +39,7 @@ method {:main} Main(ghost env:HostEnvironment)
       assert recvs + clocks + sends == ios;
 
       // These obligations enable us to apply reduction
-      assert env.udp.history() == old_udp_history + recvs + clocks + sends;
+      assert env.net.history() == old_net_history + recvs + clocks + sends;
       assert forall e :: && (e in recvs ==> e.LIoOpReceive?) 
                    && (e in clocks ==> e.LIoOpReadClock? || e.LIoOpTimeoutReceive?) 
                    && (e in sends ==> e.LIoOpSend?);

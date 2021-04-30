@@ -58,9 +58,9 @@ method HostNextImpl(ghost env:HostEnvironment, host_state:HostState)
   returns (
   ok:bool,
   host_state':HostState,
-  ghost recvs:seq<UdpEvent>,
-  ghost clocks:seq<UdpEvent>,
-  ghost sends:seq<UdpEvent>,
+  ghost recvs:seq<NetEvent>,
+  ghost clocks:seq<NetEvent>,
+  ghost sends:seq<NetEvent>,
   ghost ios:seq<LIoOp<EndPoint, seq<byte>>>
   )
   requires env.Valid() && env.ok.ok()
@@ -73,7 +73,7 @@ method HostNextImpl(ghost env:HostEnvironment, host_state:HostState)
   // Connect the low-level IO events to the spec-level IO events
   ensures  ok ==> recvs + clocks + sends == ios
   // These obligations enable us to apply reduction
-  ensures  ok ==> env.udp.history() == old(env.udp.history()) + (recvs + clocks + sends)
+  ensures  ok ==> env.net.history() == old(env.net.history()) + (recvs + clocks + sends)
   ensures  forall e :: && (e in recvs ==> e.LIoOpReceive?) 
                  && (e in clocks ==> e.LIoOpReadClock? || e.LIoOpTimeoutReceive?) 
                  && (e in sends ==> e.LIoOpSend?)
