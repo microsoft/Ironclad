@@ -1,4 +1,6 @@
-﻿namespace IronfleetTestDriver.IronSHT
+﻿using IronfleetIoFramework;
+
+namespace IronfleetTestDriver.IronSHT
 {
     using System;
     using System.IO;
@@ -234,8 +236,20 @@
         {
             ulong seq_num = 0;
 
-            this.udpClient = new System.Net.Sockets.UdpClient(base_client_port+(int)id);
-            this.udpClient.Client.ReceiveTimeout = 1000;
+            IPEndPoint myEndpoint = new IPEndPoint(my_addr, base_client_port+(int)id);
+            scheduler = new IoScheduler(myEndpoint, true /* only client */, false /* verbose */);
+            scheduler.Start();
+
+            // Create connections to all endpoints, so that if any of them
+            // sends a reply we can receive it.  Since we're in "only
+            // client" mode, we aren't listening on any port so we have to
+            // rely on outgoing connections for all communication.
+
+            foreach (var remote in Client.endpoints)
+            {
+              scheduler.Connect(remote);
+            }
+
             ulong myaddr = MyAddress64();
             
             int serverIdx = 0;
@@ -253,16 +267,10 @@
                 var received_reply = false;
                 while (!received_reply)
                 {
-                    byte[] bytes;
-                    try
-                    {
-                        bytes = Receive();
-                    }
-                    catch (System.Net.Sockets.SocketException e)
-                    {
+                    byte[] bytes = Receive();
+                    if (bytes == null) {
                         //serverIdx = (serverIdx + 1) % ClientBase.endpoints.Count();
                         Console.WriteLine("#timeout; retrying {0}", serverIdx);
-                        Console.WriteLine(e.ToString());
                         continue;
                     }
                     var end_time = HiResTimer.Ticks;
@@ -298,8 +306,6 @@
                     }
                 }
             }
-
-            this.udpClient.Close();
         }
 
         private void ReceiveReply(int serverIdx, ulong myaddr, ulong request_key, bool receive_only_acks)
@@ -361,14 +367,21 @@
             int serverIdx = 0;
             ulong seq_num = 0;
             
-            this.udpClient = new System.Net.Sockets.UdpClient(base_client_port + (int)id);
-            this.udpClient.Client.ReceiveTimeout = 0;
-            uint SIO_UDP_CONNRESET = 0x9800000C; // suppress UDP "connection" closed exceptions, since UDP is connectionless
-            this.udpClient.Client.IOControl((System.Net.Sockets.IOControlCode)SIO_UDP_CONNRESET, new byte[] { 0 }, new byte[0]);
-            this.udpClient.Client.ReceiveBufferSize = 8192 * 100;
+            IPEndPoint myEndpoint = new IPEndPoint(my_addr, base_client_port+(int)id);
+            scheduler = new IoScheduler(myEndpoint);
+            scheduler.Start();
+
+            // Create connections to all endpoints, so that if any of them
+            // sends a reply we can receive it.  Since we're in "only
+            // client" mode, we aren't listening on any port so we have to
+            // rely on outgoing connections for all communication.
+
+            foreach (var remote in Client.endpoints)
+            {
+              scheduler.Connect(remote);
+            }
 
             ulong myaddr = MyAddress64();
-            
             
             // Test the functionality of the Sharding
             if (workload == 'f')

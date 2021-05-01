@@ -10,7 +10,7 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <StartupObject>IronfleetShell.Program</StartupObject>
+    <StartupObject>IronLockServer.Program</StartupObject>
   </PropertyGroup>
 
   <ItemGroup>
@@ -19,7 +19,9 @@
 
   <ItemGroup>
     <Compile Include="..\Clients\Common\Profiler.cs" />
+    <Compile Include="..\Dafny\Distributed\Services\Lock\Main.i.cs" />
     <Compile Include="..\Dafny\Distributed\Common\Native\IoNative.cs" />
+    <Compile Include="..\Dafny\Distributed\Common\Native\IoFramework.cs" />
   </ItemGroup>
 
 </Project>

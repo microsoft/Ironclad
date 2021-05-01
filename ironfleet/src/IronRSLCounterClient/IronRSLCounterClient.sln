@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.31019.35
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IronRSLClient", "IronRSLClient.csproj", "{A154E4D2-1C7D-47EF-BAE7-B802C50DB10E}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IronRSLCounterClient", "IronRSLCounterClient.csproj", "{A154E4D2-1C7D-47EF-BAE7-B802C50DB10E}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

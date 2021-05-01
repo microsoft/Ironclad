@@ -1,5 +1,5 @@
 ﻿
-namespace IronfleetShell
+namespace IronRSLCounterServer
 {
     using System;
     using System.Linq;

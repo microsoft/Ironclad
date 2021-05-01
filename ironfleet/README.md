@@ -63,10 +63,10 @@ limit 60 seconds instead of the default 30 seconds.
 
 Running scons will produce the following executables:
 ```
-  src/Dafny/Distributed/Services/RSL/build/IronfleetShell.dll
-  src/Dafny/Distributed/Services/Lock/build/IronfleetShell.dll
-  src/Dafny/Distributed/Services/SHT/build/IronfleetShell.dll
-  src/IronRSLClient/bin/Release/net5.0/IronRSLClient.dll
+  src/IronRSLCounterServer/bin/Release/net5.0/IronRSLCounterServer.dll
+  src/IronKVServer/bin/Release/net5.0/IronKVServer.dll
+  src/IronLockServer/bin/Release/net5.0/IronLockServer.dll
+  src/IronRSLCounterClient/bin/Release/net5.0/IronRSLCounterClient.dll
   src/IronKVClient/bin/Release/net5.0/IronKVClient.dll
 ```
 
@@ -88,9 +88,9 @@ you need to supply each process with the IP-port pairs of all processes, as well
 as its own IP-pair. For example, this is a configuration with three processes:
 
 ```
-  dotnet src/Dafny/Distributed/Services/Lock/build/IronfleetShell.dll localhost:4001 localhost:4002 localhost:4003 localhost:4002
-  dotnet src/Dafny/Distributed/Services/Lock/build/IronfleetShell.dll localhost:4001 localhost:4002 localhost:4003 localhost:4003
-  dotnet src/Dafny/Distributed/Services/Lock/build/IronfleetShell.dll localhost:4001 localhost:4002 localhost:4003 localhost:4001
+  dotnet src/IronLockServer/bin/Release/net5.0/IronLockServer.dll localhost:4001 localhost:4002 localhost:4003 localhost:4002
+  dotnet src/IronLockServer/bin/Release/net5.0/IronLockServer.dll localhost:4001 localhost:4002 localhost:4003 localhost:4003
+  dotnet src/IronLockServer/bin/Release/net5.0/IronLockServer.dll localhost:4001 localhost:4002 localhost:4003 localhost:4001
 ```
 
 It's important that you start the "first" process last (as in the above
@@ -102,13 +102,14 @@ sends a grant message, the message will be lost and the protocol will stop.
 If started properly, the processes will pass the lock among them as fast as they
 can, printing a message everytime they accept or grant the lock.
 
-## IronRSL
+## IronRSL - Counter
 
-To run IronRSL, you should ideally use four different machines, but in a pinch
-you can use four separate windows on the same machine. The server executable
-expects a list of IP-port pairs that identifies all of the replicas in the
-system (in this example we're using 3, but more is feasible). Each server
-instance also needs to be told which IP-port pair belongs to it.
+To run the counter service replicated with IronRSL, you should ideally use
+four different machines, but in a pinch you can use four separate windows on
+the same machine. The server executable expects a list of IP-port pairs that
+identifies all of the replicas in the system (in this example we're using 3,
+but more is feasible). Each server instance also needs to be told which
+IP-port pair belongs to it.
 
 The client has reasonable defaults that you can override with key=value
 command-line arguments. Run the client with `--help` to get detailed usage
@@ -118,10 +119,10 @@ For example, to test IronRSL on a single machine, you can run each of the
 following four commands in a different console:
 
 ```
-  dotnet src/Dafny/Distributed/Services/RSL/build/IronfleetShell.dll localhost:4001 localhost:4002 localhost:4003 localhost:4001
-  dotnet src/Dafny/Distributed/Services/RSL/build/IronfleetShell.dll localhost:4001 localhost:4002 localhost:4003 localhost:4002
-  dotnet src/Dafny/Distributed/Services/RSL/build/IronfleetShell.dll localhost:4001 localhost:4002 localhost:4003 localhost:4003
-  dotnet src/IronRSLClient/bin/Release/net5.0/IronRSLClient.dll nthreads=10 duration=30 clientport=6000 initialseqno=0
+  dotnet src/IronRSLCounterServer/bin/Release/net5.0/IronRSLCounterServer.dll localhost:4001 localhost:4002 localhost:4003 localhost:4001
+  dotnet src/IronRSLCounterServer/bin/Release/net5.0/IronRSLCounterServer.dll localhost:4001 localhost:4002 localhost:4003 localhost:4002
+  dotnet src/IronRSLCounterServer/bin/Release/net5.0/IronRSLCounterServer.dll localhost:4001 localhost:4002 localhost:4003 localhost:4003
+  dotnet src/IronRSLCounterClient/bin/Release/net5.0/IronRSLCounterClient.dll nthreads=10 duration=30 clientport=6000 initialseqno=0
 ```
 
 The first three are the RSL servers, and the latter is the client.  The client's
@@ -138,20 +139,21 @@ use at least `initialseqno=101`).
 Note also that the servers use non-blocking network receives, so they may be
 slow to respond to Ctrl-C.
 
-## IronKV
+## IronSHT
 
-To run IronKV, you should ideally use multiple different machines, but in a
-pinch you can use separate windows on the same machine. Like IronRSL, IronKV
-server executables require a list of IP-port pairs, and the IronKV client
-takes command-line arguments of the form key=value.
+To run IronSHT (our sharded hash table), you should ideally use multiple
+different machines, but in a pinch you can use separate windows on the same
+machine. Like IronRSL, IronSHT server executables require a list of IP-port
+pairs, and the IronSHT client takes command-line arguments of the form
+key=value.
 
 For example, you can run each of the following four commands in a different
 console:
 ```
-  dotnet src/Dafny/Distributed/Services/SHT/build/IronfleetShell.dll localhost:4001 localhost:4002 localhost:4003 localhost:4001
-  dotnet src/Dafny/Distributed/Services/SHT/build/IronfleetShell.dll localhost:4001 localhost:4002 localhost:4003 localhost:4002
-  dotnet src/Dafny/Distributed/Services/SHT/build/IronfleetShell.dll localhost:4001 localhost:4002 localhost:4003 localhost:4003
-  dotnet src/IronKVClient/bin/Release/net5.0/IronKVClient.dll nthreads=10 duration=30 workload=g numkeys=10000 clientport=6000
+  dotnet src/IronSHTServer/bin/Release/net5.0/IronSHTServer.dll localhost:4001 localhost:4002 localhost:4003 localhost:4001
+  dotnet src/IronSHTServer/bin/Release/net5.0/IronSHTServer.dll localhost:4001 localhost:4002 localhost:4003 localhost:4002
+  dotnet src/IronSHTServer/bin/Release/net5.0/IronSHTServer.dll localhost:4001 localhost:4002 localhost:4003 localhost:4003
+  dotnet src/IronSHTClient/bin/Release/net5.0/IronSHTClient.dll nthreads=10 duration=30 workload=g numkeys=10000 clientport=6000
 ```
 
 Like in IronRSL, the client will print its output to standard output.
