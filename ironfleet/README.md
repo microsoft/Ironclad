@@ -125,7 +125,7 @@ of the following four commands in a different console:
   dotnet src/IronRSLCounterServer/bin/Release/net5.0/IronRSLCounterServer.dll localhost:4001 localhost:4002 localhost:4003 localhost:4001
   dotnet src/IronRSLCounterServer/bin/Release/net5.0/IronRSLCounterServer.dll localhost:4001 localhost:4002 localhost:4003 localhost:4002
   dotnet src/IronRSLCounterServer/bin/Release/net5.0/IronRSLCounterServer.dll localhost:4001 localhost:4002 localhost:4003 localhost:4003
-  dotnet src/IronRSLCounterClient/bin/Release/net5.0/IronRSLCounterClient.dll nthreads=10 duration=30 clientport=6000 initialseqno=0
+  dotnet src/IronRSLCounterClient/bin/Release/net5.0/IronRSLCounterClient.dll nthreads=10 duration=30 clientport=6000 initialseqno=0 verbose=true
 ```
 
 The first three are the RSL servers, and the latter is the client.  The client's
@@ -162,7 +162,7 @@ run each of the following four commands in a different console:
   dotnet src/IronRSLKVServer/bin/Release/net5.0/IronRSLKVServer.dll localhost:4001 localhost:4002 localhost:4003 localhost:4001
   dotnet src/IronRSLKVServer/bin/Release/net5.0/IronRSLKVServer.dll localhost:4001 localhost:4002 localhost:4003 localhost:4002
   dotnet src/IronRSLKVServer/bin/Release/net5.0/IronRSLKVServer.dll localhost:4001 localhost:4002 localhost:4003 localhost:4003
-  dotnet src/IronRSLKVClient/bin/Release/net5.0/IronRSLKVClient.dll nthreads=10 duration=30 clientport=6000 initialseqno=0 setfraction=0.25 deletefraction=0.05
+  dotnet src/IronRSLKVClient/bin/Release/net5.0/IronRSLKVClient.dll nthreads=10 duration=30 clientport=6000 initialseqno=0 setfraction=0.25 deletefraction=0.05 verbose=true
 ```
 
 The first three are the RSL servers, and the latter is the client.  The client's
@@ -193,7 +193,7 @@ console:
   dotnet src/IronSHTServer/bin/Release/net5.0/IronSHTServer.dll localhost:4001 localhost:4002 localhost:4003 localhost:4001
   dotnet src/IronSHTServer/bin/Release/net5.0/IronSHTServer.dll localhost:4001 localhost:4002 localhost:4003 localhost:4002
   dotnet src/IronSHTServer/bin/Release/net5.0/IronSHTServer.dll localhost:4001 localhost:4002 localhost:4003 localhost:4003
-  dotnet src/IronSHTClient/bin/Release/net5.0/IronSHTClient.dll nthreads=10 duration=30 workload=g numkeys=10000 clientport=6000
+  dotnet src/IronSHTClient/bin/Release/net5.0/IronSHTClient.dll nthreads=10 duration=30 workload=g numkeys=10000 client=localhost:6000
 ```
 
 Like in IronRSL, the client will print its output to standard output.

@@ -9,7 +9,7 @@ using System.Net;
 using System.Text;
 using System.Threading;
 
-namespace IronRSLClient
+namespace IronRSLKVClient
 {
   public class RequestMessage
   {
@@ -101,62 +101,42 @@ namespace IronRSLClient
     }
   }
 
-  public struct Param
+  public class ThreadParams
   {
+    public Params ps;
     public ulong id;
-    public int port_num;
-    public ulong initial_seq_no;
-    public double set_fraction;
-    public double delete_fraction;
+
+    public ThreadParams(ulong i_id, Params i_ps)
+    {
+      id = i_id;
+      ps = i_ps;
+    }
   }
 
   public class Client
   {
+    public int id;
+    public Params ps;
     public IoScheduler scheduler;
-    public static List<IPEndPoint> endpoints;
-    public static IPAddress my_addr;
-    public static bool DEBUG = false;
 
-    public static void StartThread(object p)
+    private Client(int i_id, Params i_ps)
     {
-      Thread.Sleep(3000);
-      var c = new Client();
-      c.Main(((Param)p).id, ((Param)p).port_num, ((Param)p).initial_seq_no, ((Param)p).set_fraction, ((Param)p).delete_fraction);
+      id = i_id;
+      ps = i_ps;
     }
 
-    static public IEnumerable<Thread> StartThreads<T>(ulong num_threads, int port_num, ulong initial_seq_no, double set_fraction, double delete_fraction)
+    static public IEnumerable<Thread> StartThreads<T>(Params ps)
     {
-      if (num_threads < 0)
+      for (int i = 0; i < ps.numThreads; ++i)
       {
-        throw new ArgumentException("number of threads is less than 1", "num_threads");
-      }
-
-      for (ulong i = 0; i < num_threads; ++i)
-      {
-        var t = new Thread(StartThread);
-        var p = new Param { id = i, port_num = port_num, initial_seq_no = initial_seq_no, set_fraction = set_fraction, delete_fraction = delete_fraction };
-        t.Start(p);
+        Client c = new Client(i, ps);
+        Thread t = new Thread(c.Run);
+        t.Start();
         yield return t;
       }
     }
-
-    //private static long num_reqs = 0;
-
-    public static void Trace(string str)
-    {
-      if (DEBUG)
-      {
-        Console.Out.WriteLine(str);
-      }    
-    }
   
-    public string ByteArrayToString(byte[] ba)
-    {
-      string hex = BitConverter.ToString(ba);
-      return hex.Replace("-", "");
-    }
-
-    private static KVRequest GetRandomRequest(Random rng, double set_fraction, double delete_fraction)
+    private static KVRequest GetRandomRequest(Random rng, Params ps)
     {
       int keySelector = rng.Next(26);
       char k = (char)('a' + keySelector);
@@ -167,7 +147,7 @@ namespace IronRSLClient
       string key = keyBuilder.ToString();
       
       int reqTypeSelector = rng.Next();
-      if (reqTypeSelector < set_fraction * Int32.MaxValue) {
+      if (reqTypeSelector < ps.setFraction * Int32.MaxValue) {
         char v = (char)('A' + keySelector);
         StringBuilder valBuilder = new StringBuilder();
         valBuilder.Append(v);
@@ -176,24 +156,32 @@ namespace IronRSLClient
         valBuilder.Append(v);
         valBuilder.Append(rng.Next(100000));
         string val = valBuilder.ToString();
-        //        Console.WriteLine("Submitting set request for {0} => {1}", key, val);
+        if (ps.verbose) {
+          Console.WriteLine("Submitting set request for {0} => {1}", key, val);
+        }
         return new KVSetRequest(key, val);
       }
-      else if (reqTypeSelector < (set_fraction + delete_fraction) * Int32.MaxValue) {
-        //        Console.WriteLine("Submitting delete request for {0}", key);
+      else if (reqTypeSelector < (ps.setFraction + ps.deleteFraction) * Int32.MaxValue) {
+        if (ps.verbose) {
+          Console.WriteLine("Submitting delete request for {0}", key);
+        }
         return new KVDeleteRequest(key);
       }
       else {
-        //        Console.WriteLine("Submitting get request for {0}", key);
+        if (ps.verbose) {
+          Console.WriteLine("Submitting get request for {0}", key);
+        }
         return new KVGetRequest(key);
       }
     }
 
-    protected void Main(ulong id, int port_num, ulong initial_seq_no, double set_fraction, double delete_fraction)
+    private void Run()
     {
-      IPEndPoint myEndpoint = new IPEndPoint(my_addr, port_num+(int)id);
+      IPEndPoint myEndpoint = new IPEndPoint(IPAddress.Parse("127.0.0.1"), ps.clientPort + (int)id);
       scheduler = new IoScheduler(myEndpoint, true /* only client */, false /* verbose */);
       scheduler.Start();
+
+      Thread.Sleep(3000);
 
       Random rng = new Random();
 
@@ -202,39 +190,42 @@ namespace IronRSLClient
       // client" mode, we aren't listening on any port so we have to
       // rely on outgoing connections for all communication.
 
-      foreach (var remote in Client.endpoints)
+      foreach (var serverEp in ps.serverEps)
       {
-        scheduler.Connect(remote);
+        scheduler.Connect(serverEp);
       }
+
+      // Start by guessing that the primary is server 0.  If it's not, we'll
+      // time out and rotate to the proper server.
 
       int serverIdx = 0;
 
-      for (ulong seq_no = initial_seq_no; true; ++seq_no)
+      for (ulong seqNum = ps.initialSeqNum; true; ++seqNum)
       {
-        KVRequest req = GetRandomRequest(rng, set_fraction, delete_fraction);
-        RequestMessage msg = new RequestMessage(seq_no, req);
+        KVRequest req = GetRandomRequest(rng, ps);
+        RequestMessage msg = new RequestMessage(seqNum, req);
 
-        Trace("Client " + id.ToString() + ": Sending a request with a sequence number " + seq_no + " to " + Client.endpoints[serverIdx].ToString());
+        if (ps.verbose) {
+          Console.WriteLine("Client {0}: Sending a request with sequence number {1} to {2}",
+                            id, seqNum, ps.serverEps[serverIdx]);
+        }
 
-        var start_time = HiResTimer.Ticks;
-        scheduler.SendPacket(Client.endpoints[serverIdx], msg.Encode());
-        //foreach (var remote in ClientBase.endpoints)
-        //{
-        //    this.Send(msg, remote);
-        //}
+        var startTime = HiResTimer.Ticks;
+        scheduler.SendPacket(ps.serverEps[serverIdx], msg.Encode());
 
         // Wait for the reply
-        var received_reply = false;
-        while (!received_reply)
+        var receivedReply = false;
+        while (!receivedReply)
         {
           bool ok;
           bool timedOut;
           IPEndPoint remote;
           byte[] bytes;
           scheduler.ReceivePacket(1000, out ok, out timedOut, out remote, out bytes);
+          var endTime = HiResTimer.Ticks;
 
           if (timedOut) {
-            serverIdx = (serverIdx + 1) % Client.endpoints.Count();
+            serverIdx = (serverIdx + 1) % ps.serverEps.Count();
             Console.WriteLine("#timeout; rotating to server {0}", serverIdx);
             break;
           }
@@ -243,20 +234,22 @@ namespace IronRSLClient
             return;
           }
           
-          var end_time = HiResTimer.Ticks;
-          Trace("Got the following reply:" + ByteArrayToString(bytes));
           ReplyMessage reply = ReplyMessage.Decode(bytes);
-          if (reply != null && reply.SeqNum == seq_no)
+          if (reply != null && reply.SeqNum == seqNum)
           {
-            received_reply = true;
-            /*
-            Console.Out.WriteLine("Received reply of type {0}", reply.Reply.ReplyType);
-            if (reply.Reply is KVGetFoundReply gfr) {
-              Console.Out.WriteLine("Value obtained for get was {0}", gfr.Val);
+            receivedReply = true;
+            if (ps.verbose) {
+              Console.Out.WriteLine("Received reply of type {0}", reply.Reply.ReplyType);
+              if (reply.Reply is KVGetFoundReply gfr) {
+                Console.Out.WriteLine("Value obtained for get was {0}", gfr.Val);
+              }
             }
-            */
             // Report time in milliseconds, since that's what the Python script appears to expect
-            Console.Out.WriteLine(string.Format("#req{0} {1} {2} {3}", seq_no, (ulong)(start_time * 1.0 / Stopwatch.Frequency * Math.Pow(10, 3)), (ulong)(end_time * 1.0 / Stopwatch.Frequency * Math.Pow(10, 3)), id));
+            Console.Out.WriteLine("#req{0} {1} {2} {3}",
+                                  seqNum,
+                                  (ulong)(startTime * 1000.0 / Stopwatch.Frequency),
+                                  (ulong)(endTime * 1000.0 / Stopwatch.Frequency),
+                                  id);
           }
         }
       }

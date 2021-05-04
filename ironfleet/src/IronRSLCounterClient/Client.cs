@@ -7,7 +7,7 @@ using System.Threading;
 using System.Diagnostics;
 using System.Linq;
 
-namespace IronRSLClient
+namespace IronRSLCounterClient
 {
   public class IncrementRequestMessage
   {
@@ -84,102 +84,86 @@ namespace IronRSLClient
     }
   }
 
-  public struct Param
+  public class ThreadParams
   {
+    public Params ps;
     public ulong id;
-    public int port_num;
-    public ulong initial_seq_no;
+
+    public ThreadParams(ulong i_id, Params i_ps)
+    {
+      id = i_id;
+      ps = i_ps;
+    }
   }
 
   public class Client
   {
+    public int id;
+    public Params ps;
     public IoScheduler scheduler;
-    public static List<IPEndPoint> endpoints;
-    public static IPAddress my_addr;
-    public static bool DEBUG = false;
 
-    public static void StartThread(object p)
+    private Client(int i_id, Params i_ps)
     {
-      Thread.Sleep(3000);
-      var c = new Client();
-      c.Main(((Param)p).id, ((Param)p).port_num, ((Param)p).initial_seq_no);
+      id = i_id;
+      ps = i_ps;
     }
 
-    static public IEnumerable<Thread> StartThreads<T>(ulong num_threads, int port_num, ulong initial_seq_no)
+    static public IEnumerable<Thread> StartThreads<T>(Params ps)
     {
-      if (num_threads < 0)
+      for (int i = 0; i < ps.numThreads; ++i)
       {
-        throw new ArgumentException("number of threads is less than 1", "num_threads");
-      }
-
-      for (ulong i = 0; i < num_threads; ++i)
-      {
-        var t = new Thread(StartThread);
-        var p = new Param { id = i, port_num = port_num, initial_seq_no = initial_seq_no };
-        t.Start(p);
+        Client c = new Client(i, ps);
+        Thread t = new Thread(c.Run);
+        t.Start();
         yield return t;
       }
     }
 
-    //private static long num_reqs = 0;
-
-    public static void Trace(string str)
+    private void Run()
     {
-      if (DEBUG)
-      {
-        Console.Out.WriteLine(str);
-      }    
-    }
-  
-    public string ByteArrayToString(byte[] ba)
-    {
-      string hex = BitConverter.ToString(ba);
-      return hex.Replace("-", "");
-    }
-
-    protected void Main(ulong id, int port_num, ulong initial_seq_no)
-    {
-      IPEndPoint myEndpoint = new IPEndPoint(my_addr, port_num+(int)id);
+      IPEndPoint myEndpoint = new IPEndPoint(IPAddress.Parse("127.0.0.1"), ps.clientPort + (int)id);
       scheduler = new IoScheduler(myEndpoint, true /* only client */, false /* verbose */);
       scheduler.Start();
+
+      Thread.Sleep(3000);
 
       // Create connections to all endpoints, so that if any of them
       // sends a reply we can receive it.  Since we're in "only
       // client" mode, we aren't listening on any port so we have to
       // rely on outgoing connections for all communication.
 
-      foreach (var remote in Client.endpoints)
+      foreach (var serverEp in ps.serverEps)
       {
-        scheduler.Connect(remote);
+        scheduler.Connect(serverEp);
       }
 
       int serverIdx = 0;
 
-      for (ulong seq_no = initial_seq_no; true; ++seq_no)
+      for (ulong seqNum = ps.initialSeqNum; true; ++seqNum)
       {
-        var msg = new IncrementRequestMessage(seq_no);
+        var msg = new IncrementRequestMessage(seqNum);
 
-        Trace("Client " + id.ToString() + ": Sending a request with a sequence number " + seq_no + " to " + Client.endpoints[serverIdx].ToString());
+        if (ps.verbose) {
+          Console.WriteLine("Client {0}: Sending a request with sequence number {1} to {2}",
+                            id, seqNum, ps.serverEps[serverIdx]);
+        }
 
-        var start_time = HiResTimer.Ticks;
-        scheduler.SendPacket(Client.endpoints[serverIdx], msg.Encode());
-        //foreach (var remote in ClientBase.endpoints)
-        //{
-        //    this.Send(msg, remote);
-        //}
+        var startTime = HiResTimer.Ticks;
+        scheduler.SendPacket(ps.serverEps[serverIdx], msg.Encode());
 
         // Wait for the reply
-        var received_reply = false;
-        while (!received_reply)
+        var receivedReply = false;
+        while (!receivedReply)
         {
           bool ok;
           bool timedOut;
           IPEndPoint remote;
           byte[] bytes;
           scheduler.ReceivePacket(1000, out ok, out timedOut, out remote, out bytes);
+          var endTime = HiResTimer.Ticks;
 
           if (timedOut) {
-            serverIdx = (serverIdx + 1) % Client.endpoints.Count();
+            serverIdx = (serverIdx + 1) % ps.serverEps.Count();
             Console.WriteLine("#timeout; rotating to server {0}", serverIdx);
             break;
           }
@@ -188,14 +172,16 @@ namespace IronRSLClient
             return;
           }
           
-          var end_time = HiResTimer.Ticks;
-          Trace("Got the following reply:" + ByteArrayToString(bytes));
           ReplyMessage reply = ReplyMessage.Decode(bytes);
-          if (reply != null && reply.seqNum == seq_no)
+          if (reply != null && reply.seqNum == seqNum)
           {
-            received_reply = true;
+            receivedReply = true;
             // Report time in milliseconds, since that's what the Python script appears to expect
-            Console.Out.WriteLine(string.Format("#req{0} {1} {2} {3}", seq_no, (ulong)(start_time * 1.0 / Stopwatch.Frequency * Math.Pow(10, 3)), (ulong)(end_time * 1.0 / Stopwatch.Frequency * Math.Pow(10, 3)), id));
+            Console.Out.WriteLine("#req{0} {1} {2} {3}",
+                                  seqNum,
+                                  (ulong)(startTime * 1000.0 / Stopwatch.Frequency),
+                                  (ulong)(endTime * 1000.0 / Stopwatch.Frequency),
+                                  id);
           }
         }
       }
