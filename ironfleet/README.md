@@ -63,11 +63,13 @@ limit 60 seconds instead of the default 30 seconds.
 
 Running scons will produce the following executables:
 ```
-  src/IronRSLCounterServer/bin/Release/net5.0/IronRSLCounterServer.dll
-  src/IronKVServer/bin/Release/net5.0/IronKVServer.dll
   src/IronLockServer/bin/Release/net5.0/IronLockServer.dll
+  src/IronRSLCounterServer/bin/Release/net5.0/IronRSLCounterServer.dll
   src/IronRSLCounterClient/bin/Release/net5.0/IronRSLCounterClient.dll
-  src/IronKVClient/bin/Release/net5.0/IronKVClient.dll
+  src/IronRSLKVServer/bin/Release/net5.0/IronRSLKVServer.dll
+  src/IronRSLKVClient/bin/Release/net5.0/IronRSLKVClient.dll
+  src/IronSHTServer/bin/Release/net5.0/IronSHTServer.dll
+  src/IronSHTClient/bin/Release/net5.0/IronSHTClient.dll
 ```
 
 To produce these executables without performing verification, use `--no-verify`.
@@ -84,8 +86,9 @@ in `ShouldPrintProgress` in the same file.
 
 IronLock is the simplest of the protocols we've verified, so it may be a good
 starting point.  It consists of N processes passing around a lock. To run it,
-you need to supply each process with the IP-port pairs of all processes, as well
-as its own IP-pair. For example, this is a configuration with three processes:
+you need to supply each process with the IP-port pairs of all processes, as
+well as its own IP-pair.  Also, make sure your firewall isn't blocking the TCP
+ports you use.  Here's an example configuration with three processes:
 
 ```
   dotnet src/IronLockServer/bin/Release/net5.0/IronLockServer.dll localhost:4001 localhost:4002 localhost:4003 localhost:4002
@@ -113,10 +116,10 @@ IP-port pair belongs to it.
 
 The client has reasonable defaults that you can override with key=value
 command-line arguments. Run the client with `--help` to get detailed usage
-information. Make sure your firewall isn't blocking the UDP ports you use.
+information. Make sure your firewall isn't blocking the TCP ports you use.
 
-For example, to test IronRSL on a single machine, you can run each of the
-following four commands in a different console:
+For example, to test the IronRSL counter on a single machine, you can run each
+of the following four commands in a different console:
 
 ```
   dotnet src/IronRSLCounterServer/bin/Release/net5.0/IronRSLCounterServer.dll localhost:4001 localhost:4002 localhost:4003 localhost:4001
@@ -139,13 +142,50 @@ use at least `initialseqno=101`).
 Note also that the servers use non-blocking network receives, so they may be
 slow to respond to Ctrl-C.
 
+## IronRSL - Key/Value Store
+
+To run the key/value service replicated with IronRSL, you should ideally use
+four different machines, but in a pinch you can use four separate windows on
+the same machine. The server executable expects a list of IP-port pairs that
+identifies all of the replicas in the system (in this example we're using 3,
+but more is feasible). Each server instance also needs to be told which
+IP-port pair belongs to it.
+
+The client has reasonable defaults that you can override with key=value
+command-line arguments. Run the client with `--help` to get detailed usage
+information. Make sure your firewall isn't blocking the TCP ports you use.
+
+For example, to test the IronRSL key/value store on a single machine, you can
+run each of the following four commands in a different console:
+
+```
+  dotnet src/IronRSLKVServer/bin/Release/net5.0/IronRSLKVServer.dll localhost:4001 localhost:4002 localhost:4003 localhost:4001
+  dotnet src/IronRSLKVServer/bin/Release/net5.0/IronRSLKVServer.dll localhost:4001 localhost:4002 localhost:4003 localhost:4002
+  dotnet src/IronRSLKVServer/bin/Release/net5.0/IronRSLKVServer.dll localhost:4001 localhost:4002 localhost:4003 localhost:4003
+  dotnet src/IronRSLKVClient/bin/Release/net5.0/IronRSLKVClient.dll nthreads=10 duration=30 clientport=6000 initialseqno=0 setfraction=0.25 deletefraction=0.05
+```
+
+The first three are the RSL servers, and the latter is the client.  The client's
+output will primarily consist of reports of the time needed for each request.
+
+Note that until you stop all the RSL servers, each client endpoint is expected
+to use strictly increasing sequence numbers. So, if you run the client program
+multiple times, use a different `clientip` or use a `clientport` such that
+`[clientport, clientport + nthreads)` doesn't overlap with that of previous
+runs.  Or, use an initialseqno greater than the last sequence number any
+previous client run reported using (e.g., if a previous run output `#req100`,
+use at least `initialseqno=101`).
+
+Note also that the servers use non-blocking network receives, so they may be
+slow to respond to Ctrl-C.
+
 ## IronSHT
 
 To run IronSHT (our sharded hash table), you should ideally use multiple
 different machines, but in a pinch you can use separate windows on the same
 machine. Like IronRSL, IronSHT server executables require a list of IP-port
 pairs, and the IronSHT client takes command-line arguments of the form
-key=value.
+key=value. Make sure your firewall isn't blocking the TCP ports you use.
 
 For example, you can run each of the following four commands in a different
 console:
@@ -158,7 +198,7 @@ console:
 
 Like in IronRSL, the client will print its output to standard output.
 
-Note that until you stop all the KV servers, each client endpoint is expected to
+Note that until you stop all the SHT servers, each client endpoint is expected to
 use a stateful protocol. And note that the client uses `nthreads+1` ports, since
 it needs an additional port for setup. So, if you run the client program
 multiple times, use a different `clientip` or use a `clientport` such that

@@ -14,17 +14,17 @@
         static void usage()
         {
           Console.Write(@"
-Usage:  dotnet IronKVClient.dll [key=value]...
+Usage:  dotnet IronSHTClient.dll [key=value]...
 
 Allowed keys:
   clientip - IP address this client should bind to (default 127.0.0.1)
   clientport - Port this client should bind to (default 6000)
-  ip1 - IP address of first IronRSL host (default 127.0.0.1)
-  ip2 - IP address of second IronRSL host (default 127.0.0.1)
-  ip3 - IP address of third IronRSL host (default 127.0.0.1)
-  port1 - port of first IronRSL host (default 4001)
-  port2 - port of first IronRSL host (default 4002)
-  port3 - port of first IronRSL host (default 4003)
+  ip1 - IP address of first IronSHTServer (default 127.0.0.1)
+  ip2 - IP address of second IronSHTServer (default 127.0.0.1)
+  ip3 - IP address of third IronSHTServer (default 127.0.0.1)
+  port1 - port of first IronSHTServer (default 4001)
+  port2 - port of first IronSHTServer (default 4002)
+  port3 - port of first IronSHTServer (default 4003)
   nthreads - number of experiment client threads to run, not
              counting the setup thread (default 1)
   duration - duration of experiment in seconds (default 60)

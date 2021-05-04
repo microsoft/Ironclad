@@ -13,20 +13,22 @@ namespace IronRSLClient
     static void usage()
     {
       Console.Write(@"
-Usage:  dotnet IronRSLCounterClient.dll [key=value]...
+Usage:  dotnet IronRSLKVClient.dll [key=value]...
 
 Allowed keys:
   clientip - IP address this client should bind to (default 127.0.0.1)
   clientport - Port this client should bind to (default 6000)
-  ip1 - IP address of first IronRSLCounterServer (default 127.0.0.1)
-  ip2 - IP address of second IronRSLCounterServer (default 127.0.0.1)
-  ip3 - IP address of third IronRSLCounterServer (default 127.0.0.1)
-  port1 - port of first IronRSLCounterServer (default 4001)
-  port2 - port of first IronRSLCounterServer (default 4002)
-  port3 - port of first IronRSLCounterServer (default 4003)
+  ip1 - IP address of first IronRSLKVServer (default 127.0.0.1)
+  ip2 - IP address of second IronRSLKVServer (default 127.0.0.1)
+  ip3 - IP address of third IronRSLKVServer (default 127.0.0.1)
+  port1 - port of first IronRSLKVServer (default 4001)
+  port2 - port of first IronRSLKVServer (default 4002)
+  port3 - port of first IronRSLKVServer (default 4003)
   nthreads - number of client threads to run (default 1)
   duration - duration of experiment in seconds (default 60)
   initialseqno - first sequence number each thread uses (default 0)
+  setfraction - fraction of requests that are sets (default 0.25)
+  deletefraction - fraction of requests that are deletes (default 0.05)
 
 If nthreads > 1, then each thread will use a different port number,
 using consecutive port numbers starting with clientport.
@@ -53,6 +55,8 @@ output #req100, use at least initialseqno=101)
       int port2 = 4002;
       int port3 = 4003;
       ulong initial_seq_no = 0;
+      double set_fraction = 0.05;
+      double delete_fraction = 0.25;
 
       foreach (var arg in args)
       {
@@ -99,6 +103,12 @@ output #req100, use at least initialseqno=101)
             case "initialseqno" :
               initial_seq_no = Convert.ToUInt64(value);
               break;
+            case "setfraction" :
+              set_fraction = Convert.ToDouble(value);
+              break;
+            case "deletefraction" :
+              delete_fraction = Convert.ToDouble(value);
+              break;
             default :
               Console.WriteLine("Invalid argument {0}", arg);
               usage();
@@ -124,7 +134,7 @@ output #req100, use at least initialseqno=101)
       TextWriter stdout = Console.Out;
 
       // Start the experiment
-      var threads = Client.StartThreads<Client>(num_threads, client_port, initial_seq_no).ToArray();
+      var threads = Client.StartThreads<Client>(num_threads, client_port, initial_seq_no, set_fraction, delete_fraction).ToArray();
 
       if (experiment_duration == 0)
       {
