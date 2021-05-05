@@ -46,7 +46,6 @@ namespace IronRSLCounterClient
   {
     public int id;
     public Params ps;
-    public IoScheduler scheduler;
 
     private Client(int i_id, Params i_ps)
     {
