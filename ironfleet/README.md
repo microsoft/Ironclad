@@ -46,7 +46,7 @@ Ubuntu 20.04.  They should also work for other platforms Dafny and .NET support,
 such as Ubuntu 16.04 and Debian.  On Windows, they work with at least the
 following shells: Command Prompt, Windows PowerShell, and Cygwin mintty.
 
-# Verification and compilation
+# Verification and Compilation
 
 To build and verify the contents of this repo, use:
 
@@ -200,6 +200,46 @@ numbers it's used, the client uses a file named port`num` for each port number
 `num`. So, if you run the client multiple times with the same address and port,
 make sure to run both times from the same directory. And note that the client
 uses `nthreads+1` ports, since it needs an additional port for setup.
+
+# Custom Replicated Services
+
+IronRSL-Counter and IronRSL-KV are examples showing how to write a service in C#
+and replicate it using IronRSL.  If you want to replicate a different C#
+service, it's fairly easy to do by just following the examples in
+`src/IronRSLCounterServer/IronRSLCounterServer.sln`,
+`src/IronRSLKVServer/IronRSLKVServer.sln`,
+`src/IronRSLCounterClient/IronRSLCounterClient.sln`, and
+`src/IronRSLKVClient/IronRSLKVClient.sln`.
+
+Your service implementation, like in `src/IronRSLCounterServer/Service.cs`, must
+look like this:
+```
+  namespace IronRSL {
+    public class Service {
+      public static string Name { get { ... } }
+      public static Service Initialize() { ... }
+      public byte[] Serialize() { ... }
+      public static Service Deserialize(byte[] buf) { ... }
+      public byte[] HandleRequest(byte[] request) { ... }
+    }
+  }
+```
+where you fill out the ellipses to provide:
+* a static property to provide the service name,
+* a static method to initialize the service state,
+* a method to serialize the service state,
+* a static method to deserialize the service state, and
+* a method to handle a request and return a reply.
+
+Your client implementation, like in `src/IronRSLKVClient/Client.cs`, will
+create a connection to the replicated service with:
+```
+   RSLClient rslClient = new RSLClient(serverEndpoints, myClientEndpoint);
+```
+and submit requests to that replicated service with:
+```
+   byte[] reply = rslClient.SubmitRequest(request);
+```
 
 # Code Layout
 
