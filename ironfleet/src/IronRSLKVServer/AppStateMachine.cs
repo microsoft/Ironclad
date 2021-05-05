@@ -81,7 +81,7 @@ namespace AppStateMachine__s_Compile {
 
         string value;
         try {
-          value = Encoding.UTF8.GetString(keyBytes);
+          value = Encoding.UTF8.GetString(valueBytes);
         }
         catch (Exception e) {
           Console.Error.WriteLine("WARNING - Got non-UTF-8-encoded value in state machine state");
