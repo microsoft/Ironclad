@@ -6,17 +6,15 @@ using System.IO;
 using System.Linq;
 using System.Text;
 
-namespace AppStateMachine__s_Compile {
-
-  public partial class AppStateMachine
+namespace IronRSL
+{
+  public class Service
   {
     Dictionary<string, string> kvStore;
 
-    // We have to have a parameter to the AppStateMachine constructor
-    // to distinguish it from the constructor that Dafny automatically
-    // produces.
+    public static string Name { get { return "key-value store"; } }
 
-    internal AppStateMachine(bool unused)
+    private Service()
     {
       kvStore = new Dictionary<string, string>();
     }
@@ -25,9 +23,9 @@ namespace AppStateMachine__s_Compile {
     public static int MaxValueSize { get { return 0x800_0000; /* 128 MB */ } }
     public static int MaxNumKeys { get { return 100_000_000; /* 100 million */} }
 
-    public static AppStateMachine Initialize()
+    public static Service Initialize()
     {
-      return new AppStateMachine(true);
+      return new Service();
     }
 
     private void AddInitialKey(string key, string val)
@@ -35,11 +33,10 @@ namespace AppStateMachine__s_Compile {
       kvStore[key] = val;
     }
 
-    public static AppStateMachine Deserialize(Dafny.ISequence<byte> state)
+    public static Service Deserialize(byte[] buf)
     {
-      AppStateMachine app = new AppStateMachine(true);
+      Service service = new Service();
 
-      byte[] buf = state.Elements;
       int offset = 0;
       while (offset < buf.Length) {
         if (offset + 4 > buf.Length) {
@@ -88,31 +85,27 @@ namespace AppStateMachine__s_Compile {
           break;
         }
 
-        app.AddInitialKey(key, value);
+        service.AddInitialKey(key, value);
       }
 
-      return app;
+      return service;
     }
 
-    public Dafny.ISequence<byte> Serialize()
+    public byte[] Serialize()
     {
-      using (var memStream = new MemoryStream())
-      {
-        foreach (var kv in kvStore) {
-          byte[] keyBytes = Encoding.UTF8.GetBytes(kv.Key);
-          byte[] valueBytes = Encoding.UTF8.GetBytes(kv.Value);
-          IoEncoder.WriteInt32(memStream, keyBytes.Length);
-          IoEncoder.WriteBytes(memStream, keyBytes, 0, (UInt64)keyBytes.Length);
-          IoEncoder.WriteInt32(memStream, valueBytes.Length);
-          IoEncoder.WriteBytes(memStream, valueBytes, 0, (UInt64)valueBytes.Length);
-        }
-          
-        byte[] bytes = memStream.ToArray();
-        return Dafny.Sequence<byte>.FromArray(bytes);
+      MemoryStream stream = new MemoryStream();
+      foreach (var kv in kvStore) {
+        byte[] keyBytes = Encoding.UTF8.GetBytes(kv.Key);
+        byte[] valueBytes = Encoding.UTF8.GetBytes(kv.Value);
+        IoEncoder.WriteInt32(stream, keyBytes.Length);
+        IoEncoder.WriteBytes(stream, keyBytes, 0, (UInt64)keyBytes.Length);
+        IoEncoder.WriteInt32(stream, valueBytes.Length);
+        IoEncoder.WriteBytes(stream, valueBytes, 0, (UInt64)valueBytes.Length);
       }
+      return stream.ToArray();
     }
 
-    private KVReply HandleRequestInternal (KVRequest req)
+    private KVReply HandleRequestInternal(KVRequest req)
     {
       if (req is KVGetRequest greq) {
         if (greq.Key.Length > MaxKeySize) {
@@ -160,17 +153,13 @@ namespace AppStateMachine__s_Compile {
       return new KVInvalidRequestReply();
     }
 
-    public Dafny.ISequence<byte> HandleRequest(Dafny.ISequence<byte> request)
+    public byte[] HandleRequest(byte[] requestBytes)
     {
-      byte[] buf = request.Elements;
-      KVRequest req = KVRequest.Decode(buf, 0);
-      KVReply reply = HandleRequestInternal(req);
-      using (var memStream = new MemoryStream())
-      {
-        reply.Write(memStream);
-        byte[] bytes = memStream.ToArray();
-        return Dafny.Sequence<byte>.FromArray(bytes);
-      }
+      KVRequest request = KVRequest.Decode(requestBytes, 0);
+      KVReply reply = HandleRequestInternal(request);
+      MemoryStream stream = new MemoryStream();
+      reply.Write(stream);
+      return stream.ToArray();
     }
     
   }

@@ -10,7 +10,7 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <StartupObject>IronRSLCounterServer.Program</StartupObject>
+    <StartupObject>IronRSLServer.Program</StartupObject>
   </PropertyGroup>
 
   <ItemGroup>
@@ -19,6 +19,7 @@
 
   <ItemGroup>
     <Compile Include="..\IronfleetCommon\Profiler.cs" />
+    <Compile Include="..\Dafny\Distributed\Services\RSL\Program.cs" />
     <Compile Include="..\Dafny\Distributed\Services\RSL\Main.i.cs" />
     <Compile Include="..\Dafny\Distributed\Common\Native\IoNative.cs" />
     <Compile Include="..\Dafny\Distributed\Common\Native\IoFramework.cs" />
