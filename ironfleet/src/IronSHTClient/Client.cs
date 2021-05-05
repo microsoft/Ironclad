@@ -298,7 +298,7 @@ namespace IronSHTClient
       ulong seqNum = 0;
 
       IPEndPoint myEndpoint = new IPEndPoint(ps.clientEp.Address, ps.clientEp.Port + (int)id);
-      scheduler = new IoScheduler(myEndpoint, false /* only client */, false /* verbose */);
+      scheduler = new IoScheduler(myEndpoint, false /* only client */, true /* verbose */);
 
       ulong myaddr = EncodeIpPort(myEndpoint);
             
@@ -310,7 +310,10 @@ namespace IronSHTClient
 
         seqNum++;
         var msg = new SetRequestMessage(seqNum, myaddr, requestKey, (ulong)ps.valueSize);
-                
+
+        if (ps.verbose) {
+          Console.WriteLine("Sending set request message with key {0} to server {1}", requestKey, serverIdx);
+        }
         this.Send(msg, ps.serverEps[serverIdx]);
                 
         // Wait for the reply
@@ -329,6 +332,9 @@ namespace IronSHTClient
           if (bytes.Length == 16)
           {
             //Ignore acks
+            if (ps.verbose) {
+              Console.WriteLine("Received ack");
+            }
           }
           else if (bytes.Length >= 48) 
           {

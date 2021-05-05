@@ -146,7 +146,7 @@ namespace IronfleetIoFramework
   public struct Packet
   {
     public IPEndPoint ep;
-    public byte[] buffer;
+    public byte[] message;
   }
 
   public class ReceiverThread
@@ -220,29 +220,30 @@ namespace IronfleetIoFramework
 
       while (true)
       {
-        // Read the next packet's size.
+        // Read the next message's size.
 
-        UInt64 packetSize;
-        success = IoEncoder.ReadUInt64(stream, out packetSize);
+        UInt64 messageSize;
+        success = IoEncoder.ReadUInt64(stream, out messageSize);
         if (!success) {
-          Console.Error.WriteLine("Failed to receive packet size from {0}", IoScheduler.EndpointToString(otherEndpoint));
+          Console.Error.WriteLine("Failed to receive message size from {0}", IoScheduler.EndpointToString(otherEndpoint));
           return;
         }
         if (scheduler.Verbose) {
-          Console.WriteLine("Received packet size {0} from {1}", packetSize, IoScheduler.EndpointToString(otherEndpoint));
+          Console.WriteLine("Received message size {0} from {1}", messageSize, IoScheduler.EndpointToString(otherEndpoint));
         }
 
-        byte[] packetBuf = new byte[packetSize];
-        success = IoEncoder.ReadBytes(stream, packetBuf, 0, packetSize);
+        byte[] messageBuf = new byte[messageSize];
+        success = IoEncoder.ReadBytes(stream, messageBuf, 0, messageSize);
         if (!success) {
-          Console.Error.WriteLine("Failed to receive packet of size {0} from {1}", packetSize, IoScheduler.EndpointToString(otherEndpoint));
+          Console.Error.WriteLine("Failed to receive message of size {0} from {1}",
+                                  messageSize, IoScheduler.EndpointToString(otherEndpoint));
           return;
         }
         if (scheduler.Verbose) {
-          Console.WriteLine("Received packet of size {0} from {1}", packetSize, IoScheduler.EndpointToString(otherEndpoint));
+          Console.WriteLine("Received message of size {0} from {1}", messageSize, IoScheduler.EndpointToString(otherEndpoint));
         }
 
-        Packet packet = new Packet { ep = otherEndpoint, buffer = packetBuf };
+        Packet packet = new Packet { ep = otherEndpoint, message = messageBuf };
         scheduler.NoteReceivedPacket(packet);
       }
     }
@@ -255,7 +256,8 @@ namespace IronfleetIoFramework
     private IPEndPoint otherEndpoint;
     private bool asServer;
     private NetworkStream stream;
-    private BufferBlock<Packet> sendQueue;
+    private BufferBlock<byte[]> sendQueue;
+    private byte[] currentMessage;
 
     private SenderThread(IoScheduler i_scheduler, TcpClient i_conn, IPEndPoint i_otherEndpoint, bool i_asServer)
     {
@@ -263,7 +265,8 @@ namespace IronfleetIoFramework
       conn = i_conn;
       otherEndpoint = i_otherEndpoint;
       asServer = i_asServer;
-      sendQueue = new BufferBlock<Packet>();
+      sendQueue = new BufferBlock<byte[]>();
+      currentMessage = null;
     }
 
     public void Run()
@@ -280,6 +283,22 @@ namespace IronfleetIoFramework
       }
 
       scheduler.UnregisterSender(otherEndpoint, this);
+
+      // If we crashed in the middle of sending a packet, re-queue it
+      // for sending by another sender thread.
+      
+      if (currentMessage != null) {
+        scheduler.SendPacket(otherEndpoint, currentMessage);
+        currentMessage = null;
+      }
+
+      // If there are packets queued for us to send, re-queue them
+      // for sending by another sender thread.
+
+      while (sendQueue.TryReceive(out currentMessage)) {
+        scheduler.SendPacket(otherEndpoint, currentMessage);
+        currentMessage = null;
+      }
     }
 
     public static SenderThread Create(IoScheduler scheduler, TcpClient conn, IPEndPoint otherEndpoint, bool asServer)
@@ -344,28 +363,33 @@ namespace IronfleetIoFramework
       {
         // Wait for there to be a packet to send.
 
-        Packet packet = sendQueue.Receive();
+        currentMessage = sendQueue.Receive();
 
         // Send its length as an 8-byte value.
 
-        UInt64 packetSize = (UInt64)packet.buffer.Length;
-        IoEncoder.WriteUInt64(stream, packetSize);
+        UInt64 messageSize = (UInt64)currentMessage.Length;
+        IoEncoder.WriteUInt64(stream, messageSize);
         if (scheduler.Verbose) {
-          Console.WriteLine("Sent packet size {0} to {1}", packetSize, IoScheduler.EndpointToString(otherEndpoint));
+          Console.WriteLine("Sent message size {0} to {1}", messageSize, IoScheduler.EndpointToString(otherEndpoint));
         }
 
         // Send its contents.
 
-        IoEncoder.WriteBytes(stream, packet.buffer, 0, packetSize);
+        IoEncoder.WriteBytes(stream, currentMessage, 0, messageSize);
         if (scheduler.Verbose) {
-          Console.WriteLine("Sent packet of size {0} to {1}", packetSize, IoScheduler.EndpointToString(otherEndpoint));
+          Console.WriteLine("Sent message of size {0} to {1}", messageSize, IoScheduler.EndpointToString(otherEndpoint));
         }
+
+        // Set the currentMessage to null so we know we don't have to
+        // resend it if the connection fails.
+
+        currentMessage = null;
       }
     }
 
-    public void EnqueuePacket(Packet packet)
+    public void EnqueueMessage(byte[] message)
     {
-      sendQueue.Post(packet);
+      sendQueue.Post(message);
     }
   }
 
@@ -456,7 +480,8 @@ namespace IronfleetIoFramework
         Packet packet = sendQueue.Receive();
 
         if (scheduler.Verbose) {
-          Console.WriteLine("Dispatching send of packet of size {0} to {1}", packet.buffer.Length, IoScheduler.EndpointToString(packet.ep));
+          Console.WriteLine("Dispatching send of packet of size {0} to {1}",
+                            packet.message.Length, IoScheduler.EndpointToString(packet.ep));
         }
 
         SenderThread senderThread = scheduler.FindSenderForEndpoint(packet.ep);
@@ -465,7 +490,7 @@ namespace IronfleetIoFramework
           senderThread = SenderThread.Create(scheduler, null, packet.ep, false);
         }
 
-        senderThread.EnqueuePacket(packet);
+        senderThread.EnqueueMessage(packet.message);
       }
     }
 
@@ -527,7 +552,7 @@ namespace IronfleetIoFramework
       lock (endpointToSenderMap)
       {
         if (endpointToSenderMap.ContainsKey(ep)) {
-          endpointToSenderMap[ep].Add(senderThread);
+          endpointToSenderMap[ep].Insert(0, senderThread);
         }
         else {
           endpointToSenderMap[ep] = new List<SenderThread> { senderThread };
@@ -594,7 +619,7 @@ namespace IronfleetIoFramework
     // API for IoNative.cs
     ///////////////////////////////////
 
-    public void ReceivePacket(Int32 timeLimit, out bool ok, out bool timedOut, out IPEndPoint remote, out byte[] buffer)
+    public void ReceivePacket(Int32 timeLimit, out bool ok, out bool timedOut, out IPEndPoint remote, out byte[] message)
     {
       Packet packet;
 
@@ -611,39 +636,39 @@ namespace IronfleetIoFramework
         ok = true;
         if (timedOut) {
           remote = null;
-          buffer = null;
+          message = null;
         }
         else {
           remote = new IPEndPoint(packet.ep.Address, packet.ep.Port);
-          buffer = packet.buffer;
+          message = packet.message;
           if (verbose) {
-            Console.WriteLine("Dequeueing a packet of size {0} from {1}", packet.buffer.Length, EndpointToString(packet.ep));
+            Console.WriteLine("Dequeueing a packet of size {0} from {1}", packet.message.Length, EndpointToString(packet.ep));
           }
         }
       }
       catch (TimeoutException) {
         remote = null;
-        buffer = null;
+        message = null;
         ok = true;
         timedOut = true;
       }
       catch (Exception e) {
         Console.Error.WriteLine("Unexpected error trying to read packet from packet queue. Exception:\n{0}", e);
         remote = null;
-        buffer = null;
+        message = null;
         ok = false;
         timedOut = false;
       }
     }
 
-    public bool SendPacket(IPEndPoint remote, byte[] buffer)
+    public bool SendPacket(IPEndPoint remote, byte[] message)
     {
       try {
-        byte[] packetBuf = new byte[buffer.Length];
-        Array.Copy(buffer, packetBuf, buffer.Length);
-        Packet packet = new Packet { ep = remote, buffer = packetBuf };
+        byte[] messageCopy = new byte[message.Length];
+        Array.Copy(message, messageCopy, message.Length);
+        Packet packet = new Packet { ep = remote, message = messageCopy };
         if (verbose) {
-          Console.WriteLine("Enqueueing a packet of size {0} to {1}", packet.buffer.Length, EndpointToString(packet.ep));
+          Console.WriteLine("Enqueueing a packet of size {0} to {1}", packet.message.Length, EndpointToString(packet.ep));
         }
         sendDispatchThread.EnqueuePacket(packet);
         return true;
