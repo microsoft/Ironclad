@@ -125,7 +125,7 @@ of the following four commands in a different console:
   dotnet src/IronRSLCounterServer/bin/Release/net5.0/IronRSLCounterServer.dll localhost:4001 localhost:4002 localhost:4003 localhost:4001
   dotnet src/IronRSLCounterServer/bin/Release/net5.0/IronRSLCounterServer.dll localhost:4001 localhost:4002 localhost:4003 localhost:4002
   dotnet src/IronRSLCounterServer/bin/Release/net5.0/IronRSLCounterServer.dll localhost:4001 localhost:4002 localhost:4003 localhost:4003
-  dotnet src/IronRSLCounterClient/bin/Release/net5.0/IronRSLCounterClient.dll nthreads=10 duration=30 clientport=6000 initialseqno=0 verbose=true
+  dotnet src/IronRSLCounterClient/bin/Release/net5.0/IronRSLCounterClient.dll nthreads=10 duration=30 clientport=6000 verbose=true
 ```
 
 The first three are the RSL servers, and the latter is the client.  The client's

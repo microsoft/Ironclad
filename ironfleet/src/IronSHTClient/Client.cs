@@ -2,7 +2,6 @@
 using IronfleetCommon;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -10,22 +9,6 @@ using System.Threading;
 
 namespace IronSHTClient
 {
-  public class HiResTimer
-  {
-    private static Stopwatch _stopWatch = null;
-    public static long Ticks
-    {
-      get
-      {
-        return _stopWatch.ElapsedTicks;
-      }
-    }
-    public static void Initialize()
-    {
-      _stopWatch = Stopwatch.StartNew();
-    }
-  }
-
   public abstract class MessageBase
   {
     public ulong CaseId { get; private set; }
@@ -316,7 +299,6 @@ namespace IronSHTClient
 
       IPEndPoint myEndpoint = new IPEndPoint(ps.clientEp.Address, ps.clientEp.Port + (int)id);
       scheduler = new IoScheduler(myEndpoint, false /* only client */, false /* verbose */);
-      scheduler.Start();
 
       ulong myaddr = EncodeIpPort(myEndpoint);
             
@@ -446,7 +428,6 @@ namespace IronSHTClient
             
       IPEndPoint myEndpoint = new IPEndPoint(ps.clientEp.Address, ps.clientEp.Port + ps.numSetupThreads + (int)id);
       scheduler = new IoScheduler(myEndpoint, false /* only client */, false /* verbose */);
-      scheduler.Start();
       SeqNumManager seqNumManager = new SeqNumManager(myEndpoint.Port, ps.seqNumReservationSize);
 
       ulong myaddr = EncodeIpPort(myEndpoint);
@@ -562,8 +543,8 @@ namespace IronSHTClient
               receivedReply = true;
               Console.WriteLine("#req{0} {1} {2} {3}",
                                 seqNum,
-                                (ulong)(startTime * 1000.0 / Stopwatch.Frequency),
-                                (ulong)(endTime * 1000.0 / Stopwatch.Frequency),
+                                HiResTimer.TicksToMilliseconds(startTime),
+                                HiResTimer.TicksToMilliseconds(endTime),
                                 id);
             }
           }

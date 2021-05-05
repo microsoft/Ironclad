@@ -1,4 +1,5 @@
-﻿using System;
+﻿using IronfleetCommon;
+using System;
 using System.Linq;
 using System.Numerics;
 using System.Threading;
@@ -22,7 +23,6 @@ Allowed keys:
   server3        - IP address+port of third server (default 127.0.0.1:4003)
   nthreads       - number of client threads to run (default 1)
   duration       - duration of experiment in seconds (default 60)
-  initialseqno   - first sequence number each thread uses (default 0)
   verbose        - print verbose output (false or true, default false)
 
 If nthreads > 1, then each thread will use a different port number,

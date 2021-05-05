@@ -32,12 +32,19 @@ namespace KVMessages
       IoEncoder.WriteInt32(stream, (Int32)RequestType);
       WriteTypeSpecificFields(stream);
     }
+
+    public byte[] Encode()
+    {
+      MemoryStream memStream = new MemoryStream();
+      Write(memStream);
+      return memStream.ToArray();
+    }
     
     public virtual void WriteTypeSpecificFields(Stream stream)
     {
     }
 
-    public static KVRequest Extract(byte[] bytes, int offset)
+    public static KVRequest Decode(byte[] bytes, int offset)
     {
       if (bytes.Length < offset + 4) {
         Console.Error.WriteLine("Received request of invalid length {0}", bytes.Length - offset);
@@ -249,7 +256,7 @@ namespace KVMessages
     {
     }
 
-    public static KVReply Extract(byte[] bytes, int offset)
+    public static KVReply Decode(byte[] bytes, int offset)
     {
       if (bytes.Length < offset + 4) {
         Console.Error.WriteLine("Received reply of invalid length {0}", bytes.Length - offset);

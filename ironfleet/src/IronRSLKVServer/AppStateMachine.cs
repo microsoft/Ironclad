@@ -163,7 +163,7 @@ namespace AppStateMachine__s_Compile {
     public Dafny.ISequence<byte> HandleRequest(Dafny.ISequence<byte> request)
     {
       byte[] buf = request.Elements;
-      KVRequest req = KVRequest.Extract(buf, 0);
+      KVRequest req = KVRequest.Decode(buf, 0);
       KVReply reply = HandleRequestInternal(req);
       using (var memStream = new MemoryStream())
       {

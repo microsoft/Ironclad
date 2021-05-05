@@ -10,7 +10,6 @@ namespace IronRSLCounterClient
     public ulong experimentDuration;
     public IPEndPoint[] serverEps;
     public int clientPort;
-    public ulong initialSeqNum;
     public bool verbose;
 
     public Params()
@@ -22,7 +21,6 @@ namespace IronRSLCounterClient
                                       IPEndPoint.Parse("127.0.0.1:4002"),
                                       IPEndPoint.Parse("127.0.0.1:4003") };
       clientPort = 6000;
-      initialSeqNum = 0;
       verbose = false;
     }
 
@@ -91,10 +89,6 @@ namespace IronRSLCounterClient
 
           case "duration" :
             experimentDuration = Convert.ToUInt64(value);
-            return true;
-
-          case "initialseqno" :
-            initialSeqNum = Convert.ToUInt64(value);
             return true;
 
           case "verbose" :

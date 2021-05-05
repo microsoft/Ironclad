@@ -495,9 +495,10 @@ namespace IronfleetIoFramework
       }
       receiveQueue = new BufferBlock<Packet>();
       endpointToSenderMap = new Dictionary<IPEndPoint, List<SenderThread>>();
+      Start();
     }
 
-    public void Start()
+    private void Start()
     {
       sendDispatchThread = new SendDispatchThread(this);
       Thread st = new Thread(sendDispatchThread.Run);
