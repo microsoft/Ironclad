@@ -132,12 +132,10 @@ The first three are the RSL servers, and the latter is the client.  The client's
 output will primarily consist of reports of the time needed for each request.
 
 Note that until you stop all the RSL servers, each client endpoint is expected
-to use strictly increasing sequence numbers. So, if you run the client program
-multiple times, use a different `clientip` or use a `clientport` such that
-`[clientport, clientport + nthreads)` doesn't overlap with that of previous
-runs.  Or, use an initialseqno greater than the last sequence number any
-previous client run reported using (e.g., if a previous run output `#req100`,
-use at least `initialseqno=101`).
+to use strictly increasing sequence numbers. To keep track of which sequence
+numbers it's used, the client uses a file named port`num` for each port number
+`num`. So, if you run the client multiple times with the same address and port,
+make sure to run both times from the same directory.
 
 Note also that the servers use non-blocking network receives, so they may be
 slow to respond to Ctrl-C.
@@ -162,19 +160,17 @@ run each of the following four commands in a different console:
   dotnet src/IronRSLKVServer/bin/Release/net5.0/IronRSLKVServer.dll localhost:4001 localhost:4002 localhost:4003 localhost:4001
   dotnet src/IronRSLKVServer/bin/Release/net5.0/IronRSLKVServer.dll localhost:4001 localhost:4002 localhost:4003 localhost:4002
   dotnet src/IronRSLKVServer/bin/Release/net5.0/IronRSLKVServer.dll localhost:4001 localhost:4002 localhost:4003 localhost:4003
-  dotnet src/IronRSLKVClient/bin/Release/net5.0/IronRSLKVClient.dll nthreads=10 duration=30 clientport=6000 initialseqno=0 setfraction=0.25 deletefraction=0.05 verbose=true
+  dotnet src/IronRSLKVClient/bin/Release/net5.0/IronRSLKVClient.dll nthreads=10 duration=30 clientport=6000 setfraction=0.25 deletefraction=0.05 verbose=true
 ```
 
 The first three are the RSL servers, and the latter is the client.  The client's
 output will primarily consist of reports of the time needed for each request.
 
 Note that until you stop all the RSL servers, each client endpoint is expected
-to use strictly increasing sequence numbers. So, if you run the client program
-multiple times, use a different `clientip` or use a `clientport` such that
-`[clientport, clientport + nthreads)` doesn't overlap with that of previous
-runs.  Or, use an initialseqno greater than the last sequence number any
-previous client run reported using (e.g., if a previous run output `#req100`,
-use at least `initialseqno=101`).
+to use strictly increasing sequence numbers. To keep track of which sequence
+numbers it's used, the client uses a file named port`num` for each port number
+`num`. So, if you run the client multiple times with the same address and port,
+make sure to run both times from the same directory.
 
 Note also that the servers use non-blocking network receives, so they may be
 slow to respond to Ctrl-C.
@@ -193,17 +189,17 @@ console:
   dotnet src/IronSHTServer/bin/Release/net5.0/IronSHTServer.dll localhost:4001 localhost:4002 localhost:4003 localhost:4001
   dotnet src/IronSHTServer/bin/Release/net5.0/IronSHTServer.dll localhost:4001 localhost:4002 localhost:4003 localhost:4002
   dotnet src/IronSHTServer/bin/Release/net5.0/IronSHTServer.dll localhost:4001 localhost:4002 localhost:4003 localhost:4003
-  dotnet src/IronSHTClient/bin/Release/net5.0/IronSHTClient.dll nthreads=10 duration=30 workload=g numkeys=10000 client=localhost:6000
+  dotnet src/IronSHTClient/bin/Release/net5.0/IronSHTClient.dll nthreads=10 duration=30 workload=g numkeys=10000 client=localhost:6000 verbose=true
 ```
 
 Like in IronRSL, the client will print its output to standard output.
 
-Note that until you stop all the SHT servers, each client endpoint is expected to
-use a stateful protocol. And note that the client uses `nthreads+1` ports, since
-it needs an additional port for setup. So, if you run the client program
-multiple times, use a different `clientip` or use a `clientport` such that
-`[clientport, clientport + nthreads]` doesn't overlap with that of previous
-runs.
+Note that until you stop all the SHT servers, each client endpoint is expected
+to use strictly increasing sequence numbers. To keep track of which sequence
+numbers it's used, the client uses a file named port`num` for each port number
+`num`. So, if you run the client multiple times with the same address and port,
+make sure to run both times from the same directory. And note that the client
+uses `nthreads+1` ports, since it needs an additional port for setup.
 
 # Code Layout
 

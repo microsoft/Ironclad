@@ -6,8 +6,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="..\Dafny\Distributed\Common\Native\IoFramework.cs" />
+    <Compile Include="..\IronfleetCommon\SeqNum.cs" />
     <Compile Include="..\IronRSLKVServer\KVMessages.cs" />
+    <Compile Include="..\Dafny\Distributed\Common\Native\IoFramework.cs" />
   </ItemGroup>
 
 </Project>

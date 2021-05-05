@@ -5,24 +5,24 @@ namespace IronRSLKVClient
 {
   public class Params
   {
+    public int seqNumReservationSize;
     public int numThreads;
     public ulong experimentDuration;
     public IPEndPoint[] serverEps;
     public int clientPort;
-    public ulong initialSeqNum;
     public double setFraction;
     public double deleteFraction;
     public bool verbose;
 
     public Params()
     {
+      seqNumReservationSize = 1000;
       numThreads = 1;
       experimentDuration = 60;
       serverEps = new IPEndPoint[3] { IPEndPoint.Parse("127.0.0.1:4001"),
                                       IPEndPoint.Parse("127.0.0.1:4002"),
                                       IPEndPoint.Parse("127.0.0.1:4003") };
       clientPort = 6000;
-      initialSeqNum = 0;
       setFraction = 0.05;
       deleteFraction = 0.25;
       verbose = false;
@@ -93,10 +93,6 @@ namespace IronRSLKVClient
 
           case "duration" :
             experimentDuration = Convert.ToUInt64(value);
-            return true;
-
-          case "initialseqno" :
-            initialSeqNum = Convert.ToUInt64(value);
             return true;
 
           case "setfraction" :

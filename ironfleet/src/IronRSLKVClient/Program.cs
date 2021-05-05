@@ -22,7 +22,6 @@ Allowed keys:
   server3        - IP address+port of third server (default 127.0.0.1:4003)
   nthreads       - number of client threads to run (default 1)
   duration       - duration of experiment in seconds (default 60)
-  initialseqno   - first sequence number each thread uses (default 0)
   setfraction    - fraction of requests that are sets (default 0.25)
   deletefraction - fraction of requests that are deletes (default 0.05)
   verbose        - print verbose output (false or true, default false)
@@ -31,11 +30,9 @@ If nthreads > 1, then each thread will use a different port number,
 using consecutive port numbers starting with clientport.
 
 NOTE: Each client endpoint is expected to use strictly increasing
-sequence numbers. So if you run this program multiple times, either:
-(1) use a different clientip, (2) use a clientport that causes
-different ports to be used, or (3) use an initialseqno greater than
-any sequence number seen in previous runs (e.g., if the previous run
-output #req100, use at least initialseqno=101)
+sequence numbers, which it tracks by writing files named port<num>.
+So if you run this program multiple times using the same client
+address and port, make sure you run from the same directory.
 ");
     }
 

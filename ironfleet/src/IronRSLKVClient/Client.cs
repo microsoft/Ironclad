@@ -1,3 +1,4 @@
+using IronfleetCommon;
 using IronfleetIoFramework;
 using KVMessages;
 using System;
@@ -180,6 +181,7 @@ namespace IronRSLKVClient
       IPEndPoint myEndpoint = new IPEndPoint(IPAddress.Parse("127.0.0.1"), ps.clientPort + (int)id);
       scheduler = new IoScheduler(myEndpoint, true /* only client */, false /* verbose */);
       scheduler.Start();
+      SeqNumManager seqNumManager = new SeqNumManager(myEndpoint.Port, ps.seqNumReservationSize);
 
       Thread.Sleep(3000);
 
@@ -200,8 +202,9 @@ namespace IronRSLKVClient
 
       int serverIdx = 0;
 
-      for (ulong seqNum = ps.initialSeqNum; true; ++seqNum)
+      while (true)
       {
+        UInt64 seqNum = seqNumManager.Next;
         KVRequest req = GetRandomRequest(rng, ps);
         RequestMessage msg = new RequestMessage(seqNum, req);
 

@@ -239,7 +239,7 @@ namespace Native____Io__s_Compile {
     public static void RecordTiming(char[] name, ulong time)
     {
       var str = new string(name);
-      Common.Profiler.Record(str, (long)time);
+      IronfleetCommon.Profiler.Record(str, (long)time);
     }
   }
   

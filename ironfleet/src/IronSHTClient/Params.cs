@@ -5,6 +5,7 @@ namespace IronSHTClient
 {
   public class Params
   {
+    public int seqNumReservationSize;
     public int numSetupThreads;
     public int numThreads;
     public ulong experimentDuration;
@@ -20,6 +21,7 @@ namespace IronSHTClient
 
     public Params()
     {
+      seqNumReservationSize = 1000;
       numSetupThreads = 1;
       numThreads = 1;
       experimentDuration = 60;

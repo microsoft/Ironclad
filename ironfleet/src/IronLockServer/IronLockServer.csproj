@@ -18,7 +18,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="..\Clients\Common\Profiler.cs" />
+    <Compile Include="..\IronfleetCommon\Profiler.cs" />
     <Compile Include="..\Dafny\Distributed\Services\Lock\Main.i.cs" />
     <Compile Include="..\Dafny\Distributed\Common\Native\IoNative.cs" />
     <Compile Include="..\Dafny\Distributed\Common\Native\IoFramework.cs" />

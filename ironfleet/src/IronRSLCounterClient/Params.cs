@@ -5,6 +5,7 @@ namespace IronRSLCounterClient
 {
   public class Params
   {
+    public int seqNumReservationSize;
     public int numThreads;
     public ulong experimentDuration;
     public IPEndPoint[] serverEps;
@@ -14,6 +15,7 @@ namespace IronRSLCounterClient
 
     public Params()
     {
+      seqNumReservationSize = 1000;
       numThreads = 1;
       experimentDuration = 60;
       serverEps = new IPEndPoint[3] { IPEndPoint.Parse("127.0.0.1:4001"),

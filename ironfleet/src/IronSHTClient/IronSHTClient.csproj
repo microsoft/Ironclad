@@ -6,6 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="..\IronfleetCommon\SeqNum.cs" />
     <Compile Include="..\Dafny\Distributed\Common\Native\IoFramework.cs" />
   </ItemGroup>
 
