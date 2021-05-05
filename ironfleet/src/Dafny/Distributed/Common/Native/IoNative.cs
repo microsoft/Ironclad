@@ -105,7 +105,7 @@ namespace Native____Io__s_Compile {
     {
       try
       {
-        IoScheduler scheduler = new IoScheduler(localEP.endpoint, false /* only client */, true /* verbose */);
+        IoScheduler scheduler = new IoScheduler(localEP.endpoint, false /* only client */, false /* verbose */);
         net = new NetClient(scheduler);
         ok = true;
       }

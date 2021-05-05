@@ -298,7 +298,7 @@ namespace IronSHTClient
       ulong seqNum = 0;
 
       IPEndPoint myEndpoint = new IPEndPoint(ps.clientEp.Address, ps.clientEp.Port + (int)id);
-      scheduler = new IoScheduler(myEndpoint, false /* only client */, true /* verbose */);
+      scheduler = new IoScheduler(myEndpoint, false /* only client */, false /* verbose */);
 
       ulong myaddr = EncodeIpPort(myEndpoint);
             
