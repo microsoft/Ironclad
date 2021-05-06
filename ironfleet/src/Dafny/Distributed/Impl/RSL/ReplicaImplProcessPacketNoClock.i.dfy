@@ -839,11 +839,8 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
   ghost var net_addr_old := r.netClient.LocalEndPoint();
   assert NetClientIsValid(net_client_old);
 
-  var sent_packets, replicaChanged, newCache;
-  r.replica, sent_packets, replicaChanged, newCache := Replica_Next_Process_AppStateSupply(r.replica, cpacket);
-  if replicaChanged {
-    r.reply_cache_mutable := newCache;
-  }
+  var sent_packets, replicaChanged;
+  r.replica, sent_packets, replicaChanged := Replica_Next_Process_AppStateSupply(r.replica, cpacket);
 
   // Mention unchanged predicates over mutable state in the new heap.
   assert net_client_old == r.netClient;

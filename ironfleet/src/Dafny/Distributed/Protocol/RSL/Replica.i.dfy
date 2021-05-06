@@ -290,7 +290,7 @@ predicate LReplicaNextProcessPacketWithoutReadingClock(s:LReplica, s':LReplica, 
        case RslMessage_2b(_, _, _) => LReplicaNextProcess2b(s, s', ios[0].r, sent_packets)
        case RslMessage_Reply(_, _) => LReplicaNextProcessReply(s, s', ios[0].r, sent_packets)
        case RslMessage_AppStateRequest(_, _) => LReplicaNextProcessAppStateRequest(s, s', ios[0].r, sent_packets)
-       case RslMessage_AppStateSupply(_, _, _, _) => LReplicaNextProcessAppStateSupply(s, s', ios[0].r, sent_packets)
+       case RslMessage_AppStateSupply(_, _, _) => LReplicaNextProcessAppStateSupply(s, s', ios[0].r, sent_packets)
 }
 
 predicate LReplicaNextProcessPacket(s:LReplica, s':LReplica, ios:seq<RslIo>)

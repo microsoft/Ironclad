@@ -76,7 +76,6 @@ predicate SequenceNumberPacketInv(p:RslPacket, req:Request)
   && (p.msg.RslMessage_1b? ==> SequenceNumberVotesInv(p.msg.votes, req))
   && (p.msg.RslMessage_2a? ==> SequenceNumberBatchInv(p.msg.val_2a, req))
   && (p.msg.RslMessage_2b? ==> SequenceNumberBatchInv(p.msg.val_2b, req))
-  && (p.msg.RslMessage_AppStateSupply? ==> SequenceNumberReplyCacheInv(p.msg.reply_cache, req))
 }
 
 predicate SequenceNumberReplicaInv(s:LReplica, req:Request)
@@ -427,9 +426,6 @@ lemma lemma_ReplicaNextPreservesSequenceNumberReplyCacheInv(
     }
     else if |ios| > 0 && ios[0].LIoOpReceive? && LExecutorProcessAppStateSupply(s.executor, s'.executor, ios[0].r)
     {
-      var inp := ios[0].r;
-      lemma_PacketProcessedImpliesPacketSent(ps, ps', idx, ios, inp);
-      assert SequenceNumberPacketInv(inp, req);
       assert SequenceNumberReplyCacheInv(s'.executor.reply_cache, req);
     }
     else

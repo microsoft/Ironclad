@@ -16,7 +16,7 @@ datatype RslMessage =
   | RslMessage_Heartbeat(bal_heartbeat:Ballot, suspicious:bool, opn_ckpt:OperationNumber)
   | RslMessage_Reply(seqno_reply:int, reply:AppReply)
   | RslMessage_AppStateRequest(bal_state_req:Ballot, opn_state_req:OperationNumber)
-  | RslMessage_AppStateSupply(bal_state_supply:Ballot, opn_state_supply:OperationNumber, app_state:AppState, reply_cache:ReplyCache)
+  | RslMessage_AppStateSupply(bal_state_supply:Ballot, opn_state_supply:OperationNumber, app_state:AppState)
   | RslMessage_StartingPhase2(bal_2:Ballot, logTruncationPoint_2:OperationNumber)
 
 } 

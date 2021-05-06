@@ -40,7 +40,6 @@ function method COperationNumber_grammar() : G { GUint64 }
 function method CVote_grammar() : G { GTuple([CBallot_grammar(), CRequestBatch_grammar()])} 
 function method CMap_grammar(key:G, val:G) : G { GArray(GTuple([key, val])) }
 function method CVotes_grammar() : G { GArray(GTuple([COperationNumber_grammar(), CVote_grammar()])) }
-function method CReplyCache_grammar() : G { GArray(GTuple([EndPoint_grammar(), CReply_grammar()])) }
 
 ////////////////////////////////////////////////////////////////////
 //    Grammars for the Paxos messages 
@@ -53,7 +52,7 @@ function method CMessage_2b_grammar() : G { GTuple([CBallot_grammar(), COperatio
 function method CMessage_Heartbeat_grammar() : G { GTuple([CBallot_grammar(), GUint64, COperationNumber_grammar()]) }
 function method CMessage_Reply_grammar() : G { GTuple( [GUint64, GByteArray] ) }
 function method CMessage_AppStateRequest_grammar() : G { GTuple([CBallot_grammar(), COperationNumber_grammar()]) }
-function method CMessage_AppStateSupply_grammar() : G { GTuple([CBallot_grammar(), COperationNumber_grammar(), GByteArray, CReplyCache_grammar()]) }
+function method CMessage_AppStateSupply_grammar() : G { GTuple([CBallot_grammar(), COperationNumber_grammar(), GByteArray]) }
 function method CMessage_StartingPhase2_grammar() : G { GTuple([CBallot_grammar(), COperationNumber_grammar()]) }
 
 function method CMessage_grammar() : G { GTaggedUnion([
@@ -94,11 +93,6 @@ predicate CVotesIs64Bit(votes:CVotes)
   && (forall opn :: opn in votes.v ==> CVoteIs64Bit(votes.v[opn]))
 }
 
-predicate CReplyCacheIs64Bit(rc:CReplyCache)
-{
-  |rc| < 0x1_0000_0000_0000_0000
-}
-
 predicate CMessageIs64Bit(msg:CMessage)
 {
   match msg
@@ -111,7 +105,7 @@ predicate CMessageIs64Bit(msg:CMessage)
     case CMessage_Heartbeat(bal, suspicious, opn) => true
     case CMessage_Reply(seqno, reply) => true
     case CMessage_AppStateRequest(bal, opn) => true
-    case CMessage_AppStateSupply(bal, opn, app, rc) => CReplyCacheIs64Bit(rc)
+    case CMessage_AppStateSupply(bal, opn, app) => true
     case CMessage_StartingPhase2(bal, log_truncation_point) => true
 }
 
@@ -269,29 +263,6 @@ method Parse_Vote(val:V) returns (vote:CVote)
 //    var m := others[k := v];
 //    m
 //}
-
-function method parse_ReplyCache(val:V) : CReplyCache
-  requires ValInGrammar(val, CReplyCache_grammar())
-  ensures  CReplyCacheIsAbstractable(parse_ReplyCache(val))
-  ensures  |parse_ReplyCache(val)| <= |val.a|
-  ensures  ValidVal(val) ==> CReplyCacheIs64Bit(parse_ReplyCache(val))
-  decreases |val.a|
-{
-  if |val.a| == 0 then
-    map []
-  else 
-    var tuple := val.a[0];
-    assert ValInGrammar(tuple, CReplyCache_grammar().elt);
-    assert ValInGrammar(tuple.t[0], CReplyCache_grammar().elt.t[0]); // OBSERVE
-    assert ValInGrammar(tuple.t[1], CReplyCache_grammar().elt.t[1]); // OBSERVE
-    var e := parse_EndPoint(tuple.t[0]);
-    var reply := parse_Reply(tuple.t[1]);
-    var others := parse_ReplyCache(VArray(val.a[1..]));
-    var m := others[e := reply];
-    assert forall e' :: e' in m ==> EndPointIsValidIPV4(e');
-    assert forall e' :: e' in m ==> CReplyIsAbstractable(m[e']);
-    m
-}
 
 function parse_Votes(val:V) : CVotes
   requires ValInGrammar(val, CVotes_grammar())
@@ -457,7 +428,7 @@ function method parse_Message_AppStateSupply(val:V) : CMessage
   ensures  ValidVal(val) ==> CMessageIs64Bit(parse_Message_AppStateSupply(val))
 {
   assert ValInGrammar(val.t[2], GByteArray);
-  CMessage_AppStateSupply(parse_Ballot(val.t[0]), parse_OperationNumber(val.t[1]), val.t[2].b, parse_ReplyCache(val.t[3]))
+  CMessage_AppStateSupply(parse_Ballot(val.t[0]), parse_OperationNumber(val.t[1]), val.t[2].b)
 }
 
 function method parse_Message_StartingPhase2(val:V) : CMessage
@@ -591,7 +562,7 @@ function Marshallable(msg:CMessage) : bool
   && (msg.CMessage_Heartbeat? ==> true)
   && (msg.CMessage_Reply? ==> CAppReplyMarshallable(msg.reply))
   && (msg.CMessage_AppStateRequest? ==> true)
-  && (msg.CMessage_AppStateSupply? ==> CAppStateMarshallable(msg.app_state) && ValidReplyCache(msg.reply_cache))
+  && (msg.CMessage_AppStateSupply? ==> CAppStateMarshallable(msg.app_state))
   && (msg.CMessage_StartingPhase2? ==> true)
 }
 
@@ -661,38 +632,6 @@ method DetermineIfValidVotes(votes:CVotes) returns (b:bool)
   }
 }
 
-method DetermineIfValidReplyCache(m:CReplyCache) returns (b:bool)
-  requires CReplyCacheIsAbstractable(m)
-  requires CReplyCacheIs64Bit(m)
-  ensures  b == ValidReplyCache(m)
-{
-  b := (|m| as uint64) < 256; // RequestBatchSizeLimit
-  if !b {
-    return;
-  }
-
-  assert CReplyCacheIsAbstractable(m);
-
-  var keys := domain(m);
-  lemma_MapSizeIsDomainSize(keys, m);
-  while |keys| > 0
-    invariant |keys| < 256
-    invariant forall e :: e in keys ==> e in m
-    invariant forall e :: e in m ==> e in keys || ValidReply(m[e])
-    decreases |keys|
-  {
-    var e :| e in keys;
-    assert EndPointIsValidIPV4(e);
-    assert CReplyIsAbstractable(m[e]);
-    if m[e].CReply? && !CAppReplyMarshallable(m[e].reply) {
-      b := false;
-      assert !ValidReply(m[e]);
-      return;
-    }
-    keys := keys - {e};
-  }
-}
-
 method DetermineIfValidRequestBatch(c:CRequestBatch) returns (b:bool)
   requires CRequestBatchIsAbstractable(c)
   requires CRequestBatchIs64Bit(c)
@@ -751,9 +690,7 @@ method DetermineIfMessageMarshallable(msg:CMessage) returns (b:bool)
     b := true;
   }
   else if msg.CMessage_AppStateSupply? {
-    var b1 := CAppStateMarshallable(msg.app_state);
-    var b2 := DetermineIfValidReplyCache(msg.reply_cache);
-    b := b1 && b2;
+    b := CAppStateMarshallable(msg.app_state);
   }
   else if msg.CMessage_StartingPhase2? {
     b := true;
@@ -863,64 +800,6 @@ method MarshallVote(c:CVote) returns (val:V)
   var bal := MarshallBallot(c.max_value_bal);
   var v := MarshallRequestBatch(c.max_val);
   val := VTuple([bal, v]);
-}
-
-method MarshallReplyCache(c:CReplyCache) returns (val:V)
-  requires ValidReplyCache(c)
-  decreases |c|
-  ensures  ValInGrammar(val, CReplyCache_grammar())
-  ensures  |val.a| == |c|
-  ensures  ValidVal(val)
-  ensures  parse_ReplyCache(val) == c
-  ensures SeqSum(val.a) <= |c| * (8 + (8 + 8) + (24 + MaxAppReplySize())); 
-{
-  if |c| == 0 {
-    val := VArray([]);
-    reveal SeqSum();
-  } else {
-    //lemma_non_empty_map_has_elements(c);
-    var ep :| ep in c;
-    var marshalled_ep := MarshallEndPoint(ep);
-    var marshalled_reply := MarshallReply(c[ep]);
-    var remainder := RemoveElt(c, ep);
-    assert forall e :: e in remainder ==> ValidReply(remainder[e]);
-    var marshalled_remainder := MarshallReplyCache(remainder);
-    assert parse_ReplyCache(marshalled_remainder) == remainder;
-    val := VArray([VTuple([marshalled_ep, marshalled_reply])] + marshalled_remainder.a);
-
-    // OBSERVE (everything below; not sure which bit is critical to proving the final ensures
-    ghost var tuple := val.a[0];
-    ghost var rest := val.a[1..];
-    assert ValInGrammar(tuple, CReplyCache_grammar().elt);
-    assert ValInGrammar(tuple.t[0], CReplyCache_grammar().elt.t[0]); 
-    assert ValInGrammar(tuple.t[1], CReplyCache_grammar().elt.t[1]);
-    ghost var ep' := parse_EndPoint(tuple.t[0]);
-    ghost var reply' := parse_Reply(tuple.t[1]);
-    ghost var others' := parse_ReplyCache(VArray(val.a[1..]));
-    ghost var m' := others'[ep' := reply'];
-    assert ep' == ep;
-    assert reply' == c[ep];
-    assert others' == remainder;
-    assert m' == c;
-
-    // Prove the SeqSum ensure
-    calc {
-      SeqSum(val.a);
-        { reveal SeqSum(); }
-      SizeOfV(val.a[0]) + SeqSum(val.a[1..]);
-      <=  
-      SizeOfV(val.a[0]) + |remainder| * (8 + (8 + 8) + (24 + MaxAppReplySize()));
-      SizeOfV(val.a[0]) + |remainder| * (8 + (8 + 8) + (24 + MaxAppReplySize()));
-        { lemma_SeqSum2(val.a[0]); }
-      SizeOfV(val.a[0].t[0]) + SizeOfV(val.a[0].t[1]) + |remainder| * (8 + (8 + 8) + (24 + MaxAppReplySize()));
-      <   { lemma_ReplyValValid(c[ep], val.a[0].t[1]); lemma_ReplyBound(c[ep], val.a[0].t[1]); }
-      8 + (8 + 8) + (24 + MaxAppReplySize()) + |remainder| * (8 + (8 + 8) + (24 + MaxAppReplySize()));
-      1*(8 + (8 + 8) + (24 + MaxAppReplySize())) + |remainder| * (8 + (8 + 8) + (24 + MaxAppReplySize()));
-        { lemma_mul_is_distributive((8 + (8 + 8) + (24 + MaxAppReplySize())), 1, |remainder|); }
-      (1+|remainder|) * (8 + (8 + 8) + (24 + MaxAppReplySize()));
-      |c| * (8 + (8 + 8) + (24 + MaxAppReplySize()));
-    }
-  }
 }
 
 method{:timeLimitMultiplier 3} MarshallVotes(c:CVotes) returns (val:V)
@@ -1117,27 +996,19 @@ method MarshallMessage_AppStateSupply(c:CMessage) returns (val:V)
   var ballot := MarshallBallot(c.bal_state_supply);
   var opn_state_supply := MarshallOperationNumber(c.opn_state_supply);
   var app_state := MarshallCAppState(c.app_state);
-  var reply_cache := MarshallReplyCache(c.reply_cache);
-  val := VTuple([ballot, opn_state_supply, app_state, reply_cache]);
+  val := VTuple([ballot, opn_state_supply, app_state]);
 
   // Prove the bound on SizeOfV(val)
-  lemma_SeqSum4(val);
+  lemma_SeqSum3(val);
   assert ValInGrammar(val.t[0], CBallot_grammar());   // OBSERVE
   lemma_BallotBound(c.bal_state_supply, val.t[0]);
   assert ValInGrammar(val.t[1], COperationNumber_grammar());   // OBSERVE
   assert ValInGrammar(val.t[2], GByteArray);    // OBSERVE
-  assert ValInGrammar(val.t[3], CReplyCache_grammar());    // OBSERVE
   calc {
     SizeOfV(val);
-    SizeOfV(val.t[0]) + SizeOfV(val.t[1]) + SizeOfV(val.t[2]) + SizeOfV(val.t[3]);
+    SizeOfV(val.t[0]) + SizeOfV(val.t[1]) + SizeOfV(val.t[2]);
     <=
-    16 + 16 + MaxAppStateSize() + SizeOfV(val.t[3]);
-    <=
-    16 + 16 + MaxAppStateSize() + (8 + |c.reply_cache| * (8 + (8 + 8) + (24 + MaxAppRequestSize())));  
-    16 + 16 + MaxAppStateSize() + (8 + |c.reply_cache| * (MaxAppRequestSize() + 48)); 
-    40 + MaxAppStateSize() + |c.reply_cache| * (MaxAppRequestSize() + 48); 
-    < { lemma_mul_strict_inequality(|c.reply_cache|, max_reply_cache_size(), (MaxAppRequestSize() + 48)); }
-    40 + MaxAppStateSize() + max_reply_cache_size() * (MaxAppRequestSize() + 48); 
+    16 + 16 + MaxAppStateSize();
     <
     MaxPacketSize() - 8;
   }

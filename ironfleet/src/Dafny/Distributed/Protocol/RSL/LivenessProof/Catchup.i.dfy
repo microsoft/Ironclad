@@ -90,7 +90,7 @@ lemma{:timeLimitMultiplier 2} lemma_EventuallySpecificLiveReplicaCaughtUp(
 
   lemma_MaxBalReflectedLeqCurrentView(b, asp, second_step, h.view, h.king_idx);
   assert BalLeq(s3.max_bal_reflected, h.view);
-  var p3 := LPacket(asp.c.config.replica_ids[idx], asp.c.config.replica_ids[h.king_idx], RslMessage_AppStateSupply(s3.max_bal_reflected, s3.ops_complete, s3.app, s3.reply_cache));
+  var p3 := LPacket(asp.c.config.replica_ids[idx], asp.c.config.replica_ids[h.king_idx], RslMessage_AppStateSupply(s3.max_bal_reflected, s3.ops_complete, s3.app));
   assert p3 in ExtractSentPacketsFromIos(ios3);
 
   var third_step, ios4 := lemma_PacketSentToIndexProcessedByIt(b, asp, h.start_step, h.processing_bound, second_step, idx, p3);

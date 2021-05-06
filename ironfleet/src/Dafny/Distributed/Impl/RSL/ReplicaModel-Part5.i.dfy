@@ -57,8 +57,7 @@ method ReplicaNextProcessAppStateSupplyActual(
   inp:CPacket
   ) returns (
   replica':ReplicaState,
-  packets_sent:OutboundPackets,
-  reply_cache_mutable:MutableMap<EndPoint, CReply>
+  packets_sent:OutboundPackets
   )
   requires Replica_Next_Process_AppStateSupply_Preconditions(replica, inp)
   requires inp.src in replica.executor.constants.all.config.replica_ids
@@ -67,12 +66,11 @@ method ReplicaNextProcessAppStateSupplyActual(
                                                               inp, packets_sent)
   ensures  replica'.proposer.election_state.cur_req_set == replica.proposer.election_state.cur_req_set
   ensures  replica'.proposer.election_state.prev_req_set == replica.proposer.election_state.prev_req_set
-  ensures  fresh(reply_cache_mutable)
-  ensures  replica'.executor.reply_cache == MutableMap.MapOf(reply_cache_mutable)
+  ensures  replica'.executor.reply_cache == replica.executor.reply_cache
 {
   var newLearner := LearnerModel_ForgetOperationsBefore(replica.learner, inp.msg.opn_state_supply);
   var newExecutor;
-  newExecutor, reply_cache_mutable := ExecutorProcessAppStateSupply(replica.executor, inp);
+  newExecutor := ExecutorProcessAppStateSupply(replica.executor, inp);
   replica' := replica.(learner := newLearner, executor := newExecutor);
   packets_sent := Broadcast(CBroadcastNop);
 }
@@ -83,26 +81,23 @@ method Replica_Next_Process_AppStateSupply(
   ) returns (
   replica':ReplicaState,
   packets_sent:OutboundPackets,
-  replicaChanged:bool,
-  reply_cache_mutable:MutableMap<EndPoint, CReply>
+  replicaChanged:bool
   )
   requires Replica_Next_Process_AppStateSupply_Preconditions(replica, inp)
   ensures  Replica_Next_Process_AppStateSupply_Postconditions(old(AbstractifyReplicaStateToLReplica(replica)), replica',
                                                               inp, packets_sent)
   ensures  replica'.proposer.election_state.cur_req_set == replica.proposer.election_state.cur_req_set
   ensures  replica'.proposer.election_state.prev_req_set == replica.proposer.election_state.prev_req_set
-  ensures  replicaChanged ==> fresh(reply_cache_mutable)
-  ensures  replicaChanged ==> replica'.executor.reply_cache == MutableMap.MapOf(reply_cache_mutable)
+  ensures  replicaChanged ==> replica'.executor.reply_cache == replica.executor.reply_cache
   ensures  !replicaChanged ==> replica' == replica
 {
   var empty_Mutable_Map:MutableMap<EndPoint, CReply> := MutableMap.EmptyMap();
-  reply_cache_mutable := empty_Mutable_Map;
   var start_time := Time.GetDebugTimeTicks();
 //  lemma_AbstractifyEndPointsToNodeIdentities_properties(replica.executor.constants.all.config.replica_ids);
   if (&& inp.src in replica.executor.constants.all.config.replica_ids
       && inp.msg.opn_state_supply.n > replica.executor.ops_complete.n)
   {
-    replica', packets_sent, reply_cache_mutable := ReplicaNextProcessAppStateSupplyActual(replica, inp);
+    replica', packets_sent := ReplicaNextProcessAppStateSupplyActual(replica, inp);
     var end_time := Time.GetDebugTimeTicks();
     RecordTimingSeq("Replica_Next_Process_AppStateSupply_work", start_time, end_time);
     replicaChanged := true;

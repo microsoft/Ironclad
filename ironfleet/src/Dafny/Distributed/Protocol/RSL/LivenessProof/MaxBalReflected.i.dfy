@@ -136,7 +136,7 @@ lemma lemma_MaxBalReflectedInvariantHolds(
         var idx, ios := lemma_ActionThatSendsAppStateSupplyIsProcessAppStateRequest(b[i-1], b[i], p);
         var s := b[i-1].replicas[idx].replica.executor;
         assert LExecutorProcessAppStateRequest(b[i-1].replicas[idx].replica.executor, b[i].replicas[idx].replica.executor, ios[0].r, [p]);
-        Lemma_IdenticalSingletonSequencesHaveIdenticalElement(p, LPacket(ios[0].r.src, asp.c.config.replica_ids[idx], RslMessage_AppStateSupply(s.max_bal_reflected, s.ops_complete, s.app, s.reply_cache)));
+        Lemma_IdenticalSingletonSequencesHaveIdenticalElement(p, LPacket(ios[0].r.src, asp.c.config.replica_ids[idx], RslMessage_AppStateSupply(s.max_bal_reflected, s.ops_complete, s.app)));
         assert 0 <= idx < |b[i-1].replicas|;
         assert PrimaryHasReachedState2OfBallot(b[i-1], s.max_bal_reflected);
         assert p.msg.bal_state_supply == s.max_bal_reflected;

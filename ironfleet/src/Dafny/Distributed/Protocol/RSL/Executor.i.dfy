@@ -124,8 +124,7 @@ predicate LExecutorProcessAppStateSupply(s:LExecutor, s':LExecutor, inp:RslPacke
   s' == s.(app := m.app_state,
            ops_complete := m.opn_state_supply,
            max_bal_reflected := m.bal_state_supply,
-           next_op_to_execute := OutstandingOpUnknown(),
-           reply_cache := m.reply_cache)
+           next_op_to_execute := OutstandingOpUnknown())
 }
 
 predicate LExecutorProcessAppStateRequest(s:LExecutor, s':LExecutor, inp:RslPacket, sent_packets:seq<RslPacket>)
@@ -138,7 +137,7 @@ predicate LExecutorProcessAppStateRequest(s:LExecutor, s':LExecutor, inp:RslPack
      && LReplicaConstantsValid(s.constants) then
      && s' == s
      && sent_packets == [ LPacket(inp.src, s.constants.all.config.replica_ids[s.constants.my_index],
-                                 RslMessage_AppStateSupply(s.max_bal_reflected, s.ops_complete, s.app, s.reply_cache)) ]
+                                 RslMessage_AppStateSupply(s.max_bal_reflected, s.ops_complete, s.app)) ]
   else
     s' == s && sent_packets == []
 }

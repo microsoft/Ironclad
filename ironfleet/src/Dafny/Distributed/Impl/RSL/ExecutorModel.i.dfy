@@ -260,7 +260,7 @@ method {:timeLimitMultiplier 2} HandleRequestBatchImpl(
   lemma_CReplyCacheUpdate(batch, reply_cache, replies, newReplyCache);
 }
 
-method {:timeLimitMultiplier 4} UpdateReplyCache(ghost reply_cache:CReplyCache, reply_cache_mutable:MutableMap<EndPoint, CReply>, ep:EndPoint, newReply:CReply, reply:CAppReply, i:uint64, batch:CRequestBatch, ghost replies:seq<CReply>) returns (ghost newReplyCache:CReplyCache)
+method {:timeLimitMultiplier 6} UpdateReplyCache(ghost reply_cache:CReplyCache, reply_cache_mutable:MutableMap<EndPoint, CReply>, ep:EndPoint, newReply:CReply, reply:CAppReply, i:uint64, batch:CRequestBatch, ghost replies:seq<CReply>) returns (ghost newReplyCache:CReplyCache)
   requires EndPointIsValidIPV4(ep)
   requires ValidReply(newReply)
   requires CReplyIsAbstractable(newReply)
@@ -697,12 +697,11 @@ lemma lemma_InSequence<T>(s:seq<T>, p:T, i:uint64)
 {
 }
 
-method ExecutorProcessAppStateSupply(cs:ExecutorState, cinp:CPacket) returns(cs':ExecutorState, reply_cache_mutable:MutableMap<EndPoint, CReply>)
+method ExecutorProcessAppStateSupply(cs:ExecutorState, cinp:CPacket) returns(cs':ExecutorState)
   requires ExecutorState_IsValid(cs)
   requires CPacketIsAbstractable(cinp)
   requires cinp.msg.CMessage_AppStateSupply?
   requires CAppStateMarshallable(cinp.msg.app_state)
-  requires ValidReplyCache(cinp.msg.reply_cache)
   requires cinp.src in cs.constants.all.config.replica_ids
   requires cinp.msg.opn_state_supply.n > cs.ops_complete.n
   ensures  ExecutorState_IsValid(cs')
@@ -711,8 +710,7 @@ method ExecutorProcessAppStateSupply(cs:ExecutorState, cinp:CPacket) returns(cs'
   ensures  AbstractifyCPacketToRslPacket(cinp).msg.opn_state_supply > AbstractifyExecutorStateToLExecutor(cs).ops_complete
   ensures  LExecutorProcessAppStateSupply(AbstractifyExecutorStateToLExecutor(cs), AbstractifyExecutorStateToLExecutor(cs'), AbstractifyCPacketToRslPacket(cinp))
   ensures  cs.constants == cs'.constants
-  ensures  fresh(reply_cache_mutable)
-  ensures  cs'.reply_cache == MutableMap.MapOf(reply_cache_mutable)
+  ensures  cs'.reply_cache == cs.reply_cache
 {
   ghost var s := AbstractifyExecutorStateToLExecutor(cs);
   ghost var inp := AbstractifyCPacketToRslPacket(cinp);
@@ -721,8 +719,7 @@ method ExecutorProcessAppStateSupply(cs:ExecutorState, cinp:CPacket) returns(cs'
         app := m.app_state,
         ops_complete := m.opn_state_supply,
         max_bal_reflected := m.bal_state_supply,
-        next_op_to_execute := OutstandingOpUnknown(),
-        reply_cache := m.reply_cache);
+        next_op_to_execute := OutstandingOpUnknown());
   var cm := cinp.msg;
   var app_state := AppStateMachine.Deserialize(cm.app_state);
 
@@ -730,10 +727,8 @@ method ExecutorProcessAppStateSupply(cs:ExecutorState, cinp:CPacket) returns(cs'
         app := app_state,
         ops_complete := cm.opn_state_supply,
         max_bal_reflected := cm.bal_state_supply,
-        next_op_to_execute := COutstandingOpUnknown(),
-        reply_cache := cm.reply_cache);
+        next_op_to_execute := COutstandingOpUnknown());
 
-  reply_cache_mutable := MutableMap.FromMap(cm.reply_cache);
   assert Eq_ExecutorState(s', AbstractifyExecutorStateToLExecutor(cs'));
 }
 
@@ -766,8 +761,8 @@ method ExecutorProcessAppStateRequest(cs:ExecutorState, cinp:CPacket, reply_cach
     var cme := cs.constants.all.config.replica_ids[cs.constants.my_index];
     var reply_cache := MutableMap.MapOf(reply_cache_mutable);
     var app_state := cs.app.Serialize();
-    out := [ LPacket(inp.src, me, RslMessage_AppStateSupply(s.max_bal_reflected, s.ops_complete, s.app, s.reply_cache)) ];
-    cout := OutboundPacket(Some(CPacket(cinp.src, cme, CMessage_AppStateSupply(cs.max_bal_reflected, cs.ops_complete, app_state, reply_cache))));
+    out := [ LPacket(inp.src, me, RslMessage_AppStateSupply(s.max_bal_reflected, s.ops_complete, s.app)) ];
+    cout := OutboundPacket(Some(CPacket(cinp.src, cme, CMessage_AppStateSupply(cs.max_bal_reflected, cs.ops_complete, app_state))));
   } else {
     out := [];
     cout := OutboundPacket(None());
