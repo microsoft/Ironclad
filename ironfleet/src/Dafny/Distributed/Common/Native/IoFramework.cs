@@ -143,10 +143,30 @@ namespace IronfleetIoFramework
     }
   }
 
-  public struct Packet
+  public class Packet
   {
     public IPEndPoint ep;
     public byte[] message;
+
+    public Packet(IPEndPoint i_ep, byte[] i_message)
+    {
+      ep = i_ep;
+      message = i_message;
+    }
+  }
+
+  public class SendTask
+  {
+    public IPEndPoint ep;
+    public byte[] message;
+    public int numTriesSoFar;
+
+    public SendTask(IPEndPoint i_ep, byte[] i_message, int i_numTriesSoFar)
+    {
+      ep = i_ep;
+      message = i_message;
+      numTriesSoFar = i_numTriesSoFar;
+    }
   }
 
   public class ReceiverThread
@@ -243,7 +263,7 @@ namespace IronfleetIoFramework
           Console.WriteLine("Received message of size {0} from {1}", messageSize, IoScheduler.EndpointToString(otherEndpoint));
         }
 
-        Packet packet = new Packet { ep = otherEndpoint, message = messageBuf };
+        Packet packet = new Packet(otherEndpoint, messageBuf);
         scheduler.NoteReceivedPacket(packet);
       }
     }
@@ -256,8 +276,8 @@ namespace IronfleetIoFramework
     private IPEndPoint otherEndpoint;
     private bool asServer;
     private NetworkStream stream;
-    private BufferBlock<byte[]> sendQueue;
-    private byte[] currentMessage;
+    private BufferBlock<SendTask> sendQueue;
+    private SendTask currentSendTask;
 
     private SenderThread(IoScheduler i_scheduler, TcpClient i_conn, IPEndPoint i_otherEndpoint, bool i_asServer)
     {
@@ -265,8 +285,8 @@ namespace IronfleetIoFramework
       conn = i_conn;
       otherEndpoint = i_otherEndpoint;
       asServer = i_asServer;
-      sendQueue = new BufferBlock<byte[]>();
-      currentMessage = null;
+      sendQueue = new BufferBlock<SendTask>();
+      currentSendTask = null;
     }
 
     public void Run()
@@ -287,17 +307,17 @@ namespace IronfleetIoFramework
       // If we crashed in the middle of sending a packet, re-queue it
       // for sending by another sender thread.
       
-      if (currentMessage != null) {
-        scheduler.SendPacket(otherEndpoint, currentMessage);
-        currentMessage = null;
+      if (currentSendTask != null) {
+        scheduler.ResendPacket(currentSendTask);
+        currentSendTask = null;
       }
 
       // If there are packets queued for us to send, re-queue them
       // for sending by another sender thread.
 
-      while (sendQueue.TryReceive(out currentMessage)) {
-        scheduler.SendPacket(otherEndpoint, currentMessage);
-        currentMessage = null;
+      while (sendQueue.TryReceive(out currentSendTask)) {
+        scheduler.ResendPacket(currentSendTask);
+        currentSendTask = null;
       }
     }
 
@@ -363,11 +383,11 @@ namespace IronfleetIoFramework
       {
         // Wait for there to be a packet to send.
 
-        currentMessage = sendQueue.Receive();
+        currentSendTask = sendQueue.Receive();
 
         // Send its length as an 8-byte value.
 
-        UInt64 messageSize = (UInt64)currentMessage.Length;
+        UInt64 messageSize = (UInt64)currentSendTask.message.Length;
         IoEncoder.WriteUInt64(stream, messageSize);
         if (scheduler.Verbose) {
           Console.WriteLine("Sent message size {0} to {1}", messageSize, IoScheduler.EndpointToString(otherEndpoint));
@@ -375,21 +395,21 @@ namespace IronfleetIoFramework
 
         // Send its contents.
 
-        IoEncoder.WriteBytes(stream, currentMessage, 0, messageSize);
+        IoEncoder.WriteBytes(stream, currentSendTask.message, 0, messageSize);
         if (scheduler.Verbose) {
           Console.WriteLine("Sent message of size {0} to {1}", messageSize, IoScheduler.EndpointToString(otherEndpoint));
         }
 
-        // Set the currentMessage to null so we know we don't have to
+        // Set the currentSendTask to null so we know we don't have to
         // resend it if the connection fails.
 
-        currentMessage = null;
+        currentSendTask = null;
       }
     }
 
-    public void EnqueueMessage(byte[] message)
+    public void EnqueueSendTask(SendTask sendTask)
     {
-      sendQueue.Post(message);
+      sendQueue.Post(sendTask);
     }
   }
 
@@ -446,12 +466,12 @@ namespace IronfleetIoFramework
   public class SendDispatchThread
   {
     private IoScheduler scheduler;
-    private BufferBlock<Packet> sendQueue;
+    private BufferBlock<SendTask> sendQueue;
 
     public SendDispatchThread(IoScheduler i_scheduler)
     {
       scheduler = i_scheduler;
-      sendQueue = new BufferBlock<Packet>();
+      sendQueue = new BufferBlock<SendTask>();
     }
 
     public void Run()
@@ -477,26 +497,26 @@ namespace IronfleetIoFramework
           Console.WriteLine("Waiting for the next send to dispatch.");
         }
 
-        Packet packet = sendQueue.Receive();
+        SendTask sendTask = sendQueue.Receive();
 
         if (scheduler.Verbose) {
-          Console.WriteLine("Dispatching send of packet of size {0} to {1}",
-                            packet.message.Length, IoScheduler.EndpointToString(packet.ep));
+          Console.WriteLine("Dispatching send of message of size {0} to {1}",
+                            sendTask.message.Length, IoScheduler.EndpointToString(sendTask.ep));
         }
 
-        SenderThread senderThread = scheduler.FindSenderForEndpoint(packet.ep);
+        SenderThread senderThread = scheduler.FindSenderForEndpoint(sendTask.ep);
 
         if (senderThread == null) {
-          senderThread = SenderThread.Create(scheduler, null, packet.ep, false);
+          senderThread = SenderThread.Create(scheduler, null, sendTask.ep, false);
         }
 
-        senderThread.EnqueueMessage(packet.message);
+        senderThread.EnqueueSendTask(sendTask);
       }
     }
 
-    public void EnqueuePacket(Packet packet)
+    public void EnqueueSendTask(SendTask sendTask)
     {
-      sendQueue.Post(packet);
+      sendQueue.Post(sendTask);
     }
   }
 
@@ -505,18 +525,21 @@ namespace IronfleetIoFramework
     private IPEndPoint myEndpoint;
     private bool onlyClient;
     private bool verbose;
+    private int maxSendTries;
     private BufferBlock<Packet> receiveQueue;
     private Dictionary<IPEndPoint, List<SenderThread>> endpointToSenderMap;
     private ListenerThread listenerThread;
     private SendDispatchThread sendDispatchThread;
 
-    public IoScheduler(IPEndPoint i_myEndpoint, bool i_onlyClient = false, bool i_verbose = false)
+    public IoScheduler(IPEndPoint i_myEndpoint, bool i_onlyClient = false, bool i_verbose = false, int i_maxSendTries = 3)
     {
       myEndpoint = i_myEndpoint;
       onlyClient = i_onlyClient;
       verbose = i_verbose;
+      maxSendTries = i_maxSendTries;
       if (verbose) {
-        Console.WriteLine("Starting I/O scheduler with endpoint {0}, onlyClient = {1}", EndpointToString(i_myEndpoint), onlyClient);
+        Console.WriteLine("Starting I/O scheduler with endpoint {0}, onlyClient = {1}, maxSendTries = {2}",
+                          EndpointToString(i_myEndpoint), onlyClient, maxSendTries);
       }
       receiveQueue = new BufferBlock<Packet>();
       endpointToSenderMap = new Dictionary<IPEndPoint, List<SenderThread>>();
@@ -666,16 +689,24 @@ namespace IronfleetIoFramework
       try {
         byte[] messageCopy = new byte[message.Length];
         Array.Copy(message, messageCopy, message.Length);
-        Packet packet = new Packet { ep = remote, message = messageCopy };
+        SendTask sendTask = new SendTask(remote, messageCopy, 0);
         if (verbose) {
-          Console.WriteLine("Enqueueing a packet of size {0} to {1}", packet.message.Length, EndpointToString(packet.ep));
+          Console.WriteLine("Enqueueing send of a message of size {0} to {1}", message.Length, EndpointToString(remote));
         }
-        sendDispatchThread.EnqueuePacket(packet);
+        sendDispatchThread.EnqueueSendTask(sendTask);
         return true;
       }
       catch (Exception e) {
-        Console.Error.WriteLine("Unexpected error when trying to send a packet.  Exception:\n{0}", e);
+        Console.Error.WriteLine("Unexpected error when trying to send a message.  Exception:\n{0}", e);
         return false;
+      }
+    }
+
+    public void ResendPacket(SendTask sendTask)
+    {
+      sendTask.numTriesSoFar++;
+      if (sendTask.numTriesSoFar < maxSendTries) {
+        sendDispatchThread.EnqueueSendTask(sendTask);
       }
     }
 
