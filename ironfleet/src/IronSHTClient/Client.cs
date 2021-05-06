@@ -1,5 +1,5 @@
-﻿using IronfleetIoFramework;
-using IronfleetCommon;
+﻿using IronfleetCommon;
+using IronfleetIoFramework;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -295,24 +295,22 @@ namespace IronSHTClient
 
     public void Setup()
     {
-      ulong seqNum = 0;
-
       IPEndPoint myEndpoint = new IPEndPoint(ps.clientEp.Address, ps.clientEp.Port + (int)id);
       scheduler = new IoScheduler(myEndpoint, false /* only client */, false /* verbose */);
 
       ulong myaddr = EncodeIpPort(myEndpoint);
             
       int serverIdx = 0;
+      ulong seqNum = 0;
+      ulong requestKey;
 
-      while (seqNum < (ulong)ps.numKeys)
+      for (requestKey = 0; requestKey < (ulong)ps.numKeys; ++requestKey)
       {
-        var requestKey = seqNum % (ulong)ps.numKeys;
-
         seqNum++;
         var msg = new SetRequestMessage(seqNum, myaddr, requestKey, (ulong)ps.valueSize);
 
         if (ps.verbose) {
-          Console.WriteLine("Sending set request message with key {0} to server {1}", requestKey, serverIdx);
+          Console.WriteLine("Sending set request message with seq {0}, key {1} to server {2}", seqNum, requestKey, serverIdx);
         }
         this.Send(msg, ps.serverEps[serverIdx]);
                 
@@ -321,12 +319,13 @@ namespace IronSHTClient
         while (!receivedReply)
         {
           byte[] bytes = Receive();
+          var endTime = HiResTimer.Ticks;
           if (bytes == null) {
             //serverIdx = (serverIdx + 1) % ps.serverEps.Count();
             Console.WriteLine("#timeout; retrying {0}", serverIdx);
+            this.Send(msg, ps.serverEps[serverIdx]);
             continue;
           }
-          var endTime = HiResTimer.Ticks;
           //Trace("Got the following reply:" + ByteArrayToString(bytes));
           //Console.Out.WriteLine("Got packet length: " + bytes.Length);
           if (bytes.Length == 16)
@@ -373,14 +372,8 @@ namespace IronSHTClient
       var receivedReply = false;
       while (!receivedReply)
       {
-        byte[] bytes;
-        try
-        {
-          bytes = Receive();
-        }
-        catch (System.Net.Sockets.SocketException e)
-        {
-          Console.WriteLine(e.ToString());
+        byte[] bytes = Receive();
+        if (bytes == null) {
           Console.WriteLine("#timeout; retrying {0}", serverIdx);
           continue;
         }
@@ -430,13 +423,11 @@ namespace IronSHTClient
     {
       ulong requestKey = 150;
       int serverIdx = 0;
-      UInt64 seqNum;
             
       IPEndPoint myEndpoint = new IPEndPoint(ps.clientEp.Address, ps.clientEp.Port + ps.numSetupThreads + (int)id);
       scheduler = new IoScheduler(myEndpoint, false /* only client */, false /* verbose */);
-      SeqNumManager seqNumManager = new SeqNumManager(myEndpoint.Port, ps.seqNumReservationSize);
-
       ulong myaddr = EncodeIpPort(myEndpoint);
+      ulong seqNum = 0;
             
       // Test the functionality of the Sharding
       if (ps.workload == 'f')
@@ -445,14 +436,12 @@ namespace IronSHTClient
         ulong k_hi = 200;
         var recipient = EncodeIpPort(ps.serverEps[(serverIdx + 1) % ps.serverEps.Count()]);
 
-        seqNum = seqNumManager.Next;
-
+        seqNum++;
         var msg = new GetRequestMessage(seqNum, myaddr, requestKey);
         this.Send(msg, ps.serverEps[serverIdx]);
         ReceiveReply(serverIdx, myaddr, requestKey, false);
 
-        seqNum = seqNumManager.Next;
-
+        seqNum++;
         Console.WriteLine("Sending a Shard request with a sequence number {0}", seqNum);
         var shardMessage = new ShardRequestMessage(seqNum, myaddr, k_lo, k_hi, recipient);
         this.Send(shardMessage, ps.serverEps[serverIdx]);
@@ -462,7 +451,7 @@ namespace IronSHTClient
 
         Console.WriteLine("Sending a GetRequest after a Shard, expect a redirect");
 
-        seqNum = seqNumManager.Next;
+        seqNum++;
         msg = new GetRequestMessage(seqNum, myaddr, requestKey);
         this.Send(msg, ps.serverEps[(serverIdx + 0) % ps.serverEps.Count()]);
         ReceiveReply(serverIdx, myaddr, requestKey, false);
@@ -470,7 +459,7 @@ namespace IronSHTClient
         Thread.Sleep(5000);
 
         Console.WriteLine("Sending a GetRequest after a Shard to the second host, expect a reply");
-        seqNum = seqNumManager.Next;
+        seqNum++;
         msg = new GetRequestMessage(seqNum, myaddr, requestKey);
         this.Send(msg, ps.serverEps[(serverIdx + 1) % ps.serverEps.Count()]);
         ReceiveReply(serverIdx, myaddr, requestKey, false);
@@ -481,7 +470,7 @@ namespace IronSHTClient
       // Run an actual workload
       while (true)
       {
-        seqNum = seqNumManager.Next;
+        seqNum++;
         var receivedReply = false;
         requestKey = seqNum % (ulong)ps.numKeys;
                                
@@ -494,25 +483,20 @@ namespace IronSHTClient
         {
           msg = new SetRequestMessage(seqNum, myaddr, requestKey, (ulong)ps.valueSize);
         }
-        
+
         var startTime = HiResTimer.Ticks;
         this.Send(msg, ps.serverEps[serverIdx]);
-                
+        
         // Wait for the reply
                 
         while (!receivedReply)
         {
-          byte[] bytes;
-          try
-          {
-            bytes = Receive();
-          }
-          catch (System.Net.Sockets.SocketException)
-          {
+          byte[] bytes = Receive();
+          if (bytes == null) {
             //serverIdx = (serverIdx + 1) % ps.serverEps.Count();
             //Console.WriteLine("#timeout; rotating to server {0}", serverIdx);
-            //Console.WriteLine(e.ToString());
             Console.WriteLine("#timeout; retrying {0}", serverIdx);
+            this.Send(msg, ps.serverEps[serverIdx]);
             continue;
           }
           var endTime = HiResTimer.Ticks;

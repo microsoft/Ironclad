@@ -195,11 +195,8 @@ console:
 Like in IronRSL, the client will print its output to standard output.
 
 Note that until you stop all the SHT servers, each client endpoint is expected
-to use strictly increasing sequence numbers. To keep track of which sequence
-numbers it's used, the client uses a file named port`num` for each port number
-`num`. So, if you run the client multiple times with the same address and port,
-make sure to run both times from the same directory. And note that the client
-uses `nthreads+1` ports, since it needs an additional port for setup.
+to use strictly increasing sequence numbers.  So, you can only run the client
+test program once.
 
 # Custom Replicated Services
 

@@ -32,7 +32,7 @@ namespace IronSHTClient
       initialSeqNum = 0;
       workload = 's';
       numKeys = 1000;
-      valueSize = 1024;
+      valueSize = 1000;
       verbose = false;
     }
 
@@ -121,6 +121,10 @@ namespace IronSHTClient
 
           case "valuesize" :
             valueSize = Convert.ToInt32(value);
+            if (valueSize < 0 || valueSize >= 1024) {
+              Console.WriteLine("Value size must be non-negative and less than 1024, but you specified {0}", valueSize);
+              return false;
+            }
             return true;
 
           case "verbose" :
