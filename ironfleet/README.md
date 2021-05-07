@@ -132,8 +132,8 @@ The first three are the RSL servers, and the latter is the client.  If you use
 `verbose=false`, the client's output will primarily consist of reports of the
 form `#req <thread-ID> <request-number> <time-in-ms>`.
 
-Note also that the servers use non-blocking network receives, so they may be
-slow to respond to Ctrl-C.
+Note that the servers use non-blocking network receives, so they may be slow
+to respond to Ctrl-C.
 
 ## IronRSL - Key-Value Store
 
@@ -162,8 +162,8 @@ The first three are the RSL servers, and the latter is the client.  If you use
 `verbose=false`, the client's output will primarily consist of reports of the
 form `#req <thread-ID> <request-number> <time-in-ms>`.
 
-Note also that the servers use non-blocking network receives, so they may be
-slow to respond to Ctrl-C.
+Note that the servers use non-blocking network receives, so they may be slow
+to respond to Ctrl-C.
 
 ## IronSHT
 
