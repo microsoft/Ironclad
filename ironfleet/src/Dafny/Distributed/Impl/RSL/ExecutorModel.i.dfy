@@ -818,7 +818,7 @@ method ExecutorProcessRequest(cs:ExecutorState, cinp:CPacket, reply_cache_mutabl
   requires cinp.msg.CMessage_Request?
   requires cinp.src in cs.reply_cache
   requires cs.reply_cache[cinp.src].CReply?
-  requires cinp.msg.seqno <= cs.reply_cache[cinp.src].seqno
+  requires cinp.msg.seqno == cs.reply_cache[cinp.src].seqno
   requires MutableMap.MapOf(reply_cache_mutable) == cs.reply_cache
   ensures  OutboundPacketsIsValid(cout)
   ensures  OutboundPacketsHasCorrectSrc(cout, cs.constants.all.config.replica_ids[cs.constants.my_index])
@@ -826,7 +826,7 @@ method ExecutorProcessRequest(cs:ExecutorState, cinp:CPacket, reply_cache_mutabl
   ensures  AbstractifyCPacketToRslPacket(cinp).msg.RslMessage_Request?
   ensures  AbstractifyCPacketToRslPacket(cinp).src in AbstractifyExecutorStateToLExecutor(cs).reply_cache
   ensures  AbstractifyExecutorStateToLExecutor(cs).reply_cache[AbstractifyCPacketToRslPacket(cinp).src].Reply?
-  ensures  AbstractifyCPacketToRslPacket(cinp).msg.seqno_req <= AbstractifyExecutorStateToLExecutor(cs).reply_cache[AbstractifyCPacketToRslPacket(cinp).src].seqno
+  ensures  AbstractifyCPacketToRslPacket(cinp).msg.seqno_req == AbstractifyExecutorStateToLExecutor(cs).reply_cache[AbstractifyCPacketToRslPacket(cinp).src].seqno
   ensures  LExecutorProcessRequest(AbstractifyExecutorStateToLExecutor(cs), AbstractifyCPacketToRslPacket(cinp), AbstractifyOutboundCPacketsToSeqOfRslPackets(cout))
   ensures  OutboundPacketsHasCorrectSrc(cout, cs.constants.all.config.replica_ids[cs.constants.my_index])
 {
@@ -838,26 +838,23 @@ method ExecutorProcessRequest(cs:ExecutorState, cinp:CPacket, reply_cache_mutabl
   assert AbstractifyCReplyCacheToReplyCache(cs.reply_cache)[AbstractifyEndPointToNodeIdentity(cinp.src)] == AbstractifyCReplyToReply(cs.reply_cache[cinp.src]); 
   var contains, cachedReply := reply_cache_mutable.TryGetValue(cinp.src);
   assert contains;
-  if cinp.msg.seqno == cachedReply.seqno {
-    var cr := cachedReply;
-    var msg := CMessage_Reply(cr.seqno, cr.reply);
-    if ShouldPrintProgress() {
-      print("Sending cached reply to client ");
-      print(cr.client.addr);
-      print(":");
-      print(cr.client.port);
-      print(" with sequence number ");
-      print(cr.seqno);
-      print("\n");
-    }
-    cout := OutboundPacket(Some(CPacket(cr.client, cs.constants.all.config.replica_ids[cs.constants.my_index], msg)));
-    assert cinp.src in cs.reply_cache;
-    assert ValidReply(cs.reply_cache[cinp.src]);
-    assert CAppReplyMarshallable(cr.reply);
-    assert OutboundPacketsIsValid(cout);
-  } else {
-    cout := OutboundPacket(None());
+  assert cinp.msg.seqno == cachedReply.seqno;
+  var cr := cachedReply;
+  var msg := CMessage_Reply(cr.seqno, cr.reply);
+  if ShouldPrintProgress() {
+    print("Sending cached reply to client ");
+    print(cr.client.addr);
+    print(":");
+    print(cr.client.port);
+    print(" with sequence number ");
+    print(cr.seqno);
+    print("\n");
   }
+  cout := OutboundPacket(Some(CPacket(cr.client, cs.constants.all.config.replica_ids[cs.constants.my_index], msg)));
+  assert cinp.src in cs.reply_cache;
+  assert ValidReply(cs.reply_cache[cinp.src]);
+  assert CAppReplyMarshallable(cr.reply);
+  assert OutboundPacketsIsValid(cout);
 }
 
 } 

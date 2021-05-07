@@ -28,6 +28,7 @@ import opened LiveRSL__Replica_i
 import opened LiveRSL__ReplicaConstantsState_i
 import opened LiveRSL__ReplicaState_i
 import opened LiveRSL__Types_i
+import opened Logic__Option_i
 
 method InitReplicaState(constants:ReplicaConstantsState) returns (replica:ReplicaState, cur_req_set:MutableSet<CRequestHeader>, prev_req_set:MutableSet<CRequestHeader>, reply_cache_mutable:MutableMap<EndPoint, CReply>)
   requires ReplicaConstantsState_IsValid(constants)
@@ -188,7 +189,7 @@ method ReplicaNextProcessRequestImplCaseCachedOld(
   requires inp.src in MutableMap.MapOf(reply_cache_mutable)
   requires cached_reply == MutableMap.MapOf(reply_cache_mutable)[inp.src]
   requires cached_reply.CReply?
-  requires inp.msg.seqno > cached_reply.seqno
+  requires inp.msg.seqno != cached_reply.seqno
   modifies cur_req_set, prev_req_set, reply_cache_mutable
   ensures  Replica_Next_Process_Request_Postconditions(old(AbstractifyReplicaStateToLReplica(replica)), replica',
                                                        inp, packets_sent)
@@ -201,8 +202,6 @@ method ReplicaNextProcessRequestImplCaseCachedOld(
   ghost var s := AbstractifyReplicaStateToLReplica(replica);
   ghost var received_packet := AbstractifyCPacketToRslPacket(inp);
 
-  assert AbstractifyCReplyToReply(replica.executor.reply_cache[inp.src]) == AbstractifyReplicaStateToLReplica(replica).executor.reply_cache[received_packet.src];
-  assert received_packet.msg.seqno_req > s.executor.reply_cache[received_packet.src].seqno;
   var newProposer := ProposerProcessRequest(replica.proposer, inp, cur_req_set, prev_req_set);
   replica' := replica.(proposer := newProposer);
   packets_sent := Broadcast(CBroadcastNop);
@@ -213,7 +212,7 @@ method ReplicaNextProcessRequestImplCaseCachedOld(
   assert Replica_Next_Process_Request_Postconditions(s, replica', inp, packets_sent);
 }
 
-method ReplicaNextProcessRequestImplCaseCachedFresh(
+method ReplicaNextProcessRequestImplCaseCachedMatchingSeqNo(
   replica:ReplicaState,
   inp:CPacket,
   reply_cache_mutable:MutableMap<EndPoint, CReply>,
@@ -228,7 +227,7 @@ method ReplicaNextProcessRequestImplCaseCachedFresh(
   requires inp.src in MutableMap.MapOf(reply_cache_mutable)
   requires cached_reply == MutableMap.MapOf(reply_cache_mutable)[inp.src]
   requires cached_reply.CReply?
-  requires inp.msg.seqno <= cached_reply.seqno
+  requires inp.msg.seqno == cached_reply.seqno
   ensures  Replica_Next_Process_Request_Postconditions(old(AbstractifyReplicaStateToLReplica(replica)), replica',
                                                        inp, packets_sent)
   ensures  replica' == replica
@@ -244,6 +243,39 @@ method ReplicaNextProcessRequestImplCaseCachedFresh(
   replica' := replica;
   var isCachedTime := Time.GetDebugTimeTicks();
   //RecordTimingSeq("Replica_Next_Process_Request_isCached_ExecutorProcessRequest", start_time, isCachedTime);
+  assert Replica_Next_Process_Request_Postconditions(s, replica', inp, packets_sent);
+}
+
+method ReplicaNextProcessRequestImplCaseCachedRecent(
+  replica:ReplicaState,
+  inp:CPacket,
+  reply_cache_mutable:MutableMap<EndPoint, CReply>,
+  cached_reply:CReply
+  ) returns (
+  replica':ReplicaState,
+  packets_sent:OutboundPackets
+  )
+  requires Replica_Next_Process_Request_Preconditions(replica, inp)
+  requires CAppRequestMarshallable(inp.msg.val)
+  requires replica.executor.reply_cache == MutableMap.MapOf(reply_cache_mutable)
+  requires inp.src in MutableMap.MapOf(reply_cache_mutable)
+  requires cached_reply == MutableMap.MapOf(reply_cache_mutable)[inp.src]
+  requires cached_reply.CReply?
+  requires inp.msg.seqno < cached_reply.seqno
+  ensures  Replica_Next_Process_Request_Postconditions(old(AbstractifyReplicaStateToLReplica(replica)), replica',
+                                                       inp, packets_sent)
+  ensures  replica' == replica
+{
+  //var start_time := Time.GetDebugTimeTicks();
+  lemma_AbstractifyCReplyCacheToReplyCache_properties(replica.executor.reply_cache);
+  ghost var s := AbstractifyReplicaStateToLReplica(replica);
+  ghost var received_packet := AbstractifyCPacketToRslPacket(inp);
+
+  packets_sent := OutboundPacket(None());
+
+  replica' := replica;
+  //var isCachedTime := Time.GetDebugTimeTicks();
+  //RecordTimingSeq("Replica_Next_Process_Request_isCached_Ignore", start_time, isCachedTime);
   assert Replica_Next_Process_Request_Postconditions(s, replica', inp, packets_sent);
 }
 
@@ -282,10 +314,12 @@ method Replica_Next_Process_Request(
       replica', packets_sent := ReplicaNextProcessRequestImplCaseUncached(replica, inp, cur_req_set, prev_req_set, reply_cache_mutable);
     } else if (!cached_reply.CReply?){
       replica', packets_sent := ReplicaNextProcessRequestImplCaseCachedNonReply(replica, inp, cur_req_set, prev_req_set, reply_cache_mutable, cached_reply);
-    } else if (inp.msg.seqno > cached_reply.seqno) {
+    } else if (inp.msg.seqno == cached_reply.seqno) {
+      replica', packets_sent := ReplicaNextProcessRequestImplCaseCachedMatchingSeqNo(replica, inp, reply_cache_mutable, cached_reply);
+    } else if (inp.msg.seqno > cached_reply.seqno || (cached_reply.seqno >= 10 && inp.msg.seqno <= cached_reply.seqno - 10)) {
       replica', packets_sent := ReplicaNextProcessRequestImplCaseCachedOld(replica, inp, cur_req_set, prev_req_set, reply_cache_mutable, cached_reply);
     } else {
-      replica', packets_sent := ReplicaNextProcessRequestImplCaseCachedFresh(replica, inp, reply_cache_mutable, cached_reply);
+      replica', packets_sent := ReplicaNextProcessRequestImplCaseCachedRecent(replica, inp, reply_cache_mutable, cached_reply);
     }
   }
   assert OutboundPacketsIsValid(packets_sent);

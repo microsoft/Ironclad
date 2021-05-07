@@ -531,11 +531,10 @@ namespace IronSHTClient
             if (replyKey == requestKey)
             {
               receivedReply = true;
-              Console.WriteLine("#req{0} {1} {2} {3}",
+              Console.WriteLine("#req {0} {1} {2}",
+                                id,
                                 seqNum,
-                                HiResTimer.TicksToMilliseconds(startTime),
-                                HiResTimer.TicksToMilliseconds(endTime),
-                                id);
+                                HiResTimer.TicksToMilliseconds(endTime - startTime));
             }
           }
           else {

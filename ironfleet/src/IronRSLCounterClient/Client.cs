@@ -82,12 +82,10 @@ namespace IronRSLCounterClient
         if (ps.verbose) {
           Console.WriteLine("Received increment reply with counter {0}", reply.counterValue);
         }
-        // Report time in milliseconds, since that's what the Python script appears to expect
-        Console.WriteLine("#req{0} {1} {2} {3}",
+        Console.WriteLine("#req {0} {1} {2}",
+                          id,
                           requestNum,
-                          HiResTimer.TicksToMilliseconds(startTime),
-                          HiResTimer.TicksToMilliseconds(endTime),
-                          id);
+                          HiResTimer.TicksToMilliseconds(endTime - startTime));
       }
     }
   }

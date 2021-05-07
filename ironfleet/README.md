@@ -128,21 +128,16 @@ of the following four commands in a different console:
   dotnet src/IronRSLCounterClient/bin/Release/net5.0/IronRSLCounterClient.dll nthreads=10 duration=30 clientport=6000 verbose=true
 ```
 
-The first three are the RSL servers, and the latter is the client.  The client's
-output will primarily consist of reports of the time needed for each request.
-
-Note that until you stop all the RSL servers, each client endpoint is expected
-to use strictly increasing sequence numbers. To keep track of which sequence
-numbers it's used, the client uses a file named port`num` for each port number
-`num`. So, if you run the client multiple times with the same address and port,
-make sure to run both times from the same directory.
+The first three are the RSL servers, and the latter is the client.  If you use
+`verbose=false`, the client's output will primarily consist of reports of the
+form `#req <thread-ID> <request-number> <time-in-ms>`.
 
 Note also that the servers use non-blocking network receives, so they may be
 slow to respond to Ctrl-C.
 
-## IronRSL - Key/Value Store
+## IronRSL - Key-Value Store
 
-To run the key/value service replicated with IronRSL, you should ideally use
+To run the key-value service replicated with IronRSL, you should ideally use
 four different machines, but in a pinch you can use four separate windows on
 the same machine. The server executable expects a list of IP-port pairs that
 identifies all of the replicas in the system (in this example we're using 3,
@@ -153,7 +148,7 @@ The client has reasonable defaults that you can override with key=value
 command-line arguments. Run the client with `--help` to get detailed usage
 information. Make sure your firewall isn't blocking the TCP ports you use.
 
-For example, to test the IronRSL key/value store on a single machine, you can
+For example, to test the IronRSL key-value store on a single machine, you can
 run each of the following four commands in a different console:
 
 ```
@@ -163,14 +158,9 @@ run each of the following four commands in a different console:
   dotnet src/IronRSLKVClient/bin/Release/net5.0/IronRSLKVClient.dll nthreads=10 duration=30 clientport=6000 setfraction=0.25 deletefraction=0.05 verbose=true
 ```
 
-The first three are the RSL servers, and the latter is the client.  The client's
-output will primarily consist of reports of the time needed for each request.
-
-Note that until you stop all the RSL servers, each client endpoint is expected
-to use strictly increasing sequence numbers. To keep track of which sequence
-numbers it's used, the client uses a file named port`num` for each port number
-`num`. So, if you run the client multiple times with the same address and port,
-make sure to run both times from the same directory.
+The first three are the RSL servers, and the latter is the client.  If you use
+`verbose=false`, the client's output will primarily consist of reports of the
+form `#req <thread-ID> <request-number> <time-in-ms>`.
 
 Note also that the servers use non-blocking network receives, so they may be
 slow to respond to Ctrl-C.
@@ -192,11 +182,18 @@ console:
   dotnet src/IronSHTClient/bin/Release/net5.0/IronSHTClient.dll nthreads=10 duration=30 workload=g numkeys=10000 client=localhost:6000 verbose=true
 ```
 
-Like in IronRSL, the client will print its output to standard output.
+The client will print its output to standard output.  If you use
+`verbose=false`, the client's output will primarily consist of reports of the
+form `#req <thread-ID> <request-number> <time-in-ms>`.
 
 Note that until you stop all the SHT servers, each client endpoint is expected
-to use strictly increasing sequence numbers.  So, you can only run the client
-test program once.
+to use strictly increasing sequence numbers, starting with 1.  Since the test
+client program always starts with 1, you should never reuse the same client
+endpoint until you restart the SHT servers, and you should keep in mind that
+the client uses `nthreads+1` consecutive ports: one for setup and `nthreads`
+for experiments.  So, for instance, if you use `nthreads=10
+client=localhost:6000`, then the next time you run you could use
+`client=localhost:6011`.
 
 # Custom Replicated Services
 

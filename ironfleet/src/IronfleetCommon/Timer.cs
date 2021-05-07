@@ -19,9 +19,9 @@ namespace IronfleetCommon
       _stopWatch = Stopwatch.StartNew();
     }
 
-    public static long TicksToMilliseconds(long ticks)
+    public static double TicksToMilliseconds(long ticks)
     {
-      return (long)(ticks * 1000.0 / Stopwatch.Frequency);
+      return ticks * 1000.0 / Stopwatch.Frequency;
     }
   }
 }

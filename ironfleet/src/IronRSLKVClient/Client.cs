@@ -96,12 +96,10 @@ namespace IronRSLKVClient
             Console.WriteLine("Value obtained for get was {0}", gfr.Val);
           }
         }
-        // Report time in milliseconds, since that's what the Python script appears to expect
-        Console.WriteLine("#req{0} {1} {2} {3}",
+        Console.WriteLine("#req {0} {1} {2}",
+                          id,
                           requestNum,
-                          HiResTimer.TicksToMilliseconds(startTime),
-                          HiResTimer.TicksToMilliseconds(endTime),
-                          id);
+                          HiResTimer.TicksToMilliseconds(endTime - startTime));
       }
     }
   }
