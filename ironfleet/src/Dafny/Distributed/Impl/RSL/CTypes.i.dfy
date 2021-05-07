@@ -1,19 +1,20 @@
 include "../../Protocol/RSL/Types.i.dfy"
 include "../Common/NodeIdentity.i.dfy"
 include "../../Common/Native/NativeTypes.i.dfy"
-include "AppInterface.i.dfy"
 include "../Common/Util.i.dfy"
 include "../Common/GenericRefinement.i.dfy"
 include "../../Common/Collections/Sets.i.dfy"
+include "AppInterface.i.dfy"
 
 module LiveRSL__CTypes_i {
+import opened AppStateMachine_s
 import opened Native__Io_s
 import opened Native__NativeTypes_s
 import opened Native__NativeTypes_i
 import opened LiveRSL__AppInterface_i
 import opened LiveRSL__Types_i
 import opened Common__NodeIdentity_i
-import opened Common__UdpClient_i
+import opened Common__NetClient_i
 import opened Common__Util_i
 import opened Collections__Maps_i
 import opened Collections__Sets_i
@@ -120,7 +121,7 @@ function AbstractifyCOperationNumberToOperationNumber(opn:COperationNumber) : Op
 }
 
 lemma lemma_AbstractifyCOperationNumberToOperationNumber_isInjective() 
-  ensures forall opn1, opn2 :: COperationNumberIsAbstractable(opn1) && COperationNumberIsAbstractable(opn2) && AbstractifyCOperationNumberToOperationNumber(opn1) == AbstractifyCOperationNumberToOperationNumber(opn2) ==> opn1 == opn2
+  ensures forall opn1, opn2 {:trigger AbstractifyCOperationNumberToOperationNumber(opn1), AbstractifyCOperationNumberToOperationNumber(opn2)} :: COperationNumberIsAbstractable(opn1) && COperationNumberIsAbstractable(opn2) && AbstractifyCOperationNumberToOperationNumber(opn1) == AbstractifyCOperationNumberToOperationNumber(opn2) ==> opn1 == opn2
 {
 }
 
@@ -153,22 +154,22 @@ lemma lemma_AbstractifyCOperationNumbersToOperationNumbers_maintainsSize(copns:s
 //      CRequest
 ////////////////////////////////////////////////
 
-datatype CRequest = CRequest(client:EndPoint, seqno:uint64, request:CAppMessage)
+datatype CRequest = CRequest(client:EndPoint, seqno:uint64, request:CAppRequest)
 
 predicate method ValidRequest(c:CRequest)
 {
-  c.CRequest? ==> EndPointIsValidIPV4(c.client) && ValidAppMessage(c.request)
+  c.CRequest? ==> EndPointIsValidIPV4(c.client) && CAppRequestMarshallable(c.request)
 }
 
 predicate CRequestIsAbstractable(c:CRequest)
 {
-  EndPointIsValidIPV4(c.client) && CAppMessageIsAbstractable(c.request)
+  EndPointIsValidIPV4(c.client) && CAppRequestIsAbstractable(c.request)
 }
 
 function AbstractifyCRequestToRequest(c:CRequest) : Request
   requires CRequestIsAbstractable(c)
 {
-  Request(AbstractifyEndPointToNodeIdentity(c.client), c.seqno as int, AbstractifyCAppMessageToAppMessage(c.request))  
+  Request(AbstractifyEndPointToNodeIdentity(c.client), c.seqno as int, AbstractifyCAppRequestToAppRequest(c.request))  
 }
 
 lemma lemma_AbstractifyCRequestToRequest_isInjective()
@@ -289,22 +290,22 @@ lemma lemma_AbstractifyCRequestBatchToRequestBatch_isInjective()
 //      CReply (Almost identical to CRequest)
 ////////////////////////////////////////////////
 // Not yet in use.  Will be needed for the reply cache.  
-datatype CReply   = CReply  (client:EndPoint, seqno:uint64, reply  :CAppMessage)
+datatype CReply   = CReply  (client:EndPoint, seqno:uint64, reply:CAppReply)
 
 predicate method ValidReply(c:CReply)
 {
-  c.CReply? ==> EndPointIsValidIPV4(c.client) && ValidAppMessage(c.reply)
+  c.CReply? ==> EndPointIsValidIPV4(c.client) && CAppReplyMarshallable(c.reply)
 }
 
 predicate CReplyIsAbstractable(c:CReply)
 {
-  EndPointIsValidIPV4(c.client) && CAppMessageIsAbstractable(c.reply)
+  EndPointIsValidIPV4(c.client) && CAppReplyIsAbstractable(c.reply)
 }
 
 function AbstractifyCReplyToReply(c:CReply) : Reply
-  // requires CReplyIsAbstractable(c)
+  requires CReplyIsAbstractable(c)
 {
-  Reply(AbstractifyEndPointToNodeIdentity(c.client), c.seqno as int, AbstractifyCAppMessageToAppMessage(c.reply))  
+  Reply(AbstractifyEndPointToNodeIdentity(c.client), c.seqno as int, AbstractifyCAppReplyToAppReply(c.reply))
 }
 
 lemma lemma_AbstractifyCReplyToReply_isInjective()

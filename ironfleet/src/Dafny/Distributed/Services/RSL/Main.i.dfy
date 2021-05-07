@@ -14,7 +14,9 @@ import opened DS_s = RSL_DistributedSystem_i
 import opened DirectRefinement__Refinement_i
 import opened Concrete_NodeIdentity_i
 import opened AS_s = AbstractServiceRSL_s
+import opened AppStateMachine_s
 import opened MarshallProof_i
+import opened LiveRSL__AppInterface_i
 import opened LiveRSL__CMessageRefinements_i
 import opened LiveRSL__Configuration_i
 import opened LiveRSL__Constants_i
@@ -26,13 +28,14 @@ import opened LiveRSL__Message_i
 import opened LiveRSL__PacketParsing_i
 import opened LiveRSL__Replica_i
 import opened LiveRSL__Types_i
-import opened LiveRSL__UdpRSL_i
+import opened LiveRSL__NetRSL_i
 import opened LiveRSL__Unsendable_i
 import opened Collections__Maps2_s
 import opened Collections__Sets_i
 import opened Common__GenericMarshalling_i
 import opened Common__NodeIdentity_i
 import opened Common__SeqIsUniqueDef_i
+import opened AbstractServiceRSL_s
 import opened DirectRefinement__StateMachine_i
 import opened Environment_s
 import opened Math__mod_auto_i
@@ -59,7 +62,7 @@ function AbstractifyConcretePacket(p:LPacket<EndPoint,seq<byte>>) : LPacket<Node
 predicate LEnvStepIsAbstractable(step:LEnvStep<EndPoint,seq<byte>>)
 {
   match step {
-    case LEnvStepHostIos(actor, ios) => UdpEventLogIsAbstractable(ios)
+    case LEnvStepHostIos(actor, ios) => NetEventLogIsAbstractable(ios)
     case LEnvStepDeliverPacket(p) => LPacketIsAbstractable(p)
     case LEnvStepAdvanceTime => true
     case LEnvStepStutter => true
@@ -242,7 +245,7 @@ lemma {:timeLimitMultiplier 2} lemma_DsConstantsAllConsistent(config:ConcreteCon
   }
 }
 
-lemma lemma_PacketSentByServerIsMarshallable(
+lemma{:timeLimitMultiplier 4} lemma_PacketSentByServerIsMarshallable(
   config:ConcreteConfiguration,
   db:seq<DS_State>,
   i:int,
@@ -252,7 +255,7 @@ lemma lemma_PacketSentByServerIsMarshallable(
   requires 0 <= i < |db|
   requires p.src in config.config.replica_ids
   requires p in db[i].environment.sentPackets
-  ensures  UdpPacketBound(p.msg)
+  ensures  NetPacketBound(p.msg)
   ensures  Marshallable(PaxosDemarshallData(p.msg))
 {
   if i == 0 {
@@ -275,7 +278,7 @@ lemma lemma_PacketSentByServerIsMarshallable(
   assert db[i-1].environment.nextStep.actor == p.src;
   assert DS_NextOneServer(db[i-1], db[i], p.src, ios);
   assert OnlySentMarshallableData(ios);
-  assert UdpPacketBound(io.s.msg);
+  assert NetPacketBound(io.s.msg);
   assert Marshallable(PaxosDemarshallData(io.s.msg));
 }
 
@@ -307,25 +310,25 @@ lemma lemma_SentPacketIsValidPhysicalPacket(
   assert ValidPhysicalEnvironmentStep(db[i-1].environment.nextStep);
 }
 
-lemma lemma_UdpEventIsAbstractable(
+lemma lemma_NetEventIsAbstractable(
   config:ConcreteConfiguration,
   db:seq<DS_State>,
   i:int,
-  udp_event:UdpEvent
+  net_event:NetEvent
   )
   requires IsValidBehavior(config, db)
   requires 0 <= i < |db| - 1
   requires db[i].environment.nextStep.LEnvStepHostIos?
-  requires udp_event in db[i].environment.nextStep.ios
-  ensures  UdpEventIsAbstractable(udp_event)
+  requires net_event in db[i].environment.nextStep.ios
+  ensures  NetEventIsAbstractable(net_event)
 {
-  if udp_event.LIoOpTimeoutReceive? || udp_event.LIoOpReadClock? {
+  if net_event.LIoOpTimeoutReceive? || net_event.LIoOpReadClock? {
     return;
   }
 
   lemma_DeduceTransitionFromDsBehavior(config, db, i);
   assert ValidPhysicalEnvironmentStep(db[i].environment.nextStep);
-  assert ValidPhysicalIo(udp_event);
+  assert ValidPhysicalIo(net_event);
 }
 
 lemma lemma_DsIsAbstractable(config:ConcreteConfiguration, db:seq<DS_State>, i:int)
@@ -350,11 +353,11 @@ lemma lemma_DsIsAbstractable(config:ConcreteConfiguration, db:seq<DS_State>, i:i
   var step := db[i].environment.nextStep;
   if step.LEnvStepHostIos? {
     forall io | io in step.ios
-      ensures UdpEventIsAbstractable(io)
+      ensures NetEventIsAbstractable(io)
     {
-      lemma_UdpEventIsAbstractable(config, db, i, io);
+      lemma_NetEventIsAbstractable(config, db, i, io);
     }
-    assert UdpEventLogIsAbstractable(step.ios);
+    assert NetEventLogIsAbstractable(step.ios);
   }
   else if step.LEnvStepDeliverPacket? {
     lemma_DeduceTransitionFromDsBehavior(config, db, i);
@@ -366,7 +369,7 @@ lemma lemma_DsIsAbstractable(config:ConcreteConfiguration, db:seq<DS_State>, i:i
 
 lemma lemma_IosRelations(ios:seq<LIoOp<EndPoint, seq<byte>>>, r_ios:seq<LIoOp<NodeIdentity, RslMessage>>)
         returns (sends:set<LPacket<EndPoint, seq<byte>>>, r_sends:set<LPacket<NodeIdentity, RslMessage>>)
-  requires UdpEventLogIsAbstractable(ios)
+  requires NetEventLogIsAbstractable(ios)
   requires forall io :: io in ios && io.LIoOpSend? ==> LPacketIsAbstractable(io.s)
   requires r_ios == AbstractifyRawLogToIos(ios)
   ensures    sends == (set io | io in ios && io.LIoOpSend? :: io.s)
@@ -383,7 +386,7 @@ lemma lemma_IosRelations(ios:seq<LIoOp<EndPoint, seq<byte>>>, r_ios:seq<LIoOp<No
   {
     var send :| send in sends && AbstractifyConcretePacket(send) == r;
     var io :| io in ios && io.LIoOpSend? && io.s == send;
-    assert AbstractifyUdpEventToRslIo(io) in r_ios;
+    assert AbstractifyNetEventToRslIo(io) in r_ios;
   }
 
   forall r | r in r_sends
@@ -391,7 +394,7 @@ lemma lemma_IosRelations(ios:seq<LIoOp<EndPoint, seq<byte>>>, r_ios:seq<LIoOp<No
   {
     var r_io :| r_io in r_ios && r_io.LIoOpSend? && r_io.s == r;
     var j :| 0 <= j < |r_ios| && r_ios[j] == r_io;
-    assert AbstractifyUdpEventToRslIo(ios[j]) == r_io;
+    assert AbstractifyNetEventToRslIo(ios[j]) == r_io;
     assert ios[j] in ios;
     assert ios[j].s in sends;
   }
@@ -414,7 +417,7 @@ lemma lemma_IsValidEnvStep(de:LEnvironment<EndPoint, seq<byte>>, le:LEnvironment
     ensures IsValidLIoOp(io, id, le)
   {
     var j :| 0 <= j < |r_ios| && r_ios[j] == io;
-    assert r_ios[j] == AbstractifyUdpEventToRslIo(ios[j]);
+    assert r_ios[j] == AbstractifyNetEventToRslIo(ios[j]);
     assert IsValidLIoOp(ios[j], id, de);
   }
 }
@@ -453,12 +456,14 @@ lemma lemma_RefinementOfUnsendablePacketHasLimitedPossibilities(
   requires g == CMessage_grammar()
   requires ValidGrammar(g)
   requires !Demarshallable(p.msg, g) || !Marshallable(parse_Message(DemarshallFunc(p.msg, g)))
-  requires UdpPacketIsAbstractable(p)
-  requires rp == AbstractifyUdpPacketToRslPacket(p)
+  requires NetPacketIsAbstractable(p)
+  requires rp == AbstractifyNetPacketToRslPacket(p)
   ensures  || rp.msg.RslMessage_Invalid?
+           || rp.msg.RslMessage_Request?
            || rp.msg.RslMessage_1b?
            || rp.msg.RslMessage_2a?
            || rp.msg.RslMessage_2b?
+           || rp.msg.RslMessage_Reply?
            || rp.msg.RslMessage_AppStateSupply?
 {
 }
@@ -486,6 +491,45 @@ lemma lemma_IgnoringInvalidMessageIsLSchedulerNext(
   var sent_packets := ExtractSentPacketsFromIos(ios);
   lemma_IgnoringUnsendableGivesEmptySentPackets(ios);
   assert LReplicaNextProcessInvalid(s.replica, s'.replica, ios[0].r, sent_packets);
+  assert LReplicaNextProcessPacketWithoutReadingClock(s.replica, s'.replica, ios);
+  assert LReplicaNextProcessPacket(s.replica, s'.replica, ios);
+}
+
+lemma lemma_IgnoringInvalidRequestIsLSchedulerNext(
+  s:LScheduler,
+  s':LScheduler,
+  ios:seq<RslIo>
+  )
+  requires s.nextActionIndex == 0
+  requires s' == s.(nextActionIndex := (s.nextActionIndex + 1) % LReplicaNumActions())
+  requires |ios| == 1
+  requires ios[0].LIoOpReceive?
+  requires ios[0].r.msg.RslMessage_Request?
+  requires !CAppRequestMarshallable(ios[0].r.msg.val)
+  ensures  LSchedulerNext(s, s', ios)
+{
+  var sent_packets := ExtractSentPacketsFromIos(ios);
+  lemma_IgnoringUnsendableGivesEmptySentPackets(ios);
+  assert LReplicaNextProcessRequest(s.replica, s'.replica, ios[0].r, sent_packets);
+  assert LReplicaNextProcessPacketWithoutReadingClock(s.replica, s'.replica, ios);
+  assert LReplicaNextProcessPacket(s.replica, s'.replica, ios);
+}
+
+lemma lemma_IgnoringReplyIsLSchedulerNext(
+  s:LScheduler,
+  s':LScheduler,
+  ios:seq<RslIo>
+  )
+  requires s.nextActionIndex == 0
+  requires s' == s.(nextActionIndex := (s.nextActionIndex + 1) % LReplicaNumActions())
+  requires |ios| == 1
+  requires ios[0].LIoOpReceive?
+  requires ios[0].r.msg.RslMessage_Reply?
+  ensures  LSchedulerNext(s, s', ios)
+{
+  var sent_packets := ExtractSentPacketsFromIos(ios);
+  lemma_IgnoringUnsendableGivesEmptySentPackets(ios);
+  assert LReplicaNextProcessReply(s.replica, s'.replica, ios[0].r, sent_packets);
   assert LReplicaNextProcessPacketWithoutReadingClock(s.replica, s'.replica, ios);
   assert LReplicaNextProcessPacket(s.replica, s'.replica, ios);
 }
@@ -538,11 +582,11 @@ lemma lemma_HostNextIgnoreUnsendableIsLSchedulerNext(
   requires LEnvironment_Next(db[i].environment, db[i+1].environment)
   requires ValidPhysicalEnvironmentStep(db[i].environment.nextStep)
   requires HostNextIgnoreUnsendable(db[i].servers[id].sched, db[i+1].servers[id].sched, ios)
-  requires UdpEventLogIsAbstractable(ios)
+  requires NetEventLogIsAbstractable(ios)
   ensures  LSchedulerNext(db[i].servers[id].sched, db[i+1].servers[id].sched, AbstractifyRawLogToIos(ios))
 {
   var p := ios[0].r;
-  var rp := AbstractifyUdpPacketToRslPacket(p);
+  var rp := AbstractifyNetPacketToRslPacket(p);
   var g := CMessage_grammar();
   assert !Demarshallable(p.msg, g) || !Marshallable(parse_Message(DemarshallFunc(p.msg, g)));
   assert IsValidLIoOp(ios[0], id, db[i].environment);
@@ -553,7 +597,7 @@ lemma lemma_HostNextIgnoreUnsendableIsLSchedulerNext(
     assert false;
   }
 
-  lemma_UdpEventIsAbstractable(config, db, i, ios[0]);
+  lemma_NetEventIsAbstractable(config, db, i, ios[0]);
   lemma_CMessageGrammarValid();
   assert ValidPhysicalIo(ios[0]);
   assert |p.msg| < 0x1_0000_0000_0000_0000;
@@ -578,6 +622,12 @@ lemma lemma_HostNextIgnoreUnsendableIsLSchedulerNext(
 
   if rp.msg.RslMessage_Invalid? {
     lemma_IgnoringInvalidMessageIsLSchedulerNext(s, s', rios);
+  }
+  else if rp.msg.RslMessage_Request? {
+    lemma_IgnoringInvalidRequestIsLSchedulerNext(s, s', rios);
+  }
+  else if rp.msg.RslMessage_Reply? {
+    lemma_IgnoringReplyIsLSchedulerNext(s, s', rios);
   }
   else {
     lemma_DsConsistency(config, db, i);
@@ -691,6 +741,13 @@ lemma lemma_GetImplBehaviorRefinement(config:ConcreteConfiguration, db:seq<DS_St
     {
       reveal SeqIsUnique();
     }
+
+    forall i | 0 <= i < |db|
+      ensures DsStateIsAbstractable(db[i]) && protocol_behavior[i] == AbstractifyDsState(db[i])
+    {
+      assert i == 0;
+    }
+      
   } else {
     lemma_DsConsistency(config, db, |db|-1);
     lemma_DeduceTransitionFromDsBehavior(config, db, |db|-2);
@@ -747,36 +804,36 @@ lemma lemma_GetImplBehaviorRefinement(config:ConcreteConfiguration, db:seq<DS_St
   }
 }
 
-function RenameToAppRequest(request:Request) : AppRequest
+function RenameToAppRequestMessage(request:Request) : AppRequestMessage
 {
-  AppRequest(request.client, request.seqno, request.request)
+  AppRequestMessage(request.client, request.seqno, request.request)
 }
 
-function RenameToAppReply(reply:Reply) : AppReply
+function RenameToAppReplyMessage(reply:Reply) : AppReplyMessage
 {
-  AppReply(reply.client, reply.seqno, reply.reply)
+  AppReplyMessage(reply.client, reply.seqno, reply.reply)
 }
 
-function RenameToAppRequests(requests:set<Request>) : set<AppRequest>
+function RenameToAppRequestMessages(requests:set<Request>) : set<AppRequestMessage>
 {
-  set r | r in requests :: RenameToAppRequest(r)
+  set r | r in requests :: RenameToAppRequestMessage(r)
 }
 
-function RenameToAppReplies(replies:set<Reply>) : set<AppReply>
+function RenameToAppReplies(replies:set<Reply>) : set<AppReplyMessage>
 {
-  set r | r in replies :: RenameToAppReply(r)
+  set r | r in replies :: RenameToAppReplyMessage(r)
 }
 
-function RenameToAppBatch(batch:seq<Request>) : seq<AppRequest>
+function RenameToAppBatch(batch:seq<Request>) : seq<AppRequestMessage>
   ensures |RenameToAppBatch(batch)| == |batch|
-  ensures forall i :: 0 <= i < |batch| ==> RenameToAppBatch(batch)[i] == RenameToAppRequest(batch[i])
+  ensures forall i :: 0 <= i < |batch| ==> RenameToAppBatch(batch)[i] == RenameToAppRequestMessage(batch[i])
 {
-  if |batch| == 0 then [] else RenameToAppBatch(all_but_last(batch)) + [RenameToAppRequest(last(batch))]
+  if |batch| == 0 then [] else RenameToAppBatch(all_but_last(batch)) + [RenameToAppRequestMessage(last(batch))]
 }
 
 function RenameToServiceState(rs:RSLSystemState) : ServiceState
 {
-  ServiceState'(rs.server_addresses, rs.app, RenameToAppRequests(rs.requests), RenameToAppReplies(rs.replies))
+  ServiceState'(rs.server_addresses, rs.app, RenameToAppRequestMessages(rs.requests), RenameToAppReplies(rs.replies))
 }
 
 function RenameToServiceStates(rs:seq<RSLSystemState>) : seq<ServiceState>
@@ -846,7 +903,40 @@ lemma lemma_RslSystemNextImpliesServiceNext(
   assert StateSequenceReflectsBatchExecution(s, s', intermediate_states_renamed, batch_renamed);
 }
 
-lemma lemma_RefinementProofForFixedBehavior(config:ConcreteConfiguration, db:seq<DS_State>) returns (sb:seq<ServiceState>)
+lemma lemma_RequestSizeBounded(server_addresses:set<NodeIdentity>, rb:seq<RSLSystemState>, pos:int)
+  requires |rb| > 0
+  requires RslSystemInit(rb[0], server_addresses)
+  requires forall i {:trigger RslSystemNext(rb[i], rb[i+1])} :: 0 <= i < |rb| - 1 ==> rb[i] == rb[i+1] || RslSystemNext(rb[i], rb[i+1])
+  requires 0 <= pos < |rb|
+  ensures  forall req :: req in rb[pos].requests ==> |req.request| <= MaxAppRequestSize()
+{
+  if pos == 0 {
+    return;
+  }
+
+  var prev := pos - 1;
+  assert rb[pos] == rb[prev] || RslSystemNext(rb[prev], rb[prev+1]);
+  lemma_RequestSizeBounded(server_addresses, rb, prev);
+  if (rb[pos] == rb[prev]) {
+    return;
+  }
+
+  var s := rb[prev];
+  var s' := rb[prev+1];
+  var intermediate_states:seq<RSLSystemState>, batch:seq<Request> :|
+    RslStateSequenceReflectsBatchExecution(s, s', intermediate_states, batch);
+  var which_req := 0;
+  while which_req < |batch|
+    invariant 0 <= which_req <= |batch|
+    invariant forall req :: req in intermediate_states[which_req].requests ==> |req.request| <= MaxAppRequestSize()
+  {
+    assert RslSystemNextServerExecutesRequest(intermediate_states[which_req], intermediate_states[which_req+1], batch[which_req]);
+    which_req := which_req + 1;
+  }
+}
+
+lemma{:timeLimitMultiplier 4} lemma_RefinementProofForFixedBehavior(config:ConcreteConfiguration, db:seq<DS_State>)
+  returns (sb:seq<ServiceState>)
   requires IsValidBehavior(config, db)
   requires last(db).environment.nextStep.LEnvStepStutter?
   ensures  |db| == |sb|
@@ -879,7 +969,7 @@ lemma lemma_RefinementProofForFixedBehavior(config:ConcreteConfiguration, db:seq
     assert RenameToServiceState(rsl) == serviceState;
 
     forall p, seqno, reply | p in concretePkts && p.src in serviceState.serverAddresses && p.msg == MarshallServiceReply(seqno, reply)
-      ensures AppReply(p.dst, seqno, reply) in serviceState.replies;
+      ensures AppReplyMessage(p.dst, seqno, reply) in serviceState.replies;
     {
       var abstract_p := AbstractifyConcretePacket(p);
       lemma_ServiceStateServerAddressesNeverChange(sb, server_addresses, i);
@@ -891,8 +981,8 @@ lemma lemma_RefinementProofForFixedBehavior(config:ConcreteConfiguration, db:seq
       assert abstract_p in ps.environment.sentPackets && abstract_p.src in rsl.server_addresses && abstract_p.msg.RslMessage_Reply?;
       var r := Reply(abstract_p.dst, abstract_p.msg.seqno_reply, abstract_p.msg.reply);
       assert r in rsl.replies;
-      var service_reply := RenameToAppReply(r);
-      assert service_reply == AppReply(p.dst, seqno, reply);
+      var service_reply := RenameToAppReplyMessage(r);
+      assert service_reply == AppReplyMessage(p.dst, seqno, reply);
       assert service_reply in serviceState.replies;
     }
 
@@ -901,11 +991,14 @@ lemma lemma_RefinementProofForFixedBehavior(config:ConcreteConfiguration, db:seq
                                      && p.msg == MarshallServiceRequest(req.seqno, req.request)
                                      && p.src == req.client
     {
-      var r_req :| r_req in rsl.requests && RenameToAppRequest(r_req) == req;
+      var r_req :| r_req in rsl.requests && RenameToAppRequestMessage(r_req) == req;
       var abstract_p :| && abstract_p in ps.environment.sentPackets
                         && abstract_p.dst in rsl.server_addresses
                         && abstract_p.msg.RslMessage_Request?
                         && r_req == Request(abstract_p.src, abstract_p.msg.seqno_req, abstract_p.msg.val);
+
+      lemma_RequestSizeBounded(server_addresses, rs, i);
+      assert |r_req.request| <= MaxAppRequestSize();
 
       assert ps.environment.sentPackets == AbstractifyConcreteSentPackets(concretePkts);
       var concrete_p :| concrete_p in concretePkts && AbstractifyConcretePacket(concrete_p) == abstract_p;

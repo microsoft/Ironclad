@@ -5,7 +5,7 @@ include "ReplicaModel.i.dfy"
 include "ReplicaImplLemmas.i.dfy"
 include "ReplicaImplClass.i.dfy"
 include "ReplicaImplDelivery.i.dfy"
-include "UdpRSL.i.dfy"
+include "NetRSL.i.dfy"
 include "CClockReading.i.dfy"
 
 module LiveRSL__ReplicaImplReadClock_i {
@@ -29,19 +29,19 @@ import opened LiveRSL__ReplicaImplClass_i
 import opened LiveRSL__ReplicaImplDelivery_i
 import opened LiveRSL__ReplicaState_i
 import opened LiveRSL__Types_i
-import opened LiveRSL__UdpRSL_i
+import opened LiveRSL__NetRSL_i
 import opened Environment_s
-import opened Common__UdpClient_i
+import opened Common__NetClient_i
 
 lemma lemma_ReplicaNextReadClockAndProcessPacketHelper(
-  old_history:seq<UdpEvent>,
-  pre_clock_history:seq<UdpEvent>,
-  pre_delivery_history:seq<UdpEvent>,
-  final_history:seq<UdpEvent>,
-  receive_event:UdpEvent,
-  clock_event:UdpEvent,
-  send_events:seq<UdpEvent>,
-  all_events:seq<UdpEvent>,
+  old_history:seq<NetEvent>,
+  pre_clock_history:seq<NetEvent>,
+  pre_delivery_history:seq<NetEvent>,
+  final_history:seq<NetEvent>,
+  receive_event:NetEvent,
+  clock_event:NetEvent,
+  send_events:seq<NetEvent>,
+  all_events:seq<NetEvent>,
   receive_io:RslIo,
   clock_io:RslIo,
   send_ios:seq<RslIo>,
@@ -52,10 +52,10 @@ lemma lemma_ReplicaNextReadClockAndProcessPacketHelper(
   requires pre_delivery_history == pre_clock_history + [clock_event]
   requires final_history == pre_delivery_history + send_events
   requires all_events == [receive_event, clock_event] + send_events
-  requires UdpEventIsAbstractable(receive_event)
-  requires receive_io == AbstractifyUdpEventToRslIo(receive_event)
-  requires UdpEventIsAbstractable(clock_event)
-  requires clock_io == AbstractifyUdpEventToRslIo(clock_event)
+  requires NetEventIsAbstractable(receive_event)
+  requires receive_io == AbstractifyNetEventToRslIo(receive_event)
+  requires NetEventIsAbstractable(clock_event)
+  requires clock_io == AbstractifyNetEventToRslIo(clock_event)
   requires RawIoConsistentWithSpecIO(send_events, send_ios)
   requires all_events == [receive_event, clock_event] + send_events
   requires ios_head == [receive_io, clock_io]
@@ -95,24 +95,24 @@ lemma lemma_ReplicaNextReadClockAndProcessPacketHelper(
 method {:fuel ReplicaStateIsValid,0,0} {:timeLimitMultiplier 3} Replica_Next_ReadClockAndProcessPacket(
   r:ReplicaImpl,
   cpacket:CPacket,
-  ghost old_udp_history:seq<UdpEvent>,
-  ghost receive_event:UdpEvent,
+  ghost old_net_history:seq<NetEvent>,
+  ghost receive_event:NetEvent,
   ghost receive_io:RslIo
   ) returns (
   ok:bool,
-  ghost udp_event_log:seq<UdpEvent>,
+  ghost net_event_log:seq<NetEvent>,
   ghost ios:seq<RslIo>
   )
   requires r.Valid()
   requires CPaxosConfigurationIsValid(r.replica.constants.all.config)
   requires r.ReceivedPacketProperties(cpacket, receive_event, receive_io)
-  requires r.Env().udp.history() == old_udp_history + [receive_event]
+  requires r.Env().net.history() == old_net_history + [receive_event]
   requires cpacket.msg.CMessage_Heartbeat?
   requires Replica_Next_Process_Heartbeat_Preconditions(r.replica, cpacket)
   modifies r.Repr, r.cur_req_set, r.prev_req_set
   ensures r.Repr==old(r.Repr)
-  ensures r.udpClient != null
-  ensures ok == UdpClientOk(r.udpClient)
+  ensures r.netClient != null
+  ensures ok == NetClientOk(r.netClient)
   ensures r.Env() == old(r.Env());
   ensures ok ==>
             && r.Valid()
@@ -120,29 +120,29 @@ method {:fuel ReplicaStateIsValid,0,0} {:timeLimitMultiplier 3} Replica_Next_Rea
             && LReplica_Next_ReadClockAndProcessPacket_preconditions(ios)
             && ios[0] == receive_io
             && Q_LReplica_Next_ProcessPacket(old(r.AbstractifyToLReplica()), r.AbstractifyToLReplica(), ios)
-            && RawIoConsistentWithSpecIO(udp_event_log, ios)
-            && OnlySentMarshallableData(udp_event_log)
-            && old_udp_history + udp_event_log == r.Env().udp.history()
+            && RawIoConsistentWithSpecIO(net_event_log, ios)
+            && OnlySentMarshallableData(net_event_log)
+            && old_net_history + net_event_log == r.Env().net.history()
 {
   var old_r_AbstractifyToLReplica := old(r.AbstractifyToLReplica());
-  var clock, clock_event := ReadClock(r.udpClient);
+  var clock, clock_event := ReadClock(r.netClient);
   ghost var clock_io := LIoOpReadClock(clock.t as int);
   assert clock.t as int == clock_event.t; // OBSERVE uint64
-  assert clock_io == AbstractifyUdpEventToRslIo(clock_event);
+  assert clock_io == AbstractifyNetEventToRslIo(clock_event);
 
   var sent_packets;
   r.replica, sent_packets := Replica_Next_Process_Heartbeat(r.replica, cpacket, clock.t, r.cur_req_set, r.prev_req_set);
 
   ghost var send_events, send_ios;
-  ghost var pre_delivery_history := r.Env().udp.history();
+  ghost var pre_delivery_history := r.Env().net.history();
   ok, send_events, send_ios := DeliverOutboundPackets(r, sent_packets);
   if (!ok) { return; }
   ghost var ios_head := [receive_io, clock_io];
   ios := ios_head + send_ios;
-  udp_event_log := [receive_event, clock_event] + send_events;
+  net_event_log := [receive_event, clock_event] + send_events;
 
-  lemma_ReplicaNextReadClockAndProcessPacketHelper(old_udp_history, old(r.Env().udp.history()), pre_delivery_history,
-                                                   r.Env().udp.history(), receive_event, clock_event, send_events, udp_event_log,
+  lemma_ReplicaNextReadClockAndProcessPacketHelper(old_net_history, old(r.Env().net.history()), pre_delivery_history,
+                                                   r.Env().net.history(), receive_event, clock_event, send_events, net_event_log,
                                                    receive_io, clock_io, send_ios, ios_head, ios);
 
   assert LReplica_Next_ReadClockAndProcessPacket_preconditions(ios);

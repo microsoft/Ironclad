@@ -41,7 +41,7 @@ method ReplicaNextProcess1bIgnore(replica:ReplicaState, inp:CPacket) returns (re
   requires || inp.src !in replica.proposer.constants.all.config.replica_ids
            || inp.msg.bal_1b != replica.proposer.max_ballot_i_sent_1a
            || replica.proposer.current_state != 1
-  ensures  Replica_Next_Process_1b_Postconditions(replica, replica', inp, packets_sent)
+  ensures  Replica_Next_Process_1b_Postconditions(old(AbstractifyReplicaStateToLReplica(replica)), replica', inp, packets_sent)
   ensures  replica' == replica
 {
   /*
@@ -69,7 +69,7 @@ method ReplicaNextProcess1bAlreadyHave1bFromSource(
   )
   requires Replica_Next_Process_1b_Preconditions(replica, inp)
   requires !(forall other_packet :: other_packet in replica.proposer.received_1b_packets ==> other_packet.src != inp.src)
-  ensures  Replica_Next_Process_1b_Postconditions(replica, replica', inp, packets_sent)
+  ensures  Replica_Next_Process_1b_Postconditions(old(AbstractifyReplicaStateToLReplica(replica)), replica', inp, packets_sent)
   ensures  replica' == replica
 {
   lemma_AbstractifyEndPointsToNodeIdentities_properties(replica.constants.all.config.replica_ids);
@@ -84,7 +84,7 @@ method ReplicaNextProcess1bActual(replica:ReplicaState, inp:CPacket) returns (re
   requires inp.msg.bal_1b == replica.proposer.max_ballot_i_sent_1a
   requires replica.proposer.current_state == 1
   requires forall other_packet :: other_packet in replica.proposer.received_1b_packets ==> other_packet.src != inp.src
-  ensures  Replica_Next_Process_1b_Postconditions(replica, replica', inp, packets_sent)
+  ensures  Replica_Next_Process_1b_Postconditions(old(AbstractifyReplicaStateToLReplica(replica)), replica', inp, packets_sent)
   ensures  replica'.proposer.election_state.cur_req_set == replica.proposer.election_state.cur_req_set
   ensures  replica'.proposer.election_state.prev_req_set == replica.proposer.election_state.prev_req_set
   ensures  replica'.executor.reply_cache == replica.executor.reply_cache
@@ -105,7 +105,7 @@ method ReplicaNextProcess1bActual(replica:ReplicaState, inp:CPacket) returns (re
 
 method Replica_Next_Process_1b(replica:ReplicaState, inp:CPacket) returns (replica':ReplicaState, packets_sent:OutboundPackets)
   requires Replica_Next_Process_1b_Preconditions(replica, inp)
-  ensures  Replica_Next_Process_1b_Postconditions(replica, replica', inp, packets_sent)
+  ensures  Replica_Next_Process_1b_Postconditions(old(AbstractifyReplicaStateToLReplica(replica)), replica', inp, packets_sent)
   ensures  replica'.proposer.election_state.cur_req_set == replica.proposer.election_state.cur_req_set
   ensures  replica'.proposer.election_state.prev_req_set == replica.proposer.election_state.prev_req_set
   ensures  replica'.executor.reply_cache == replica.executor.reply_cache
@@ -136,7 +136,7 @@ method Replica_Next_Process_1b(replica:ReplicaState, inp:CPacket) returns (repli
 
 method Replica_Next_Process_StartingPhase2(replica:ReplicaState, inp:CPacket) returns (replica':ReplicaState, packets_sent:OutboundPackets)
   requires Replica_Next_Process_StartingPhase2_Preconditions(replica, inp)
-  ensures Replica_Next_Process_StartingPhase2_Postconditions(replica, replica', inp, packets_sent)
+  ensures Replica_Next_Process_StartingPhase2_Postconditions(old(AbstractifyReplicaStateToLReplica(replica)), replica', inp, packets_sent)
   ensures replica'.proposer.election_state.cur_req_set == replica.proposer.election_state.cur_req_set
   ensures replica'.proposer.election_state.prev_req_set == replica.proposer.election_state.prev_req_set
   ensures  replica'.executor.reply_cache == replica.executor.reply_cache
@@ -157,7 +157,7 @@ method ReplicaNextProcess2aIgnore(replica:ReplicaState, inp:CPacket) returns (re
   requires || inp.src !in replica.acceptor.constants.all.config.replica_ids
            || !BalLeq(AbstractifyCBallotToBallot(replica.acceptor.maxBallot), AbstractifyCBallotToBallot(inp.msg.bal_2a))
            || inp.msg.opn_2a.n > replica.acceptor.constants.all.params.max_integer_val
-  ensures  Replica_Next_Process_2a_Postconditions(replica, replica', inp, packets_sent)
+  ensures  Replica_Next_Process_2a_Postconditions(old(AbstractifyReplicaStateToLReplica(replica)), replica', inp, packets_sent)
   ensures  replica' == replica
 {
   replica' := replica;
@@ -170,7 +170,7 @@ method ReplicaNextProcess2aActual(replica:ReplicaState, inp:CPacket) returns (re
   requires inp.src in replica.acceptor.constants.all.config.replica_ids
   requires BalLeq(AbstractifyCBallotToBallot(replica.acceptor.maxBallot), AbstractifyCBallotToBallot(inp.msg.bal_2a))
   requires inp.msg.opn_2a.n <= replica.acceptor.constants.all.params.max_integer_val
-  ensures  Replica_Next_Process_2a_Postconditions(replica, replica', inp, packets_sent)
+  ensures  Replica_Next_Process_2a_Postconditions(old(AbstractifyReplicaStateToLReplica(replica)), replica', inp, packets_sent)
   ensures  replica'.proposer.election_state.cur_req_set == replica.proposer.election_state.cur_req_set
   ensures  replica'.proposer.election_state.prev_req_set == replica.proposer.election_state.prev_req_set
   ensures  replica'.executor.reply_cache == replica.executor.reply_cache
@@ -191,7 +191,7 @@ method ReplicaNextProcess2aActual(replica:ReplicaState, inp:CPacket) returns (re
 
 method Replica_Next_Process_2a(replica:ReplicaState, inp:CPacket) returns (replica':ReplicaState, packets_sent:OutboundPackets)
   requires Replica_Next_Process_2a_Preconditions(replica, inp)
-  ensures  Replica_Next_Process_2a_Postconditions(replica, replica', inp, packets_sent)
+  ensures  Replica_Next_Process_2a_Postconditions(old(AbstractifyReplicaStateToLReplica(replica)), replica', inp, packets_sent)
   ensures  replica'.proposer.election_state.cur_req_set == replica.proposer.election_state.cur_req_set
   ensures  replica'.proposer.election_state.prev_req_set == replica.proposer.election_state.prev_req_set
   ensures  replica'.executor.reply_cache == replica.executor.reply_cache

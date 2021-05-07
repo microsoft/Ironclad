@@ -16,20 +16,20 @@
 
 include "../../Common/Framework/AbstractService.s.dfy"
 include "../../Common/Collections/Seqs.s.dfy"
-include "AppStateMachine.i.dfy"
+include "AppStateMachine.s.dfy"
 
 module AbstractServiceRSL_s refines AbstractService_s {
-import opened AppStateMachine_i
+import opened AppStateMachine_s
 import opened Collections__Seqs_s
     
-datatype AppRequest = AppRequest(client:EndPoint, seqno:int, request:AppMessage)
-datatype AppReply   = AppReply(client:EndPoint, seqno:int, reply:AppMessage)
+datatype AppRequestMessage = AppRequestMessage(client:EndPoint, seqno:int, request:AppRequest)
+datatype AppReplyMessage   = AppReplyMessage(client:EndPoint, seqno:int, reply:AppReply)
 
 datatype ServiceState' = ServiceState'(
   serverAddresses:set<EndPoint>,
   app:AppState,
-  requests:set<AppRequest>,
-  replies:set<AppReply>
+  requests:set<AppRequestMessage>,
+  replies:set<AppReplyMessage>
   )
 
 type ServiceState = ServiceState'
@@ -42,15 +42,17 @@ predicate Service_Init(s:ServiceState, serverAddresses:set<EndPoint>)
   && s.replies == {}
 }
 
-predicate ServiceExecutesAppRequest(s:ServiceState, s':ServiceState, req:AppRequest)
+predicate ServiceExecutesAppRequest(s:ServiceState, s':ServiceState, req:AppRequestMessage)
 {
+  && |req.request| <= MaxAppRequestSize()
   && s'.serverAddresses == s.serverAddresses
   && s'.requests == s.requests + { req }
   && s'.app == AppHandleRequest(s.app, req.request).0
-  && s'.replies == s.replies + { AppReply(req.client, req.seqno, AppHandleRequest(s.app, req.request).1) }
+  && s'.replies == s.replies + { AppReplyMessage(req.client, req.seqno, AppHandleRequest(s.app, req.request).1) }
 }
 
-predicate StateSequenceReflectsBatchExecution(s:ServiceState, s':ServiceState, intermediate_states:seq<ServiceState>, batch:seq<AppRequest>)
+predicate StateSequenceReflectsBatchExecution(s:ServiceState, s':ServiceState, intermediate_states:seq<ServiceState>,
+                                              batch:seq<AppRequestMessage>)
 {
   && |intermediate_states| == |batch| + 1
   && intermediate_states[0] == s
@@ -75,22 +77,24 @@ function Uint64ToBytes(u:uint64) : seq<byte>
    ( u                    %0x100) as byte]
 }
 
-function MarshallServiceRequest(seqno:int, request:AppMessage) : seq<byte>
+function MarshallServiceRequest(seqno:int, request:AppRequest) : seq<byte>
 {
-  if 0 <= seqno < 0x1_0000_0000_0000_0000 then
+  if 0 <= seqno < 0x1_0000_0000_0000_0000 && |request| <= MaxAppRequestSize() then
         [ 0, 0, 0, 0, 0, 0, 0, 0] // MarshallMesssage_Request magic number
-      + Uint64ToBytes(seqno as uint64)        
-      + MarshallAppMessage(request)
+      + Uint64ToBytes(seqno as uint64)
+      + Uint64ToBytes(|request| as uint64)
+      + request
   else 
       [ 1 ]
 }
 
-function MarshallServiceReply(seqno:int, reply:AppMessage) : seq<byte>
+function MarshallServiceReply(seqno:int, reply:AppReply) : seq<byte>
 {
-  if 0 <= seqno < 0x1_0000_0000_0000_0000 then
+  if 0 <= seqno < 0x1_0000_0000_0000_0000 && |reply| <= MaxAppReplySize() then
       [ 0, 0, 0, 0, 0, 0, 0, 6] // MarshallMesssage_Reply magic number
-    + Uint64ToBytes(seqno as uint64)        
-    + MarshallAppMessage(reply)
+    + Uint64ToBytes(seqno as uint64)
+    + Uint64ToBytes(|reply| as uint64)
+    + reply
   else 
     [ 1 ]
 }
@@ -98,7 +102,7 @@ function MarshallServiceReply(seqno:int, reply:AppMessage) : seq<byte>
 predicate Service_Correspondence(concretePkts:set<LPacket<EndPoint, seq<byte>>>, serviceState:ServiceState) 
 {
   && (forall p, seqno, reply :: p in concretePkts && p.src in serviceState.serverAddresses && p.msg == MarshallServiceReply(seqno, reply) ==>
-             AppReply(p.dst, seqno, reply) in serviceState.replies)
+             AppReplyMessage(p.dst, seqno, reply) in serviceState.replies)
   && (forall req :: req in serviceState.requests ==> exists p :: p in concretePkts && p.dst in serviceState.serverAddresses 
                                                                     && p.msg == MarshallServiceRequest(req.seqno, req.request)
                                                                     && p.src == req.client)

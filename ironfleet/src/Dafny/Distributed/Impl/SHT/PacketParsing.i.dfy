@@ -22,7 +22,7 @@ import opened SHT__Network_i
 import opened SHT__Host_i
 import opened Impl_Parameters_i
 import opened AppInterface_i`All
-import opened Common__UdpClient_i
+import opened Common__NetClient_i
 
 ////////////////////////////////////////////////////////////////////
 //    Grammars for the basic types
@@ -57,7 +57,7 @@ function method CSingleMessage_grammar() : G {
                     GUint64])                                                   // Ack
 }
 
-predicate UdpPacketBound(data:seq<byte>) 
+predicate NetPacketBound(data:seq<byte>) 
 {
     |data| < MaxPacketSize()
 }
@@ -767,28 +767,28 @@ function AbstractifyCPacketToLSHTPacket(cp:CPacket) : LSHTPacket
 }
 
 
-function AbstractifyUdpPacketToLSHTPacket(udp:UdpPacket) : LSHTPacket
-    requires UdpPacketIsAbstractable(udp);
+function AbstractifyNetPacketToLSHTPacket(net:NetPacket) : LSHTPacket
+    requires NetPacketIsAbstractable(net);
 {
-    AbstractifyBufferToLSHTPacket(udp.src, udp.dst, udp.msg)
+    AbstractifyBufferToLSHTPacket(net.src, net.dst, net.msg)
 }
 
-function AbstractifyUdpPacketToShtPacket(udp:UdpPacket) : Packet
-    requires UdpPacketIsAbstractable(udp);
+function AbstractifyNetPacketToShtPacket(net:NetPacket) : Packet
+    requires NetPacketIsAbstractable(net);
 {
-    var lp:= AbstractifyUdpPacketToLSHTPacket(udp);
+    var lp:= AbstractifyNetPacketToLSHTPacket(net);
     Packet(lp.dst, lp.src, lp.msg)
 }
 
-predicate UdpPacketIsAbstractable(udp:UdpPacket)
+predicate NetPacketIsAbstractable(net:NetPacket)
 {
-      EndPointIsValidIPV4(udp.src)
-    && EndPointIsValidIPV4(udp.dst)
+      EndPointIsValidIPV4(net.src)
+    && EndPointIsValidIPV4(net.dst)
 }
 
-predicate UdpPacketsIsAbstractable(udpps:set<UdpPacket>)
+predicate NetPacketsIsAbstractable(netps:set<NetPacket>)
 {
-    forall p :: p in udpps ==> UdpPacketIsAbstractable(p)
+    forall p :: p in netps ==> NetPacketIsAbstractable(p)
 }
 
 lemma lemma_CSingleMessage_grammar_valid()
@@ -815,7 +815,7 @@ method SHTMarshall(msg:CSingleMessage) returns (data:array<byte>)
     requires CSingleMessageIsAbstractable(msg);
     requires CSingleMessageMarshallable(msg);
     ensures fresh(data);
-    ensures UdpPacketBound(data[..]);
+    ensures NetPacketBound(data[..]);
     ensures BufferRefinementAgreesWithMessageRefinement(msg, data[..]);
 {
     var val := MarshallCSingleMessage(msg);

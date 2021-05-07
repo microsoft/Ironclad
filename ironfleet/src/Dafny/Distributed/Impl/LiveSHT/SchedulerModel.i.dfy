@@ -4,7 +4,7 @@ include "../../Protocol/LiveSHT/Scheduler.i.dfy"
 include "../../Common/Collections/Seqs.i.dfy"
 include "../../../Libraries/Math/mod_auto.i.dfy"
 include "../../Protocol/SHT/Host.i.dfy"
-include "UdpSHT.i.dfy"
+include "NetSHT.i.dfy"
 //include "CBoundedClock.i.dfy"
 
 module LiveSHT__SchedulerModel_i {
@@ -14,7 +14,7 @@ import opened SHT__HostModel_i
 import opened SHT__CMessage_i
 import opened SHT__PacketParsing_i
 import opened LiveSHT__Scheduler_i
-import opened LiveSHT__UdpSHT_i
+import opened LiveSHT__NetSHT_i
 import opened LiveSHT__Environment_i
 import opened Common__NodeIdentity_i
 

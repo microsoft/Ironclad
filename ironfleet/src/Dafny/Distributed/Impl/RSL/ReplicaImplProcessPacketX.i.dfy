@@ -6,7 +6,7 @@ include "ReplicaImplLemmas.i.dfy"
 include "ReplicaImplClass.i.dfy"
 include "ReplicaImplReadClock.i.dfy"
 include "ReplicaImplProcessPacketNoClock.i.dfy"
-include "UdpRSL.i.dfy"
+include "NetRSL.i.dfy"
 include "CClockReading.i.dfy"
 include "Unsendable.i.dfy"
 
@@ -31,96 +31,96 @@ import opened LiveRSL__ReplicaImplProcessPacketNoClock_i
 import opened LiveRSL__ReplicaModel_i
 import opened LiveRSL__ReplicaState_i
 import opened LiveRSL__Types_i
-import opened LiveRSL__UdpRSL_i
+import opened LiveRSL__NetRSL_i
 import opened LiveRSL__Unsendable_i
-import opened Common__UdpClient_i
+import opened Common__NetClient_i
 import opened Environment_s
 
-method ReplicaNextProcessPacketTimeout(r:ReplicaImpl, ghost old_udp_history:seq<UdpEvent>, ghost timeout_event:UdpEvent)
-  returns (ghost udpEventLog:seq<UdpEvent>, ghost ios:seq<RslIo>)
+method ReplicaNextProcessPacketTimeout(r:ReplicaImpl, ghost old_net_history:seq<NetEvent>, ghost timeout_event:NetEvent)
+  returns (ghost netEventLog:seq<NetEvent>, ghost ios:seq<RslIo>)
   requires r.Valid()
-  requires r.Env().udp.history() == old_udp_history + [ timeout_event ]
+  requires r.Env().net.history() == old_net_history + [ timeout_event ]
   requires timeout_event.LIoOpTimeoutReceive?
   ensures  Q_LReplica_Next_ProcessPacket(old(r.AbstractifyToLReplica()), r.AbstractifyToLReplica(), ios)
-  ensures  RawIoConsistentWithSpecIO(udpEventLog, ios)
-  ensures  old_udp_history + udpEventLog == r.Env().udp.history()
-  ensures  OnlySentMarshallableData(udpEventLog)
+  ensures  RawIoConsistentWithSpecIO(netEventLog, ios)
+  ensures  old_net_history + netEventLog == r.Env().net.history()
+  ensures  OnlySentMarshallableData(netEventLog)
 {
   ios := [ LIoOpTimeoutReceive() ];
-  udpEventLog := [ timeout_event ];
+  netEventLog := [ timeout_event ];
   lemma_EstablishQLReplicaNextProcessPacketFromTimeout(old(r.AbstractifyToLReplica()), r.AbstractifyToLReplica(), ios);
 }
 
 method ReplicaNextProcessPacketUnmarshallable(
   r:ReplicaImpl,
-  ghost old_udp_history:seq<UdpEvent>,
+  ghost old_net_history:seq<NetEvent>,
   rr:ReceiveResult,
-  ghost receive_event:UdpEvent
+  ghost receive_event:NetEvent
   ) returns (
-  ghost udpEventLog:seq<UdpEvent>,
+  ghost netEventLog:seq<NetEvent>,
   ghost ios:seq<RslIo>
   )
   requires r.Valid()
-  requires r.Env().udp.history() == old_udp_history + [receive_event]
+  requires r.Env().net.history() == old_net_history + [receive_event]
   requires rr.RRPacket?
   requires receive_event.LIoOpReceive?
   requires !Marshallable(rr.cpacket.msg)
-  requires UdpPacketIsAbstractable(receive_event.r)
+  requires NetPacketIsAbstractable(receive_event.r)
   requires CPacketIsAbstractable(rr.cpacket)
-  requires AbstractifyCPacketToRslPacket(rr.cpacket) == AbstractifyUdpPacketToRslPacket(receive_event.r)
+  requires AbstractifyCPacketToRslPacket(rr.cpacket) == AbstractifyNetPacketToRslPacket(receive_event.r)
   requires PaxosEndPointIsValid(rr.cpacket.src, r.replica.constants.all.config)
   requires rr.cpacket.msg == PaxosDemarshallData(receive_event.r.msg)
-  ensures  IosReflectIgnoringUnsendable(udpEventLog)
-  ensures  RawIoConsistentWithSpecIO(udpEventLog, ios)
-  ensures  old_udp_history + udpEventLog == r.Env().udp.history()
-  ensures  OnlySentMarshallableData(udpEventLog)
+  ensures  IosReflectIgnoringUnsendable(netEventLog)
+  ensures  RawIoConsistentWithSpecIO(netEventLog, ios)
+  ensures  old_net_history + netEventLog == r.Env().net.history()
+  ensures  OnlySentMarshallableData(netEventLog)
 {
-  ghost var receive_io := LIoOpReceive(AbstractifyUdpPacketToRslPacket(receive_event.r));
-  udpEventLog := [receive_event];
+  ghost var receive_io := LIoOpReceive(AbstractifyNetPacketToRslPacket(receive_event.r));
+  netEventLog := [receive_event];
   ios := [receive_io];
 }
 
 method ReplicaNextProcessPacketHeartbeat(
   r:ReplicaImpl,
-  ghost old_udp_history:seq<UdpEvent>,
+  ghost old_net_history:seq<NetEvent>,
   rr:ReceiveResult,
-  ghost receive_event:UdpEvent
+  ghost receive_event:NetEvent
   ) returns (
   ok:bool,
-  ghost udpEventLog:seq<UdpEvent>,
+  ghost netEventLog:seq<NetEvent>,
   ghost ios:seq<RslIo>
   )
   requires r.Valid()
-  requires r.Env().udp.history() == old_udp_history + [receive_event]
+  requires r.Env().net.history() == old_net_history + [receive_event]
   requires rr.RRPacket?
   requires receive_event.LIoOpReceive?
   requires rr.cpacket.msg.CMessage_Heartbeat?
-  requires UdpPacketIsAbstractable(receive_event.r)
+  requires NetPacketIsAbstractable(receive_event.r)
   requires CPacketIsSendable(rr.cpacket)
-  requires AbstractifyCPacketToRslPacket(rr.cpacket) == AbstractifyUdpPacketToRslPacket(receive_event.r)
+  requires AbstractifyCPacketToRslPacket(rr.cpacket) == AbstractifyNetPacketToRslPacket(receive_event.r)
   requires PaxosEndPointIsValid(rr.cpacket.src, r.replica.constants.all.config)
   modifies r.Repr, r.cur_req_set, r.prev_req_set, r.reply_cache_mutable
   ensures  r.Repr == old(r.Repr)
-  ensures  r.udpClient != null
-  ensures  ok == UdpClientOk(r.udpClient)
+  ensures  r.netClient != null
+  ensures  ok == NetClientOk(r.netClient)
   ensures  r.Env().Valid() && r.Env().ok.ok() ==> ok
   ensures  r.Env() == old(r.Env());
   ensures  ok ==>
             && r.Valid()
             && r.nextActionIndex == old(r.nextActionIndex)
             && Q_LReplica_Next_ProcessPacket(old(r.AbstractifyToLReplica()), r.AbstractifyToLReplica(), ios)
-            && RawIoConsistentWithSpecIO(udpEventLog, ios)
-            && OnlySentMarshallableData(udpEventLog)
-            && old_udp_history + udpEventLog == r.Env().udp.history()
+            && RawIoConsistentWithSpecIO(netEventLog, ios)
+            && OnlySentMarshallableData(netEventLog)
+            && old_net_history + netEventLog == r.Env().net.history()
 {
   ok := true;
   //var process_start_time := Time.GetDebugTimeTicks();
-  ghost var receive_io := LIoOpReceive(AbstractifyUdpPacketToRslPacket(receive_event.r));
+  ghost var receive_io := LIoOpReceive(AbstractifyNetPacketToRslPacket(receive_event.r));
   assert r.ReceivedPacketProperties(rr.cpacket, receive_event, receive_io);
   //print ("Replica_Next_ProcessPacket: Received a Hearbeat message\n");
   ghost var midEnv := r.Env();
   assert midEnv == old(r.Env());
-  ok, udpEventLog, ios := Replica_Next_ReadClockAndProcessPacket(r, rr.cpacket, old_udp_history, receive_event, receive_io);
+  ok, netEventLog, ios := Replica_Next_ReadClockAndProcessPacket(r, rr.cpacket, old_net_history, receive_event, receive_io);
   assert ok ==> (r.Env()==midEnv==old(r.Env()));
   if (ok) {
     assert Q_LReplica_Next_ProcessPacket(old(r.AbstractifyToLReplica()), r.AbstractifyToLReplica(), ios);
@@ -133,47 +133,47 @@ method ReplicaNextProcessPacketHeartbeat(
     
 method ReplicaNextProcessPacketNonHeartbeat(
   r:ReplicaImpl,
-  ghost old_udp_history:seq<UdpEvent>,
+  ghost old_net_history:seq<NetEvent>,
   rr:ReceiveResult,
-  ghost receive_event:UdpEvent
+  ghost receive_event:NetEvent
   ) returns (
   ok:bool,
-  ghost udpEventLog:seq<UdpEvent>,
+  ghost netEventLog:seq<NetEvent>,
   ghost ios:seq<RslIo>
   )
   requires r.Valid()
-  requires r.Env().udp.history() == old_udp_history + [receive_event]
+  requires r.Env().net.history() == old_net_history + [receive_event]
   requires rr.RRPacket?
   requires receive_event.LIoOpReceive?
   requires !rr.cpacket.msg.CMessage_Heartbeat?
-  requires UdpPacketIsAbstractable(receive_event.r)
+  requires NetPacketIsAbstractable(receive_event.r)
   requires CPaxosConfigurationIsValid(r.replica.constants.all.config)
   //  requires Replica_Next_Process_AppStateSupply_Preconditions(r.replica,rr.cpacket)
   requires CPacketIsSendable(rr.cpacket)
-  requires AbstractifyCPacketToRslPacket(rr.cpacket) == AbstractifyUdpPacketToRslPacket(receive_event.r)
+  requires AbstractifyCPacketToRslPacket(rr.cpacket) == AbstractifyNetPacketToRslPacket(receive_event.r)
   requires PaxosEndPointIsValid(rr.cpacket.src, r.replica.constants.all.config)
   modifies r.Repr, r.cur_req_set, r.prev_req_set, r.reply_cache_mutable
   ensures  r.Repr == old(r.Repr)
-  ensures  r.udpClient != null
-  ensures  ok == UdpClientOk(r.udpClient)
+  ensures  r.netClient != null
+  ensures  ok == NetClientOk(r.netClient)
   ensures  r.Env().Valid() && r.Env().ok.ok() ==> ok
   ensures  r.Env() == old(r.Env());
   ensures  ok ==>
              && r.Valid()
              && r.nextActionIndex == old(r.nextActionIndex)
              && Q_LReplica_Next_ProcessPacket(old(r.AbstractifyToLReplica()), r.AbstractifyToLReplica(), ios)
-             && RawIoConsistentWithSpecIO(udpEventLog, ios)
-             && OnlySentMarshallableData(udpEventLog)
-             && old_udp_history + udpEventLog == r.Env().udp.history()
+             && RawIoConsistentWithSpecIO(netEventLog, ios)
+             && OnlySentMarshallableData(netEventLog)
+             && old_net_history + netEventLog == r.Env().net.history()
 {
   ok := true;
   //var process_start_time := Time.GetDebugTimeTicks();
-  ghost var receive_io := LIoOpReceive(AbstractifyUdpPacketToRslPacket(receive_event.r));
+  ghost var receive_io := LIoOpReceive(AbstractifyNetPacketToRslPacket(receive_event.r));
   assert r.ReceivedPacketProperties(rr.cpacket, receive_event, receive_io);
   //print ("Replica_Next_ProcessPacket: Received a Hearbeat message\n");
   ghost var midEnv := r.Env();
   assert midEnv == old(r.Env());
-  ok, udpEventLog, ios := Replica_Next_ProcessPacketWithoutReadingClock_body(r, rr.cpacket, old_udp_history, receive_event, receive_io);
+  ok, netEventLog, ios := Replica_Next_ProcessPacketWithoutReadingClock_body(r, rr.cpacket, old_net_history, receive_event, receive_io);
   assert ok ==> (r.Env()==midEnv==old(r.Env()));
   if (ok) {
     lemma_EstablishQLReplicaNextProcessPacket(old(r.AbstractifyToLReplica()), r.AbstractifyToLReplica(), ios);
@@ -184,33 +184,33 @@ method ReplicaNextProcessPacketNonHeartbeat(
 }
 
 method Replica_Next_ProcessPacketX(r:ReplicaImpl)
-  returns (ok:bool, ghost udpEventLog:seq<UdpEvent>, ghost ios:seq<RslIo>)
+  returns (ok:bool, ghost netEventLog:seq<NetEvent>, ghost ios:seq<RslIo>)
   requires r.Valid()
   requires CPaxosConfigurationIsValid(r.replica.constants.all.config)
   //  requires Replica_Next_Process_AppStateSupply_Preconditions(r.replica,r.cpacket)
   modifies r.Repr, r.cur_req_set, r.prev_req_set, r.reply_cache_mutable
   ensures r.Repr == old(r.Repr)
-  ensures r.udpClient != null
-  ensures ok == UdpClientOk(r.udpClient)
+  ensures r.netClient != null
+  ensures ok == NetClientOk(r.netClient)
   ensures r.Env().Valid() && r.Env().ok.ok() ==> ok
   ensures r.Env() == old(r.Env());
   ensures ok ==> 
             && r.Valid()
             && r.nextActionIndex == old(r.nextActionIndex)
             && (|| Q_LReplica_Next_ProcessPacket(old(r.AbstractifyToLReplica()), r.AbstractifyToLReplica(), ios)
-                || (&& IosReflectIgnoringUnsendable(udpEventLog)
+                || (&& IosReflectIgnoringUnsendable(netEventLog)
                    && old(r.AbstractifyToLReplica()) == r.AbstractifyToLReplica()))
-            && RawIoConsistentWithSpecIO(udpEventLog, ios)
-            && OnlySentMarshallableData(udpEventLog)
-            && old(r.Env().udp.history()) + udpEventLog == r.Env().udp.history()
+            && RawIoConsistentWithSpecIO(netEventLog, ios)
+            && OnlySentMarshallableData(netEventLog)
+            && old(r.Env().net.history()) + netEventLog == r.Env().net.history()
 {
-  ghost var old_udp_history := r.Env().udp.history();
+  ghost var old_net_history := r.Env().net.history();
   //var start_time := Time.GetDebugTimeTicks();
   var rr;
   ghost var receive_event;
   //print ("Replica_Next_ProcessPacket: Enter\n");
   //print ("Replica_Next_ProcessPacket: Calling Receive for a packet\n");
-  rr, receive_event := Receive(r.udpClient, r.localAddr, r.replica.constants.all.config, r.msg_grammar);
+  rr, receive_event := Receive(r.netClient, r.localAddr, r.replica.constants.all.config, r.msg_grammar);
   //var receive_packet_time := Time.GetDebugTimeTicks();
   //RecordTimingSeq("Replica_Next_Receive", start_time, receive_packet_time);
   assert r.Env()==old(r.Env());
@@ -222,18 +222,18 @@ method Replica_Next_ProcessPacketX(r:ReplicaImpl)
     return;
   } else if (rr.RRTimeout?) {
     ok := true;
-    udpEventLog, ios := ReplicaNextProcessPacketTimeout(r, old_udp_history, receive_event);
+    netEventLog, ios := ReplicaNextProcessPacketTimeout(r, old_net_history, receive_event);
     //var end_time := Time.GetDebugTimeTicks();
     //RecordTimingSeq("Replica_Next_ProcessPacket_timeout", start_time, end_time);
   } else {
     var marshallable := DetermineIfMessageMarshallable(rr.cpacket.msg);
     if !marshallable {
       ok := true;
-      udpEventLog, ios := ReplicaNextProcessPacketUnmarshallable(r, old_udp_history, rr, receive_event);
+      netEventLog, ios := ReplicaNextProcessPacketUnmarshallable(r, old_net_history, rr, receive_event);
     } else if (rr.cpacket.msg.CMessage_Heartbeat?) {
-      ok, udpEventLog, ios := ReplicaNextProcessPacketHeartbeat(r, old_udp_history, rr, receive_event);
+      ok, netEventLog, ios := ReplicaNextProcessPacketHeartbeat(r, old_net_history, rr, receive_event);
     } else {
-      ok, udpEventLog, ios := ReplicaNextProcessPacketNonHeartbeat(r, old_udp_history, rr, receive_event);
+      ok, netEventLog, ios := ReplicaNextProcessPacketNonHeartbeat(r, old_net_history, rr, receive_event);
     }
   }
   //print ("Replica_Next_ProcessPacket: Exit\n");

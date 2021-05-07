@@ -5,7 +5,7 @@ module DirectRefinement__StateMachine_i {
 import opened LiveRSL__DistributedSystem_i
 import opened LiveRSL__Types_i
 import opened Concrete_NodeIdentity_i
-import opened AppStateMachine_i
+import opened AppStateMachine_s
 import opened Collections__Seqs_s
 
 datatype RSLSystemState = RSLSystemState(
@@ -25,6 +25,7 @@ predicate RslSystemInit(s:RSLSystemState, server_addresses:set<NodeIdentity>)
 
 predicate RslSystemNextServerExecutesRequest(s:RSLSystemState, s':RSLSystemState, req:Request)
 {
+  && |req.request| <= MaxAppRequestSize()
   && s'.server_addresses == s.server_addresses
   && s'.requests == s.requests + { req }
   && s'.app == AppHandleRequest(s.app, req.request).0

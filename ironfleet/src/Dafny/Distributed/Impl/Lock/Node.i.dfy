@@ -1,6 +1,6 @@
 include "../../Protocol/Lock/Node.i.dfy"
 include "Message.i.dfy"
-include "../Common/UdpClient.i.dfy"
+include "../Common/NetClient.i.dfy"
 include "../../Common/Logic/Option.i.dfy"
 include "PacketParsing.i.dfy"
 include "../Common/SeqIsUniqueDef.i.dfy"
@@ -11,7 +11,7 @@ import opened Environment_s
 import opened Protocol_Node_i
 import opened Types_i
 import opened Message_i
-import opened Common__UdpClient_i
+import opened Common__NetClient_i
 import opened Logic__Option_i
 import opened PacketParsing_i 
 import opened Common__SeqIsUniqueDef_i

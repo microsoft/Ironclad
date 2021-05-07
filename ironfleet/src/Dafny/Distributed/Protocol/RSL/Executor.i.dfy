@@ -2,7 +2,7 @@ include "Configuration.i.dfy"
 include "Environment.i.dfy"
 include "Types.i.dfy"
 include "Constants.i.dfy"
-include "../../Services/RSL/AppStateMachine.i.dfy"
+include "../../Services/RSL/AppStateMachine.s.dfy"
 include "StateMachine.i.dfy"
 include "Broadcast.i.dfy"
 include "../../Common/Collections/Maps.i.dfy"
@@ -15,7 +15,7 @@ import opened LiveRSL__Constants_i
 import opened LiveRSL__Message_i
 import opened LiveRSL__StateMachine_i
 import opened LiveRSL__Broadcast_i
-import opened AppStateMachine_i
+import opened AppStateMachine_s
 import opened Collections__Maps_i
 import opened Concrete_NodeIdentity_i
 import opened Environment_s
@@ -124,8 +124,7 @@ predicate LExecutorProcessAppStateSupply(s:LExecutor, s':LExecutor, inp:RslPacke
   s' == s.(app := m.app_state,
            ops_complete := m.opn_state_supply,
            max_bal_reflected := m.bal_state_supply,
-           next_op_to_execute := OutstandingOpUnknown(),
-           reply_cache := m.reply_cache)
+           next_op_to_execute := OutstandingOpUnknown())
 }
 
 predicate LExecutorProcessAppStateRequest(s:LExecutor, s':LExecutor, inp:RslPacket, sent_packets:seq<RslPacket>)
@@ -138,7 +137,7 @@ predicate LExecutorProcessAppStateRequest(s:LExecutor, s':LExecutor, inp:RslPack
      && LReplicaConstantsValid(s.constants) then
      && s' == s
      && sent_packets == [ LPacket(inp.src, s.constants.all.config.replica_ids[s.constants.my_index],
-                                 RslMessage_AppStateSupply(s.max_bal_reflected, s.ops_complete, s.app, s.reply_cache)) ]
+                                 RslMessage_AppStateSupply(s.max_bal_reflected, s.ops_complete, s.app)) ]
   else
     s' == s && sent_packets == []
 }
@@ -157,9 +156,9 @@ predicate LExecutorProcessRequest(s:LExecutor, inp:RslPacket, sent_packets:seq<R
   requires inp.msg.RslMessage_Request?
   requires inp.src in s.reply_cache
   requires s.reply_cache[inp.src].Reply?
-  requires inp.msg.seqno_req <= s.reply_cache[inp.src].seqno
+  requires inp.msg.seqno_req == s.reply_cache[inp.src].seqno
 {
-  if inp.msg.seqno_req == s.reply_cache[inp.src].seqno && LReplicaConstantsValid(s.constants) then
+  if LReplicaConstantsValid(s.constants) then
     var r := s.reply_cache[inp.src];
     sent_packets == [ LPacket(r.client, s.constants.all.config.replica_ids[s.constants.my_index], RslMessage_Reply(r.seqno, r.reply)) ]
   else

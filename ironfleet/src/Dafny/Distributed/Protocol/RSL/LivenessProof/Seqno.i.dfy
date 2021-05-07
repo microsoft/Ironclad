@@ -31,6 +31,7 @@ import opened CommonProof__Requests_i
 import opened Temporal__Heuristics_i
 import opened Temporal__Rules_i
 import opened Temporal__Temporal_s
+import opened AppStateMachine_s
 import opened Environment_s
 import opened EnvironmentSynchrony_s
 
@@ -75,7 +76,6 @@ predicate SequenceNumberPacketInv(p:RslPacket, req:Request)
   && (p.msg.RslMessage_1b? ==> SequenceNumberVotesInv(p.msg.votes, req))
   && (p.msg.RslMessage_2a? ==> SequenceNumberBatchInv(p.msg.val_2a, req))
   && (p.msg.RslMessage_2b? ==> SequenceNumberBatchInv(p.msg.val_2b, req))
-  && (p.msg.RslMessage_AppStateSupply? ==> SequenceNumberReplyCacheInv(p.msg.reply_cache, req))
 }
 
 predicate SequenceNumberReplicaInv(s:LReplica, req:Request)
@@ -426,9 +426,6 @@ lemma lemma_ReplicaNextPreservesSequenceNumberReplyCacheInv(
     }
     else if |ios| > 0 && ios[0].LIoOpReceive? && LExecutorProcessAppStateSupply(s.executor, s'.executor, ios[0].r)
     {
-      var inp := ios[0].r;
-      lemma_PacketProcessedImpliesPacketSent(ps, ps', idx, ios, inp);
-      assert SequenceNumberPacketInv(inp, req);
       assert SequenceNumberReplyCacheInv(s'.executor.reply_cache, req);
     }
     else
@@ -579,6 +576,7 @@ lemma lemma_RequestNeverHitsInReplyCache(
   requires inp.src == asp.persistent_request.client
   requires inp.msg.RslMessage_Request?
   requires inp.msg.seqno_req == asp.persistent_request.seqno
+  requires inp.msg.val == asp.persistent_request.request
   requires processing_sync_start <= i
   requires PacketProcessingSynchronous(b, asp, processing_sync_start, processing_bound)
   requires LReplicaNextProcessRequest(b[i].replicas[idx].replica, b[i+1].replicas[idx].replica, inp, ExtractSentPacketsFromIos(ios))
@@ -588,6 +586,7 @@ lemma lemma_RequestNeverHitsInReplyCache(
   var executor := b[i].replicas[idx].replica.executor;
   var reply_cache := executor.reply_cache;
   var sent_packets := ExtractSentPacketsFromIos(ios);
+  assert |inp.msg.val| <= MaxAppRequestSize();
   if inp.src in reply_cache && reply_cache[inp.src].Reply? && inp.msg.seqno_req <= reply_cache[inp.src].seqno
   {
     lemma_SequenceNumberReplyCacheInvHolds(b, asp, i, idx);

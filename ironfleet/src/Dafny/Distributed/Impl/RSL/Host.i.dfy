@@ -15,7 +15,7 @@ import opened LiveRSL__Replica_i
 import opened LiveRSL__ReplicaConstantsState_i
 import opened LiveRSL__ReplicaImplClass_i
 import opened LiveRSL__ReplicaImplMain_i
-import opened LiveRSL__UdpRSL_i
+import opened LiveRSL__NetRSL_i
 import opened LiveRSL__Unsendable_i
 import opened CmdLineParser_i
 import opened PaxosCmdLineParser_i 
@@ -52,7 +52,7 @@ predicate HostInit(host_state:HostState, config:ConcreteConfiguration, id:EndPoi
 
 predicate HostNext(host_state:HostState, host_state':HostState, ios:seq<LIoOp<EndPoint, seq<byte>>>)
 {
-  && UdpEventLogIsAbstractable(ios)
+  && NetEventLogIsAbstractable(ios)
   && OnlySentMarshallableData(ios)
   && (|| LSchedulerNext(host_state.sched, host_state'.sched, AbstractifyRawLogToIos(ios))
      || HostNextIgnoreUnsendable(host_state.sched, host_state'.sched, ios))
@@ -129,18 +129,18 @@ method {:timeLimitMultiplier 4} HostInitImpl(ghost env:HostEnvironment) returns 
   assert ConcreteConfigInit(parsed_config, parsed_servers, parsed_clients);
 }
 
-predicate EventsConsistent(recvs:seq<UdpEvent>, clocks:seq<UdpEvent>, sends:seq<UdpEvent>) 
+predicate EventsConsistent(recvs:seq<NetEvent>, clocks:seq<NetEvent>, sends:seq<NetEvent>) 
 {
   forall e :: && (e in recvs  ==> e.LIoOpReceive?) 
         && (e in clocks ==> e.LIoOpReadClock? || e.LIoOpTimeoutReceive?) 
         && (e in sends  ==> e.LIoOpSend?)
 }
 
-ghost method RemoveRecvs(events:seq<UdpEvent>) returns (recvs:seq<UdpEvent>, rest:seq<UdpEvent>) 
+ghost method RemoveRecvs(events:seq<NetEvent>) returns (recvs:seq<NetEvent>, rest:seq<NetEvent>) 
   ensures forall e :: e in recvs ==> e.LIoOpReceive?
   ensures events == recvs + rest
   ensures rest != [] ==> !rest[0].LIoOpReceive?
-  ensures UdpEventsReductionCompatible(events) ==> UdpEventsReductionCompatible(rest);
+  ensures NetEventsReductionCompatible(events) ==> NetEventsReductionCompatible(rest);
 {
   recvs := [];
   rest := [];
@@ -161,14 +161,14 @@ ghost method RemoveRecvs(events:seq<UdpEvent>) returns (recvs:seq<UdpEvent>, res
   }
 }
 
-predicate UdpEventsReductionCompatible(events:seq<UdpEvent>)
+predicate NetEventsReductionCompatible(events:seq<NetEvent>)
 {
   forall i :: 0 <= i < |events| - 1 ==> events[i].LIoOpReceive? || events[i+1].LIoOpSend?
 }
 
 
-lemma lemma_RemainingEventsAreSends(events:seq<UdpEvent>)
-  requires UdpEventsReductionCompatible(events)
+lemma lemma_RemainingEventsAreSends(events:seq<NetEvent>)
+  requires NetEventsReductionCompatible(events)
   requires |events| > 0
   requires !events[0].LIoOpReceive?
   ensures  forall e :: e in events[1..] ==> e.LIoOpSend?
@@ -180,15 +180,15 @@ lemma lemma_RemainingEventsAreSends(events:seq<UdpEvent>)
   }
 }
 
-ghost method PartitionEvents(events:seq<UdpEvent>) returns (recvs:seq<UdpEvent>, clocks:seq<UdpEvent>, sends:seq<UdpEvent>)
-  requires UdpEventsReductionCompatible(events)
+ghost method PartitionEvents(events:seq<NetEvent>) returns (recvs:seq<NetEvent>, clocks:seq<NetEvent>, sends:seq<NetEvent>)
+  requires NetEventsReductionCompatible(events)
   ensures  events == recvs + clocks + sends
   ensures  EventsConsistent(recvs, clocks, sends)
   ensures  |clocks| <= 1
 {
   var rest;
   recvs, rest := RemoveRecvs(events);
-  assert UdpEventsReductionCompatible(rest);
+  assert NetEventsReductionCompatible(rest);
   if |rest| > 0 && (rest[0].LIoOpReadClock? || rest[0].LIoOpTimeoutReceive?) {
     clocks := [rest[0]];
     sends := rest[1..];
@@ -209,30 +209,30 @@ lemma lemma_ProtocolIosRespectReduction(s:LScheduler, s':LScheduler, ios:seq<Rsl
   reveal Q_LScheduler_Next();
 }
 
-lemma lemma_UdpEventsRespectReduction(s:LScheduler, s':LScheduler, ios:seq<RslIo>, events:seq<UdpEvent>)
+lemma lemma_NetEventsRespectReduction(s:LScheduler, s':LScheduler, ios:seq<RslIo>, events:seq<NetEvent>)
   requires LIoOpSeqCompatibleWithReduction(ios)
   requires RawIoConsistentWithSpecIO(events, ios)
-  ensures UdpEventsReductionCompatible(events)
+  ensures NetEventsReductionCompatible(events)
 {
   forall i | 0 <= i < |events| - 1
     ensures events[i].LIoOpReceive? || events[i+1].LIoOpSend?
   {
     assert LIoOpOrderingOKForAction(ios[i], ios[i+1]);
     reveal AbstractifyRawLogToIos();
-    assert AbstractifyRawLogToIos(events)[i] == AbstractifyUdpEventToRslIo(events[i]) == ios[i];
+    assert AbstractifyRawLogToIos(events)[i] == AbstractifyNetEventToRslIo(events[i]) == ios[i];
   }
 }
 
 method {:timeLimitMultiplier 3} HostNextImpl(ghost env:HostEnvironment, host_state:HostState) 
   returns (ok:bool, host_state':HostState, 
-           ghost recvs:seq<UdpEvent>, ghost clocks:seq<UdpEvent>, ghost sends:seq<UdpEvent>, 
+           ghost recvs:seq<NetEvent>, ghost clocks:seq<NetEvent>, ghost sends:seq<NetEvent>, 
            ghost ios:seq<LIoOp<EndPoint, seq<byte>>>)
 {
   var lschedule:LScheduler;
   var repImpl:ReplicaImpl := new ReplicaImpl(); 
   host_state' := CScheduler(lschedule,repImpl);
 
-  var okay, udpEventLog, abstract_ios := Replica_Next_main(host_state.replica_impl);
+  var okay, netEventLog, abstract_ios := Replica_Next_main(host_state.replica_impl);
   if okay {
     calc { 
       Q_LScheduler_Next(host_state.sched, host_state.replica_impl.AbstractifyToLScheduler(), abstract_ios);
@@ -240,15 +240,15 @@ method {:timeLimitMultiplier 3} HostNextImpl(ghost env:HostEnvironment, host_sta
       LSchedulerNext(host_state.sched, host_state.replica_impl.AbstractifyToLScheduler(), abstract_ios);
     }
 
-    assert AbstractifyRawLogToIos(udpEventLog) == abstract_ios;
+    assert AbstractifyRawLogToIos(netEventLog) == abstract_ios;
     if LSchedulerNext(host_state.sched, host_state.replica_impl.AbstractifyToLScheduler(), abstract_ios)
     {
       lemma_ProtocolIosRespectReduction(host_state.sched, host_state.replica_impl.AbstractifyToLScheduler(), abstract_ios);
     }
-    lemma_UdpEventsRespectReduction(host_state.sched, host_state.replica_impl.AbstractifyToLScheduler(), abstract_ios, udpEventLog);
-    recvs, clocks, sends := PartitionEvents(udpEventLog);
+    lemma_NetEventsRespectReduction(host_state.sched, host_state.replica_impl.AbstractifyToLScheduler(), abstract_ios, netEventLog);
+    recvs, clocks, sends := PartitionEvents(netEventLog);
     ios := recvs + clocks + sends; //abstract_ios;
-    assert ios == udpEventLog;
+    assert ios == netEventLog;
     host_state' := CScheduler(host_state.replica_impl.AbstractifyToLScheduler(), host_state.replica_impl);
   } else {
     recvs := [];

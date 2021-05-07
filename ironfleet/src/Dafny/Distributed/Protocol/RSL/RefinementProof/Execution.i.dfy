@@ -168,7 +168,6 @@ lemma lemma_ReplyInReplyCacheIsAllowed(
   if nextActionIndex == 0
   {
     var p := ios[0].r;
-    qs, batches, batch_num, req_num := lemma_ReplyInAppStateSupplyIsAllowed(b, c, i-1, client, p);
     return;
   }
 
@@ -188,48 +187,6 @@ lemma lemma_ReplyInReplyCacheIsAllowed(
   var replies := HandleRequestBatch(s.app, batch).1;
 
   req_num :| 0 <= req_num < |batch| && replies[req_num].client == client && s'.reply_cache[client] == replies[req_num];
-}
-
-lemma lemma_ReplyInAppStateSupplyIsAllowed(
-  b:Behavior<RslState>,
-  c:LConstants,
-  i:int,
-  client:NodeIdentity,
-  p:RslPacket
-  ) returns (
-  qs:seq<QuorumOf2bs>,
-  batches:seq<RequestBatch>,
-  batch_num:int,
-  req_num:int
-  )
-  requires IsValidBehaviorPrefix(b, c, i+1)
-  requires 0 <= i
-  requires p in b[i].environment.sentPackets
-  requires p.src in c.config.replica_ids
-  requires p.msg.RslMessage_AppStateSupply?
-  requires client in p.msg.reply_cache
-  ensures  IsValidQuorumOf2bsSequence(b[i], qs)
-  ensures  batches == GetSequenceOfRequestBatches(qs)
-  ensures  0 <= batch_num < |batches|
-  ensures  0 <= req_num < |batches[batch_num]|
-  ensures  p.msg.reply_cache[client] == GetReplyFromRequestBatches(batches, batch_num, req_num)
-  decreases i
-{
-  if i == 0 { return; }
-
-  lemma_ConstantsAllConsistent(b, c, i-1);
-  lemma_ConstantsAllConsistent(b, c, i);
-  lemma_AssumptionsMakeValidTransition(b, c, i-1);
-
-  if p in b[i-1].environment.sentPackets
-  {
-    qs, batches, batch_num, req_num := lemma_ReplyInAppStateSupplyIsAllowed(b, c, i-1, client, p);
-    lemma_IfValidQuorumOf2bsSequenceNowThenNext(b, c, i-1, qs);
-    return;
-  }
-
-  var idx, ios := lemma_ActionThatSendsAppStateSupplyIsProcessAppStateRequest(b[i-1], b[i], p);
-  qs, batches, batch_num, req_num := lemma_ReplyInReplyCacheIsAllowed(b, c, i-1, client, idx);
 }
 
 //////////////////////////////

@@ -3,7 +3,7 @@ include "LockDistributedSystem.i.dfy"
 include "../../Common/Framework/Environment.s.dfy"
 include "../../Protocol/Common/NodeIdentity.i.dfy"
 include "../../Impl/Lock/PacketParsing.i.dfy"
-include "../../Impl/Lock/UdpLock.i.dfy"
+include "../../Impl/Lock/NetLock.i.dfy"
 include "../../Impl/Lock/Host.i.dfy"
 include "AbstractService.s.dfy"
 include "../../Protocol/Lock/RefinementProof/Refinement.i.dfy"
@@ -17,7 +17,7 @@ module Main_i refines Main_s {
     import opened Types_i
     import opened Concrete_NodeIdentity_i
     import opened PacketParsing_i
-    import opened UdpLock_i
+    import opened NetLock_i
     import opened AS_s = AbstractServiceLock_s`All
     import opened Protocol_Node_i
     import opened Refinement_i
@@ -205,7 +205,7 @@ module Main_i refines Main_s {
             ensures IsValidLIoOp(io, id, le);
         {
             var j :| 0 <= j < |r_ios| && r_ios[j] == io;
-            assert r_ios[j] == AstractifyUdpEventToLockIo(ios[j]);
+            assert r_ios[j] == AstractifyNetEventToLockIo(ios[j]);
             assert IsValidLIoOp(ios[j], id, de);
         }
     }
@@ -226,7 +226,7 @@ module Main_i refines Main_s {
         {
             var send :| send in sends && AbstractifyConcretePacket(send) == r;
             var io :| io in ios && io.LIoOpSend? && io.s == send;
-            assert AstractifyUdpEventToLockIo(io) in r_ios;
+            assert AstractifyNetEventToLockIo(io) in r_ios;
         }
 
         forall r | r in r_sends
@@ -234,7 +234,7 @@ module Main_i refines Main_s {
         {
             var r_io :| r_io in r_ios && r_io.LIoOpSend? && r_io.s == r; 
             var j :| 0 <= j < |r_ios| && r_ios[j] == r_io;
-            assert AstractifyUdpEventToLockIo(ios[j]) == r_io;
+            assert AstractifyNetEventToLockIo(ios[j]) == r_io;
             assert ios[j] in ios;
             assert ios[j].s in sends;
         }

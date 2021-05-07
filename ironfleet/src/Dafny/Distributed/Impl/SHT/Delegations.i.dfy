@@ -9,7 +9,7 @@ import opened Common__NodeIdentity_i
 import opened AppInterface_i`Spec
 import opened Concrete_NodeIdentity_i`Spec
 import opened SHT__Keys_i
-import opened Common__UdpClient_i
+import opened Common__NetClient_i
 
 // To enable efficient lookups of which host owns a given key, 
 // we maintain a list of mappings.  Each mapping indicates that 

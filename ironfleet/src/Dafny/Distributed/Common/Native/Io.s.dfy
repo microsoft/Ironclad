@@ -10,7 +10,7 @@ class HostEnvironment
   ghost var constants:HostConstants;
   ghost var ok:OkState;
   ghost var now:NowState;
-  ghost var udp:UdpState;
+  ghost var net:NetState;
   ghost var files:FileSystemState;
 
   constructor{:axiom} () requires false
@@ -30,7 +30,7 @@ class HostConstants
 {
   constructor{:axiom} () requires false
 
-  function{:axiom} LocalAddress():seq<byte> reads this // REVIEW: Do we need this anymore?  We now allow different UdpClients to have different addresses anyway.
+  function{:axiom} LocalAddress():seq<byte> reads this // REVIEW: Do we need this anymore?  We now allow different NetClients to have different addresses anyway.
   function{:axiom} CommandLineArgs():seq<seq<uint16>> reads this // result of C# System.Environment.GetCommandLineArgs(); argument 0 is name of executable
 
   static method{:axiom} NumCommandLineArgs(ghost env:HostEnvironment) returns(n:uint32)
@@ -76,10 +76,10 @@ class Time
   static method{:axiom} GetTime(ghost env:HostEnvironment) returns(t:uint64)
     requires env.Valid()
     modifies env.now // To avoid contradiction, GetTime must advance time, because successive calls to GetTime can return different values
-    modifies env.udp
+    modifies env.net
     ensures  t as int == env.now.now()
     ensures  AdvanceTime(old(env.now.now()), env.now.now(), 0)
-    ensures  env.udp.history() == old(env.udp.history()) + [LIoOpReadClock(t as int)]
+    ensures  env.net.history() == old(env.net.history()) + [LIoOpReadClock(t as int)]
 
     // Used for performance debugging
     static method{:axiom} GetDebugTimeTicks() returns(t:uint64)
@@ -91,14 +91,14 @@ class Time
 //////////////////////////////////////////////////////////////////////////////
 
 datatype EndPoint = EndPoint(addr:seq<byte>, port:uint16)
-    // UdpPacket_ctor has silly name to ferret out backwards calls
-type UdpPacket = LPacket<EndPoint, seq<byte>>
-type UdpEvent = LIoOp<EndPoint, seq<byte>>
+    // NetPacket_ctor has silly name to ferret out backwards calls
+type NetPacket = LPacket<EndPoint, seq<byte>>
+type NetEvent = LIoOp<EndPoint, seq<byte>>
 
-class UdpState
+class NetState
 {
   constructor{:axiom} () requires false
-  function{:axiom} history():seq<UdpEvent> reads this
+  function{:axiom} history():seq<NetEvent> reads this
 }
 
 class IPEndPoint
@@ -126,9 +126,9 @@ class IPEndPoint
   static function method{:axiom} DnsResolve(name:seq<uint16>):(resolved_name:seq<uint16>)
 }
 
-function MaxPacketSize() : int { 65507 }
+function MaxPacketSize() : int { 0xFFFF_FFFF_FFFF_FFFF }
 
-class UdpClient
+class NetClient
 {
   ghost var env:HostEnvironment
   function{:axiom} LocalEndPoint():EndPoint reads this
@@ -136,15 +136,15 @@ class UdpClient
   constructor{:axiom} () requires false
 
   static method{:axiom} Construct(localEP:IPEndPoint, ghost env:HostEnvironment)
-    returns(ok:bool, udp:UdpClient?)
+    returns(ok:bool, net:NetClient?)
     requires env.Valid()
     requires env.ok.ok()
     modifies env.ok
     ensures  env.ok.ok() == ok
-    ensures  ok ==> && fresh(udp)
-                    && udp.env == env
-                    && udp.IsOpen()
-                    && udp.LocalEndPoint() == localEP.EP()
+    ensures  ok ==> && fresh(net)
+                    && net.env == env
+                    && net.IsOpen()
+                    && net.LocalEndPoint() == localEP.EP()
 
   method{:axiom} Close() returns(ok:bool)
     requires env.Valid()
@@ -164,17 +164,17 @@ class UdpClient
     modifies this
     modifies env.ok
     modifies env.now
-    modifies env.udp
+    modifies env.net
     ensures  env == old(env)
     ensures  env.ok.ok() == ok
     ensures  AdvanceTime(old(env.now.now()), env.now.now(), timeLimit as int)
     ensures  LocalEndPoint() == old(LocalEndPoint())
     ensures  ok ==> IsOpen()
-    ensures  ok ==> timedOut  ==> env.udp.history() == old(env.udp.history()) + [LIoOpTimeoutReceive()]
+    ensures  ok ==> timedOut  ==> env.net.history() == old(env.net.history()) + [LIoOpTimeoutReceive()]
     ensures  ok ==> !timedOut ==>
                && fresh(remote)
                && fresh(buffer)
-               && env.udp.history() == old(env.udp.history()) +
+               && env.net.history() == old(env.net.history()) +
                    [LIoOpReceive(LPacket(LocalEndPoint(), remote.EP(), buffer[..]))]
                && buffer.Length < 0x1_0000_0000_0000_0000;
 
@@ -185,12 +185,12 @@ class UdpClient
     requires buffer.Length <= MaxPacketSize()
     modifies this
     modifies env.ok
-    modifies env.udp
+    modifies env.net
     ensures  env == old(env)
     ensures  env.ok.ok() == ok
     ensures  LocalEndPoint() == old(LocalEndPoint())
     ensures  ok ==> IsOpen()
-    ensures  ok ==> env.udp.history() == old(env.udp.history()) + [LIoOpSend(LPacket(remote.EP(), LocalEndPoint(), buffer[..]))]
+    ensures  ok ==> env.net.history() == old(env.net.history()) + [LIoOpSend(LPacket(remote.EP(), LocalEndPoint(), buffer[..]))]
 }
 
 // jonh temporarily neutered this because the opaque type can't be compiled
@@ -242,6 +242,19 @@ class MutableSet<T(0,==,!new)>
     ensures SetOf(this) == {}
 }
 
+function KVTupleSeqToMap<K(!new), V(!new)>(kvs: seq<(K, V)>) : (m: map<K, V>)
+  ensures  forall k, v :: (k, v) in kvs ==> k in m
+  ensures  forall k :: k in m ==> (k, m[k]) in kvs
+{
+  if |kvs| == 0 then
+    map []
+  else
+    var kvs_prefix := kvs[..|kvs|-1];
+    var m_prefix := KVTupleSeqToMap(kvs_prefix);
+    var kv_last := kvs[|kvs|-1];
+    m_prefix[kv_last.0 := kv_last.1]
+}
+
 class MutableMap<K(==),V>
 {
   static function method {:axiom} MapOf(m:MutableMap<K,V>) : map<K,V>
@@ -254,6 +267,9 @@ class MutableMap<K(==),V>
   static method {:axiom} FromMap(dafny_map:map<K,V>) returns (m:MutableMap<K,V>)
     ensures MapOf(m) == dafny_map
     ensures fresh(m)
+
+  static method {:axiom} FromKVTuples(kvs:seq<(K, V)>) returns (m:MutableMap<K, V>)
+    ensures MapOf(m) == KVTupleSeqToMap(kvs)
 
   constructor{:axiom} () requires false
 
@@ -278,7 +294,12 @@ class MutableMap<K(==),V>
 
   method {:axiom} Remove(key:K) 
     modifies this
-    ensures MapOf(this) == map k | k != key && k in old(MapOf(this)) :: old(MapOf(this))[k]
+    ensures MapOf(this) == old(MapOf(this)) - { key }
+
+  method {:axiom} AsKVTuples() returns (kvs:seq<(K, V)>)
+    ensures |kvs| == |MapOf(this).Keys|
+    ensures forall k :: k in MapOf(this) ==> (k, MapOf(this)[k]) in kvs
+    ensures forall k, v :: (k, v) in kvs ==> k in MapOf(this) && MapOf(this)[k] == v
 }
 
 // Leverage .NET's ability to perform copies faster than one element at a time

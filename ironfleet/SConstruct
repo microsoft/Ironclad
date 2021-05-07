@@ -230,88 +230,62 @@ def verify_dafny_file(source):
 
 ####################################################################
 #
-#   Ironfleet Shell binaries
+#   Dafny compilation
 #
 ####################################################################
 
-# Only one Ironfleet shell compilation can happen at once since they use the same source directory.
-# So, before performing Ironfleet shell compilation, acquire the following lock, and release it
-# after completion.
-
-ironfleet_shell_lock = threading.Lock()
-
-def acquire_ironfleet_shell_lock():
-  ironfleet_shell_lock.acquire()
-  return 0
-
-def release_ironfleet_shell_lock():
-  ironfleet_shell_lock.release()
-  return 0
-
-AcquireIronfleetShellLock = SCons.Action.ActionFactory(acquire_ironfleet_shell_lock, lambda : "")
-ReleaseIronfleetShellLock = SCons.Action.ActionFactory(release_ironfleet_shell_lock, lambda : "")
-
-def generate_ironfleet_host_actions(source, target, env, for_signature):
-  source_name = str(source[0])
-  cs_source_name = re.sub('\.dfy$', '.cs', source_name)
-  build_dir = 'src/IronfleetShell/bin/Release/net5.0/'
-  target_dir = os.path.dirname(str(target[0]))
-  ironfleet_shell_main = 'src/IronfleetShell/Main.i.cs'
+def generate_dafny_compile_actions(source, target, env, for_signature):
   return [
-    dafny_invocation + ['/compile:0', '/spillTargetCode:3', '/noVerify', source_name],
-    AcquireIronfleetShellLock(),
-    Delete(ironfleet_shell_main),
-    Move(ironfleet_shell_main, cs_source_name),
-    Delete(build_dir),
-    ["dotnet", "build", "--no-incremental", "--configuration", "Release", "src/IronfleetShell/IronfleetShell.csproj"],
-    Delete(target_dir),
-    Move(target_dir, build_dir),
-    ReleaseIronfleetShellLock()
+    dafny_invocation + ['/compile:0', '/spillTargetCode:3', '/noVerify', str(source[0])],
   ]
 
-def get_ironfleet_host_dependencies(target, source, env):
+def get_dafny_compile_dependencies(target, source, env):
   source_name = str(source[0])
   recursively_scan_for_dependencies(source_name, 0)
   verification_dependencies = dependencies_by_file[source_name]
   extra_dependencies = verification_dependencies
   if not GetOption('no_verify'):
     extra_dependencies.extend([re.sub('\.dfy$', '.vdfy', f) for f in verification_dependencies if re.search('\.dfy$', f)])
-  extra_dependencies.extend(['src/IronfleetShell/IronfleetShell.csproj',
-                             'src/IronfleetShell/Program.cs',
-                             'src/Clients/Common/Profiler.cs',
-                             'src/Dafny/Distributed/Common/Native/IoNative.cs'])
   return target, source + extra_dependencies
 
-# Add env.IronfleetHostBuild(), to generate dotnet build actions
-def add_ironfleet_host_builder(env):
-  host_builder = Builder(generator = generate_ironfleet_host_actions,
-                         chdir=0,
-                         emitter=get_ironfleet_host_dependencies
-                         )
-  env.Append(BUILDERS = {'IronfleetHostBuild' : host_builder})
+# Add env.DafnyCompile(), to generate dafny_compile build actions
+def add_dafny_compiler_builder(env):
+  client_builder = Builder(generator = generate_dafny_compile_actions,
+                           chdir=0,
+                           emitter=get_dafny_compile_dependencies)
+  env.Append(BUILDERS = {'DafnyCompile' : client_builder})
 
 ####################################################################
 #
-#   Ironfleet client binaries
+#   .NET binaries
 #
 ####################################################################
 
-def generate_ironfleet_client_actions(source, target, env, for_signature):
+def generate_dotnet_actions(source, target, env, for_signature):
   return [
     ["dotnet", "build", "--configuration", "Release", str(source[0])]
   ]
 
-def get_ironfleet_client_dependencies(target, source, env):
-  source_dir = os.path.dirname(str(source[0]))
+def get_dotnet_dependencies(target, source, env):
+  csproj_file = str(source[0])
+  source_dir = os.path.dirname(csproj_file)
   extra_dependencies = [os.path.join(source_dir, f) for f in os.listdir(source_dir) if re.search('\.cs$', f)]
+  with open(csproj_file, 'r') as fh:
+    for line in fh.readlines():
+      m = re.search(r'<Compile\s+Include=\"([^\"]*)\"\s*/>', line)
+      if m:
+        raw_file_name = re.sub(r'\\', '/', m.group(1))
+        file_name = os.path.normpath(os.path.join(source_dir, raw_file_name))
+        extra_dependencies.append(file_name)
   return target, source + extra_dependencies
 
-# Add env.IronfleetClientBuild(), to generate dotnet build actions
-def add_ironfleet_client_builder(env):
-  client_builder = Builder(generator = generate_ironfleet_client_actions,
+# Add env.DotnetBuild(), to generate dotnet build actions
+def add_dotnet_builder(env):
+  client_builder = Builder(generator = generate_dotnet_actions,
                            chdir=0,
-                           emitter=get_ironfleet_client_dependencies)
-  env.Append(BUILDERS = {'IronfleetClientBuild' : client_builder})
+                           emitter=get_dotnet_dependencies)
+  env.Append(BUILDERS = {'DotnetBuild' : client_builder})
+  
 
 ####################################################################
 #
@@ -363,8 +337,8 @@ def display_build_status():
 ####################################################################
 
 add_dafny_verifier_builder(env)
-add_ironfleet_host_builder(env)
-add_ironfleet_client_builder(env)
+add_dafny_compiler_builder(env)
+add_dotnet_builder(env)
 env.AddMethod(verify_files_in, "VerifyFilesIn")
 env.AddMethod(verify_dafny_files, "VerifyDafnyFiles")
 atexit.register(display_build_status)
@@ -379,8 +353,16 @@ verify_dafny_file('src/Dafny/Distributed/Services/Lock/Main.i.dfy')
 verify_dafny_file('src/Dafny/Distributed/Services/SHT/Main.i.dfy')
 verify_dafny_file('src/Dafny/Distributed/Services/RSL/Main.i.dfy')
 verify_dafny_file('src/Dafny/Distributed/Protocol/RSL/LivenessProof/LivenessProof.i.dfy')
-env.IronfleetHostBuild('src/Dafny/Distributed/Services/RSL/build/IronfleetShell.dll', 'src/Dafny/Distributed/Services/RSL/Main.i.dfy')
-env.IronfleetHostBuild('src/Dafny/Distributed/Services/Lock/build/IronfleetShell.dll', 'src/Dafny/Distributed/Services/Lock/Main.i.dfy')
-env.IronfleetHostBuild('src/Dafny/Distributed/Services/SHT/build/IronfleetShell.dll', 'src/Dafny/Distributed/Services/SHT/Main.i.dfy')
-env.IronfleetClientBuild('src/IronRSLClient/bin/Release/net5.0/IronRSLClient.dll', 'src/IronRSLClient/IronRSLClient.csproj')
-env.IronfleetClientBuild('src/IronKVClient/bin/Release/net5.0/IronKVClient.dll', 'src/IronKVClient/IronKVClient.csproj')
+
+env.DafnyCompile('src/Dafny/Distributed/Services/RSL/Main.i.cs', 'src/Dafny/Distributed/Services/RSL/Main.i.dfy')
+env.DotnetBuild('src/IronRSLCounterServer/bin/Release/net5.0/IronRSLCounterServer.dll', 'src/IronRSLCounterServer/IronRSLCounterServer.csproj')
+env.DotnetBuild('src/IronRSLCounterClient/bin/Release/net5.0/IronRSLCounterClient.dll', 'src/IronRSLCounterClient/IronRSLCounterClient.csproj')
+env.DotnetBuild('src/IronRSLKVServer/bin/Release/net5.0/IronRSLKVServer.dll', 'src/IronRSLKVServer/IronRSLKVServer.csproj')
+env.DotnetBuild('src/IronRSLKVClient/bin/Release/net5.0/IronRSLKVClient.dll', 'src/IronRSLKVClient/IronRSLKVClient.csproj')
+
+env.DafnyCompile('src/Dafny/Distributed/Services/SHT/Main.i.cs', 'src/Dafny/Distributed/Services/SHT/Main.i.dfy')
+env.DotnetBuild('src/IronSHTServer/bin/Release/net5.0/IronSHTServer.dll', 'src/IronSHTServer/IronSHTServer.csproj')
+env.DotnetBuild('src/IronSHTClient/bin/Release/net5.0/IronSHTClient.dll', 'src/IronSHTClient/IronSHTClient.csproj')
+
+env.DafnyCompile('src/Dafny/Distributed/Services/Lock/Main.i.cs', 'src/Dafny/Distributed/Services/Lock/Main.i.dfy')
+env.DotnetBuild('src/IronLockServer/bin/Release/net5.0/IronLockServer.dll', 'src/IronLockServer/IronLockServer.csproj')

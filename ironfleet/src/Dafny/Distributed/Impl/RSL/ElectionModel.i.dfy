@@ -1006,6 +1006,7 @@ lemma lemma_AddNewReqPreservesHeaderMatches(s1:seq<CRequest>,  headers1:set<CReq
 method {:timeLimitMultiplier 10} ElectionReflectReceivedRequest(ces:CElectionState, creq:CRequest, cur_req_set:MutableSet<CRequestHeader>, prev_req_set:MutableSet<CRequestHeader>) returns (ces':CElectionState)
   requires CElectionStateIsValid(ces)
   requires CRequestIsAbstractable(creq)
+  requires ValidRequest(creq)
   requires prev_req_set != cur_req_set
   requires MutableSet.SetOf(cur_req_set) == ces.cur_req_set
   requires MutableSet.SetOf(prev_req_set) == ces.prev_req_set

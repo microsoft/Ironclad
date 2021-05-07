@@ -30,7 +30,7 @@ import opened Common__Util_i
 
 method Replica_Next_Process_2b(replica:ReplicaState, inp:CPacket) returns (replica':ReplicaState, packets_sent:OutboundPackets)
   requires Replica_Next_Process_2b_Preconditions(replica, inp)
-  ensures Replica_Next_Process_2b_Postconditions(replica, replica', inp, packets_sent)
+  ensures Replica_Next_Process_2b_Postconditions(old(AbstractifyReplicaStateToLReplica(replica)), replica', inp, packets_sent)
   ensures replica'.proposer.election_state.cur_req_set == replica.proposer.election_state.cur_req_set
   ensures replica'.proposer.election_state.prev_req_set == replica.proposer.election_state.prev_req_set
   ensures  replica'.executor.reply_cache == replica.executor.reply_cache
@@ -60,7 +60,8 @@ method Replica_Next_Process_2b(replica:ReplicaState, inp:CPacket) returns (repli
 
 method Replica_Next_Spontaneous_MaybeEnterNewViewAndSend1a(replica:ReplicaState) returns (replica':ReplicaState, packets_sent:OutboundPackets)
   requires Replica_Next_MaybeEnterNewViewAndSend1a_Preconditions(replica)
-  ensures Replica_Next_MaybeEnterNewViewAndSend1a_Postconditions(replica, replica', packets_sent)
+  ensures Replica_Next_MaybeEnterNewViewAndSend1a_Postconditions(old(AbstractifyReplicaStateToLReplica(replica)), replica',
+                                                                 packets_sent)
   ensures replica'.proposer.election_state.cur_req_set == replica.proposer.election_state.cur_req_set
   ensures replica'.proposer.election_state.prev_req_set == replica.proposer.election_state.prev_req_set
   ensures  replica'.executor.reply_cache == replica.executor.reply_cache
@@ -77,7 +78,7 @@ method Replica_Next_Spontaneous_MaybeEnterNewViewAndSend1a(replica:ReplicaState)
 
 method Replica_Next_Spontaneous_MaybeEnterPhase2(replica:ReplicaState) returns (replica':ReplicaState, packets_sent:OutboundPackets)
   requires Replica_Next_MaybeEnterPhase2_Preconditions(replica)
-  ensures Replica_Next_MaybeEnterPhase2_Postconditions(replica, replica', packets_sent)
+  ensures Replica_Next_MaybeEnterPhase2_Postconditions(old(AbstractifyReplicaStateToLReplica(replica)), replica', packets_sent)
   ensures replica'.proposer.election_state.cur_req_set == replica.proposer.election_state.cur_req_set
   ensures replica'.proposer.election_state.prev_req_set == replica.proposer.election_state.prev_req_set
   ensures  replica'.executor.reply_cache == replica.executor.reply_cache
@@ -94,7 +95,8 @@ method Replica_Next_Spontaneous_MaybeEnterPhase2(replica:ReplicaState) returns (
 
 method Replica_Next_Spontaneous_MaybeNominateValueAndSend2a(replica:ReplicaState, clock:CClockReading) returns (replica':ReplicaState, packets_sent:OutboundPackets)
   requires Replica_Next_ReadClock_MaybeNominateValueAndSend2a_Preconditions(replica)
-  ensures Replica_Next_ReadClock_MaybeNominateValueAndSend2a_Postconditions(replica, replica', clock, packets_sent)
+  ensures Replica_Next_ReadClock_MaybeNominateValueAndSend2a_Postconditions(old(AbstractifyReplicaStateToLReplica(replica)),
+                                                                            replica', clock, packets_sent)
   ensures replica'.proposer.election_state.cur_req_set == replica.proposer.election_state.cur_req_set
   ensures replica'.proposer.election_state.prev_req_set == replica.proposer.election_state.prev_req_set
   ensures  replica'.executor.reply_cache == replica.executor.reply_cache

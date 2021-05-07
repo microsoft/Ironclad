@@ -44,7 +44,8 @@ method ReplicaNextProcessAppStateSupplyIgnore(replica:ReplicaState, inp:CPacket)
   requires Replica_Next_Process_AppStateSupply_Preconditions(replica, inp)
   requires || inp.src !in replica.executor.constants.all.config.replica_ids
            || inp.msg.opn_state_supply.n <= replica.executor.ops_complete.n
-  ensures  Replica_Next_Process_AppStateSupply_Postconditions(replica, replica', inp, packets_sent)
+  ensures  Replica_Next_Process_AppStateSupply_Postconditions(old(AbstractifyReplicaStateToLReplica(replica)), replica',
+                                                              inp, packets_sent)
   ensures  replica' == replica
 {
   replica' := replica;
@@ -56,21 +57,20 @@ method ReplicaNextProcessAppStateSupplyActual(
   inp:CPacket
   ) returns (
   replica':ReplicaState,
-  packets_sent:OutboundPackets,
-  reply_cache_mutable:MutableMap<EndPoint, CReply>
+  packets_sent:OutboundPackets
   )
   requires Replica_Next_Process_AppStateSupply_Preconditions(replica, inp)
   requires inp.src in replica.executor.constants.all.config.replica_ids
   requires inp.msg.opn_state_supply.n > replica.executor.ops_complete.n
-  ensures  Replica_Next_Process_AppStateSupply_Postconditions(replica, replica', inp, packets_sent)
+  ensures  Replica_Next_Process_AppStateSupply_Postconditions(old(AbstractifyReplicaStateToLReplica(replica)), replica',
+                                                              inp, packets_sent)
   ensures  replica'.proposer.election_state.cur_req_set == replica.proposer.election_state.cur_req_set
   ensures  replica'.proposer.election_state.prev_req_set == replica.proposer.election_state.prev_req_set
-  ensures  fresh(reply_cache_mutable)
-  ensures  replica'.executor.reply_cache == MutableMap.MapOf(reply_cache_mutable)
+  ensures  replica'.executor.reply_cache == replica.executor.reply_cache
 {
   var newLearner := LearnerModel_ForgetOperationsBefore(replica.learner, inp.msg.opn_state_supply);
   var newExecutor;
-  newExecutor, reply_cache_mutable := ExecutorProcessAppStateSupply(replica.executor, inp);
+  newExecutor := ExecutorProcessAppStateSupply(replica.executor, inp);
   replica' := replica.(learner := newLearner, executor := newExecutor);
   packets_sent := Broadcast(CBroadcastNop);
 }
@@ -81,25 +81,23 @@ method Replica_Next_Process_AppStateSupply(
   ) returns (
   replica':ReplicaState,
   packets_sent:OutboundPackets,
-  replicaChanged:bool,
-  reply_cache_mutable:MutableMap<EndPoint, CReply>
+  replicaChanged:bool
   )
   requires Replica_Next_Process_AppStateSupply_Preconditions(replica, inp)
-  ensures  Replica_Next_Process_AppStateSupply_Postconditions(replica, replica', inp, packets_sent)
+  ensures  Replica_Next_Process_AppStateSupply_Postconditions(old(AbstractifyReplicaStateToLReplica(replica)), replica',
+                                                              inp, packets_sent)
   ensures  replica'.proposer.election_state.cur_req_set == replica.proposer.election_state.cur_req_set
   ensures  replica'.proposer.election_state.prev_req_set == replica.proposer.election_state.prev_req_set
-  ensures  replicaChanged ==> fresh(reply_cache_mutable)
-  ensures  replicaChanged ==> replica'.executor.reply_cache == MutableMap.MapOf(reply_cache_mutable)
+  ensures  replicaChanged ==> replica'.executor.reply_cache == replica.executor.reply_cache
   ensures  !replicaChanged ==> replica' == replica
 {
   var empty_Mutable_Map:MutableMap<EndPoint, CReply> := MutableMap.EmptyMap();
-  reply_cache_mutable := empty_Mutable_Map;
   var start_time := Time.GetDebugTimeTicks();
 //  lemma_AbstractifyEndPointsToNodeIdentities_properties(replica.executor.constants.all.config.replica_ids);
   if (&& inp.src in replica.executor.constants.all.config.replica_ids
       && inp.msg.opn_state_supply.n > replica.executor.ops_complete.n)
   {
-    replica', packets_sent, reply_cache_mutable := ReplicaNextProcessAppStateSupplyActual(replica, inp);
+    replica', packets_sent := ReplicaNextProcessAppStateSupplyActual(replica, inp);
     var end_time := Time.GetDebugTimeTicks();
     RecordTimingSeq("Replica_Next_Process_AppStateSupply_work", start_time, end_time);
     replicaChanged := true;
@@ -116,7 +114,8 @@ method ReplicaNextSpontaneousMaybeExecuteIgnore(replica:ReplicaState) returns (r
   requires Replica_Next_Spontaneous_MaybeExecute_Preconditions(replica);
   requires || !replica.executor.next_op_to_execute.COutstandingOpKnown?
            || replica.executor.ops_complete.n >= replica.executor.constants.all.params.max_integer_val
-  ensures  Replica_Next_Spontaneous_MaybeExecute_Postconditions(replica, replica', packets_sent);
+  ensures  Replica_Next_Spontaneous_MaybeExecute_Postconditions(old(AbstractifyReplicaStateToLReplica(replica)), replica',
+                                                                packets_sent);
   ensures  replica' == replica;
 {
   replica' := replica;
@@ -139,23 +138,28 @@ method ReplicaNextSpontaneousMaybeExecuteActual(
   requires replica.executor.reply_cache == MutableMap.MapOf(reply_cache_mutable)
   requires replica.executor.next_op_to_execute.COutstandingOpKnown?
   requires replica.executor.ops_complete.n < replica.executor.constants.all.params.max_integer_val
+  modifies replica.executor.app
   modifies cur_req_set, prev_req_set, reply_cache_mutable
-  ensures  Replica_Next_Spontaneous_MaybeExecute_Postconditions(replica, replica', packets_sent)
+  ensures  Replica_Next_Spontaneous_MaybeExecute_Postconditions(old(AbstractifyReplicaStateToLReplica(replica)), replica',
+                                                                packets_sent)
   ensures  MutableSet.SetOf(cur_req_set) == replica'.proposer.election_state.cur_req_set
   ensures  MutableSet.SetOf(prev_req_set) == replica'.proposer.election_state.prev_req_set
   ensures  replica'.executor.reply_cache == MutableMap.MapOf(reply_cache_mutable)
 {
+  ghost var s := AbstractifyReplicaStateToLReplica(replica);
   var val := replica.executor.next_op_to_execute.v;
   var newLearner := LearnerModel_ForgetDecision(replica.learner, replica.executor.ops_complete);
   assert LLearnerForgetDecision(AbstractifyLearnerStateToLLearner(replica.learner), AbstractifyLearnerStateToLLearner(newLearner), 
                                 AbstractifyCOperationNumberToOperationNumber(replica.executor.ops_complete));
 
+  var oldExecutor := AbstractifyExecutorStateToLExecutor(replica.executor);
   var newExecutor, packets := ExecutorExecute(replica.executor, reply_cache_mutable);
-  assert LExecutorExecute(AbstractifyExecutorStateToLExecutor(replica.executor), AbstractifyExecutorStateToLExecutor(newExecutor), 
+  assert LExecutorExecute(oldExecutor, AbstractifyExecutorStateToLExecutor(newExecutor), 
                           AbstractifyOutboundCPacketsToSeqOfRslPackets(packets));
 
+  var oldProposer := AbstractifyProposerStateToLProposer(replica.proposer);
   var newProposer := ProposerResetViewTimerDueToExecution(replica.proposer, val, cur_req_set, prev_req_set);
-  assert LProposerResetViewTimerDueToExecution(AbstractifyProposerStateToLProposer(replica.proposer), 
+  assert LProposerResetViewTimerDueToExecution(oldProposer,
                                                AbstractifyProposerStateToLProposer(newProposer), 
                                                AbstractifyCRequestBatchToRequestBatch(val));
   assert MutableSet.SetOf(cur_req_set) == newProposer.election_state.cur_req_set;
@@ -166,7 +170,6 @@ method ReplicaNextSpontaneousMaybeExecuteActual(
                        executor := newExecutor);
   packets_sent := packets;
 
-  ghost var s := AbstractifyReplicaStateToLReplica(replica);
   ghost var s' := AbstractifyReplicaStateToLReplica(replica');
   ghost var sent_packets := AbstractifyOutboundCPacketsToSeqOfRslPackets(packets_sent);
 
@@ -190,8 +193,10 @@ method Replica_Next_Spontaneous_MaybeExecute(
   requires MutableSet.SetOf(cur_req_set) == replica.proposer.election_state.cur_req_set
   requires MutableSet.SetOf(prev_req_set) == replica.proposer.election_state.prev_req_set
   requires replica.executor.reply_cache == MutableMap.MapOf(reply_cache_mutable)
+  modifies replica.executor.app
   modifies cur_req_set, prev_req_set, reply_cache_mutable
-  ensures Replica_Next_Spontaneous_MaybeExecute_Postconditions(replica, replica', packets_sent)
+  ensures  Replica_Next_Spontaneous_MaybeExecute_Postconditions(old(AbstractifyReplicaStateToLReplica(replica)), replica',
+                                                                packets_sent)
   ensures  MutableSet.SetOf(cur_req_set) == replica'.proposer.election_state.cur_req_set
   ensures  MutableSet.SetOf(prev_req_set) == replica'.proposer.election_state.prev_req_set
   ensures  replica'.executor.reply_cache == MutableMap.MapOf(reply_cache_mutable)
@@ -223,7 +228,8 @@ method ReplicaNextReadClockMaybeSendHeartbeatSkip(
   )
   requires Replica_Next_ReadClock_MaybeSendHeartbeat_Preconditions(replica)
   requires clock.t < replica.nextHeartbeatTime
-  ensures  Replica_Next_ReadClock_MaybeSendHeartbeat_Postconditions(replica, replica', clock, packets_sent)
+  ensures  Replica_Next_ReadClock_MaybeSendHeartbeat_Postconditions(old(AbstractifyReplicaStateToLReplica(replica)), replica',
+                                                                    clock, packets_sent)
   ensures  replica'.proposer.election_state.cur_req_set == replica.proposer.election_state.cur_req_set
   ensures  replica'.proposer.election_state.prev_req_set == replica.proposer.election_state.prev_req_set
   ensures  replica'.executor.reply_cache == replica.executor.reply_cache
@@ -242,7 +248,8 @@ method ReplicaNextReadClockMaybeSendHeartbeatActual(
   )
   requires Replica_Next_ReadClock_MaybeSendHeartbeat_Preconditions(replica)
   requires clock.t >= replica.nextHeartbeatTime
-  ensures  Replica_Next_ReadClock_MaybeSendHeartbeat_Postconditions(replica, replica', clock, packets_sent)
+  ensures  Replica_Next_ReadClock_MaybeSendHeartbeat_Postconditions(old(AbstractifyReplicaStateToLReplica(replica)), replica',
+                                                                    clock, packets_sent)
   ensures  replica'.proposer.election_state.cur_req_set == replica.proposer.election_state.cur_req_set
   ensures  replica'.proposer.election_state.prev_req_set == replica.proposer.election_state.prev_req_set
   ensures  replica'.executor.reply_cache == replica.executor.reply_cache
@@ -265,7 +272,8 @@ method Replica_Next_ReadClock_MaybeSendHeartbeat(
   packets_sent:OutboundPackets
   )
   requires Replica_Next_ReadClock_MaybeSendHeartbeat_Preconditions(replica)
-  ensures Replica_Next_ReadClock_MaybeSendHeartbeat_Postconditions(replica, replica', clock, packets_sent)
+  ensures Replica_Next_ReadClock_MaybeSendHeartbeat_Postconditions(old(AbstractifyReplicaStateToLReplica(replica)), replica',
+                                                                   clock, packets_sent)
   ensures replica'.proposer.election_state.cur_req_set == replica.proposer.election_state.cur_req_set
   ensures replica'.proposer.election_state.prev_req_set == replica.proposer.election_state.prev_req_set
   ensures  replica'.executor.reply_cache == replica.executor.reply_cache
@@ -289,7 +297,8 @@ method ReplicaNextSpontaneousMaybeMakeDecisionSkip(replica:ReplicaState) returns
            || !replica.executor.next_op_to_execute.COutstandingOpUnknown?
            || opn !in replica.learner.unexecuted_ops
            || |replica.learner.unexecuted_ops[opn].received_2b_message_senders| < LMinQuorumSize(AbstractifyCPaxosConfigurationToConfiguration(replica.learner.rcs.all.config))
-  ensures  Replica_Next_Spontaneous_MaybeMakeDecision_Postconditions(replica, replica', packets_sent)
+  ensures  Replica_Next_Spontaneous_MaybeMakeDecision_Postconditions(old(AbstractifyReplicaStateToLReplica(replica)), replica',
+                                                                     packets_sent)
   ensures  replica' == replica
 {
   replica' := replica;
@@ -318,7 +327,7 @@ method ReplicaNextSpontaneousMaybeMakeDecisionActual(replica:ReplicaState) retur
   requires replica.executor.next_op_to_execute.COutstandingOpUnknown?
   requires replica.executor.ops_complete in replica.learner.unexecuted_ops
   requires |replica.learner.unexecuted_ops[replica.executor.ops_complete].received_2b_message_senders| >= LMinQuorumSize(AbstractifyCPaxosConfigurationToConfiguration(replica.learner.rcs.all.config))
-  ensures  Replica_Next_Spontaneous_MaybeMakeDecision_Postconditions(replica, replica', packets_sent)
+  ensures  Replica_Next_Spontaneous_MaybeMakeDecision_Postconditions(old(AbstractifyReplicaStateToLReplica(replica)), replica', packets_sent)
   ensures  replica'.proposer.election_state.cur_req_set == replica.proposer.election_state.cur_req_set
   ensures  replica'.proposer.election_state.prev_req_set == replica.proposer.election_state.prev_req_set
   ensures  replica'.executor.reply_cache == replica.executor.reply_cache
@@ -352,7 +361,8 @@ method ReplicaNextSpontaneousMaybeMakeDecisionActual(replica:ReplicaState) retur
 
 method Replica_Next_Spontaneous_MaybeMakeDecision(replica:ReplicaState) returns (replica':ReplicaState, packets_sent:OutboundPackets)
   requires Replica_Next_Spontaneous_MaybeMakeDecision_Preconditions(replica)
-  ensures Replica_Next_Spontaneous_MaybeMakeDecision_Postconditions(replica, replica', packets_sent)
+  ensures Replica_Next_Spontaneous_MaybeMakeDecision_Postconditions(old(AbstractifyReplicaStateToLReplica(replica)), replica',
+                                                                    packets_sent)
   ensures replica'.proposer.election_state.cur_req_set == replica.proposer.election_state.cur_req_set
   ensures replica'.proposer.election_state.prev_req_set == replica.proposer.election_state.prev_req_set
   ensures  replica'.executor.reply_cache == replica.executor.reply_cache
@@ -387,7 +397,7 @@ method ReplicaNextSpontaneousTruncateLogBasedOnCheckpointsSkip(
                                      AbstractifyReplicaStateToLReplica(replica).acceptor.last_checkpointed_operation,
                                      AbstractifyReplicaStateToLReplica(replica).acceptor.constants.all.config)
   requires newLogTruncationPoint.n <= replica.acceptor.log_truncation_point.n
-  ensures  Replica_Next_Spontaneous_TruncateLogBasedOnCheckpoints_Postconditions(replica, replica', packets_sent)
+  ensures  Replica_Next_Spontaneous_TruncateLogBasedOnCheckpoints_Postconditions(old(AbstractifyReplicaStateToLReplica(replica)), replica', packets_sent)
   ensures  replica' == replica
 {
   replica' := replica;
@@ -406,7 +416,8 @@ method ReplicaNextSpontaneousTruncateLogBasedOnCheckpointsActual(
                                      AbstractifyReplicaStateToLReplica(replica).acceptor.last_checkpointed_operation,
                                      AbstractifyReplicaStateToLReplica(replica).acceptor.constants.all.config)
   requires newLogTruncationPoint.n > replica.acceptor.log_truncation_point.n
-  ensures  Replica_Next_Spontaneous_TruncateLogBasedOnCheckpoints_Postconditions(replica, replica', packets_sent)
+  ensures  Replica_Next_Spontaneous_TruncateLogBasedOnCheckpoints_Postconditions(old(AbstractifyReplicaStateToLReplica(replica)),
+                                                                                 replica', packets_sent)
   ensures  replica'.proposer.election_state.cur_req_set == replica.proposer.election_state.cur_req_set
   ensures  replica'.proposer.election_state.prev_req_set == replica.proposer.election_state.prev_req_set
   ensures  replica'.executor.reply_cache == replica.executor.reply_cache
@@ -421,7 +432,8 @@ method ReplicaNextSpontaneousTruncateLogBasedOnCheckpointsActual(
 method Replica_Next_Spontaneous_TruncateLogBasedOnCheckpoints(replica:ReplicaState)
   returns (replica':ReplicaState, packets_sent:OutboundPackets)
   requires Replica_Next_Spontaneous_TruncateLogBasedOnCheckpoints_Preconditions(replica)
-  ensures  Replica_Next_Spontaneous_TruncateLogBasedOnCheckpoints_Postconditions(replica, replica', packets_sent)
+  ensures  Replica_Next_Spontaneous_TruncateLogBasedOnCheckpoints_Postconditions(old(AbstractifyReplicaStateToLReplica(replica)),
+                                                                                 replica', packets_sent)
   ensures  replica'.proposer.election_state.cur_req_set == replica.proposer.election_state.cur_req_set
   ensures  replica'.proposer.election_state.prev_req_set == replica.proposer.election_state.prev_req_set
   ensures  replica'.executor.reply_cache == replica.executor.reply_cache

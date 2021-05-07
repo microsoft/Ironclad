@@ -1,7 +1,7 @@
 include "../../Common/Native/Io.s.dfy"
 include "../../../Libraries/Math/power.i.dfy"
 include "SeqIsUniqueDef.i.dfy"
-include "UdpClient.i.dfy"
+include "NetClient.i.dfy"
 
 module CmdLineParser_i {
 
@@ -9,7 +9,7 @@ import opened Native__Io_s
 import opened Native__NativeTypes_s
 import opened Math__power_s
 import opened Common__SeqIsUniqueDef_i
-import opened Common__UdpClient_i
+import opened Common__NetClient_i
 
 function method ascii_to_int(short:uint16) : (bool, byte)
   ensures var tuple := ascii_to_int(short);

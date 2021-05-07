@@ -3,7 +3,7 @@ include "LockDistributedSystem.i.dfy"
 include "../../Common/Framework/Environment.s.dfy"
 include "../../Protocol/Common/NodeIdentity.i.dfy"
 include "../../Impl/Lock/PacketParsing.i.dfy"
-include "../../Impl/Lock/UdpLock.i.dfy"
+include "../../Impl/Lock/NetLock.i.dfy"
 include "../../Impl/Lock/Host.i.dfy"
 include "AbstractService.s.dfy"
 include "../../Protocol/Lock/RefinementProof/Refinement.i.dfy"
@@ -15,7 +15,7 @@ module Main_i refines Main_s {
 	import opened Environment_s
 	import opened Concrete_NodeIdentity_i
 	import opened PacketParsing_i
-	import opened UdpLock_i
+	import opened NetLock_i
 	import opened Host_i
 	import opened AS_s = AbstractServiceLock_s
 	import opened Refinement_i

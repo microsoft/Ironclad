@@ -21,7 +21,7 @@ import opened Collections__Sets_i
 import opened Common__NodeIdentity_i
 import opened Common__SeqIsUnique_i
 import opened Common__SeqIsUniqueDef_i
-import opened Common__UdpClient_i
+import opened Common__NetClient_i
 import opened Concrete_NodeIdentity_i
 
 lemma lemma_Received2bPacketsSameSizeAsAbstraction(l_learner_tuple:CLearnerTuple, h_learner_tuple:LearnerTuple)
@@ -55,7 +55,7 @@ lemma lemma_Received2bPacketsSameSizeAsAbstraction(l_learner_tuple:CLearnerTuple
       assert x == l_learner_tuple.received_2b_message_senders[idx+1];
       assert x in l_learner_tuple.received_2b_message_senders[1..];
       assert AbstractifyEndPointToNodeIdentity(x) in AbstractifyEndPointsToNodeIdentities(l_learner_tuple.received_2b_message_senders[1..]);
-      assert AbstractifyEndPointToNodeIdentity(x) in MapSeqToSet(AbstractifyEndPointsToNodeIdentities(l_learner_tuple.received_2b_message_senders[1..]), u=>u);
+      assert AbstractifyEndPointToNodeIdentity(x) in SeqToSet(AbstractifyEndPointsToNodeIdentities(l_learner_tuple.received_2b_message_senders[1..]));
     }
 
     forall x | EndPointIsValidIPV4(x) && AbstractifyEndPointToNodeIdentity(x) in h_learner_tuple'.received_2b_message_senders
@@ -77,7 +77,7 @@ lemma lemma_Received2bPacketsSameSizeAsAbstraction(l_learner_tuple:CLearnerTuple
       {
         assert src in l_learner_tuple.received_2b_message_senders;
         assert x in AbstractifyEndPointsToNodeIdentities(l_learner_tuple.received_2b_message_senders);
-        assert x in MapSeqToSet(AbstractifyEndPointsToNodeIdentities(l_learner_tuple.received_2b_message_senders), u=>u);
+        assert x in SeqToSet(AbstractifyEndPointsToNodeIdentities(l_learner_tuple.received_2b_message_senders));
         assert x in h_learner_tuple.received_2b_message_senders;
       }
       else
@@ -130,12 +130,12 @@ lemma lemma_AddingSourceToSequenceAddsToSet(source:EndPoint, sseq1:seq<EndPoint>
   requires EndPointIsValidIPV4(source)
   requires SeqOfEndPointsIsAbstractable(sseq1)
   requires SeqOfEndPointsIsAbstractable(sseq2)
-  requires sset1 == MapSeqToSet(AbstractifyEndPointsToNodeIdentities(sseq1), x=>x)
+  requires sset1 == SeqToSet(AbstractifyEndPointsToNodeIdentities(sseq1))
   requires sset2 == sset1 + {AbstractifyEndPointToNodeIdentity(source)}
   requires sseq2 == sseq1 + [source]
-  ensures  sset2 == MapSeqToSet(AbstractifyEndPointsToNodeIdentities(sseq2), x=>x)
+  ensures  sset2 == SeqToSet(AbstractifyEndPointsToNodeIdentities(sseq2))
 {
-  var sset2_alt := MapSeqToSet(AbstractifyEndPointsToNodeIdentities(sseq2), x=>x);
+  var sset2_alt := SeqToSet(AbstractifyEndPointsToNodeIdentities(sseq2));
 
   forall x
     ensures x in sset2 <==> x in sset2_alt
@@ -144,7 +144,7 @@ lemma lemma_AddingSourceToSequenceAddsToSet(source:EndPoint, sseq1:seq<EndPoint>
     {
       if x in sset1
       {
-        assert x in MapSeqToSet(AbstractifyEndPointsToNodeIdentities(sseq1), a=>a);
+        assert x in SeqToSet(AbstractifyEndPointsToNodeIdentities(sseq1));
         assert x in AbstractifyEndPointsToNodeIdentities(sseq1);
         var src :| src in sseq1 && x == AbstractifyEndPointToNodeIdentity(src);
         assert src in sseq2;
@@ -169,7 +169,7 @@ lemma lemma_AddingSourceToSequenceAddsToSet(source:EndPoint, sseq1:seq<EndPoint>
       {
         assert AbstractifyEndPointToNodeIdentity(src) in AbstractifyEndPointsToNodeIdentities(sseq1);
         assert x in AbstractifyEndPointsToNodeIdentities(sseq1);
-        assert x in MapSeqToSet(AbstractifyEndPointsToNodeIdentities(sseq1), a=>a);
+        assert x in SeqToSet(AbstractifyEndPointsToNodeIdentities(sseq1));
         assert x in sset1;
         assert x in sset2;
       }
@@ -190,7 +190,7 @@ predicate Eq_LLearner(x:LLearner, y:LLearner)
   && x.unexecuted_learner_state == y.unexecuted_learner_state
 }
 
-method LearnerModel_Process2b(learner:CLearnerState, executor:ExecutorState, packet:CPacket) returns (learner':CLearnerState)
+method {:timeLimitMultiplier 2} LearnerModel_Process2b(learner:CLearnerState, executor:ExecutorState, packet:CPacket) returns (learner':CLearnerState)
   requires LearnerState_Process2b__Preconditions(learner, executor, packet)
   requires Marshallable_2b(packet.msg)
   ensures LearnerState_Process2b__Postconditions(learner, executor, packet, learner')

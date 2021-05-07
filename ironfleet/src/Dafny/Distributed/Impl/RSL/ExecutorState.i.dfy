@@ -4,11 +4,11 @@ include "ReplicaConstantsState.i.dfy"
 
 module LiveRSL__ExecutorState_i {
 import opened Native__NativeTypes_s
-import opened LiveRSL__AppInterface_i
 import opened LiveRSL__CTypes_i
 import opened LiveRSL__Executor_i
 import opened LiveRSL__PacketParsing_i
 import opened LiveRSL__ReplicaConstantsState_i
+import opened AppStateMachine_s
 
 ///////////////////////////
 // COutstandingOperation
@@ -36,7 +36,7 @@ function AbstractifyCOutstandingOperationToOutstandingOperation(op:COutstandingO
 
 datatype ExecutorState = ExecutorState(
   constants:ReplicaConstantsState,
-  app:CAppState,
+  app:AppStateMachine,
   ops_complete:COperationNumber,
   max_bal_reflected:CBallot,
   next_op_to_execute:COutstandingOperation,
@@ -45,7 +45,6 @@ datatype ExecutorState = ExecutorState(
 predicate ExecutorState_IsAbstractable(executor:ExecutorState)
 {
   && ReplicaConstantsStateIsAbstractable(executor.constants)
-  && CAppStateIsAbstractable(executor.app)
   && COperationNumberIsAbstractable(executor.ops_complete)
   && CBallotIsAbstractable(executor.max_bal_reflected)
   && COutstandingOperationIsAbstractable(executor.next_op_to_execute)
@@ -53,11 +52,12 @@ predicate ExecutorState_IsAbstractable(executor:ExecutorState)
 }
 
 function AbstractifyExecutorStateToLExecutor(executor:ExecutorState) : LExecutor
+  reads executor.app
   requires ExecutorState_IsAbstractable(executor)
 {
   LExecutor(
     AbstractifyReplicaConstantsStateToLReplicaConstants(executor.constants),
-    AbstractifyCAppStateToAppState(executor.app),
+    executor.app.Abstractify(),
     AbstractifyCOperationNumberToOperationNumber(executor.ops_complete),
     AbstractifyCBallotToBallot(executor.max_bal_reflected),
     AbstractifyCOutstandingOperationToOutstandingOperation(executor.next_op_to_execute),
@@ -68,7 +68,6 @@ predicate ExecutorState_IsValid(executor:ExecutorState)
 {
   && ExecutorState_IsAbstractable(executor)
   && ReplicaConstantsState_IsValid(executor.constants)
-  && AppStateMarshallable(executor.app) 
   && ValidReplyCache(executor.reply_cache)
   && (executor.next_op_to_execute.COutstandingOpKnown? ==> ValidRequestBatch(executor.next_op_to_execute.v))
 }

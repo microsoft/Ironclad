@@ -16,6 +16,7 @@ import opened Temporal__Temporal_s
 import opened Temporal__Time_s
 import opened Concrete_NodeIdentity_i
 import opened Collections__Maps2_s
+import opened AppStateMachine_s
 import opened Environment_s
 import opened Common__UpperBound_s
 
@@ -229,6 +230,9 @@ predicate LivenessAssumptions(
     && 0 < asp.host_period
     && (forall replica_index {:trigger HostExecutesPeriodically(b, asp, replica_index)} ::
          replica_index in asp.live_quorum ==> HostExecutesPeriodically(b, asp, replica_index))
+
+    // The request is valid
+    && |asp.persistent_request.request| <= MaxAppRequestSize()
 
     // The persistent client sends its request periodically, with period asp.persistent_period
     && 0 < asp.persistent_period

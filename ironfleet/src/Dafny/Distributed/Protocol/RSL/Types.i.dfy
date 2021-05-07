@@ -1,16 +1,16 @@
-include "../../Services/RSL/AppStateMachine.i.dfy"
+include "../../Services/RSL/AppStateMachine.s.dfy"
 include "../Common/NodeIdentity.i.dfy"
 
 module LiveRSL__Types_i {
 
-import opened AppStateMachine_i
+import opened AppStateMachine_s
 import opened Concrete_NodeIdentity_i
 
 type OperationNumber = int
 datatype Ballot = Ballot(seqno:int, proposer_id:int)
     
-datatype Request = Request(client:NodeIdentity, seqno:int, request:AppMessage)
-datatype Reply = Reply(client:NodeIdentity, seqno:int, reply:AppMessage)
+datatype Request = Request(client:NodeIdentity, seqno:int, request:AppRequest)
+datatype Reply = Reply(client:NodeIdentity, seqno:int, reply:AppReply)
 
 type RequestBatch = seq<Request>
 type ReplyCache = map<NodeIdentity, Reply>
