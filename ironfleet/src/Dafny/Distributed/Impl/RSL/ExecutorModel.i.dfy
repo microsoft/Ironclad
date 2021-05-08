@@ -812,13 +812,15 @@ method ExecutorProcessStartingPhase2(cs:ExecutorState, cinp:CPacket) returns(cs'
   }
 }
 
-method ExecutorProcessRequest(cs:ExecutorState, cinp:CPacket, reply_cache_mutable:MutableMap<EndPoint, CReply>) returns(cout:OutboundPackets)
+method ExecutorProcessRequest(cs:ExecutorState, cinp:CPacket, cachedReply:CReply, reply_cache_mutable:MutableMap<EndPoint, CReply>)
+  returns(cout:OutboundPackets)
   requires ExecutorState_IsValid(cs)
   requires CPacketIsAbstractable(cinp)
   requires cinp.msg.CMessage_Request?
   requires cinp.src in cs.reply_cache
-  requires cs.reply_cache[cinp.src].CReply?
-  requires cinp.msg.seqno == cs.reply_cache[cinp.src].seqno
+  requires cachedReply == cs.reply_cache[cinp.src]
+  requires cachedReply.CReply?
+  requires cinp.msg.seqno <= cachedReply.seqno
   requires MutableMap.MapOf(reply_cache_mutable) == cs.reply_cache
   ensures  OutboundPacketsIsValid(cout)
   ensures  OutboundPacketsHasCorrectSrc(cout, cs.constants.all.config.replica_ids[cs.constants.my_index])
@@ -826,7 +828,7 @@ method ExecutorProcessRequest(cs:ExecutorState, cinp:CPacket, reply_cache_mutabl
   ensures  AbstractifyCPacketToRslPacket(cinp).msg.RslMessage_Request?
   ensures  AbstractifyCPacketToRslPacket(cinp).src in AbstractifyExecutorStateToLExecutor(cs).reply_cache
   ensures  AbstractifyExecutorStateToLExecutor(cs).reply_cache[AbstractifyCPacketToRslPacket(cinp).src].Reply?
-  ensures  AbstractifyCPacketToRslPacket(cinp).msg.seqno_req == AbstractifyExecutorStateToLExecutor(cs).reply_cache[AbstractifyCPacketToRslPacket(cinp).src].seqno
+  ensures  AbstractifyCPacketToRslPacket(cinp).msg.seqno_req <= AbstractifyExecutorStateToLExecutor(cs).reply_cache[AbstractifyCPacketToRslPacket(cinp).src].seqno
   ensures  LExecutorProcessRequest(AbstractifyExecutorStateToLExecutor(cs), AbstractifyCPacketToRslPacket(cinp), AbstractifyOutboundCPacketsToSeqOfRslPackets(cout))
   ensures  OutboundPacketsHasCorrectSrc(cout, cs.constants.all.config.replica_ids[cs.constants.my_index])
 {
@@ -836,9 +838,7 @@ method ExecutorProcessRequest(cs:ExecutorState, cinp:CPacket, reply_cache_mutabl
   ghost var out:seq<RslPacket>;
   // the assert below is the trigger needed since we added an explicit trigger in the corresponding ensures in lemma_AbstractifyCReplyCacheToReplyCache_properties
   assert AbstractifyCReplyCacheToReplyCache(cs.reply_cache)[AbstractifyEndPointToNodeIdentity(cinp.src)] == AbstractifyCReplyToReply(cs.reply_cache[cinp.src]); 
-  var contains, cachedReply := reply_cache_mutable.TryGetValue(cinp.src);
-  assert contains;
-  assert cinp.msg.seqno == cachedReply.seqno;
+  assert cinp.msg.seqno <= cachedReply.seqno;
   var cr := cachedReply;
   var msg := CMessage_Reply(cr.seqno, cr.reply);
   if ShouldPrintProgress() {

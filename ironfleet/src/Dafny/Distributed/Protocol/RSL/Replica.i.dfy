@@ -56,24 +56,17 @@ predicate LReplicaNextProcessRequest(s:LReplica, s':LReplica, received_packet:Rs
   if |received_packet.msg.val| > MaxAppRequestSize() then
     && sent_packets == []
     && s' == s
-  else if && received_packet.src in s.executor.reply_cache
-          && s.executor.reply_cache[received_packet.src].Reply?
-          && received_packet.msg.seqno_req == s.executor.reply_cache[received_packet.src].seqno then
-    // If the reply cache contains exactly the given sequence number, we must send
-    // the matching reply from our reply cache.
-    && LExecutorProcessRequest(s.executor, received_packet, sent_packets)
-    && s' == s
   else
-    // This is either a fresh or an outdated request.  If it's fresh, we must propose it.
-    // If it's outdated, we can either ignore or propose it.
+    // We may always propose the request, no matter what the reply-cache state.
+    // If there's a matching or later request in the reply cache, we may instead reply out of the reply cache.
     || (&& LProposerProcessRequest(s.proposer, s'.proposer, received_packet)
        && sent_packets == []
        && s' == s.(proposer := s'.proposer))
 
     || (&& received_packet.src in s.executor.reply_cache
        && s.executor.reply_cache[received_packet.src].Reply?
-       && received_packet.msg.seqno_req < s.executor.reply_cache[received_packet.src].seqno
-       && sent_packets == []
+       && received_packet.msg.seqno_req <= s.executor.reply_cache[received_packet.src].seqno
+       && LExecutorProcessRequest(s.executor, received_packet, sent_packets)
        && s' == s)
 }
 

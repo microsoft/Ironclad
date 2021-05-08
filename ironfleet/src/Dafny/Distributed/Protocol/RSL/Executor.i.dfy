@@ -156,7 +156,7 @@ predicate LExecutorProcessRequest(s:LExecutor, inp:RslPacket, sent_packets:seq<R
   requires inp.msg.RslMessage_Request?
   requires inp.src in s.reply_cache
   requires s.reply_cache[inp.src].Reply?
-  requires inp.msg.seqno_req == s.reply_cache[inp.src].seqno
+  requires inp.msg.seqno_req <= s.reply_cache[inp.src].seqno
 {
   if LReplicaConstantsValid(s.constants) then
     var r := s.reply_cache[inp.src];
