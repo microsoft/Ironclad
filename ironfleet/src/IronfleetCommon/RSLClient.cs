@@ -92,7 +92,21 @@ namespace IronfleetCommon
         }
 
         UInt64 replySeqNum = IoEncoder.ExtractUInt64(replyBytes, 8);
+        if (seqNum < replySeqNum && (replySeqNum < 10 || seqNum > replySeqNum - 10)) {
+          // We apparently got unlucky and started with a sequence
+          // number that was too close to the last sequence number we
+          // used last time.  So, advance past that sequence number
+          // and try again.
+          if (verbose) {
+            Console.WriteLine("Got reply for later sequence number {0}, apparently from an earlier run, so advancing from {1} to {2}",
+                              replySeqNum, seqNum, replySeqNum + 1);
+          }
+          nextSeqNum = replySeqNum + 1;
+          return SubmitRequest(request, verbose, timeBeforeServerSwitchMs);
+        }
         if (replySeqNum != seqNum) {
+          // This is a retransmission of a reply for an old sequence
+          // number.  Ignore it.
           continue;
         }
         
