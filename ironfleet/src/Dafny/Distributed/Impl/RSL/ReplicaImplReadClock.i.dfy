@@ -87,7 +87,9 @@ lemma lemma_ReplicaNextReadClockAndProcessPacketHelper(
     old_history + [receive_event] + [clock_event] + send_events;
     old_history + ([receive_event] + [clock_event]) + send_events;
     old_history + [receive_event, clock_event] + send_events;
+      { assert [receive_event] + [clock_event] == [receive_event, clock_event]; }
     old_history + ([receive_event, clock_event] + send_events);
+      { assert ([receive_event, clock_event] + send_events) == all_events; }
     old_history + all_events;
   }
 }
