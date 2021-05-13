@@ -8,7 +8,7 @@ should be a `.i.dfy` file and will be verified for correctness.
   SCons build file for verifying and compiling everything
 - `src`
   + `IronLockServer`
-    Solution and project files for building the lock server.
+    C# solution and project files for building the lock server.
   + `IronRSLKVServer`
     C# solution and project files for building a key-value store replica that
     uses IronRSL to coordinate with other replicas.  This directory includes
@@ -22,7 +22,7 @@ should be a `.i.dfy` file and will be verified for correctness.
   + `IronRSLCounterClient`
     Unverified C# client for the counter service replicated by IronRSL.
   + `IronSHTServer`
-    Solution and project files for building the IronSHT (sharded hash table) server.
+    C# solution and project files for building the IronSHT (sharded hash table) server.
   + `IronSHTClient`
     Unverified C# client for IronSHT.
   + `Dafny`
