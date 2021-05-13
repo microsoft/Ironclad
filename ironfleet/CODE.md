@@ -7,13 +7,24 @@ should be a `.i.dfy` file and will be verified for correctness.
 - `SConstruct`
   SCons build file for verifying and compiling everything
 - `src`
-  + `IronRSLClient`     
-    Unverified C# client for IronRSL
-  + `IronKVClient`  
-    Unverified C# client for IronKV
-  + `IronfleetShell`
-    C# solution and project files for building the C# code emitted
-    when compiling our Dafny code.
+  + `IronLockServer`
+    Solution and project files for building the lock server.
+  + `IronRSLKVServer`
+    C# solution and project files for building a key-value store replica that
+    uses IronRSL to coordinate with other replicas.  This directory includes
+    the file `Service.cs` defining the key-value service.
+  + `IronRSLKVClient`
+    Unverified C# client for the key-value service replicated by IronRSL.
+  + `IronRSLCounterServer`
+    C# solution and project files for building a counter service replica that
+    uses IronRSL to coordinate with other replicas.  This directory includes
+    the file `Service.cs` defining the counter service.
+  + `IronRSLCounterClient`
+    Unverified C# client for the counter service replicated by IronRSL.
+  + `IronSHTServer`
+    Solution and project files for building the IronSHT (sharded hash table) server.
+  + `IronSHTClient`
+    Unverified C# client for IronSHT.
   + `Dafny`
     - `Libraries` 
       Basic library support for various tasks, particularly for dealing with
@@ -48,9 +59,9 @@ should be a `.i.dfy` file and will be verified for correctness.
           and receive packets.  ReplicaModel and ReplicaImpl are split into multiple files
           to increase the file-level parallelism of our build tool.
         - `SHT`
-          The core implementation of IronKV (KV = Key-Value, SHT = Sharded Hashtable).  
+          The core implementation of IronKV (KV = Key-Value, SHT = Sharded Hashtable).
         - `LiveSHT`
-          SHT's scheduler and functionality for sending and receiving packets.  
+          SHT's scheduler and functionality for sending and receiving packets.
         - `Lock`
           The core implementation for IronLock. This includes the command line parser,
           the message definitions, parsing and marshalling, a simple scheduler, etc. 
@@ -64,14 +75,13 @@ should be a `.i.dfy` file and will be verified for correctness.
           refines the specification given that it refines the protocol.
             + `LivenessProof`
               Proof of liveness, specifically that if a client submits a request
-          repeatedly he eventually receives a reply.  It requires
-          various assumptions codified in Assumptions.i.dfy, e.g.,
-          a quorum of replicas is live and the network
-          eventually delivers packets among the client and
-          the live quorum in bounded time.
-          The ultimate liveness proof, in LivenessProof.i.dfy, is a proof
-          by contradiction:  if those assumptions hold and the client
-          never gets a reply, then 'false'.
+              repeatedly he eventually receives a reply.  It requires various
+              assumptions codified in Assumptions.i.dfy, e.g., a quorum of
+              replicas is live and the network eventually delivers packets among
+              the client and the live quorum in bounded time.  The ultimate
+              liveness proof, in LivenessProof.i.dfy, is a proof by
+              contradiction: if those assumptions hold and the client never gets
+              a reply, then `false`.
         - `SHT`
           Defines the protocol layer of our SHT system
             + `RefinementProof`
@@ -84,20 +94,19 @@ should be a `.i.dfy` file and will be verified for correctness.
                 Proof that LiveSHT is a refinement of SHT
               + `LivenessProof`
                 Proof of liveness of the reliable-delivery layer, specifically
-                that if a message is submitted to the reliable-delivery component
-                then its intended recipient eventually receives it and queues
-                it for processing.  This proof requires
-                various assumptions codified in Assumptions.i.dfy,
-                e.g., a message sent infinitely often
-                is eventually delivered.  The ultimate
-                liveness proof is in LivenessProof.i.dfy.
+                that if a message is submitted to the reliable-delivery
+                component then its intended recipient eventually receives it and
+                queues it for processing.  This proof requires various
+                assumptions codified in `Assumptions.i.dfy`, e.g., a message sent
+                infinitely often is eventually delivered.  The ultimate liveness
+                proof is in `LivenessProof.i.dfy`.
         - `Lock`
           Defines the protocol layer of our Lock service
             + `RefinementProof`
                Proof that the implementation refines the specification. The proof
-               uses two intermediate layers of states beyond the implementation and 
-               the specification. The LS_State layer represents the protocol states, 
-               while the GLS_State layer augments each protocol state with a history
+               uses two intermediate layers of states beyond the implementation and
+               the specification. The `LS_State` layer represents the protocol states,
+               while the `GLS_State` layer augments each protocol state with a history
                variable, which is used to prove refinement to the high-level specification.
       + `Services`
         These directories tie the implementation, protocol, and specifications together.
