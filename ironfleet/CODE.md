@@ -39,7 +39,7 @@ should be a `.i.dfy` file and will be verified for correctness.
         - `Framework`
           This is the trusted framework that forms the core portion of each service's
           specification.  Each service further adds service-specific specifications in
-          `src/Dafny/Distributed/Services`
+          `src/Dafny/Distributed/Services`.
         - `Logic`
           Our encoding of TLA in Dafny.
         - `Native`
@@ -59,7 +59,7 @@ should be a `.i.dfy` file and will be verified for correctness.
           and receive packets.  ReplicaModel and ReplicaImpl are split into multiple files
           to increase the file-level parallelism of our build tool.
         - `SHT`
-          The core implementation of IronKV (KV = Key-Value, SHT = Sharded Hashtable).
+          The core implementation of IronSHT (sharded hash table).
         - `LiveSHT`
           SHT's scheduler and functionality for sending and receiving packets.
         - `Lock`
