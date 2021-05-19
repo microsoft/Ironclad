@@ -6,6 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="..\IronfleetCommon\Networking.cs" />
     <Compile Include="..\IronfleetCommon\RSLClient.cs" />
     <Compile Include="..\IronfleetCommon\Timer.cs" />
     <Compile Include="..\Dafny\Distributed\Common\Native\IoFramework.cs" />

@@ -36,29 +36,6 @@ namespace IronRSLCounterClient
       return SetValue(key, value);
     }
 
-    private IPEndPoint ResolveIPEndpoint(string s)
-    {
-      var pos = s.IndexOf(":");
-      if (pos < 0)
-      {
-        Console.WriteLine("Invalid endpoint descriptor {0} (no colon found)", s);
-        return null;
-      }
-
-      string host = s.Substring(0, pos);
-      int port = Convert.ToInt32(s.Substring(pos + 1));
-      foreach (var addr in Dns.GetHostEntry(host).AddressList)
-      {
-        if (addr.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
-        {
-          return new IPEndPoint(addr, port);
-        }
-      }
-
-      Console.WriteLine("Could not resolve host name {0} in server endpoint descriptor {1}", host, s);
-      return null;
-    }
-
     private bool SetValue(string key, string value)
     {
       try {
@@ -68,15 +45,15 @@ namespace IronRSLCounterClient
             return true;
 
           case "server1" :
-            serverEps[0] = ResolveIPEndpoint(value);
+            serverEps[0] = IronfleetCommon.Networking.ResolveIPEndpoint(value);
             return serverEps[0] != null;
 
           case "server2" :
-            serverEps[1] = ResolveIPEndpoint(value);
+            serverEps[1] = IronfleetCommon.Networking.ResolveIPEndpoint(value);
             return serverEps[1] != null;
 
           case "server3" :
-            serverEps[2] = ResolveIPEndpoint(value);
+            serverEps[2] = IronfleetCommon.Networking.ResolveIPEndpoint(value);
             return serverEps[2] != null;
 
           case "nthreads" :
