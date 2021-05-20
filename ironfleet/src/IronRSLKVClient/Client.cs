@@ -74,8 +74,7 @@ namespace IronRSLKVClient
 
     private void Run()
     {
-      IPEndPoint myEndpoint = new IPEndPoint(IPAddress.Parse("127.0.0.1"), ps.clientPort + (int)id);
-      RSLClient rslClient = new RSLClient(ps.serverEps, myEndpoint);
+      RSLClient rslClient = new RSLClient(ps.serverEps, ps.clientPort + (int)id);
 
       Thread.Sleep(3000);
 

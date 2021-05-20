@@ -179,7 +179,7 @@ console:
   dotnet src/IronSHTServer/bin/Release/net5.0/IronSHTServer.dll localhost:4001 localhost:4002 localhost:4003 localhost:4001
   dotnet src/IronSHTServer/bin/Release/net5.0/IronSHTServer.dll localhost:4001 localhost:4002 localhost:4003 localhost:4002
   dotnet src/IronSHTServer/bin/Release/net5.0/IronSHTServer.dll localhost:4001 localhost:4002 localhost:4003 localhost:4003
-  dotnet src/IronSHTClient/bin/Release/net5.0/IronSHTClient.dll nthreads=10 duration=30 workload=g numkeys=10000 client=localhost:6000 verbose=true
+  dotnet src/IronSHTClient/bin/Release/net5.0/IronSHTClient.dll nthreads=10 duration=30 workload=g numkeys=10000 clientport=6000 verbose=true
 ```
 
 The client will print its output to standard output.  If you use
@@ -228,7 +228,7 @@ where you fill out the ellipses to provide:
 Your client implementation, like in `src/IronRSLKVClient/Client.cs`, will
 create a connection to the replicated service with:
 ```
-   RSLClient rslClient = new RSLClient(serverEndpoints, myClientEndpoint);
+   RSLClient rslClient = new RSLClient(serverEndpoints, myPortNumber);
 ```
 and submit requests to that replicated service with:
 ```

@@ -295,7 +295,7 @@ namespace IronSHTClient
 
     public void Setup()
     {
-      IPEndPoint myEndpoint = new IPEndPoint(ps.clientEp.Address, ps.clientEp.Port + (int)id);
+      IPEndPoint myEndpoint = new IPEndPoint(IPAddress.Any, ps.clientPort + (int)id);
       scheduler = new IoScheduler(myEndpoint, false /* only client */, false /* verbose */);
 
       ulong myaddr = EncodeIpPort(myEndpoint);
@@ -424,7 +424,7 @@ namespace IronSHTClient
       ulong requestKey = 150;
       int serverIdx = 0;
             
-      IPEndPoint myEndpoint = new IPEndPoint(ps.clientEp.Address, ps.clientEp.Port + ps.numSetupThreads + (int)id);
+      IPEndPoint myEndpoint = new IPEndPoint(IPAddress.Any, ps.clientPort + ps.numSetupThreads + (int)id);
       scheduler = new IoScheduler(myEndpoint, false /* only client */, false /* verbose */);
       ulong myaddr = EncodeIpPort(myEndpoint);
       ulong seqNum = 0;

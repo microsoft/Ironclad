@@ -9,7 +9,7 @@ namespace IronSHTClient
     public int numSetupThreads;
     public int numThreads;
     public ulong experimentDuration;
-    public IPEndPoint clientEp;
+    public int clientPort;
     public IPEndPoint[] serverEps;
     public ulong initialSeqNum;
     public double setFraction;
@@ -28,7 +28,7 @@ namespace IronSHTClient
       serverEps = new IPEndPoint[3] { IPEndPoint.Parse("127.0.0.1:4001"),
                                       IPEndPoint.Parse("127.0.0.1:4002"),
                                       IPEndPoint.Parse("127.0.0.1:4003") };
-      clientEp = IPEndPoint.Parse("127.0.0.1:6000");
+      clientPort = 6000;
       initialSeqNum = 0;
       workload = 's';
       numKeys = 1000;
@@ -52,8 +52,8 @@ namespace IronSHTClient
     {
       try {
         switch (key) {
-          case "client" :
-            clientEp = IronfleetCommon.Networking.ResolveIPEndpoint(value);
+          case "clientport" :
+            clientPort = Convert.ToInt32(value);
             return true;
 
           case "server1" :
