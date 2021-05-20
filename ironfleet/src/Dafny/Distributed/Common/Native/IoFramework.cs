@@ -194,9 +194,7 @@ namespace IronfleetIoFramework
       }
       catch (Exception e)
       {
-        if (scheduler.ShouldPrintException(e)) {
-          Console.Error.WriteLine("Receiver thread caught the following exception, so terminating:\n{0}", e);
-        }
+        scheduler.ReportException(e, "receiving from", otherEndpoint);
       }
     }
 
@@ -297,9 +295,7 @@ namespace IronfleetIoFramework
       }
       catch (Exception e)
       {
-        if (scheduler.ShouldPrintException(e)) {
-          Console.Error.WriteLine("Sender thread caught the following exception, so terminating:\n{0}", e);
-        }
+        scheduler.ReportException(e, "sending to", otherEndpoint);
       }
 
       scheduler.UnregisterSender(otherEndpoint, this);
@@ -621,21 +617,25 @@ namespace IronfleetIoFramework
       return string.Format("{0}:{1}", ep.Address, ep.Port);
     }
 
-    public bool ShouldPrintException(Exception e)
+    public void ReportException(Exception e, string activity, IPEndPoint otherEndpoint)
     {
-      if (verbose) {
-        return true;
-      }
       if (e is IOException ioe) {
         e = ioe.InnerException;
       }
       if (e is SocketException se) {
-        if (se.ErrorCode == 10054 /* WSAECONNRESET */) {
-          // Don't bother reporting the benign error of a connection reset.
-          return false;
+        if (se.SocketErrorCode == SocketError.ConnectionReset) {
+          Console.WriteLine("Stopped {0} {1} because of a connection reset. Will try again later if necessary.",
+                            activity, otherEndpoint);
+          return;
+        }
+        if (se.SocketErrorCode == SocketError.ConnectionRefused) {
+          Console.WriteLine("Stopped {0} {1} because the connection was refused. Will try again later if necessary.",
+                            activity, otherEndpoint);
+          return;
         }
       }
-      return true;
+      Console.WriteLine("Stopped {0} {1} because of the following exception, but will try again later if necessary:\n{2}",
+                        activity, otherEndpoint, e);
     }
 
     ///////////////////////////////////
