@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net5.0</TargetFramework>
+    <PackageId>IronRSLClient</PackageId>
+    <Version>1.0.2</Version>
+    <Authors>Jay Lorch and Chris Hawblitzel</Authors>
+    <Company>Microsoft Corporation</Company>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\IronfleetCommon\Networking.cs" />
+    <Compile Include="..\Dafny\Distributed\Common\Native\IoFramework.cs" />
+  </ItemGroup>
+
+</Project>

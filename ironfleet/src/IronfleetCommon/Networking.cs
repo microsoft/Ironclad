@@ -4,7 +4,7 @@ using System.Net;
 
 namespace IronfleetCommon
 {
-  class Networking
+  public class Networking
   {
     public static IPEndPoint ResolveIPEndpoint(string s)
     {

@@ -5,9 +5,9 @@ using System.IO;
 using System.Linq;
 using System.Net;
 
-namespace IronfleetCommon
+namespace IronRSLClient
 {
-  class RSLClient
+  public class RSLClient
   {
     IPEndPoint[] serverEps;
     int myPort;

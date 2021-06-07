@@ -6,11 +6,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="..\IronfleetCommon\Networking.cs" />
-    <Compile Include="..\IronfleetCommon\RSLClient.cs" />
-    <Compile Include="..\IronfleetCommon\Timer.cs" />
     <Compile Include="..\IronRSLKVServer\KVMessages.cs" />
-    <Compile Include="..\Dafny\Distributed\Common\Native\IoFramework.cs" />
+    <PackageReference Include="IronRSLClient" Version="1.0.2" />
+    <Compile Include="..\IronfleetCommon\Timer.cs" />
   </ItemGroup>
 
 </Project>
