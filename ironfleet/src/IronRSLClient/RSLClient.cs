@@ -5,20 +5,21 @@ using System.IO;
 using System.Linq;
 using System.Net;
 
-namespace IronfleetCommon
+namespace IronRSLClient
 {
-  class RSLClient
+  public class RSLClient
   {
     IPEndPoint[] serverEps;
-    IPEndPoint myEp;
+    int myPort;
     IoScheduler scheduler;
     UInt64 nextSeqNum;
     int primaryServerIndex;
 
-    public RSLClient(IEnumerable<IPEndPoint> i_serverEps, IPEndPoint i_myEp)
+    public RSLClient(IEnumerable<IPEndPoint> i_serverEps, int i_myPort)
     {
       serverEps = Enumerable.ToArray(i_serverEps);
-      myEp = i_myEp;
+      myPort = i_myPort;
+      var myEp = new IPEndPoint(IPAddress.Any, myPort);
       scheduler = new IoScheduler(myEp, true, false); // onlyClient = true, verbose = false
       primaryServerIndex = 0;
       Start();
