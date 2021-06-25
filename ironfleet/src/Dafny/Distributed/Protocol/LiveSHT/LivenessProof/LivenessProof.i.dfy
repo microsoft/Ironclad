@@ -2,7 +2,22 @@ include "Seqno.i.dfy"
 
 module LivenessProof__LivenessProof_i {
 
+import opened Environment_s
+import opened LivenessProof__Actions_i
+import opened LivenessProof__Assumptions_i
+import opened LivenessProof__Constants_i
+import opened LivenessProof__Environment_i
+import opened LivenessProof__RefinementInvariants_i
 import opened LivenessProof__Seqno_i
+import opened LiveSHT__Environment_i
+import opened LiveSHT__SHT_i
+import opened LiveSHT__SHTRefinement_i
+import opened Logic__Option_i
+import opened Protocol_Parameters_i
+import opened SHT__Network_i
+import opened SHT__SingleDelivery_i
+import opened SHT__SingleMessage_i
+import opened Temporal__Temporal_s
 
 predicate SendSingleValid<MT>(s:SingleDeliveryAcct, s':SingleDeliveryAcct, sm:SingleMessage, params:Parameters)
 {

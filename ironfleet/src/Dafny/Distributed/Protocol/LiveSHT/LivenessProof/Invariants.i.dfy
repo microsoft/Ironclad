@@ -5,11 +5,17 @@ include "RefinementInvariants.i.dfy"
 include "../../../Common/Collections/Seqs.s.dfy"
 
 module LivenessProof__Invariants_i {
+import opened Collections__Seqs_s
+import opened EnvironmentSynchrony_s
 import opened LivenessProof__Assumptions_i
 import opened Liveness__HostQueueLemmas_i
+import opened LivenessProof__Actions_i
 import opened LivenessProof__Constants_i
 import opened LivenessProof__RefinementInvariants_i
-import opened Collections__Seqs_s
+import opened LiveSHT__SHT_i
+import opened SHT__Configuration_i
+import opened Temporal__Rules_i
+import opened Temporal__Temporal_s
 
 lemma Lemma_HostQueuesNext(
     b:Behavior<LSHT_State>,

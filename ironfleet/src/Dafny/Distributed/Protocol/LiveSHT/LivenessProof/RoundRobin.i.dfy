@@ -4,10 +4,15 @@ include "../../../Common/Framework/EnvironmentSynchronyLemmas.i.dfy"
 include "../../Common/Liveness/RTSchedule.i.dfy"
 
 module LivenessProof__RoundRobin_i {
-import opened LivenessProof__Assumptions_i
-import opened LivenessProof__Constants_i
+import opened Collections__Maps2_s
 import opened Liveness__EnvironmentSynchronyLemmas_i
 import opened Liveness__RTSchedule_i
+import opened LivenessProof__Assumptions_i
+import opened LivenessProof__Constants_i
+import opened LiveSHT__Scheduler_i
+import opened LiveSHT__SHT_i
+import opened Temporal__Rules_i
+import opened Temporal__Temporal_s
 
 function{:opaque} MakeLSHTAction_ReceivePacket_Temporal(
     b:Behavior<LSHT_State>,

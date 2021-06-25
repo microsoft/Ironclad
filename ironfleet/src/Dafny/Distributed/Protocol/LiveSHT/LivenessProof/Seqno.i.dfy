@@ -3,8 +3,22 @@ include "../../../Common/Logic/Temporal/Rules.i.dfy"
 
 module LivenessProof__Seqno_i {
 
+import opened Environment_s
+import opened LivenessProof__Actions_i
+import opened LivenessProof__Acks_i
+import opened LivenessProof__Assumptions_i
+import opened LivenessProof__Constants_i
 import opened LivenessProof__InfiniteSends_i
+import opened LivenessProof__PacketReceipt_i
+import opened LivenessProof__RefinementInvariants_i
+import opened LiveSHT__SHT_i
+import opened LiveSHT__SHTRefinement_i
+import opened SHT__Configuration_i
+import opened SHT__Message_i
+import opened SHT__SingleDelivery_i
+import opened SHT__SingleMessage_i
 import opened Temporal__Rules_i
+import opened Temporal__Temporal_s
 
 lemma Lemma_IfRecipientSequenceNumberNeverBeyondThenPacketReceived(
     b:Behavior<LSHT_State>,
@@ -202,6 +216,7 @@ lemma Lemma_GetReceiveStepForSequenceNumber(
     var x := RecipientSequenceNumberBelowTemporal(b, src_idx, dst_idx, seqno);
     receive_step := earliestStepBetween(i, j, not(x)) - 1;
     assert i <= receive_step < j;
+    assert !sat(receive_step, not(x));
     assert sat(receive_step, x);
     assert sat(receive_step + 1, not(x));
  

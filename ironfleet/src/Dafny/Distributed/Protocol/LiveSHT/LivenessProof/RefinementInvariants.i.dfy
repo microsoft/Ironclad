@@ -5,11 +5,28 @@ include "../RefinementProof/SHTRefinement.i.dfy"
 include "../RefinementProof/SHTLemmas.i.dfy"
 
 module LivenessProof__RefinementInvariants_i {
-import opened LivenessProof__Constants_i
+import opened Concrete_NodeIdentity_i
+import opened Environment_s
 import opened LivenessProof__Actions_i
-import opened SHT__RefinementProof_i
+import opened LivenessProof__Assumptions_i
+import opened LivenessProof__Constants_i
+import opened LiveSHT__Environment_i
+import opened LiveSHT__EnvironmentRefinement_i
+import opened LiveSHT__SHT_i
 import opened LiveSHT__SHTRefinement_i
 import opened RefinementProof__DistributedSystemLemmas_i
+import opened SHT__Configuration_i
+import opened SHT__Delegations_i
+import opened SHT__Host_i
+import opened SHT__InvDefs_i
+import opened SHT__InvProof_i
+import opened SHT__Message_i
+import opened SHT__Network_i
+import opened SHT__RefinementProof_i
+import opened SHT__SHT_i
+import opened SHT__SingleDelivery_i
+import opened SHT__SingleMessage_i
+import opened Temporal__Temporal_s
 
 function PacketToLSHTPacket(p:Packet) : LSHTPacket
 {

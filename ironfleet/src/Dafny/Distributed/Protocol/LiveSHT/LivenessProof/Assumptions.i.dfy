@@ -1,8 +1,18 @@
 include "../RefinementProof/SHT.i.dfy"
 include "../../../Common/Framework/EnvironmentSynchrony.s.dfy"
+
 module LivenessProof__Assumptions_i {
-import opened LiveSHT__SHT_i
+import opened Concrete_NodeIdentity_i
+import opened Environment_s
 import opened EnvironmentSynchrony_s
+import opened LiveSHT__Environment_i
+import opened LiveSHT__Scheduler_i
+import opened LiveSHT__SHT_i
+import opened SHT__Configuration_i
+import opened SHT__Message_i
+import opened SHT__SingleMessage_i
+import opened Temporal__Temporal_s
+import opened Collections__Maps2_s
 
 ///////////////////////
 // TYPES
@@ -100,7 +110,7 @@ function SeqToSet<X>(xs:seq<X>) : set<X>
     set x | x in xs
 }
 
-predicate NetworkWeaklyFair<IdType, MessageType>(
+predicate NetworkWeaklyFair<IdType(!new), MessageType(!new)>(
     b:Behavior<LEnvironment<IdType, MessageType>>,
     hosts:seq<IdType>
     )

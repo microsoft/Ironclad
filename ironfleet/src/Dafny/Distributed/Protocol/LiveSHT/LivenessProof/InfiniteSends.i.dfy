@@ -4,9 +4,28 @@ include "RefinementInvariants.i.dfy"
 
 module LivenessProof__InfiniteSends_i {
 
-import opened LivenessProof__PacketReceipt_i
+import opened Collections__Maps2_s
+import opened Environment_s
 import opened LivenessProof__Acks_i
+import opened LivenessProof__Actions_i
+import opened LivenessProof__Assumptions_i
+import opened LivenessProof__Constants_i
+import opened LivenessProof__PacketReceipt_i
 import opened LivenessProof__RefinementInvariants_i
+import opened LivenessProof__RoundRobin_i
+import opened LiveSHT__Scheduler_i
+import opened LiveSHT__SHT_i
+import opened LiveSHT__SHTRefinement_i
+import opened Math__mod_auto_i
+import opened SHT__Configuration_i
+import opened SHT__Host_i
+import opened SHT__Message_i
+import opened SHT__Network_i
+import opened SHT__SingleDelivery_i
+import opened SHT__SingleMessage_i
+import opened Temporal__Rules_i
+import opened Temporal__Temporal_s
+import opened Temporal__WF1_i
 
 predicate RecipientSequenceNumberBelow(
     ss:LSHT_State,

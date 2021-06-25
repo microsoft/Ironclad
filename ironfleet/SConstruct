@@ -353,6 +353,7 @@ verify_dafny_file('src/Dafny/Distributed/Services/Lock/Main.i.dfy')
 verify_dafny_file('src/Dafny/Distributed/Services/SHT/Main.i.dfy')
 verify_dafny_file('src/Dafny/Distributed/Services/RSL/Main.i.dfy')
 verify_dafny_file('src/Dafny/Distributed/Protocol/RSL/LivenessProof/LivenessProof.i.dfy')
+verify_dafny_file('src/Dafny/Distributed/Protocol/LiveSHT/LivenessProof/LivenessProof.i.dfy')
 
 env.DafnyCompile('src/Dafny/Distributed/Services/RSL/Main.i.cs', 'src/Dafny/Distributed/Services/RSL/Main.i.dfy')
 env.DotnetBuild('src/IronRSLCounterServer/bin/Release/net5.0/IronRSLCounterServer.dll', 'src/IronRSLCounterServer/IronRSLCounterServer.csproj')

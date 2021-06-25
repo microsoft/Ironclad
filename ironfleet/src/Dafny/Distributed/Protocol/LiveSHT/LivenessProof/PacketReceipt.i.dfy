@@ -5,10 +5,28 @@ include "PacketSending.i.dfy"
 
 module LivenessProof__PacketReceipt_i {
 
-import opened LivenessProof__Assumptions_i
-import opened LivenessProof__Environment_i
+import opened Collections__Maps2_s
+import opened Collections__Sets_i
+import opened Concrete_NodeIdentity_i
+import opened Environment_s
+import opened EnvironmentSynchrony_s
 import opened LivenessProof__Acks_i
+import opened LivenessProof__Actions_i
+import opened LivenessProof__Assumptions_i
+import opened LivenessProof__Constants_i
+import opened LivenessProof__Environment_i
+import opened LivenessProof__Invariants_i
 import opened LivenessProof__PacketSending_i
+import opened LivenessProof__RefinementInvariants_i
+import opened LivenessProof__RoundRobin_i
+import opened LiveSHT__Environment_i
+import opened LiveSHT__SHT_i
+import opened LiveSHT__SHTRefinement_i
+import opened SHT__Configuration_i
+import opened SHT__SingleDelivery_i
+import opened Temporal__Rules_i
+import opened Temporal__Temporal_s
+import opened Temporal__WF1_i
 
 predicate SHTPacketSent(ss:LSHT_State, p:LSHTPacket)
 {
@@ -213,7 +231,8 @@ lemma Lemma_GetPacketsFromShardStepsOfHost(
 {
     Lemma_ConstantsAllConsistent(b, c, i);
 
-    var f := ((step:int) requires step in shard_steps => PacketToLSHTPacket(b[step].hosts[host_idx].host.receivedPacket.v));
+    var f := ((step:int) requires step in shard_steps && IsShardStepOfHost(b[step], b[step+1], host_idx) =>
+              PacketToLSHTPacket(b[step].hosts[host_idx].host.receivedPacket.v));
     shard_packets := set step | step in shard_steps :: f(step);
 
     assert forall step :: step in shard_steps ==> f(step) in shard_packets;
@@ -286,8 +305,7 @@ lemma Lemma_GetPacketsFromShardStepsOfOtherHost(
 {
     Lemma_ConstantsAllConsistent(b, c, i);
 
-    var f := ((step:int) requires step in shard_steps =>
-              assert IsShardStepOfOtherHost(b[step], b[step+1], host_idx);
+    var f := ((step:int) requires step in shard_steps && IsShardStepOfOtherHost(b[step], b[step+1], host_idx) =>
               var other_idx :| other_idx != host_idx && IsShardStepOfHost(b[step], b[step+1], other_idx);
               PacketToLSHTPacket(b[step].hosts[other_idx].host.receivedPacket.v));
     shard_packets := set step | step in shard_steps :: f(step);
@@ -426,7 +444,8 @@ lemma Lemma_GetPacketsFromDelegateSteps(
     Lemma_ConstantsAllConsistent(b, c, i);
 
     var dst := c.hostIds[host_idx];
-    var f := ((step:int) requires step in delegate_steps => PacketToLSHTPacket(b[step].hosts[host_idx].host.receivedPacket.v));
+    var f := ((step:int) requires step in delegate_steps && IsDelegateStep(b[step], b[step+1], host_idx) =>
+              PacketToLSHTPacket(b[step].hosts[host_idx].host.receivedPacket.v));
     delegate_packets := set step | step in delegate_steps :: f(step);
 
     assert forall step :: step in delegate_steps ==> f(step) in delegate_packets;
@@ -791,7 +810,7 @@ lemma Lemma_PacketSentInfinitelyOftenEventuallyReceived(
     ensures  ap.ios[0] == LIoOpReceive(p);
 {
     var eb := RestrictBehaviorToEnvironment(b);
-    var host_set := SeqToSet(asp.c.hostIds);
+    var host_set := Collections__Sets_i.SeqToSet(asp.c.hostIds);
     assert NetworkWeaklyFair(eb, asp.c.hostIds);
 
     forall i | current_step <= i

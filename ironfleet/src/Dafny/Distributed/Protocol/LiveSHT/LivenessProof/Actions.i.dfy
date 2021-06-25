@@ -2,8 +2,19 @@ include "Constants.i.dfy"
 include "../RefinementProof/SHTRefinement.i.dfy"
 
 module LivenessProof__Actions_i {
+import opened Collections__Maps2_s
+import opened Environment_s
+import opened LivenessProof__Assumptions_i
 import opened LivenessProof__Constants_i
+import opened LiveSHT__Environment_i
+import opened LiveSHT__EnvironmentRefinement_i
+import opened LiveSHT__Scheduler_i
+import opened LiveSHT__SHT_i
 import opened LiveSHT__SHTRefinement_i
+import opened SHT__Configuration_i
+import opened SHT__Host_i
+import opened SHT__Network_i
+import opened Temporal__Temporal_s
 
 predicate PacketProcessedViaIos(
     ps:LSHT_State,
@@ -169,7 +180,7 @@ lemma Lemma_GetParametersOfAction0(
     assert !(exists idx, ios :: LSHT_NextExternal(b[i], b[i+1], idx, ios));
     assert exists idx, ios :: LSHT_NextOneHost(b[i], b[i+1], idx, ios);
 
-    var other_idx, ios :| LSHT_NextOneHost(b[i], b[i+1], other_idx, ios);
+    var other_idx:int, ios:seq<LSHTIo> :| LSHT_NextOneHost(b[i], b[i+1], other_idx, ios);
     assert HostsDistinct(c.hostIds, idx, other_idx);
 
     var out := ExtractPacketsFromLSHTPackets(ExtractSentPacketsFromIos(ios));

@@ -5,10 +5,18 @@ include "RefinementInvariants.i.dfy"
 include "../../../Common/Logic/Temporal/WF1.i.dfy"
 
 module LivenessProof__Environment_i {
-import opened LivenessProof__Invariants_i
-import opened LivenessProof__RoundRobin_i
+import opened Environment_s
+import opened EnvironmentSynchrony_s
+import opened LivenessProof__Assumptions_i
 import opened LivenessProof__Constants_i
+import opened LivenessProof__Invariants_i
 import opened LivenessProof__RefinementInvariants_i
+import opened LivenessProof__RoundRobin_i
+import opened LiveSHT__Environment_i
+import opened LiveSHT__SHT_i
+import opened SHT__Configuration_i
+import opened Temporal__Rules_i
+import opened Temporal__Temporal_s
 import opened Temporal__WF1_i
 
 lemma Lemma_AssumptionsMakeValidEnvironmentBehavior(
