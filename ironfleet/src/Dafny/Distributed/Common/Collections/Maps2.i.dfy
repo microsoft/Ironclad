@@ -9,7 +9,7 @@ function maprange<KT,VT>(m:map<KT,VT>) : set<VT>
   set k | k in m :: m[k]
 }
 
-type imap2<!K1, K2, V> = imap<K1, imap<K2, V>>
+type imap2<!K1, !K2, V> = imap<K1, imap<K2, V>>
 
 predicate imap2total<K1(!new), K2(!new), V>(m:imap2<K1, K2, V>)
 {

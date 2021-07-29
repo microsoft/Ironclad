@@ -37,7 +37,7 @@ IronFleet is licensed under the MIT license included in the [LICENSE](./LICENSE)
 
 To use Ironfleet, you'll need the following tools:
   * .NET 5.0 SDK (available at `https://dotnet.microsoft.com/download`)
-  * Dafny v3.1.0 (verifier, available at `https://github.com/dafny-lang/dafny`)
+  * Dafny v3.2.0 (verifier, available at `https://github.com/dafny-lang/dafny`)
   * python 2 or 3 (needed for running scons)
   * scons (installable by running `pip install scons`)
     
@@ -58,8 +58,8 @@ Expect this to take up to several hours, depending on your machine and how many
 cores you have available.  Also note that the prover's time limits are based on
 wall clock time, so if you run the verification on a slow machine, you may see a
 few timeouts not present in our build.  If that happens, try using a longer time
-limit for each verification; for example, using `--time-limit=60` makes the time
-limit 60 seconds instead of the default 30 seconds.
+limit for each verification; for example, using `--time-limit=120` makes the time
+limit 120 seconds instead of the default 60 seconds.
 
 Running scons will produce the following executables:
 ```
