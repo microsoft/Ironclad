@@ -137,7 +137,7 @@ class ReplicaImpl
   {
     var my_ep := constants.all.config.replica_ids[constants.my_index];
     var ip_byte_array := new byte[|my_ep.addr|];
-    assert EndPointIsValidIPV4(my_ep);
+    assert EndPointIsValidPublicKey(my_ep);
     seqIntoArrayOpt(my_ep.addr, ip_byte_array);
     var ip_endpoint;
     ok, ip_endpoint := IPEndPoint.Construct(ip_byte_array, my_ep.port, env_);

@@ -17,7 +17,7 @@ module Host_i refines Host_s {
         provides HostState
         provides ConcreteConfiguration
         provides HostInit, HostNext, ConcreteConfigInit, HostStateInvariants, ConcreteConfigurationInvariants
-        provides ResolveCommandLine, ParseCommandLineConfiguration, ParseCommandLineId, ArbitraryObject
+        provides ParseCommandLineConfiguration, ArbitraryObject
         provides HostInitImpl, HostNextImpl
     export All reveals *
 
@@ -60,21 +60,11 @@ module Host_i refines Host_s {
      && MapSeqToSet(config, x=>x) == servers
     }
 
-    function ResolveCommandLine(args:seq<seq<uint16>>) : seq<seq<uint16>>
-    {
-        resolve_cmd_line_args(args)
-    }
-
-    function ParseCommandLineConfiguration(args:seq<seq<uint16>>) : (ConcreteConfiguration, set<EndPoint>, set<EndPoint>)
+    function ParseCommandLineConfiguration(args:seq<seq<byte>>) : (ConcreteConfiguration, set<EndPoint>, set<EndPoint>)
     {
         var lock_config := lock_config_parsing(args);
         var endpoints_set := (set e{:trigger e in lock_config} | e in lock_config);
         (lock_config, endpoints_set, {})
-    }
-
-    function ParseCommandLineId(ip:seq<uint16>, port:seq<uint16>) : EndPoint
-    {
-        lock_parse_id(ip, port)
     }
     
     method HostInitImpl(ghost env:HostEnvironment) returns (ok:bool, host_state:HostState, config:ConcreteConfiguration, ghost servers:set<EndPoint>, ghost clients:set<EndPoint>, id:EndPoint)

@@ -30,18 +30,18 @@ class HostConstants
 {
   constructor{:axiom} () requires false
 
-  function{:axiom} LocalAddress():seq<byte> reads this // REVIEW: Do we need this anymore?  We now allow different NetClients to have different addresses anyway.
-  function{:axiom} CommandLineArgs():seq<seq<uint16>> reads this // result of C# System.Environment.GetCommandLineArgs(); argument 0 is name of executable
+  // CommandLineArgs() gives the result of IoNative.cs's HostCommandLineArgs,
+  // which ignores the arguments at the beginning (executable name, network parameters)
+  function{:axiom} CommandLineArgs():seq<seq<byte>> reads this
 
-  static method{:axiom} NumCommandLineArgs(ghost env:HostEnvironment) returns(n:uint32)
+  static method{:axiom} NumCommandLineArgs(ghost env:HostEnvironment) returns (n:uint32)
     requires env.Valid()
     ensures  n as int == |env.constants.CommandLineArgs()|
 
-  static method{:axiom} GetCommandLineArg(i:uint64, ghost env:HostEnvironment) returns(arg:array<uint16>)
+  static method{:axiom} GetCommandLineArg(i:uint64, ghost env:HostEnvironment) returns (arg:seq<byte>)
     requires env.Valid()
     requires 0 <= i as int < |env.constants.CommandLineArgs()|
-    ensures  fresh(arg)
-    ensures  arg[..] == env.constants.CommandLineArgs()[i]
+    ensures  arg == env.constants.CommandLineArgs()[i]
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -90,7 +90,7 @@ class Time
 // Networking
 //////////////////////////////////////////////////////////////////////////////
 
-datatype EndPoint = EndPoint(addr:seq<byte>, port:uint16)
+datatype EndPoint = EndPoint(public_key:seq<byte>)
     // NetPacket_ctor has silly name to ferret out backwards calls
 type NetPacket = LPacket<EndPoint, seq<byte>>
 type NetEvent = LIoOp<EndPoint, seq<byte>>
@@ -101,29 +101,22 @@ class NetState
   function{:axiom} history():seq<NetEvent> reads this
 }
 
-class IPEndPoint
+class CryptoEndPoint
 {
   ghost var env:HostEnvironment
-  function{:axiom} Address():seq<byte> reads this
-  function{:axiom} Port():uint16 reads this
-  function EP():EndPoint reads this { EndPoint(Address(), Port()) }
+  function{:axiom} PublicKey():seq<byte> reads this
+  function EP():EndPoint reads this { EndPoint(PublicKey()) }
   constructor{:axiom} () requires false
 
-  method{:axiom} GetAddress() returns(addr:array<byte>)
-    ensures  fresh(addr)
-    ensures  addr[..] == Address()
-    ensures  addr.Length == 4      // Encoding current IPv4 assumption
+  method{:axiom} GetPublicKey() returns(public_key:seq<byte>)
+    ensures  public_key == PublicKey()
+    ensures  |public_key| < 0x10_0000 // assumes public key will be < 1 MB
 
-  function method{:axiom} GetPort():uint16 reads this
-    ensures  GetPort() == Port()
-
-  static method{:axiom} Construct(ipAddress:array<byte>, port:uint16, ghost env:HostEnvironment) returns(ok:bool, ep:IPEndPoint)
+  static method{:axiom} Construct(public_key:seq<byte>, ghost env:HostEnvironment) returns(ok:bool, ep:CryptoEndPoint)
     requires env.Valid()
     modifies env.ok
     ensures  env.ok.ok() == ok
-    ensures  ok ==> fresh(ep) && ep.env == env && ep.Address() == ipAddress[..] && ep.Port() == port
-
-  static function method{:axiom} DnsResolve(name:seq<uint16>):(resolved_name:seq<uint16>)
+    ensures  ok ==> fresh(ep) && ep.env == env && ep.PublicKey() == public_key
 }
 
 function MaxPacketSize() : int { 0xFFFF_FFFF_FFFF_FFFF }
@@ -135,7 +128,7 @@ class NetClient
   function{:axiom} IsOpen():bool reads this
   constructor{:axiom} () requires false
 
-  static method{:axiom} Construct(localEP:IPEndPoint, ghost env:HostEnvironment)
+  static method{:axiom} Construct(localEP:CryptoEndPoint, ghost env:HostEnvironment)
     returns(ok:bool, net:NetClient?)
     requires env.Valid()
     requires env.ok.ok()
@@ -155,7 +148,7 @@ class NetClient
     ensures  env == old(env)
     ensures  env.ok.ok() == ok
 
-  method{:axiom} Receive(timeLimit:int32) returns(ok:bool, timedOut:bool, remote:IPEndPoint, buffer:array<byte>)
+  method{:axiom} Receive(timeLimit:int32) returns(ok:bool, timedOut:bool, remote:CryptoEndPoint, buffer:array<byte>)
     requires env.Valid()
     requires env.ok.ok()
     requires IsOpen()
@@ -178,7 +171,7 @@ class NetClient
                    [LIoOpReceive(LPacket(LocalEndPoint(), remote.EP(), buffer[..]))]
                && buffer.Length < 0x1_0000_0000_0000_0000;
 
-  method{:axiom} Send(remote:IPEndPoint, buffer:array<byte>) returns(ok:bool)
+  method{:axiom} Send(remote:CryptoEndPoint, buffer:array<byte>) returns(ok:bool)
     requires env.Valid()
     requires env.ok.ok()
     requires IsOpen()

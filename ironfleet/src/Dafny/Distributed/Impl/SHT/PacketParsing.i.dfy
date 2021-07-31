@@ -742,8 +742,8 @@ method MarshallCSingleMessage(c:CSingleMessage) returns (val:V)
 ////////////////////////////////////////////////////////////////////////
 
 function AbstractifyBufferToLSHTPacket(src:EndPoint, dst:EndPoint, data:seq<byte>) : LSHTPacket
-    requires EndPointIsValidIPV4(src);
-    requires EndPointIsValidIPV4(dst);
+    requires EndPointIsValidPublicKey(src);
+    requires EndPointIsValidPublicKey(dst);
 {
     LPacket(AbstractifyEndPointToNodeIdentity(dst),
            AbstractifyEndPointToNodeIdentity(src),
@@ -754,7 +754,7 @@ predicate BufferRefinementAgreesWithMessageRefinement(msg:CSingleMessage, marsha
     requires CSingleMessageIsAbstractable(msg);
     requires CSingleMessageIsAbstractable(msg);
 {
-    forall src, dst :: (EndPointIsValidIPV4(src) && EndPointIsValidIPV4(dst)) ==>
+    forall src, dst :: (EndPointIsValidPublicKey(src) && EndPointIsValidPublicKey(dst)) ==>
 
             (AbstractifyBufferToLSHTPacket(src, dst, marshalled)
             == LPacket(AbstractifyEndPointToNodeIdentity(dst), AbstractifyEndPointToNodeIdentity(src), AbstractifyCSingleMessageToSingleMessage(msg)))
@@ -782,8 +782,8 @@ function AbstractifyNetPacketToShtPacket(net:NetPacket) : Packet
 
 predicate NetPacketIsAbstractable(net:NetPacket)
 {
-      EndPointIsValidIPV4(net.src)
-    && EndPointIsValidIPV4(net.dst)
+      EndPointIsValidPublicKey(net.src)
+    && EndPointIsValidPublicKey(net.dst)
 }
 
 predicate NetPacketsIsAbstractable(netps:set<NetPacket>)
@@ -822,7 +822,7 @@ method SHTMarshall(msg:CSingleMessage) returns (data:array<byte>)
     lemma_CSingleMessage_grammar_valid();
     data := Marshall(val, CSingleMessage_grammar());
 
-    forall src, dst | EndPointIsValidIPV4(src) && EndPointIsValidIPV4(dst) 
+    forall src, dst | EndPointIsValidPublicKey(src) && EndPointIsValidPublicKey(dst) 
         ensures AbstractifyBufferToLSHTPacket(src, 
                                      dst, 
                                      data[..])

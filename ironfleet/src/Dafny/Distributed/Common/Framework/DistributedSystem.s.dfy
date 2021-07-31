@@ -18,8 +18,7 @@ import opened Native__NativeTypes_s
 
 predicate ValidPhysicalAddress(endPoint:EndPoint)
 {
-  && |endPoint.addr| == 4
-  && 0 <= endPoint.port <= 65535
+  |endPoint.public_key| < 0x10_0000 // < 1 MB
 }
     
 predicate ValidPhysicalPacket(p:LPacket<EndPoint, seq<byte>>)

@@ -85,7 +85,7 @@ datatype ReceiveResult = RRFail() | RRTimeout() | RRPacket(cpacket:CPacket)
 
 method GetEndPoint(ipe:IPEndPoint) returns (ep:EndPoint)
   ensures ep == ipe.EP()
-  ensures EndPointIsValidIPV4(ep)
+  ensures EndPointIsValidPublicKey(ep)
 {
   var addr := ipe.GetAddress();
   var port := ipe.GetPort();
@@ -112,7 +112,7 @@ method{:timeLimitMultiplier 2} Receive(netClient:NetClient, localAddr:EndPoint, 
             && NetPacketIsAbstractable(netEvent.r)
             && CPacketIsAbstractable(rr.cpacket)
             && CMessageIs64Bit(rr.cpacket.msg)
-            && EndPointIsValidIPV4(rr.cpacket.src)
+            && EndPointIsValidPublicKey(rr.cpacket.src)
             && AbstractifyCPacketToRslPacket(rr.cpacket) == AbstractifyNetPacketToRslPacket(netEvent.r)
             && rr.cpacket.msg == PaxosDemarshallData(netEvent.r.msg)
             && PaxosEndPointIsValid(rr.cpacket.src, config)
@@ -169,7 +169,7 @@ method{:timeLimitMultiplier 2} Receive(netClient:NetClient, localAddr:EndPoint, 
     RecordTimingSeq("DemarshallMessage_StartingPhase2", start_time, end_time);
   }
 
-  assert EndPointIsValidIPV4(netClient.LocalEndPoint());
+  assert EndPointIsValidPublicKey(netClient.LocalEndPoint());
   assert PaxosEndPointIsValid(rr.cpacket.src, config);
   assert AbstractifyCPacketToRslPacket(rr.cpacket) == AbstractifyNetPacketToRslPacket(netEvent.r);
 
@@ -180,7 +180,7 @@ method{:timeLimitMultiplier 2} Receive(netClient:NetClient, localAddr:EndPoint, 
   {
 //    lemma_Uint64EndPointRelationships();
 //    assert ConvertEndPointToUint64(srcEp) == rr.cpacket.src;    // OBSERVE trigger
-      assert EndPointIsValidIPV4(netClient.LocalEndPoint());  // OBSERVE trigger
+      assert EndPointIsValidPublicKey(netClient.LocalEndPoint());  // OBSERVE trigger
   }
   */
 }

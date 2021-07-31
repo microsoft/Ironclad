@@ -98,7 +98,7 @@ class SchedulerImpl
     {
         var my_ep := me;
         var ip_byte_array := new byte[|my_ep.addr|];
-        assert EndPointIsValidIPV4(my_ep);
+        assert EndPointIsValidPublicKey(my_ep);
         seqIntoArrayOpt(my_ep.addr, ip_byte_array);
         var ip_endpoint;
         ok, ip_endpoint := IPEndPoint.Construct(ip_byte_array, my_ep.port, env_);
@@ -231,7 +231,7 @@ class SchedulerImpl
         //requires SHTConcreteConfigurationIsValid(host.constants.all.config);
     {
            CPacketIsSendable(cpacket)
-        && EndPointIsValidIPV4(host.me)
+        && EndPointIsValidPublicKey(host.me)
         && io0.LIoOpReceive?
         && NetEventIsAbstractable(netEvent0)
         && io0 == AbstractifyNetEventToLSHTIo(netEvent0)

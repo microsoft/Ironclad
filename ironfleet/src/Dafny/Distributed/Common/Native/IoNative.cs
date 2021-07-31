@@ -13,82 +13,49 @@ namespace Native____Io__s_Compile {
 
   public partial class HostConstants
   {
+    public static byte[][] CommandLineArgs;
+
     public static uint NumCommandLineArgs()
     {
-      return (uint)System.Environment.GetCommandLineArgs().Length;
+      return (uint)CommandLineArgs.Length;
     }
 
-    public static ushort[] GetCommandLineArg(ulong i)
+    public static Dafny.ISequence<byte> GetCommandLineArg(ulong i)
     {
-      return Array.ConvertAll(System.Environment.GetCommandLineArgs()[i].ToCharArray(), c => (ushort)c);
+      return Dafny.Sequence<byte>.FromArray(CommandLineArgs[i]);
+    }
+
+    public static Dafny.ISequence<Dafny.ISequence<byte>> HostCommandLineArgs()
+    {
+      return Dafny.Sequence<Dafny.ISequence<byte>>.FromArray(Array.ConvertAll(CommandLineArgs, s => Dafny.Sequence<byte>.FromArray(s)));
     }
   }
 
-  public partial class IPEndPoint
+  public partial class CryptoEndPoint
   {
-    internal System.Net.IPEndPoint endpoint;
-    internal IPEndPoint(System.Net.IPEndPoint endpoint) { this.endpoint = endpoint; }
-  
-    public byte[] GetAddress()
-    {
-      // no exceptions thrown:
-      return (byte[])(endpoint.Address.GetAddressBytes().Clone());
+    private byte[] publicKey;
+
+    public CryptoEndPoint(byte[] i_publicKey)
+    { 
+      publicKey = i_publicKey;
     }
   
-    public ushort GetPort()
+    public Dafny.ISequence<byte> GetPublicKey()
     {
       // no exceptions thrown:
-      return (ushort)endpoint.Port;
+      return Dafny.Sequence<byte>.FromArray(publicKey);
     }
   
-    public static void Construct(byte[] ipAddress, ushort port, out bool ok, out IPEndPoint endpoint)
+    public static void Construct(Dafny.Sequence<byte> public_key, out bool ok, out CryptoEndPoint endpoint)
     {
-      try
-      {
-        ipAddress = (byte[])(ipAddress.Clone());
-        endpoint = new IPEndPoint(new System.Net.IPEndPoint(new System.Net.IPAddress(ipAddress), port));
-        ok = true;
-      }
-      catch (Exception e)
-      {
-        System.Console.Error.WriteLine(e);
+      if (public_key.Count >= 0x10_0000) {
         endpoint = null;
         ok = false;
       }
-    }
-  
-    // DnsResolve is a Dafny function, which must be deterministic, so remember lookup results
-    private static System.Collections.Generic.Dictionary<string, string> dns =
-          new System.Collections.Generic.Dictionary<string, string>();
-  
-    public static Dafny.ISequence<ushort> DnsResolve(Dafny.ISequence<ushort> name)
-    {
-      var str_name = new String(Array.ConvertAll(name.Elements, c => (char)c));
-      try
-      {
-        if (dns.ContainsKey(str_name))
-        {
-          return Dafny.Sequence<ushort>.FromArray(Array.ConvertAll(dns[str_name].ToCharArray(), c => (ushort)c));
-        }
-        foreach (var addr in System.Net.Dns.GetHostEntry(str_name).AddressList)
-        {
-          if (addr.AddressFamily == AddressFamily.InterNetwork)
-          {
-            dns.Add(str_name, addr.ToString());
-            return Dafny.Sequence<ushort>.FromArray(Array.ConvertAll(addr.ToString().ToCharArray(), c => (ushort)c));
-          }
-        }
+      else {
+        endpoint = new CryptoEndPoint(public_key.Elements);
+        ok = true;
       }
-      catch (Exception e)
-      {
-        System.Console.Error.WriteLine("Error: DNS lookup failed for " + str_name);
-        System.Console.Error.WriteLine(e);
-        dns.Add(str_name, str_name);
-        return name;
-      }
-      System.Console.Error.WriteLine("Error: could not find IPv4 address for " + str_name);
-      dns.Add(str_name, str_name);
-      return name;
     }
   }
   
@@ -101,7 +68,7 @@ namespace Native____Io__s_Compile {
       scheduler = i_scheduler;
     }
   
-    public static void Construct(IPEndPoint localEP, out bool ok, out NetClient net)
+    public static void Construct(CryptoEndPoint localEP, out bool ok, out NetClient net)
     {
       try
       {
@@ -123,14 +90,14 @@ namespace Native____Io__s_Compile {
       ok = true;
     }
   
-    public void Receive(int timeLimit, out bool ok, out bool timedOut, out IPEndPoint remote, out byte[] buffer)
+    public void Receive(int timeLimit, out bool ok, out bool timedOut, out CryptoEndPoint remote, out byte[] buffer)
     {
-      System.Net.IPEndPoint remoteEp;
+      CryptoEndPoint remoteEp;
       scheduler.ReceivePacket(timeLimit, out ok, out timedOut, out remoteEp, out buffer);
-      remote = (remoteEp == null) ? null : new IPEndPoint(remoteEp);
+      remote = (remoteEp == null) ? null : new CryptoEndPoint(remoteEp);
     }
   
-    public bool Send(IPEndPoint remote, byte[] buffer)
+    public bool Send(CryptoEndPoint remote, byte[] buffer)
     {
       return scheduler.SendPacket(remote.endpoint, buffer);
     }

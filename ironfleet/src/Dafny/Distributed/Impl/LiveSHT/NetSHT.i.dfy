@@ -75,9 +75,9 @@ predicate OnlySentMarshallableData(rawlog:seq<NetEvent>)
 
 datatype ReceiveResult = RRFail() | RRTimeout() | RRPacket(cpacket:CPacket)
 
-method GetEndPoint(ipe:IPEndPoint) returns (ep:EndPoint)
+method GetEndPoint(ipe:CryptoEndPoint) returns (ep:EndPoint)
     ensures ep == ipe.EP();
-    ensures EndPointIsValidIPV4(ep);
+    ensures EndPointIsValidPublicKey(ep);
 {
     var addr := ipe.GetAddress();
     var port := ipe.GetPort();
@@ -103,7 +103,7 @@ method Receive(netClient:NetClient, localAddr:EndPoint) returns (rr:ReceiveResul
            netEvent.LIoOpReceive?
         && NetPacketIsAbstractable(netEvent.r)
         && CPacketIsAbstractable(rr.cpacket)
-        && EndPointIsValidIPV4(rr.cpacket.src)
+        && EndPointIsValidPublicKey(rr.cpacket.src)
         && AbstractifyCPacketToShtPacket(rr.cpacket) == AbstractifyNetPacketToShtPacket(netEvent.r)
         && rr.cpacket.msg == SHTDemarshallData(netEvent.r.msg)
         && (rr.cpacket.dst == localAddr)
@@ -134,7 +134,7 @@ method Receive(netClient:NetClient, localAddr:EndPoint) returns (rr:ReceiveResul
         {
 //            Uint64EndPointRelationships();
 //            assert ConvertEndPointToUint64(srcEp) == rr.cpacket.src;    // OBSERVE trigger
-            assert EndPointIsValidIPV4(netClient.LocalEndPoint());  // OBSERVE trigger
+            assert EndPointIsValidPublicKey(netClient.LocalEndPoint());  // OBSERVE trigger
         }
     }
 }
@@ -324,7 +324,7 @@ method SendBroadcast(netClient:NetClient, broadcast:CBroadcast, ghost localAddr_
             var dstEp:EndPoint := broadcast.dsts[i];
             var dstAddrAry := seqToArrayOpt(dstEp.addr);
             var remote;
-            ok, remote := IPEndPoint.Construct(dstAddrAry, dstEp.port, netClient.env);
+            ok, remote := CryptoEndPoint.Construct(dstAddrAry, dstEp.port, netClient.env);
             if (!ok) { return; }
 
             ok := netClient.Send(remote, buffer);
@@ -388,7 +388,7 @@ method SendPacketSeq(netClient:NetClient, cpackets:seq<CPacket>, ghost localAddr
 
         var dstAddrAry := seqToArrayOpt(dstEp.addr);
         var remote;
-        ok, remote := IPEndPoint.Construct(dstAddrAry, dstEp.port, netClient.env);
+        ok, remote := CryptoEndPoint.Construct(dstAddrAry, dstEp.port, netClient.env);
         if (!ok) { return; }
 
         assert CSingleMessageIsAbstractable(cpacket.msg);

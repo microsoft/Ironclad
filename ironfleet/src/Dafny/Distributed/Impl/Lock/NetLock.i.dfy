@@ -54,13 +54,12 @@ predicate OnlySentMarshallableData(rawlog:seq<NetEvent>)
 
 datatype ReceiveResult = RRFail() | RRTimeout() | RRPacket(cpacket:CLockPacket)
 
-method GetEndPoint(ipe:IPEndPoint) returns (ep:EndPoint)
+method GetEndPoint(ipe:CryptoEndPoint) returns (ep:EndPoint)
     ensures ep == ipe.EP();
-    ensures EndPointIsValidIPV4(ep);
+    ensures EndPointIsValidPublicKey(ep);
 {
-    var addr := ipe.GetAddress();
-    var port := ipe.GetPort();
-    ep := EndPoint(addr[..], port);
+    var public_key := ipe.GetPublicKey();
+    ep := EndPoint(public_key);
 }
 
 method Receive(netClient:NetClient, localAddr:EndPoint) 
@@ -78,7 +77,7 @@ method Receive(netClient:NetClient, localAddr:EndPoint)
     ensures rr.RRTimeout? ==> netEvent.LIoOpTimeoutReceive?;
     ensures rr.RRPacket? ==>
            netEvent.LIoOpReceive?
-        && EndPointIsValidIPV4(rr.cpacket.src)
+        && EndPointIsValidPublicKey(rr.cpacket.src)
         && AbstractifyCLockPacket(rr.cpacket) == AbstractifyNetPacket(netEvent.r)
         && rr.cpacket.msg == DemarshallData(netEvent.r.msg)
 {
@@ -145,9 +144,8 @@ method SendPacket(netClient:NetClient, opt_packet:Option<CLockPacket>, ghost loc
 
         // Construct the remote address
         var dstEp:EndPoint := cpacket.dst;
-        var dstAddrAry := seqToArrayOpt(dstEp.addr);
         var remote;
-        ok, remote := IPEndPoint.Construct(dstAddrAry, dstEp.port, netClient.env);
+        ok, remote := CryptoEndPoint.Construct(dstEp.public_key, netClient.env);
         if (!ok) { return; }
 
         // Marshall the message

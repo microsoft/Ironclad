@@ -56,8 +56,8 @@ function AbstractifyCMessageToRslMessage(msg:CMessage) : RslMessage
 
 function AbstractifyCMessageToRslPacket(sentTo:EndPoint, sentFrom:EndPoint, msg:CMessage) : RslPacket
   requires CMessageIsAbstractable(msg)
-  requires EndPointIsValidIPV4(sentTo)
-  requires EndPointIsValidIPV4(sentFrom)
+  requires EndPointIsValidPublicKey(sentTo)
+  requires EndPointIsValidPublicKey(sentFrom)
 {
   LPacket(AbstractifyEndPointToNodeIdentity(sentTo), AbstractifyEndPointToNodeIdentity(sentFrom), AbstractifyCMessageToRslMessage(msg))
 }
@@ -65,8 +65,8 @@ function AbstractifyCMessageToRslPacket(sentTo:EndPoint, sentFrom:EndPoint, msg:
 predicate CPacketIsAbstractable(cp:CPacket)
 {
   && CMessageIsAbstractable(cp.msg)
-  && EndPointIsValidIPV4(cp.src)
-  && EndPointIsValidIPV4(cp.dst)
+  && EndPointIsValidPublicKey(cp.src)
+  && EndPointIsValidPublicKey(cp.dst)
 }
 
 predicate CPacketsIsAbstractable(cps:set<CPacket>)
@@ -244,12 +244,11 @@ lemma lemma_AbstractifySetOfCPacketsToSetOfRslPackets_properties(cps:set<CPacket
 
 lemma lemma_AbstractifyCPacketToRslPacket_src(cps:set<CPacket>, src:EndPoint)
   requires CPacketsIsAbstractable(cps)
-  requires EndPointIsValidIPV4(src)
+  requires EndPointIsValidPublicKey(src)
   requires forall p :: p in AbstractifySetOfCPacketsToSetOfRslPackets(cps) ==> p.src == AbstractifyEndPointToNodeIdentity(src)
   ensures  forall cp :: cp in cps ==> cp.src == src
 {
   reveal AbstractifySetOfCPacketsToSetOfRslPackets();
-  lemma_Uint64EndPointRelationships();
   lemma_AbstractifyEndPointToNodeIdentity_injective_forall();
   forall cp | cp in cps
     ensures cp.src == src
@@ -261,7 +260,7 @@ lemma lemma_AbstractifyCPacketToRslPacket_src(cps:set<CPacket>, src:EndPoint)
 
 lemma lemma_AbstractifySetOfCPacketsToSetOfRslPackets_srcMembershipNeg(cps:set<CPacket>, src:EndPoint)
   requires CPacketsIsAbstractable(cps)
-  requires EndPointIsValidIPV4(src)
+  requires EndPointIsValidPublicKey(src)
   requires !(forall p :: p in cps ==> p.src != src)
   ensures  !(forall p :: p in AbstractifySetOfCPacketsToSetOfRslPackets(cps) ==> p.src != AbstractifyEndPointToNodeIdentity(src))
 {
@@ -275,7 +274,7 @@ lemma lemma_AbstractifySetOfCPacketsToSetOfRslPackets_srcMembershipNeg(cps:set<C
 
 lemma lemma_AbstractifySetOfCPacketsToSetOfRslPackets_srcMembershipPos(cps:set<CPacket>, src:EndPoint)
   requires CPacketsIsAbstractable(cps)
-  requires EndPointIsValidIPV4(src)
+  requires EndPointIsValidPublicKey(src)
   requires forall p :: p in cps ==> p.src != src
   ensures  forall p :: p in AbstractifySetOfCPacketsToSetOfRslPackets(cps) ==> p.src != AbstractifyEndPointToNodeIdentity(src)
 {
@@ -292,7 +291,7 @@ lemma lemma_AbstractifySetOfCPacketsToSetOfRslPackets_srcMembershipPos(cps:set<C
 
 lemma lemma_AbstractifySetOfCPacketsToSetOfRslPackets_srcMembership(cps:set<CPacket>, src:EndPoint)
   requires CPacketsIsAbstractable(cps)
-  requires EndPointIsValidIPV4(src)
+  requires EndPointIsValidPublicKey(src)
   ensures  (forall p :: p in cps ==> p.src != src) <==> (forall p :: p in AbstractifySetOfCPacketsToSetOfRslPackets(cps) ==> p.src != AbstractifyEndPointToNodeIdentity(src))
 {
   var b := (forall p :: p in cps ==> p.src != src);
@@ -317,8 +316,8 @@ predicate CBroadcastIsAbstractable(broadcast:CBroadcast)
 {
   || broadcast.CBroadcastNop?
   || (&& broadcast.CBroadcast? 
-     && EndPointIsValidIPV4(broadcast.src)
-     && (forall i :: 0 <= i < |broadcast.dsts| ==> EndPointIsValidIPV4(broadcast.dsts[i]))
+     && EndPointIsValidPublicKey(broadcast.src)
+     && (forall i :: 0 <= i < |broadcast.dsts| ==> EndPointIsValidPublicKey(broadcast.dsts[i]))
      && CMessageIsAbstractable(broadcast.msg))
 }
 

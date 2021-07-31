@@ -184,14 +184,14 @@ predicate CDelegationMapIsAbstractable(m:CDelegationMap)
 
 function RefineToDelegationMapEntry(m:CDelegationMap, k:Key) : NodeIdentity
     requires CDelegationMapIsAbstractable(m);
-    requires forall low :: low in m.lows ==> EndPointIsValidIPV4(low.id);
+    requires forall low :: low in m.lows ==> EndPointIsValidPublicKey(low.id);
 {
     AbstractifyEndPointToNodeIdentity(m.lows[CDM_IndexForKey(m,KeyPlus(k))].id)
 }
 
 function AbstractifyCDelegationMapToDelegationMap(m:CDelegationMap) : DelegationMap
     requires CDelegationMapIsAbstractable(m);
-    requires forall low :: low in m.lows ==> EndPointIsValidIPV4(low.id);
+    requires forall low :: low in m.lows ==> EndPointIsValidPublicKey(low.id);
 {
     imap k:Key {:trigger CDM_IndexForKey(m,KeyPlus(k))} :: RefineToDelegationMapEntry(m, k)
 }
@@ -343,7 +343,7 @@ lemma CDM_IndexForKey_Ordering(m:CDelegationMap)
 lemma lemma_UpdateCDelegationMap_Part2_Helper(m:CDelegationMap, m':CDelegationMap, newkr:KeyRange, id:EndPoint)
     requires CDelegationMapIsValid(m);
     requires CDelegationMapIsValid(m');
-    requires EndPointIsValidIPV4(id);
+    requires EndPointIsValidPublicKey(id);
     requires !EmptyKeyRange(newkr);
     requires forall k:Key :: k in AbstractifyCDelegationMapToDelegationMap(m') <==> k in UpdateDelegationMap(AbstractifyCDelegationMapToDelegationMap(m), newkr, AbstractifyEndPointToNodeIdentity(id));
     requires forall k:Key :: true ==> AbstractifyCDelegationMapToDelegationMap(m')[k] == UpdateDelegationMap(AbstractifyCDelegationMapToDelegationMap(m), newkr, AbstractifyEndPointToNodeIdentity(id))[k];
@@ -354,7 +354,7 @@ lemma lemma_UpdateCDelegationMap_Part2_Helper(m:CDelegationMap, m':CDelegationMa
 lemma {:timeLimitMultiplier 4} {:induction false} UpdateCDelegationMap_Part2(m:CDelegationMap, newkr:KeyRange, id:EndPoint, m':CDelegationMap,
                                  left_index:int, right_index:int, new_left:seq<Mapping>, new_right:seq<Mapping>)
     requires CDelegationMapIsValid(m);
-    requires EndPointIsValidIPV4(id);
+    requires EndPointIsValidPublicKey(id);
     requires !EmptyKeyRange(newkr);
     requires left_index == CDM_IndexForKey(m, newkr.klo) as int;
     requires right_index == CDM_IndexForKey(m, newkr.khi) as int;
@@ -470,7 +470,7 @@ lemma {:timeLimitMultiplier 16} UpdateCDelegationMap_RHS_Helper(m:CDelegationMap
                                left_index:int, right_index:int, new_left:seq<Mapping>, new_right:seq<Mapping>,
                                k:Key, new_index:int)
     requires CDelegationMapIsValid(m);
-    requires EndPointIsValidIPV4(id);
+    requires EndPointIsValidPublicKey(id);
     requires !EmptyKeyRange(newkr);
     requires !KeyRangeContains(newkr, KeyPlus(k));
     requires left_index == CDM_IndexForKey(m, newkr.klo) as int;
@@ -538,7 +538,7 @@ lemma {:timeLimitMultiplier 4} UpdateCDelegationMap_RHS(m:CDelegationMap, newkr:
                                left_index:int, right_index:int, new_left:seq<Mapping>, new_right:seq<Mapping>,
                                k:Key, new_index:int)
     requires CDelegationMapIsValid(m);
-    requires EndPointIsValidIPV4(id);
+    requires EndPointIsValidPublicKey(id);
     requires !EmptyKeyRange(newkr);
     requires !KeyRangeContains(newkr, KeyPlus(k));
     requires left_index == CDM_IndexForKey(m, newkr.klo) as int;
@@ -598,7 +598,7 @@ lemma {:timeLimitMultiplier 2} UpdateCDelegationMap_Part1(
     left_index:int, right_index:int, new_left:seq<Mapping>, new_right:seq<Mapping>
     )
     requires CDelegationMapIsValid(m);
-    requires EndPointIsValidIPV4(id);
+    requires EndPointIsValidPublicKey(id);
     requires !EmptyKeyRange(newkr);
     requires left_index == CDM_IndexForKey(m, newkr.klo) as int;
     requires right_index == CDM_IndexForKey(m, newkr.khi) as int;
@@ -710,7 +710,7 @@ lemma {:timeLimitMultiplier 2} UpdateCDelegationMap_Part1(
 // TODO: Need to convert ok check into an invariant that we don't grow too large!
 method {:induction false} {:timeLimitMultiplier 4} UpdateCDelegationMap(m:CDelegationMap, newkr:KeyRange, id:EndPoint) returns (ok:bool, m':CDelegationMap)
     requires CDelegationMapIsValid(m);
-    requires EndPointIsValidIPV4(id);
+    requires EndPointIsValidPublicKey(id);
     requires !EmptyKeyRange(newkr);
     ensures |m.lows| as uint64 < 0xFFFF_FFFF_FFFF_FFFF - 2 ==> ok == true;
     ensures  ok ==> CDelegationMapIsValid(m');

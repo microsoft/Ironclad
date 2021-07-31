@@ -85,7 +85,7 @@ method InitHostState(constants:ConstantsState, me:EndPoint) returns (host:HostSt
 method DelegateForKeyImpl(m:CDelegationMap, k:Key) returns (ep:EndPoint)
     requires 0<|m.lows|;
      requires CDelegationMapIsValid(m);
-     ensures EndPointIsValidIPV4(ep);
+     ensures EndPointIsValidPublicKey(ep);
      ensures AbstractifyCDelegationMapToDelegationMap(m)[k] == AbstractifyEndPointToNodeIdentity(ep);
      ensures AbstractifyEndPointToNodeIdentity(ep) == DelegateForKey(AbstractifyCDelegationMapToDelegationMap(m), k);
 {
@@ -456,7 +456,7 @@ method {:timeLimitMultiplier 2} HostModelSpontaneouslyRetransmit(host:HostState)
     ghost var sent_packets' := AbstractifyOutboundPacketsToSeqOfLSHTPackets(sent_packets);
     
     lemma_AbstractifyEndPointToNodeIdentity_injective_forall();
-    assert forall p :: p in sent_packets ==> CPacketIsAbstractable(p) && EndPointIsValidIPV4(p.dst) && EndPointIsValidIPV4(p.src);
+    assert forall p :: p in sent_packets ==> CPacketIsAbstractable(p) && EndPointIsValidPublicKey(p.dst) && EndPointIsValidPublicKey(p.src);
     assert forall p :: p in sent_packets ==> LPacket(AbstractifyEndPointToNodeIdentity(p.dst), AbstractifyEndPointToNodeIdentity(p.src), AbstractifyCSingleMessageToSingleMessage(p.msg)) in sent_packets';
     
     assert forall p':: p' in sent_packets' ==> exists p :: p in sent_packets && LPacket(AbstractifyEndPointToNodeIdentity(p.dst), AbstractifyEndPointToNodeIdentity(p.src), AbstractifyCSingleMessageToSingleMessage(p.msg)) == p';

@@ -9,18 +9,15 @@ import opened CmdLineParser_i
 import opened Common__NetClient_i
 import opened LiveRSL__CPaxosConfiguration_i
 
-function paxos_config_parsing(args:seq<seq<uint16>>) : CPaxosConfiguration
+function paxos_config_parsing(args:seq<seq<byte>>) : CPaxosConfiguration
 {
-  if args != [] && |args[1..]| % 2 == 0 then 
-    var (ok, endpoints) := parse_end_points(args[1..]);
-    CPaxosConfiguration(endpoints)
-  else 
-    CPaxosConfiguration([])
+  var (_, endpoints) := parse_end_points(args);
+  CPaxosConfiguration(endpoints)
 }
 
-function paxos_parse_id(ip:seq<uint16>, port:seq<uint16>) : EndPoint
+function paxos_parse_id(arg:seq<byte>) : EndPoint
 {
-  var (ok, ep) := parse_end_point(ip, port);
+  var (_, ep) := parse_end_point(arg);
   ep
 }
 
@@ -28,13 +25,13 @@ function paxos_cmd_line_parsing(env:HostEnvironment) : (CPaxosConfiguration, End
   reads env
   reads env.constants
 {
-  var args := resolve_cmd_line_args(env.constants.CommandLineArgs());
-  if |args| < 2 then
-    (CPaxosConfiguration([]), EndPoint([0,0,0,0], 0))
+  var args := env.constants.CommandLineArgs();
+  if |args| < 1 then
+    (CPaxosConfiguration([]), EndPoint([]))
   else
-    var penultimate_arg, final_arg := args[|args|-2], args[|args|-1];
-    var config := paxos_config_parsing(args[..|args|-2]);
-    var me := paxos_parse_id(penultimate_arg, final_arg);
+    var final_arg := args[|args|-1];
+    var config := paxos_config_parsing(args[..|args|-1]);
+    var me := paxos_parse_id(final_arg);
     (config, me)
 }
 
@@ -51,17 +48,14 @@ method parse_cmd_line(ghost env:HostEnvironment) returns (ok:bool, config:CPaxos
   var args := collect_cmd_line_args(env);
   assert args == env.constants.CommandLineArgs();
 
-  args := resolve_cmd_line_args(args);
-
-  if |args| < 4 || |args| % 2 != 1 {
+  if |args| < 2 {
     print "Incorrect number of command line arguments.\n";
-    print "Expected: ./Main.exe [name:port]+ [name:port]\n";
-    print "      or: ./Main.exe [IP port]+ [IP port]\n";
-    print "  where the final argument is one of the IP-port pairs provided earlier \n";
+    print "Expected: ./Main.exe [public_key]+ [public_key]\n";
+    print "  where the final argument is one of the public keys provided earlier \n";
     return;
   }
 
-  var tuple1 := parse_end_points(args[1..|args|-2]);
+  var tuple1 := parse_end_points(args[..|args|-1]);
   ok := tuple1.0;
   var endpoints := tuple1.1;
   if !ok {
@@ -75,14 +69,14 @@ method parse_cmd_line(ghost env:HostEnvironment) returns (ok:bool, config:CPaxos
     return;
   }
 
-  var tuple2 := parse_end_point(args[|args|-2], args[|args|-1]);
+  var tuple2 := parse_end_point(args[|args|-1]);
   ok := tuple2.0;
   if !ok {
     print "Error: Could not parse command-line arguments.\n";
     return;
   }
 
-  var unique := test_unique'(endpoints);
+  var unique := test_unique(endpoints);
   if !unique {
     print "Error: Each endpoint must be unique.\n";
     ok := false;

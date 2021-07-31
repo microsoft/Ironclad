@@ -14,6 +14,7 @@ namespace IronRSLServer
     static void Main(string[] args)
     {
       Profiler.Initialize();
+      HostConstants.CommandLineArgs = System.Environment.CommandLineArgs();
       Native____Io__s_Compile.Time.Initialize();
       Console.WriteLine("IronRSL replica of {0} service started.", Service.Name);
       Console.WriteLine("[[READY]]");

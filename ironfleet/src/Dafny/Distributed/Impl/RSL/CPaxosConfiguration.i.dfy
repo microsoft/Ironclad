@@ -19,7 +19,7 @@ datatype CPaxosConfiguration = CPaxosConfiguration(replica_ids:seq<EndPoint>)
 
 predicate CPaxosConfigurationIsAbstractable(config:CPaxosConfiguration)
 {
-  && (forall e :: e in config.replica_ids ==> EndPointIsValidIPV4(e))
+  && (forall e :: e in config.replica_ids ==> EndPointIsValidPublicKey(e))
   && SeqIsUnique(config.replica_ids)
 }
 
@@ -34,7 +34,7 @@ predicate CPaxosConfigurationIsValid(config:CPaxosConfiguration)
 function method PaxosEndPointIsValid(endPoint:EndPoint, config:CPaxosConfiguration) : bool
   requires CPaxosConfigurationIsValid(config)
 {
-  EndPointIsValidIPV4(endPoint)
+  EndPointIsValidPublicKey(endPoint)
 }
 
 
@@ -110,7 +110,7 @@ lemma lemma_MinQuorumSizeLessThanReplicaCount(config:CPaxosConfiguration)
 
 method CGetReplicaIndex(replica:EndPoint, config:CPaxosConfiguration) returns (found:bool, index:uint64)
   requires CPaxosConfigurationIsValid(config)
-  requires EndPointIsValidIPV4(replica)
+  requires EndPointIsValidPublicKey(replica)
   ensures  found ==> ReplicaIndexValid(index, config) && config.replica_ids[index] == replica
   ensures  found ==> GetReplicaIndex(AbstractifyEndPointToNodeIdentity(replica), AbstractifyCPaxosConfigurationToConfiguration(config)) == index as int
   ensures !found ==> !(replica in config.replica_ids)

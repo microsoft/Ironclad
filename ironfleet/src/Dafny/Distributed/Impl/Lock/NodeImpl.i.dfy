@@ -45,7 +45,7 @@ class NodeImpl
     method ConstructNetClient(me:EndPoint, ghost env_:HostEnvironment) 
         returns (ok:bool, client:NetClient?)
         requires env_.Valid() && env_.ok.ok();
-        requires EndPointIsValidIPV4(me);
+        requires EndPointIsValidPublicKey(me);
         modifies env_.ok;
         ensures ok ==> NetClientIsValid(client)
                     && client.LocalEndPoint() == me
@@ -53,11 +53,9 @@ class NodeImpl
     {
         client := null;
         var my_ep := me;
-        var ip_byte_array := new byte[|my_ep.addr|];
-        seqIntoArrayOpt(my_ep.addr, ip_byte_array);
 
         var ip_endpoint;
-        ok, ip_endpoint := IPEndPoint.Construct(ip_byte_array, my_ep.port, env_);
+        ok, ip_endpoint := CryptoEndPoint.Construct(my_ep.public_key, env_);
         if !ok { return; }
 
         ok, client := NetClient.Construct(ip_endpoint, env_);

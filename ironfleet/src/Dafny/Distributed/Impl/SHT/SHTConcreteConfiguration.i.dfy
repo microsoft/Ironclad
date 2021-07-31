@@ -24,9 +24,9 @@ datatype SHTConcreteConfiguration = SHTConcreteConfiguration(
 
 predicate SHTConcreteConfigurationIsAbstractable(config:SHTConcreteConfiguration)
 {
-    (forall e :: e in config.hostIds ==> EndPointIsValidIPV4(e))
+    (forall e :: e in config.hostIds ==> EndPointIsValidPublicKey(e))
     && SeqIsUnique(config.hostIds)
-    && EndPointIsValidIPV4(config.rootIdentity)
+    && EndPointIsValidPublicKey(config.rootIdentity)
     && CParametersIsValid(config.params)
 }
 
@@ -41,7 +41,7 @@ predicate SHTConcreteConfigurationIsValid(config:SHTConcreteConfiguration)
 function method SHTEndPointIsValid(endPoint:EndPoint, config:SHTConcreteConfiguration) : bool
     requires SHTConcreteConfigurationIsValid(config);
 {
-    EndPointIsValidIPV4(endPoint)
+    EndPointIsValidPublicKey(endPoint)
 }
 
 
@@ -108,7 +108,7 @@ predicate WFSHTConcreteConfiguration(config:SHTConcreteConfiguration)
 
 method CGetReplicaIndex(replica:EndPoint, config:SHTConcreteConfiguration) returns (found:bool, index:uint64)
     requires SHTConcreteConfigurationIsValid(config);
-    requires EndPointIsValidIPV4(replica);
+    requires EndPointIsValidPublicKey(replica);
     ensures  found ==> ReplicaIndexValid(index, config) && config.hostIds[index] == replica;
     ensures  found ==> GetHostIndex(AbstractifyEndPointToNodeIdentity(replica), AbstractifyToConfiguration(config)) == index as int;
     ensures !found ==> !(replica in config.hostIds);

@@ -158,12 +158,12 @@ datatype CRequest = CRequest(client:EndPoint, seqno:uint64, request:CAppRequest)
 
 predicate method ValidRequest(c:CRequest)
 {
-  c.CRequest? ==> EndPointIsValidIPV4(c.client) && CAppRequestMarshallable(c.request)
+  c.CRequest? ==> EndPointIsValidPublicKey(c.client) && CAppRequestMarshallable(c.request)
 }
 
 predicate CRequestIsAbstractable(c:CRequest)
 {
-  EndPointIsValidIPV4(c.client) && CAppRequestIsAbstractable(c.request)
+  EndPointIsAbstractable(c.client) && CAppRequestIsAbstractable(c.request)
 }
 
 function AbstractifyCRequestToRequest(c:CRequest) : Request
@@ -177,7 +177,6 @@ lemma lemma_AbstractifyCRequestToRequest_isInjective()
 {
 //  assert forall u1:uint64, u2:uint64 :: u1 as int == u2 as int ==> u1 == u2;
   lemma_AbstractifyEndPointToNodeIdentity_injective_forall();
-  lemma_Uint64EndPointRelationships();
 }
 
 
@@ -294,12 +293,12 @@ datatype CReply   = CReply  (client:EndPoint, seqno:uint64, reply:CAppReply)
 
 predicate method ValidReply(c:CReply)
 {
-  c.CReply? ==> EndPointIsValidIPV4(c.client) && CAppReplyMarshallable(c.reply)
+  c.CReply? ==> EndPointIsValidPublicKey(c.client) && CAppReplyMarshallable(c.reply)
 }
 
 predicate CReplyIsAbstractable(c:CReply)
 {
-  EndPointIsValidIPV4(c.client) && CAppReplyIsAbstractable(c.reply)
+  EndPointIsAbstractable(c.client) && CAppReplyIsAbstractable(c.reply)
 }
 
 function AbstractifyCReplyToReply(c:CReply) : Reply
@@ -313,7 +312,6 @@ lemma lemma_AbstractifyCReplyToReply_isInjective()
 {
 //  assert forall u1:uint64, u2:uint64 :: u1 as int == u2 as int ==> u1 == u2;
   lemma_AbstractifyEndPointToNodeIdentity_injective_forall();
-  lemma_Uint64EndPointRelationships();
 }
 
 predicate CReplySeqIsAbstractable(creplies:seq<CReply>)
@@ -339,7 +337,7 @@ type CReplyCache = map<EndPoint, CReply>
 
 predicate CReplyCacheIsAbstractable(m:CReplyCache)
 {
-  forall e {:trigger EndPointIsValidIPV4(e)} :: e in m ==> EndPointIsValidIPV4(e) && CReplyIsAbstractable(m[e])
+  forall e {:trigger EndPointIsValidPublicKey(e)} :: e in m ==> EndPointIsValidPublicKey(e) && CReplyIsAbstractable(m[e])
 }
 
 function max_reply_cache_size() : int { 256 } // 0x1_0000_0000
@@ -353,7 +351,7 @@ predicate ValidReplyCache(m:CReplyCache)
 function {:opaque} AbstractifyCReplyCacheToReplyCache(m:CReplyCache) : ReplyCache
   requires CReplyCacheIsAbstractable(m)
 {
-  assert forall e :: e in m ==> EndPointIsValidIPV4(e);
+  assert forall e :: e in m ==> EndPointIsValidPublicKey(e);
   lemma_AbstractifyEndPointToNodeIdentity_injective_forall();
   // var test:CReply->Reply := (AbstractifyCReplyToReply as CReply->Reply);
   AbstractifyMap(m, AbstractifyEndPointToNodeIdentity, AbstractifyCReplyToReply, RefineNodeIdentityToEndPoint)
@@ -362,22 +360,22 @@ function {:opaque} AbstractifyCReplyCacheToReplyCache(m:CReplyCache) : ReplyCach
 lemma lemma_AbstractifyCReplyCacheToReplyCache_properties(m:CReplyCache)
   requires CReplyCacheIsAbstractable(m)
   ensures  m == map [] ==> AbstractifyCReplyCacheToReplyCache(m) == map []
-  ensures  forall e {:trigger e in m}{:trigger e in AbstractifyCReplyCacheToReplyCache(m)} :: (e in m <==> EndPointIsValidIPV4(e) && e in AbstractifyCReplyCacheToReplyCache(m))
-  ensures  forall e {:trigger e in m, EndPointIsValidIPV4(e)}{:trigger e in AbstractifyCReplyCacheToReplyCache(m)} :: (e !in m && EndPointIsValidIPV4(e) ==> e !in AbstractifyCReplyCacheToReplyCache(m))
+  ensures  forall e {:trigger e in m}{:trigger e in AbstractifyCReplyCacheToReplyCache(m)} :: (e in m <==> EndPointIsValidPublicKey(e) && e in AbstractifyCReplyCacheToReplyCache(m))
+  ensures  forall e {:trigger e in m, EndPointIsValidPublicKey(e)}{:trigger e in AbstractifyCReplyCacheToReplyCache(m)} :: (e !in m && EndPointIsValidPublicKey(e) ==> e !in AbstractifyCReplyCacheToReplyCache(m))
   ensures  forall e {:trigger AbstractifyCReplyToReply(m[e])}{:trigger AbstractifyCReplyCacheToReplyCache(m)[e]} :: e in m ==> AbstractifyCReplyCacheToReplyCache(m)[e] == AbstractifyCReplyToReply(m[e])
   ensures  forall re :: re in AbstractifyCReplyCacheToReplyCache(m) ==> re in m
-  ensures  forall e, r {:trigger EndPointIsValidIPV4(e), ValidReply(r)} :: EndPointIsValidIPV4(e) && ValidReply(r) ==> 
+  ensures  forall e, r {:trigger EndPointIsValidPublicKey(e), ValidReply(r)} :: EndPointIsValidPublicKey(e) && ValidReply(r) ==> 
               var rm  := AbstractifyCReplyCacheToReplyCache(m);
               var rm' := AbstractifyCReplyCacheToReplyCache(m[e := r]);
               rm' == AbstractifyCReplyCacheToReplyCache(m)[AbstractifyEndPointToNodeIdentity(e) := AbstractifyCReplyToReply(r)]
   ensures forall e {:trigger RemoveElt(m,e)} :: 
-              (EndPointIsValidIPV4(e) && NodeIdentityIsRefinable(AbstractifyEndPointToNodeIdentity(e))
+              (EndPointIsValidPublicKey(e) && NodeIdentityIsRefinable(AbstractifyEndPointToNodeIdentity(e))
                && RefineNodeIdentityToEndPoint(AbstractifyEndPointToNodeIdentity(e)) == e && e in m) ==>
           var rm  := AbstractifyCReplyCacheToReplyCache(m); 
           var rm' := AbstractifyCReplyCacheToReplyCache(RemoveElt(m, e));
           rm' == RemoveElt(rm, e)
 {
-  assert forall e :: e in m ==> EndPointIsValidIPV4(e);
+  assert forall e :: e in m ==> EndPointIsValidPublicKey(e);
   reveal AbstractifyCReplyCacheToReplyCache();
   lemma_AbstractifyMap_properties(m, AbstractifyEndPointToNodeIdentity, AbstractifyCReplyToReply, RefineNodeIdentityToEndPoint);
 }
@@ -389,7 +387,7 @@ lemma lemma_AbstractifyCReplyCacheToReplyCache_properties(m:CReplyCache)
 
 predicate MapOfSeqNumsIsAbstractable(m:map<EndPoint,uint64>)
 {
-  forall e :: e in m ==> EndPointIsValidIPV4(e)
+  forall e :: e in m ==> EndPointIsValidPublicKey(e)
 }
 
 function {:opaque} AbstractifyMapOfSeqNums(m:map<EndPoint,uint64>) : map<NodeIdentity,int>
@@ -402,16 +400,16 @@ function {:opaque} AbstractifyMapOfSeqNums(m:map<EndPoint,uint64>) : map<NodeIde
 lemma lemma_AbstractifyMapOfSeqNums_properties(m:map<EndPoint,uint64>)
   requires MapOfSeqNumsIsAbstractable(m)
   ensures  m == map [] ==> AbstractifyMapOfSeqNums(m) == map []
-  ensures  forall e :: (e in m <==> EndPointIsValidIPV4(e) && AbstractifyEndPointToNodeIdentity(e) in AbstractifyMapOfSeqNums(m))
-  ensures  forall e :: (e !in m && EndPointIsValidIPV4(e) ==> AbstractifyEndPointToNodeIdentity(e) !in AbstractifyMapOfSeqNums(m))
+  ensures  forall e :: (e in m <==> EndPointIsValidPublicKey(e) && AbstractifyEndPointToNodeIdentity(e) in AbstractifyMapOfSeqNums(m))
+  ensures  forall e :: (e !in m && EndPointIsValidPublicKey(e) ==> AbstractifyEndPointToNodeIdentity(e) !in AbstractifyMapOfSeqNums(m))
   ensures  forall e :: e in m ==> AbstractifyMapOfSeqNums(m)[AbstractifyEndPointToNodeIdentity(e)] == m[e] as int
-  ensures  forall e, u {:trigger AbstractifyMapOfSeqNums(m[e := u])} :: EndPointIsValidIPV4(e) ==> 
+  ensures  forall e, u {:trigger AbstractifyMapOfSeqNums(m[e := u])} :: EndPointIsValidPublicKey(e) ==> 
               var rm  := AbstractifyMapOfSeqNums(m);
               var rm' := AbstractifyMapOfSeqNums(m[e := u]);
               rm' == AbstractifyMapOfSeqNums(m)[AbstractifyEndPointToNodeIdentity(e) := u as int]
 {
   lemma_AbstractifyEndPointToNodeIdentity_injective_forall();
-  assert forall ck1, ck2 :: EndPointIsValidIPV4(ck1) && EndPointIsValidIPV4(ck2) && AbstractifyEndPointToNodeIdentity(ck1) == AbstractifyEndPointToNodeIdentity(ck2) ==> ck1 == ck2;
+  assert forall ck1, ck2 :: EndPointIsValidPublicKey(ck1) && EndPointIsValidPublicKey(ck2) && AbstractifyEndPointToNodeIdentity(ck1) == AbstractifyEndPointToNodeIdentity(ck2) ==> ck1 == ck2;
   assert forall ck1, ck2 :: AbstractifyEndPointToNodeIdentity.requires(ck1) && AbstractifyEndPointToNodeIdentity.requires(ck2) && AbstractifyEndPointToNodeIdentity(ck1) == AbstractifyEndPointToNodeIdentity(ck2) ==> ck1 == ck2;
 
   reveal AbstractifyMapOfSeqNums();

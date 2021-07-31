@@ -22,7 +22,7 @@ method MinCQuorumSize(config:CPaxosConfiguration) returns (quorumSize:uint64)
   ghost var c := AbstractifyCPaxosConfigurationToConfiguration(config);
   assert EndPointsAreValidIPV4(config.replica_ids);
   forall ep1, ep2 | ep1 in config.replica_ids && ep2 in config.replica_ids
-                    //&& EndPointIsValidIPV4(ep1) && EndPointIsValidIPV4(ep2) 
+                    //&& EndPointIsValidPublicKey(ep1) && EndPointIsValidPublicKey(ep2) 
                     && AbstractifyEndPointToNodeIdentity(ep1) == AbstractifyEndPointToNodeIdentity(ep2) 
     ensures ep1 == ep2
   {

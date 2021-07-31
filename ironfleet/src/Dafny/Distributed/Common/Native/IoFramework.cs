@@ -10,6 +10,10 @@ using System.Threading.Tasks.Dataflow;
 
 namespace IronfleetIoFramework
 {
+  public class CryptographicIdentity
+  {
+  }
+
   public class IoEncoder
   {
     private static int MAX_IO_SIZE = 0x80_0000 /* 8 MB */;
