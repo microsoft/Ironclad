@@ -38,24 +38,6 @@ namespace IronfleetIoFramework
     public List<PublicIdentity> Servers { get; set; }
   }
 
-  public class EndpointInfo
-  {
-    private string friendlyName;
-    private string hostNameOrAddress;
-    private int port;
-
-    public EndpointInfo(string i_friendlyName, string i_hostNameOrAddress, int i_port)
-    {
-      friendlyName = i_friendlyName;
-      hostNameOrAddress = i_hostNameOrAddress;
-      port = i_port;
-    }
-
-    public string FriendlyName { get { return friendlyName; } }
-    public string HostNameOrAddress { get { return hostNameOrAddress; } }
-    public int Port { get { return port; } }
-  }
-
   public class ByteArrayComparer : IEqualityComparer<byte[]>
   {
     private static ByteArrayComparer staticDefault;
@@ -286,6 +268,76 @@ namespace IronfleetIoFramework
     {
       numTriesSoFar++;
       return numTriesSoFar;
+    }
+  }
+
+  public class CertificateValidator
+  {
+    private IoScheduler scheduler;
+    private PublicIdentity expectedPublicIdentity;
+
+    public CertificateValidator(IoScheduler i_scheduler, PublicIdentity i_expectedPublicIdentity = null)
+    {
+      scheduler = i_scheduler;
+      expectedPublicIdentity = i_expectedPublicIdentity;
+    }
+
+    public bool ValidateSSLCertificate(object sender, X509Certificate certificate, X509Chain chain,
+                                       SslPolicyErrors sslPolicyErrors)
+    {
+      const SslPolicyErrors ignoredErrors = SslPolicyErrors.RemoteCertificateChainErrors;
+
+      if ((sslPolicyErrors & ~ignoredErrors) != SslPolicyErrors.None) {
+        Console.Error.WriteLine("Could not validate SSL certificate for {0} due to errors {1}",
+                                IoScheduler.GetCertificatePublicKey(certificate as X509Certificate2),
+                                sslPolicyErrors & ~ignoredErrors);
+        return false;
+      }
+
+      var cert2 = certificate as X509Certificate2;
+
+      // If we were expecting a specific public identity, check that
+      // the key in the certificate matches what we were expecting.
+
+      if (expectedPublicIdentity != null) {
+        if (!ByteArrayComparer.Default().Equals(IoScheduler.GetCertificatePublicKey(cert2), expectedPublicIdentity.PublicKey)) {
+          Console.Error.WriteLine("Connected to {0} expecting public key {1} but found public key {2}, so disconnecting.",
+                                  IoScheduler.PublicIdentityToString(expectedPublicIdentity),
+                                  IoScheduler.PublicKeyToString(expectedPublicIdentity.PublicKey),
+                                  IoScheduler.PublicKeyToString(IoScheduler.GetCertificatePublicKey(cert2)));
+          return false;
+        }
+
+        if (cert2.SubjectName.Name != "CN=" + expectedPublicIdentity.FriendlyName) {
+          Console.Error.WriteLine("Connected to {0} expecting subject CN={1} but found {2}, so disconnecting.",
+                                  IoScheduler.PublicIdentityToString(expectedPublicIdentity),
+                                  expectedPublicIdentity.FriendlyName,
+                                  cert2.SubjectName.Name);
+          return false;
+        }
+      }
+      else {
+        // If we weren't expecting any particular public identity,
+        // consider the expected public identity to be the known one
+        // matching the public key in the certificate we got.  If
+        // there is no known one, then this is just an anonymous
+        // client, which is fine.  Otherwise, check that the subject
+        // matches what we expect.  This is just a paranoid check; it
+        // should never fail.
+
+        expectedPublicIdentity = scheduler.LookupPublicKey(IoScheduler.GetCertificatePublicKey(cert2));
+        if (expectedPublicIdentity != null) {
+          if (cert2.SubjectName.Name != "CN=" + expectedPublicIdentity.FriendlyName) {
+            Console.Error.WriteLine("Received a certificate we expected to have subject CN={1} but found {2}, so disconnecting.",
+                                    IoScheduler.PublicIdentityToString(expectedPublicIdentity),
+                                    expectedPublicIdentity.FriendlyName,
+                                    cert2.SubjectName.Name);
+            return false;
+          }
+        }
+      }
+
+      return true;
     }
   }
 
@@ -524,40 +576,40 @@ namespace IronfleetIoFramework
 
     protected override bool Connect()
     {
-      var otherEndpoint = scheduler.FindEndpointInfoForPublicKey(destinationPublicKey);
-      if (otherEndpoint == null) {
+      var destinationPublicIdentity = scheduler.LookupPublicKey(destinationPublicKey);
+      if (destinationPublicIdentity == null) {
         Console.Error.WriteLine("Could not connect to destination public key {0} because we don't know its address.",
                                 IoScheduler.PublicKeyToString(destinationPublicKey));
         return false;
       }
 
       if (scheduler.Verbose) {
-        Console.WriteLine("Starting connection to {0} with key {1}",
-                          IoScheduler.EndpointInfoToString(otherEndpoint),
-                          IoScheduler.PublicKeyToString(destinationPublicKey));
+        Console.WriteLine("Starting connection to {0}", IoScheduler.PublicIdentityToString(destinationPublicIdentity));
       }
 
       TcpClient client;
       try
       {
-        client = new TcpClient(otherEndpoint.HostNameOrAddress, otherEndpoint.Port);
+        client = new TcpClient(destinationPublicIdentity.HostNameOrAddress, destinationPublicIdentity.Port);
       }
       catch (Exception e)
       {
-        scheduler.ReportException(e, "connecting to " + IoScheduler.EndpointInfoToString(otherEndpoint));
+        scheduler.ReportException(e, "connecting to " + IoScheduler.PublicIdentityToString(destinationPublicIdentity));
         return false;
       }
 
       var myCertificateCollection = new X509CertificateCollection();
       myCertificateCollection.Add(scheduler.MyCert);
+      var myValidator = new CertificateValidator(scheduler, destinationPublicIdentity);
 
       try {
-        stream = new SslStream(client.GetStream(), leaveInnerStreamOpen: false, IoScheduler.ValidateSSLCertificate);
-        stream.AuthenticateAsClient(otherEndpoint.FriendlyName, myCertificateCollection, checkCertificateRevocation: false);
+        stream = new SslStream(client.GetStream(), leaveInnerStreamOpen: false, myValidator.ValidateSSLCertificate);
+        stream.AuthenticateAsClient(destinationPublicIdentity.FriendlyName, myCertificateCollection,
+                                    checkCertificateRevocation: false);
       }
       catch (Exception e) {
         Console.Error.WriteLine("Could not authenticate connection to {0} as client, so disconnecting. Exception:\n{1}",
-                                IoScheduler.EndpointInfoToString(otherEndpoint), e);
+                                IoScheduler.PublicIdentityToString(destinationPublicIdentity), e);
         return false;
       }
 
@@ -565,14 +617,15 @@ namespace IronfleetIoFramework
 
       if (!ByteArrayComparer.Default().Equals(IoScheduler.GetCertificatePublicKey(remoteCert), destinationPublicKey)) {
         Console.Error.WriteLine("Connected to {0} expecting public key {1} but found public key {2}, so disconnecting.",
-                                IoScheduler.EndpointInfoToString(otherEndpoint),
+                                IoScheduler.PublicIdentityToString(destinationPublicIdentity),
                                 IoScheduler.PublicKeyToString(destinationPublicKey),
                                 IoScheduler.PublicKeyToString(IoScheduler.GetCertificatePublicKey(remoteCert)));
         return false;
       }
 
       if (scheduler.Verbose) {
-        Console.WriteLine("Successfully connected to remote identified as {0}",
+        Console.WriteLine("Successfully connected to {0} and got certificate identifying it as {1}",
+                          IoScheduler.PublicIdentityToString(destinationPublicIdentity),
                           IoScheduler.CertificateToString(remoteCert));
       }
 
@@ -620,10 +673,11 @@ namespace IronfleetIoFramework
         if (scheduler.Verbose) {
           Console.WriteLine("Waiting for the next incoming connection");
         }
+
         TcpClient client = listener.AcceptTcpClient();
 
-        SslStream sslStream = new SslStream(client.GetStream(), leaveInnerStreamOpen: false, IoScheduler.ValidateSSLCertificate);
-
+        CertificateValidator myValidator = new CertificateValidator(scheduler);
+        SslStream sslStream = new SslStream(client.GetStream(), leaveInnerStreamOpen: false, myValidator.ValidateSSLCertificate);
         sslStream.AuthenticateAsServer(scheduler.MyCert, clientCertificateRequired: true, checkCertificateRevocation: false);
 
         var remoteCert = sslStream.RemoteCertificate as X509Certificate2;
@@ -704,7 +758,7 @@ namespace IronfleetIoFramework
     private int maxSendTries;
     private BufferBlock<ReceivedPacket> receiveQueue;
     private Dictionary<byte[], List<SenderThread>> destinationPublicKeyToSenderThreadMap;
-    private Dictionary<byte[], EndpointInfo> publicKeyToEndpointInfoMap;
+    private Dictionary<byte[], PublicIdentity> publicKeyToPublicIdentityMap;
     private ListenerThread listenerThread;
     private SendDispatchThread sendDispatchThread;
 
@@ -715,18 +769,10 @@ namespace IronfleetIoFramework
       maxSendTries = i_maxSendTries;
       receiveQueue = new BufferBlock<ReceivedPacket>();
       destinationPublicKeyToSenderThreadMap = new Dictionary<byte[], List<SenderThread>>(ByteArrayComparer.Default());
-      publicKeyToEndpointInfoMap = new Dictionary<byte[], EndpointInfo>(ByteArrayComparer.Default());
+      publicKeyToPublicIdentityMap = new Dictionary<byte[], PublicIdentity>(ByteArrayComparer.Default());
 
       foreach (var knownIdentity in knownIdentities) {
-        try {
-          var publicKey = knownIdentity.PublicKey;
-          var info = new EndpointInfo(knownIdentity.FriendlyName, knownIdentity.HostNameOrAddress, knownIdentity.Port);
-          publicKeyToEndpointInfoMap[publicKey] = info;
-        }
-        catch (Exception e) {
-          Console.Error.WriteLine("WARNING:  Caught exception when resolving {0}, the host name given for identity {1}:\n{2}",
-                                  knownIdentity.HostNameOrAddress, knownIdentity.FriendlyName, e);
-        }
+        publicKeyToPublicIdentityMap[knownIdentity.PublicKey] = knownIdentity;
       }
 
       if (myIdentity == null) {
@@ -831,17 +877,6 @@ namespace IronfleetIoFramework
       return null;
     }
 
-    public EndpointInfo FindEndpointInfoForPublicKey(byte[] publicKey)
-    {
-      EndpointInfo endpointInfo;
-      if (!publicKeyToEndpointInfoMap.TryGetValue(publicKey, out endpointInfo)) {
-        return null;
-      }
-      else {
-        return endpointInfo;
-      }
-    }
-
     /////////////////////////////////////
     // RECEIVING
     /////////////////////////////////////
@@ -855,15 +890,9 @@ namespace IronfleetIoFramework
     // UTILITY METHODS
     /////////////////////////////////////
 
-    public static string EndpointInfoToString(EndpointInfo info)
+    public static byte[] GetCertificatePublicKey(X509Certificate2 cert)
     {
-      return string.Format("{0}:{1} ({2})", info.HostNameOrAddress, info.Port, info.FriendlyName);
-    }
-
-    public static string CertificateToString(X509Certificate2 cert)
-    {
-      return string.Format("{0} (public key {1})",
-                           cert.SubjectName.Name, PublicKeyToString(IoScheduler.GetCertificatePublicKey(cert)));
+      return cert.PublicKey.EncodedKeyValue.RawData;
     }
 
     public static string PublicKeyToString(byte[] destinationPublicKey)
@@ -871,20 +900,37 @@ namespace IronfleetIoFramework
       return System.Convert.ToBase64String(destinationPublicKey).Substring(12, 8);
     }
 
-    public static byte[] GetCertificatePublicKey(X509Certificate2 cert)
+    public static string PublicIdentityToString(PublicIdentity id)
     {
-      return cert.PublicKey.EncodedKeyValue.RawData;
+      return string.Format("{0} (key {1}) @ {2}:{3}", id.FriendlyName, PublicKeyToString(id.PublicKey),
+                           id.HostNameOrAddress, id.Port);
+    }
+
+    public static string CertificateToString(X509Certificate2 cert)
+    {
+      return string.Format("{0} (key {1})",
+                           cert.SubjectName.Name, PublicKeyToString(IoScheduler.GetCertificatePublicKey(cert)));
+    }
+
+    public PublicIdentity LookupPublicKey(byte[] publicKey)
+    {
+      PublicIdentity publicIdentity;
+      if (!publicKeyToPublicIdentityMap.TryGetValue(publicKey, out publicIdentity)) {
+        return null;
+      }
+      else {
+        return publicIdentity;
+      }
     }
 
     public string LookupPublicKeyAsString(byte[] destinationPublicKey)
     {
-      var str = PublicKeyToString(destinationPublicKey);
-      EndpointInfo info;
-      if (publicKeyToEndpointInfoMap.TryGetValue(destinationPublicKey, out info)) {
-        return string.Format("{0} @ {1}", str, EndpointInfoToString(info));
+      var publicIdentity = LookupPublicKey(destinationPublicKey);
+      if (publicIdentity == null) {
+        return PublicKeyToString(destinationPublicKey);
       }
       else {
-        return str;
+        return PublicIdentityToString(publicIdentity);
       }
     }
 
@@ -909,14 +955,6 @@ namespace IronfleetIoFramework
       }
       Console.WriteLine("Stopped {0} because of the following exception, but will try again later if necessary:\n{1}",
                         activity, e);
-    }
-
-    public static bool ValidateSSLCertificate(object sender, X509Certificate certificate, X509Chain chain,
-                                              SslPolicyErrors sslPolicyErrors)
-    {
-      const SslPolicyErrors ignoredErrors = SslPolicyErrors.RemoteCertificateChainErrors;
-
-      return ((sslPolicyErrors & ~ignoredErrors) == SslPolicyErrors.None);
     }
 
     ///////////////////////////////////
