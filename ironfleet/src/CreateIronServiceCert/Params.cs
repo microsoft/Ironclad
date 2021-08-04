@@ -52,7 +52,7 @@ namespace CreateIronServiceCert
         return false;
       }
       if (!serverLocalAddrs.TryGetValue(serverIndex, out localAddr)) {
-        localAddr = "localhost";
+        localAddr = publicAddr;
       }
       if (!serverLocalPorts.TryGetValue(serverIndex, out localPort)) {
         localPort = publicPort;

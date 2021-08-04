@@ -23,8 +23,8 @@ Allowed keys:
   outputdir    - directory to write certificates into (default ""."")
   addr<n>      - public address (host name or IP) of server #<n>
   port<n>      - public port of server #<n>
-  localaddr<n> - local address of server #<n> (default ""localhost"")
-  localport<n> - local port of server #<n> (default same as public port)
+  localaddr<n> - local address of server #<n> (default same as addr<n>)
+  localport<n> - local port of server #<n> (default same as port<n>)
   verbose      - print verbose output (false or true, default false)
 ");
     }

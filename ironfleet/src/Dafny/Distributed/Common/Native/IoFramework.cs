@@ -7,6 +7,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Security;
 using System.Net.Sockets;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks.Dataflow;
 using System.Security.Cryptography;
@@ -41,18 +42,18 @@ namespace IronfleetIoFramework
   {
     private string friendlyName;
     private string hostNameOrAddress;
-    private IPEndPoint ep;
+    private int port;
 
-    public EndpointInfo(string i_friendlyName, string i_hostNameOrAddress, IPEndPoint i_ep)
+    public EndpointInfo(string i_friendlyName, string i_hostNameOrAddress, int i_port)
     {
       friendlyName = i_friendlyName;
       hostNameOrAddress = i_hostNameOrAddress;
-      ep = i_ep;
+      port = i_port;
     }
 
     public string FriendlyName { get { return friendlyName; } }
     public string HostNameOrAddress { get { return hostNameOrAddress; } }
-    public IPEndPoint Endpoint { get { return ep; } }
+    public int Port { get { return port; } }
   }
 
   public class ByteArrayComparer : IEqualityComparer<byte[]>
@@ -311,7 +312,7 @@ namespace IronfleetIoFramework
       }
       catch (Exception e)
       {
-        scheduler.ReportException(e, "receiving from", IoScheduler.GetCertificatePublicKey(remoteCert));
+        scheduler.ReportException(e, "receiving from " + IoScheduler.GetCertificatePublicKey(remoteCert));
       }
     }
 
@@ -328,7 +329,7 @@ namespace IronfleetIoFramework
       bool success;
 
       if (scheduler.Verbose) {
-        Console.WriteLine("Starting receive loop with other endpoint {0}", IoScheduler.CertificateToString(remoteCert));
+        Console.WriteLine("Starting receive loop with remote identified as {0}", IoScheduler.CertificateToString(remoteCert));
       }
 
       while (true)
@@ -396,7 +397,7 @@ namespace IronfleetIoFramework
       }
       catch (Exception e)
       {
-        scheduler.ReportException(e, "sending to", destinationPublicKey);
+        scheduler.ReportException(e, "sending to public key " + scheduler.PublicKeyLookupAsString(destinationPublicKey));
       }
 
       scheduler.UnregisterSender(destinationPublicKey, this);
@@ -424,7 +425,8 @@ namespace IronfleetIoFramework
       var destinationPublicKey = IoScheduler.GetCertificatePublicKey(remoteCert);
 
       if (scheduler.Verbose) {
-        Console.WriteLine("Creating sender thread for endpoint {0}", IoScheduler.CertificateToString(remoteCert));
+        Console.WriteLine("Creating sender thread to send to remote certified as {0}",
+                          IoScheduler.CertificateToString(remoteCert));
       }
 
       SenderThread senderThread = new SenderThread(scheduler, stream, null, true);
@@ -437,7 +439,8 @@ namespace IronfleetIoFramework
     public static SenderThread CreateAsClient(IoScheduler scheduler, byte[] destinationPublicKey)
     {
       if (scheduler.Verbose) {
-        Console.WriteLine("Creating sender thread for public key {0}", scheduler.PublicKeyToString(destinationPublicKey));
+        Console.WriteLine("Creating sender thread to send to remote public key {0}",
+                          scheduler.PublicKeyLookupAsString(destinationPublicKey));
       }
 
       SenderThread senderThread = new SenderThread(scheduler, null, destinationPublicKey, false);
@@ -450,7 +453,8 @@ namespace IronfleetIoFramework
     private void SendLoop()
     {
       if (scheduler.Verbose) {
-        Console.WriteLine("Starting send loop with other endpoint {0}", scheduler.PublicKeyToString(destinationPublicKey));
+        Console.WriteLine("Starting send loop with remote public key {0}",
+                          scheduler.PublicKeyLookupAsString(destinationPublicKey));
       }
 
       // If we're not the server, we need to initiate the connection.
@@ -494,32 +498,24 @@ namespace IronfleetIoFramework
       var otherEndpoint = scheduler.FindEndpointInfoForPublicKey(destinationPublicKey);
       if (otherEndpoint == null) {
         Console.Error.WriteLine("Could not connect to destination public key {0} because we don't know its address.",
-                                destinationPublicKey);
+                                IoScheduler.PublicKeyToString(destinationPublicKey));
         return false;
+      }
+
+      if (scheduler.Verbose) {
+        Console.WriteLine("Starting connection to {0} with key {1}",
+                          IoScheduler.EndpointInfoToString(otherEndpoint),
+                          IoScheduler.PublicKeyToString(destinationPublicKey));
       }
 
       TcpClient client;
       try
       {
-        client = new TcpClient();
+        client = new TcpClient(otherEndpoint.HostNameOrAddress, otherEndpoint.Port);
       }
       catch (Exception e)
       {
-        Console.Error.WriteLine("Could not create TCP client, causing exception:\n{0}", e);
-        return false;
-      }
-
-      if (scheduler.Verbose) {
-        Console.WriteLine("Starting connection to {0}", IoScheduler.CertificateToString(remoteCert));
-      }
-
-      try {
-        client.Connect(otherEndpoint.Endpoint);
-      }
-      catch (Exception e)
-      {
-        Console.Error.WriteLine("Could not connect to {0}, causing exception:\n{1}",
-                                IoScheduler.EndpointInfoToString(otherEndpoint), e);
+        scheduler.ReportException(e, "connecting to " + IoScheduler.EndpointInfoToString(otherEndpoint));
         return false;
       }
 
@@ -541,9 +537,14 @@ namespace IronfleetIoFramework
       if (!ByteArrayComparer.Default().Equals(IoScheduler.GetCertificatePublicKey(remoteCert), destinationPublicKey)) {
         Console.Error.WriteLine("Connected to {0} expecting public key {1} but found public key {2}, so disconnecting.",
                                 IoScheduler.EndpointInfoToString(otherEndpoint),
-                                scheduler.PublicKeyToString(destinationPublicKey),
-                                scheduler.PublicKeyToString(IoScheduler.GetCertificatePublicKey(remoteCert)));
+                                IoScheduler.PublicKeyToString(destinationPublicKey),
+                                IoScheduler.PublicKeyToString(IoScheduler.GetCertificatePublicKey(remoteCert)));
         return false;
+      }
+
+      if (scheduler.Verbose) {
+        Console.WriteLine("Successfully connected to remote identified as {0}",
+                          IoScheduler.CertificateToString(remoteCert));
       }
 
       // Now that the connection is successful, create a thread to
@@ -604,8 +605,8 @@ namespace IronfleetIoFramework
         var remoteCert = sslStream.RemoteCertificate as X509Certificate2;
 
         if (scheduler.Verbose) {
-          Console.WriteLine("Received an incoming connection from {0} with public key {1}",
-                            remoteCert.FriendlyName, IoScheduler.GetCertificatePublicKey(remoteCert));
+          Console.WriteLine("Received an incoming connection from remote certified as {0}",
+                            IoScheduler.CertificateToString(remoteCert));
         }
 
         ReceiverThread receiverThread = ReceiverThread.Create(scheduler, sslStream, asServer: true);
@@ -652,7 +653,7 @@ namespace IronfleetIoFramework
 
         if (scheduler.Verbose) {
           Console.WriteLine("Dispatching send of message of size {0} to {1}",
-                            sendTask.Message.Length, scheduler.PublicKeyToString(sendTask.DestinationPublicKey));
+                            sendTask.Message.Length, IoScheduler.PublicKeyToString(sendTask.DestinationPublicKey));
         }
 
         SenderThread senderThread = scheduler.FindSenderForDestinationPublicKey(sendTask.DestinationPublicKey);
@@ -695,23 +696,12 @@ namespace IronfleetIoFramework
       foreach (var knownIdentity in knownIdentities) {
         try {
           var publicKey = knownIdentity.PublicKey;
-          var addresses = Dns.GetHostAddresses(knownIdentity.HostNameOrAddress);
-          if (addresses.Length < 1) {
-            Console.WriteLine("WARNING:  Could not find any addresses when resolving {0} for identity {1} with public key {2}",
-                              knownIdentity.HostNameOrAddress, knownIdentity.FriendlyName, publicKey);
-            continue;
-          }
-          var address = addresses[0];
-          var ep = new IPEndPoint(address, knownIdentity.Port);
-          var info = new EndpointInfo(knownIdentity.FriendlyName, knownIdentity.HostNameOrAddress, ep);
+          var info = new EndpointInfo(knownIdentity.FriendlyName, knownIdentity.HostNameOrAddress, knownIdentity.Port);
           publicKeyToEndpointInfoMap[publicKey] = info;
-          if (verbose) {
-            Console.WriteLine("Discovered that {0} is the address/port for key {1}", ep, publicKey);
-          }
         }
         catch (Exception e) {
-          Console.WriteLine("WARNING:  Caught exception when resolving {0}, the host name given for identity {1}:\n{2}",
-                            knownIdentity.HostNameOrAddress, knownIdentity.FriendlyName, e);
+          Console.Error.WriteLine("WARNING:  Caught exception when resolving {0}, the host name given for identity {1}:\n{2}",
+                                  knownIdentity.HostNameOrAddress, knownIdentity.FriendlyName, e);
         }
       }
 
@@ -731,8 +721,8 @@ namespace IronfleetIoFramework
         myCert = new X509Certificate2(myIdentity.Pkcs12, "" /* empty password */, X509KeyStorageFlags.Exportable);
       }
       catch (Exception e) {
-        Console.WriteLine("Could not import private key. Exception:{0}", e);
-        throw new Exception("Can't start server because private key file not readable");
+        Console.Error.WriteLine("Could not import private key. Exception:{0}", e);
+        throw new Exception("Can't start server because private key not decryptable");
       }
 
       var addresses = Dns.GetHostAddresses(myIdentity.HostNameOrAddress);
@@ -843,24 +833,18 @@ namespace IronfleetIoFramework
 
     public static string EndpointInfoToString(EndpointInfo info)
     {
-      return string.Format("{0} ({1}:{2} @ {3})", info.FriendlyName, info.HostNameOrAddress, info.Endpoint.Port,
-                           info.Endpoint.Address);
+      return string.Format("{0}:{1} ({2})", info.HostNameOrAddress, info.Port, info.FriendlyName);
     }
 
     public static string CertificateToString(X509Certificate2 cert)
     {
-      return string.Format("{0} (public key {1}", cert.FriendlyName, IoScheduler.GetCertificatePublicKey(cert));
+      return string.Format("{0} (public key {1})",
+                           cert.SubjectName.Name, PublicKeyToString(IoScheduler.GetCertificatePublicKey(cert)));
     }
 
-    public string PublicKeyToString(byte[] destinationPublicKey)
+    public static string PublicKeyToString(byte[] destinationPublicKey)
     {
-      EndpointInfo info;
-      if (publicKeyToEndpointInfoMap.TryGetValue(destinationPublicKey, out info)) {
-        return EndpointInfoToString(info);
-      }
-      else {
-        return string.Format("public key {0}", destinationPublicKey);
-      }
+      return System.Convert.ToBase64String(destinationPublicKey).Substring(12, 8);
     }
 
     public static byte[] GetCertificatePublicKey(X509Certificate2 cert)
@@ -868,32 +852,45 @@ namespace IronfleetIoFramework
       return cert.PublicKey.EncodedKeyValue.RawData;
     }
 
-    public void ReportException(Exception e, string activity, byte[] publicKey)
+    public string PublicKeyLookupAsString(byte[] destinationPublicKey)
+    {
+      var str = PublicKeyToString(destinationPublicKey);
+      EndpointInfo info;
+      if (publicKeyToEndpointInfoMap.TryGetValue(destinationPublicKey, out info)) {
+        return string.Format("{0} @ {1}", str, EndpointInfoToString(info));
+      }
+      else {
+        return str;
+      }
+    }
+
+    public void ReportException(Exception e, string activity)
     {
       if (e is IOException ioe) {
         e = ioe.InnerException;
       }
       if (e is SocketException se) {
         if (se.SocketErrorCode == SocketError.ConnectionReset) {
-          Console.WriteLine("Stopped {0} {1} because of a connection reset. Will try again later if necessary.",
-                            activity, PublicKeyToString(publicKey));
+          Console.WriteLine("Stopped {0} because of a connection reset. Will try again later if necessary.", activity);
           return;
         }
         if (se.SocketErrorCode == SocketError.ConnectionRefused) {
-          Console.WriteLine("Stopped {0} {1} because the connection was refused. Will try again later if necessary.",
-                            activity, PublicKeyToString(publicKey));
+          Console.WriteLine("Stopped {0} because the connection was refused. Will try again later if necessary.", activity);
+          return;
+        }
+        if (se.SocketErrorCode == SocketError.Shutdown) {
+          Console.WriteLine("Stopped {0} because the connection was shut down. Will try again later if necessary.", activity);
           return;
         }
       }
-      Console.WriteLine("Stopped {0} {1} because of the following exception, but will try again later if necessary:\n{2}",
-                        activity, PublicKeyToString(publicKey), e);
+      Console.WriteLine("Stopped {0} because of the following exception, but will try again later if necessary:\n{1}",
+                        activity, e);
     }
 
-    public static bool ValidateSSLCertificate(object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors)
+    public static bool ValidateSSLCertificate(object sender, X509Certificate certificate, X509Chain chain,
+                                              SslPolicyErrors sslPolicyErrors)
     {
-      const SslPolicyErrors ignoredErrors =
-          SslPolicyErrors.RemoteCertificateChainErrors |  // self-signed
-          SslPolicyErrors.RemoteCertificateNameMismatch;  // name mismatch
+      const SslPolicyErrors ignoredErrors = SslPolicyErrors.RemoteCertificateChainErrors;
 
       return ((sslPolicyErrors & ~ignoredErrors) == SslPolicyErrors.None);
     }
@@ -925,7 +922,8 @@ namespace IronfleetIoFramework
           remotePublicKey = IoScheduler.GetCertificatePublicKey(packet.SenderCert);
           message = packet.Message;
           if (verbose) {
-            Console.WriteLine("Dequeueing a packet of size {0} from {1}", message.Length, CertificateToString(packet.SenderCert));
+            Console.WriteLine("Dequeueing a packet of size {0} from {1}",
+                              message.Length, CertificateToString(packet.SenderCert));
           }
         }
       }

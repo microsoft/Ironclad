@@ -43,7 +43,7 @@ namespace TestIoFramework
         string message = string.Format("Hello {0}", randomNumber);
         byte[] messageBytes = Encoding.UTF8.GetBytes(message);
 
-        Console.WriteLine("Sending message {0} to {1}", message, scheduler.PublicKeyToString(serverPublicKey));
+        Console.WriteLine("Sending message {0} to {1}", message, IoScheduler.PublicKeyToString(serverPublicKey));
         
         scheduler.SendPacket(serverPublicKey, messageBytes);
         Thread.Sleep(1000);
@@ -67,7 +67,7 @@ namespace TestIoFramework
           continue;
         }
         string message = Encoding.UTF8.GetString(messageBytes);
-        Console.WriteLine("Received message {0} from {1}", message, scheduler.PublicKeyToString(remote));
+        Console.WriteLine("Received message {0} from {1}", message, IoScheduler.PublicKeyToString(remote));
       }
     }
   }
