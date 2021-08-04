@@ -10,6 +10,7 @@ namespace TestIoFramework
   {
     private string serviceFileName;
     private string privateKeyFileName;
+    private bool verbose;
 
     public Params()
     {
@@ -19,6 +20,7 @@ namespace TestIoFramework
 
     public string ServiceFileName { get { return serviceFileName; } }
     public string PrivateKeyFileName { get { return privateKeyFileName; } }
+    public bool Verbose { get { return verbose; } }
 
     public bool Validate()
     {
@@ -55,6 +57,19 @@ namespace TestIoFramework
       if (key == "private") {
         privateKeyFileName = value;
         return true;
+      }
+
+      if (key == "verbose") {
+        if (value == "false") {
+          verbose = false;
+          return true;
+        }
+        if (value == "true") {
+          verbose = true;
+          return true;
+        }
+        Console.WriteLine("ERROR - Invalid verbose value {0} - should be false or true", value);
+        return false;
       }
 
       Console.WriteLine("ERROR - Invalid argument key {0}", key);

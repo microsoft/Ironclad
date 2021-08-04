@@ -17,11 +17,11 @@ namespace TestIoFramework
     private PrivateIdentity privateIdentity;
     private IoScheduler scheduler;
 
-    public Runner(ServiceIdentity i_serviceIdentity, PrivateIdentity i_privateIdentity)
+    public Runner(ServiceIdentity i_serviceIdentity, PrivateIdentity i_privateIdentity, bool i_verbose)
     {
       serviceIdentity = i_serviceIdentity;
       privateIdentity = i_privateIdentity;
-      scheduler = new IoScheduler(privateIdentity, serviceIdentity.Servers, false);
+      scheduler = new IoScheduler(privateIdentity, serviceIdentity.Servers, i_verbose);
     }
 
     public void Run()
@@ -80,8 +80,9 @@ namespace TestIoFramework
 Usage:  dotnet TestIoFramework.dll [key=value]...
 
 Allowed keys:
-  service      - file name containing service description
-  private      - file name containing private key
+  service   - file name containing service description
+  private   - file name containing private key
+  verbose   - use verbose output
 ");
     }
 
@@ -139,7 +140,7 @@ Allowed keys:
         return;
       }
 
-      var runner = new Runner(serviceIdentity, privateIdentity);
+      var runner = new Runner(serviceIdentity, privateIdentity, ps.Verbose);
       runner.Run();
     }
   }
