@@ -27,7 +27,8 @@ namespace Native____Io__s_Compile {
 
     public static Dafny.ISequence<Dafny.ISequence<byte>> HostCommandLineArgs()
     {
-      return Dafny.Sequence<Dafny.ISequence<byte>>.FromArray(Array.ConvertAll(CommandLineArgs, s => Dafny.Sequence<byte>.FromArray(s)));
+      return Dafny.Sequence<Dafny.ISequence<byte>>.FromArray(
+               Array.ConvertAll(CommandLineArgs, s => Dafny.Sequence<byte>.FromArray(s)));
     }
   }
   
@@ -68,11 +69,18 @@ namespace Native____Io__s_Compile {
       }
     }
   
-    public void Receive(int timeLimit, out bool ok, out bool timedOut, out byte[] remote, out byte[] buffer)
+    public void Receive(int timeLimit, out bool ok, out bool timedOut, out Dafny.ISequence<byte> remote, out byte[] buffer)
     {
-      scheduler.ReceivePacket(timeLimit, out ok, out timedOut, out remote, out buffer);
-      if (ok && !timedOut && remote != null && remote.Length > MaxPublicKeySize) {
+      byte[] remoteBytes;
+      scheduler.ReceivePacket(timeLimit, out ok, out timedOut, out remoteBytes, out buffer);
+      if (ok && !timedOut && remoteBytes != null && remoteBytes.Length > MaxPublicKeySize) {
         timedOut = true;
+      }
+      if (ok && !timedOut) {
+        remote = Dafny.Sequence<byte>.FromArray(remoteBytes);
+      }
+      else {
+        remote = Dafny.Sequence<byte>.Empty;
       }
     }
   

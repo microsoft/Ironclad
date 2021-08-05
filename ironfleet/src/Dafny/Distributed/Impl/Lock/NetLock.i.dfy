@@ -88,7 +88,7 @@ method Receive(netClient:NetClient, localAddr:EndPoint)
         return;
     }
 
-    var remoteEp:EndPoint := EndPoint(remote[..]);
+    var remoteEp:EndPoint := EndPoint(remote);
     netEvent := LIoOpReceive(LPacket(EndPoint(netClient.MyPublicKey()), remoteEp, buffer[..]));
 
     var cmessage := DemarshallDataMethod(buffer);

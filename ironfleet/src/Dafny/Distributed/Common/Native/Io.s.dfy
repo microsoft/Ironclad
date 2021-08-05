@@ -114,7 +114,7 @@ class NetClient
     ensures  env == old(env)
     ensures  env.ok.ok() == ok
 
-  method{:axiom} Receive(timeLimit:int32) returns(ok:bool, timedOut:bool, remote:array<byte>, buffer:array<byte>)
+  method{:axiom} Receive(timeLimit:int32) returns(ok:bool, timedOut:bool, remote:seq<byte>, buffer:array<byte>)
     requires env.Valid()
     requires env.ok.ok()
     requires IsOpen()
@@ -133,8 +133,8 @@ class NetClient
     ensures  ok ==> !timedOut ==>
                && fresh(buffer)
                && env.net.history() == old(env.net.history()) +
-                   [LIoOpReceive(LPacket(EndPoint(MyPublicKey()), EndPoint(remote[..]), buffer[..]))]
-               && ValidPhysicalAddress(EndPoint(remote[..]))
+                   [LIoOpReceive(LPacket(EndPoint(MyPublicKey()), EndPoint(remote), buffer[..]))]
+               && ValidPhysicalAddress(EndPoint(remote))
                && buffer.Length <= MaxPacketSize()
 
   method{:axiom} Send(remote:seq<byte>, buffer:array<byte>) returns(ok:bool)
