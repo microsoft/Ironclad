@@ -40,6 +40,8 @@ namespace Native____Io__s_Compile {
       scheduler = i_scheduler;
     }
 
+    public static int MaxPublicKeySize { get { return 0xFFFFF; } }
+
     public Dafny.ISequence<byte> MyPublicKey()
     {
       return Dafny.Sequence<byte>.FromArray(IoScheduler.GetCertificatePublicKey(scheduler.MyCert));
@@ -51,6 +53,12 @@ namespace Native____Io__s_Compile {
       try
       {
         IoScheduler scheduler = new IoScheduler(myIdentity, knownIdentities, verbose, maxSendRetries);
+        var myPublicKey = IoScheduler.GetCertificatePublicKey(scheduler.MyCert);
+        if (myPublicKey.Length > MaxPublicKeySize) {
+          System.Console.Error.WriteLine("ERROR:  The provided public key for my identity is too big ({0} > {1} bytes)",
+                                         myPublicKey.Length, MaxPublicKeySize);
+          return null;
+        }
         return new NetClient(scheduler);
       }
       catch (Exception e)
@@ -63,6 +71,9 @@ namespace Native____Io__s_Compile {
     public void Receive(int timeLimit, out bool ok, out bool timedOut, out byte[] remote, out byte[] buffer)
     {
       scheduler.ReceivePacket(timeLimit, out ok, out timedOut, out remote, out buffer);
+      if (ok && !timedOut && remote != null && remote.Length > MaxPublicKeySize) {
+        timedOut = true;
+      }
     }
   
     public bool Send(Dafny.ISequence<byte> remote, byte[] buffer)
