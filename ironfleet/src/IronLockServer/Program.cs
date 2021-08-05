@@ -45,47 +45,13 @@ Allowed keys:
         return;
       }
 
-      string json;
-
-      try {
-        json = File.ReadAllText(ps.ServiceFileName);
-      }
-      catch (Exception e) {
-        Console.WriteLine("ERROR - Could not read contents of service file {0}. Exception:\n{1}", ps.ServiceFileName, e);
+      ServiceIdentity serviceIdentity = ServiceIdentity.ReadFromFile(ps.ServiceFileName);
+      if (serviceIdentity == null) {
         return;
       }
 
-      ServiceIdentity serviceIdentity;
-      try {
-        serviceIdentity = JsonSerializer.Deserialize<ServiceIdentity>(json);
-      }
-      catch (Exception e) {
-        Console.WriteLine("ERROR - Could not deserialize contents of service file {0}. Exception:\n{1}",
-                          ps.ServiceFileName, e);
-        return;
-      }
-
-      if (serviceIdentity.ServiceType != "IronLock") {
-        Console.WriteLine("ERROR - Service file {0} contains description of service of type {1}, not IronLock.",
-                          ps.ServiceFileName, serviceIdentity.ServiceType);
-        return;
-      }
-
-      try {
-        json = File.ReadAllText(ps.PrivateKeyFileName);
-      }
-      catch (Exception e) {
-        Console.WriteLine("ERROR - Could not read contents of private key file {0}. Exception:\n{1}", ps.PrivateKeyFileName, e);
-        return;
-      }
-
-      PrivateIdentity privateIdentity;
-      try {
-        privateIdentity = JsonSerializer.Deserialize<PrivateIdentity>(json);
-      }
-      catch (Exception e) {
-        Console.WriteLine("ERROR - Could not deserialize contents of private key file {0}. Exception:\n{1}",
-                          ps.PrivateKeyFileName, e);
+      PrivateIdentity privateIdentity = PrivateIdentity.ReadFromFile(ps.PrivateKeyFileName);
+      if (privateIdentity == null) {
         return;
       }
 

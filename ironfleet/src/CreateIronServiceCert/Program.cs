@@ -5,7 +5,6 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Numerics;
-using System.Text.Json;
 using System.Threading;
 
 namespace CreateIronServiceCert
@@ -46,7 +45,6 @@ Allowed keys:
       }
 
       List<PublicIdentity> serverPublicIdentities = new List<PublicIdentity>();
-      string json;
 
       for (int serverIndex = 1; serverIndex <= ps.MaxServerIndex; ++serverIndex) {
         string publicAddr, localAddr;
@@ -59,29 +57,15 @@ Allowed keys:
         PublicIdentity publicIdentity;
         PrivateIdentity privateIdentity;
         string serverName = string.Format("{0}.{1}.server{2}", ps.ServiceName, ps.ServiceType, serverIndex);
-        bool result = IronfleetCrypto.CreateIdentity(serverName, publicAddr, publicPort, localAddr, localPort,
-                                                     out publicIdentity, out privateIdentity);
+        IronfleetCrypto.CreateNewIdentity(serverName, publicAddr, publicPort, localAddr, localPort,
+                                          out publicIdentity, out privateIdentity);
 
-        try {
-          json = JsonSerializer.Serialize<PrivateIdentity>(privateIdentity);
-        }
-        catch (Exception e) {
-          Console.WriteLine("ERROR - Could not serialize private key data for server {0}. Exception:\n{1}", serverIndex, e);
+        var privateKeyFileName = Path.Join(ps.OutputDir, string.Format("{0}.private.txt", serverName));
+        if (!privateIdentity.WriteToFile(privateKeyFileName)) {
           return;
         }
-
-        var privateKeyFileName = Path.Join(ps.OutputDir,
-                                           string.Format("{0}.{1}.server{2}.private.txt", ps.ServiceName,
-                                                         ps.ServiceType, serverIndex));
-        try {
-          File.WriteAllText(privateKeyFileName, json);
-        }
-        catch (Exception e) {
-          Console.WriteLine("ERROR - Could not create file {0}. Exception:\n{1}", privateKeyFileName, e);
-          return;
-        }
-
         Console.WriteLine("Successfully wrote private key for server {0} to {1}", serverIndex, privateKeyFileName);
+
         serverPublicIdentities.Add(publicIdentity);
       }
 
@@ -90,24 +74,12 @@ Allowed keys:
         ServiceType = ps.ServiceType,
         Servers = serverPublicIdentities
       };
-      try {
-        json = JsonSerializer.Serialize<ServiceIdentity>(serviceIdentity);
-      }
-      catch (Exception e) {
-        Console.WriteLine("ERROR - Could not serialize service identity. Exception:\n{0}", e);
-        return;
-      }
-
       var serviceFileName = Path.Join(ps.OutputDir, string.Format("{0}.{1}.service.txt", ps.ServiceName, ps.ServiceType));
-      try {
-        File.WriteAllText(serviceFileName, json);
-      }
-      catch (Exception e) {
-        Console.WriteLine("ERROR - Could not write service identity to file {0}. Exception:\n{1}", serviceFileName, e);
+      if (!serviceIdentity.WriteToFile(serviceFileName)) {
         return;
       }
-
       Console.WriteLine("Successfully wrote service description to {0}", serviceFileName);
+
       Console.WriteLine("DONE - SUCCESS");
     }
   }

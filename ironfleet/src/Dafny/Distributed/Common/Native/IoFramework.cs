@@ -8,6 +8,7 @@ using System.Net;
 using System.Net.Security;
 using System.Net.Sockets;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks.Dataflow;
 using System.Security.Cryptography;
@@ -21,6 +22,53 @@ namespace IronfleetIoFramework
     public byte[] Pkcs12 { get; set; }
     public string HostNameOrAddress { get; set; }
     public int Port { get; set; }
+
+    public bool WriteToFile (string fileName)
+    {
+      string json;
+
+      try {
+        json = JsonSerializer.Serialize<PrivateIdentity>(this);
+      }
+      catch (Exception e) {
+        Console.Error.WriteLine("Could not serialize private key data for {0}. Exception:\n{1}", FriendlyName, e);
+        return false;
+      }
+
+      try {
+        File.WriteAllText(fileName, json);
+      }
+      catch (Exception e) {
+        Console.Error.WriteLine("Could not create file {0}. Exception:\n{1}", fileName, e);
+        return false;
+      }
+
+      return true;
+    }
+
+    public static PrivateIdentity ReadFromFile(string fileName)
+    {
+      string json;
+
+      try {
+        json = File.ReadAllText(fileName);
+      }
+      catch (Exception e) {
+        Console.Error.WriteLine("Could not read contents of private key file {0}. Exception:\n{1}", fileName, e);
+        return null;
+      }
+
+      PrivateIdentity privateIdentity;
+      try {
+        privateIdentity = JsonSerializer.Deserialize<PrivateIdentity>(json);
+      }
+      catch (Exception e) {
+        Console.Error.WriteLine("Could not deserialize contents of private key file {0}. Exception:\n{1}", fileName, e);
+        return null;
+      }
+
+      return privateIdentity;
+    }
   }
 
   public class PublicIdentity
@@ -36,6 +84,53 @@ namespace IronfleetIoFramework
     public string FriendlyName { get; set; }
     public string ServiceType { get; set; }
     public List<PublicIdentity> Servers { get; set; }
+
+    public bool WriteToFile(string fileName)
+    {
+      string json;
+
+      try {
+        json = JsonSerializer.Serialize<ServiceIdentity>(this);
+      }
+      catch (Exception e) {
+        Console.Error.WriteLine("Could not serialize service identity. Exception:\n{0}", e);
+        return false;
+      }
+
+      try {
+        File.WriteAllText(fileName, json);
+      }
+      catch (Exception e) {
+        Console.Error.WriteLine("Could not write service identity to file {0}. Exception:\n{1}", fileName, e);
+        return false;
+      }
+
+      return true;
+    }
+
+    public static ServiceIdentity ReadFromFile(string fileName)
+    {
+      string json;
+
+      try {
+        json = File.ReadAllText(fileName);
+      }
+      catch (Exception e) {
+        Console.Error.WriteLine("Could not read contents of service file {0}. Exception:\n{1}", fileName, e);
+        return null;
+      }
+
+      ServiceIdentity serviceIdentity;
+      try {
+        serviceIdentity = JsonSerializer.Deserialize<ServiceIdentity>(json);
+      }
+      catch (Exception e) {
+        Console.Error.WriteLine("Could not deserialize contents of service file {0}. Exception:\n{1}", fileName, e);
+        return null;
+      }
+
+      return serviceIdentity;
+    }
   }
 
   public class ByteArrayComparer : IEqualityComparer<byte[]>
@@ -63,9 +158,9 @@ namespace IronfleetIoFramework
 
   public class IronfleetCrypto
   {
-    public static bool CreateIdentity(string friendlyName, string publicHostNameOrAddress, int publicPort,
-                                      string localHostNameOrAddress, int localPort,
-                                      out PublicIdentity publicIdentity, out PrivateIdentity privateIdentity)
+    public static void CreateNewIdentity(string friendlyName, string publicHostNameOrAddress, int publicPort,
+                                         string localHostNameOrAddress, int localPort,
+                                         out PublicIdentity publicIdentity, out PrivateIdentity privateIdentity)
     {
       var key = RSA.Create(4096);
       var subject = string.Format("CN = {0}", friendlyName);
@@ -87,7 +182,6 @@ namespace IronfleetIoFramework
         HostNameOrAddress = localHostNameOrAddress,
         Port = localPort
       };
-      return true;
     }
 
     public static X509Certificate2 CreateTransientClientIdentity ()
