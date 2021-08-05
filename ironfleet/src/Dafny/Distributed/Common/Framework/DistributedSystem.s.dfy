@@ -25,15 +25,15 @@ predicate ValidPhysicalEnvironmentStep(step:LEnvStep<EndPoint, seq<byte>>)
 datatype DS_State = DS_State(
   config:H_s.ConcreteConfiguration,
   environment:LEnvironment<EndPoint,seq<byte>>,
-  servers:map<EndPoint,H_s.HostState>,
-  clients:set<EndPoint>
+  servers:map<EndPoint,H_s.HostState>
   )
 
 predicate DS_Init(s:DS_State, config:H_s.ConcreteConfiguration)
   reads *
 {
   && s.config == config
-  && H_s.ConcreteConfigInit(s.config, mapdomain(s.servers), s.clients)
+  && H_s.ConcreteConfigToServers(s.config) == mapdomain(s.servers)
+  && H_s.ConcreteConfigInit(s.config)
   && LEnvironment_Init(s.environment)
   && (forall id :: id in s.servers ==> H_s.HostInit(s.servers[id], config, id))
 }
@@ -51,7 +51,6 @@ predicate DS_Next(s:DS_State, s':DS_State)
   reads *
 {
   && s'.config == s.config
-  && s'.clients == s.clients
   && LEnvironment_Next(s.environment, s'.environment)
   && ValidPhysicalEnvironmentStep(s.environment.nextStep)
   && if s.environment.nextStep.LEnvStepHostIos? && s.environment.nextStep.actor in s.servers then

@@ -14,24 +14,20 @@ predicate HostInit(host_state:HostState, config:ConcreteConfiguration, id:EndPoi
   reads *
 predicate HostNext(host_state:HostState, host_state':HostState, ios:seq<LIoOp<EndPoint, seq<byte>>>)
   reads *
-predicate ConcreteConfigInit(config:ConcreteConfiguration, servers:set<EndPoint>, clients:set<EndPoint>)
+
+predicate ConcreteConfigInit(config:ConcreteConfiguration)
+function ConcreteConfigToServers(config:ConcreteConfiguration) : set<EndPoint>
 
 predicate HostStateInvariants(host_state:HostState, env:HostEnvironment)
   reads *
-predicate ConcreteConfigurationInvariants(config:ConcreteConfiguration)
 
-function ParseCommandLineConfiguration(args:seq<seq<byte>>) : (ConcreteConfiguration, set<EndPoint>, set<EndPoint>)
+function ParseCommandLineConfiguration(args:seq<seq<byte>>) : ConcreteConfiguration
 
 predicate ArbitraryObject(o:object) { true }
 
-// TODO: Prohibit HostInitImpl from sending (and receiving?) packets
 method HostInitImpl(ghost env:HostEnvironment, netc:NetClient, args:seq<seq<byte>>) returns (
   ok:bool,
-  host_state:HostState,
-  config:ConcreteConfiguration,
-  ghost servers:set<EndPoint>,
-  ghost clients:set<EndPoint>,
-  id:EndPoint
+  host_state:HostState
   )
   requires env.Valid()
   requires env.ok.ok()
@@ -41,14 +37,13 @@ method HostInitImpl(ghost env:HostEnvironment, netc:NetClient, args:seq<seq<byte
   modifies set x:object | ArbitraryObject(x)     // Everything!
   ensures  ok ==> env.Valid() && env.ok.ok()
   ensures  ok ==> HostStateInvariants(host_state, env)
-  ensures  ok ==> ConcreteConfigurationInvariants(config)
-  ensures  ok ==> id == EndPoint(netc.MyPublicKey())
-  ensures  ok ==> var (parsed_config, parsed_servers, parsed_clients) := ParseCommandLineConfiguration(args);
-                  && config == parsed_config
-                  && servers == parsed_servers
-                  && clients == parsed_clients
-                  && ConcreteConfigInit(parsed_config, parsed_servers, parsed_clients)
-                  && HostInit(host_state, config, id)
+  ensures  ok ==> var id := EndPoint(netc.MyPublicKey());
+                 var config := ParseCommandLineConfiguration(args);
+                 && id in ConcreteConfigToServers(config)
+                 && ConcreteConfigInit(config)
+                 && HostInit(host_state, config, id)
+  ensures  env.net.history() == old(env.net.history()) // Prohibit HostInitImpl from sending (and receiving) packets
+
 
 method HostNextImpl(ghost env:HostEnvironment, host_state:HostState) 
   returns (

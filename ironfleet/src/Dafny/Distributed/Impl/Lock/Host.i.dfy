@@ -16,8 +16,8 @@ module Host_i refines Host_s {
         provides Native__Io_s, Environment_s, Native__NativeTypes_s
         provides HostState
         provides ConcreteConfiguration
-        provides HostInit, HostNext, ConcreteConfigInit, HostStateInvariants, ConcreteConfigurationInvariants
-        provides ParseCommandLineConfiguration, ArbitraryObject
+        provides HostInit, HostNext, ConcreteConfigInit, HostStateInvariants
+        provides ConcreteConfigToServers, ParseCommandLineConfiguration, ArbitraryObject
         provides HostInitImpl, HostNextImpl
     export All reveals *
 
@@ -26,45 +26,42 @@ module Host_i refines Host_s {
     type HostState = CScheduler
     type ConcreteConfiguration = Config
 
-    predicate ConcreteConfigurationInvariants(config:ConcreteConfiguration) 
-    {
-        ValidConfig(config)
-    }
-
     predicate HostStateInvariants(host_state:HostState, env:HostEnvironment)
     {
-     && host_state.node_impl.Valid() 
-     && host_state.node_impl.Env() == env
-     && host_state.node == AbstractifyCNode(host_state.node_impl.node)
+      && host_state.node_impl.Valid() 
+      && host_state.node_impl.Env() == env
+      && host_state.node == AbstractifyCNode(host_state.node_impl.node)
     }
 
     predicate HostInit(host_state:HostState, config:ConcreteConfiguration, id:EndPoint)
     {
-     && host_state.node_impl.Valid()
-     && host_state.node_impl.node.config == config
-     && host_state.node_impl.node.config[host_state.node_impl.node.my_index] == id
-     && NodeInit(host_state.node, 
+      && host_state.node_impl.Valid()
+      && host_state.node_impl.node.config == config
+      && host_state.node_impl.node.config[host_state.node_impl.node.my_index] == id
+      && NodeInit(host_state.node, 
                  host_state.node_impl.node.my_index as int,
                  config)
     }
 
     predicate HostNext(host_state:HostState, host_state':HostState, ios:seq<LIoOp<EndPoint, seq<byte>>>)
     {
-         NodeNext(host_state.node, host_state'.node, AbstractifyRawLogToIos(ios))
+      && NodeNext(host_state.node, host_state'.node, AbstractifyRawLogToIos(ios))
       && OnlySentMarshallableData(ios)
     }
 
-    predicate ConcreteConfigInit(config:ConcreteConfiguration, servers:set<EndPoint>, clients:set<EndPoint>)
+    predicate ConcreteConfigInit(config:ConcreteConfiguration)
     {
-        ValidConfig(config)
-     && MapSeqToSet(config, x=>x) == servers
+      ValidConfig(config)
     }
 
-    function ParseCommandLineConfiguration(args:seq<seq<byte>>) : (ConcreteConfiguration, set<EndPoint>, set<EndPoint>)
+    function ConcreteConfigToServers(config:ConcreteConfiguration) : set<EndPoint>
     {
-        var lock_config := lock_config_parsing(args);
-        var endpoints_set := (set e{:trigger e in lock_config} | e in lock_config);
-        (lock_config, endpoints_set, {})
+      MapSeqToSet(config, x=>x)
+    }
+
+    function ParseCommandLineConfiguration(args:seq<seq<byte>>) : ConcreteConfiguration
+    {
+      lock_config_parsing(args)
     }
     
     method HostInitImpl(
@@ -73,27 +70,23 @@ module Host_i refines Host_s {
       args:seq<seq<byte>>
       ) returns (
       ok:bool,
-      host_state:HostState,
-      config:ConcreteConfiguration,
-      ghost servers:set<EndPoint>,
-      ghost clients:set<EndPoint>,
-      id:EndPoint
+      host_state:HostState
       )
     {
         var my_index;
         var node_impl := new NodeImpl();
         host_state := CScheduler(AbstractifyCNode(node_impl.node), node_impl);
 
-        id := EndPoint(netc.MyPublicKey());
+        var id := EndPoint(netc.MyPublicKey());
+        var config;
         ok, config, my_index := ParseCmdLine(id, args);
         if !ok { return; }
-        
+        assert id in config;
+
         ok := node_impl.InitNode(config, my_index, netc, env);
         
         if !ok { return; }
         host_state := CScheduler(AbstractifyCNode(node_impl.node), node_impl);
-        servers := set e | e in config;
-        clients := {};
     }
     
     predicate EventsConsistent(recvs:seq<NetEvent>, clocks:seq<NetEvent>, sends:seq<NetEvent>) 

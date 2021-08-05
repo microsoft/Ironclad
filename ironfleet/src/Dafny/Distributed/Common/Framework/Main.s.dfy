@@ -20,7 +20,9 @@ method IronfleetMain(ghost env:HostEnvironment, netc:NetClient, args:seq<seq<byt
   modifies set x:object | DS_s.H_s.ArbitraryObject(x)     // Everything!
   decreases *
 {
-  var ok, host_state, config, servers, clients, id := DS_s.H_s.HostInitImpl(env, netc, args);
+  var ok, host_state := DS_s.H_s.HostInitImpl(env, netc, args);
+  var config := DS_s.H_s.ParseCommandLineConfiguration(args);
+  var id := EndPoint(netc.MyPublicKey());
   assert ok ==> DS_s.H_s.HostInit(host_state, config, id);
 
   while (ok) 
