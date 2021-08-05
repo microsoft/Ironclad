@@ -25,7 +25,7 @@ function ParseCommandLineConfiguration(args:seq<seq<byte>>) : (ConcreteConfigura
 predicate ArbitraryObject(o:object) { true }
 
 // TODO: Prohibit HostInitImpl from sending (and receiving?) packets
-method HostInitImpl(ghost env:HostEnvironment) returns (
+method HostInitImpl(ghost env:HostEnvironment, netc:NetClient, args:seq<seq<byte>>) returns (
   ok:bool,
   host_state:HostState,
   config:ConcreteConfiguration,
@@ -35,19 +35,19 @@ method HostInitImpl(ghost env:HostEnvironment) returns (
   )
   requires env.Valid()
   requires env.ok.ok()
-  requires |env.constants.CommandLineArgs()| >= 2
+  requires netc.IsOpen()
+  requires netc.env == env
+  requires ValidPhysicalAddress(EndPoint(netc.MyPublicKey()))
   modifies set x:object | ArbitraryObject(x)     // Everything!
   ensures  ok ==> env.Valid() && env.ok.ok()
-  ensures  ok ==> |env.constants.CommandLineArgs()| >= 2
   ensures  ok ==> HostStateInvariants(host_state, env)
   ensures  ok ==> ConcreteConfigurationInvariants(config)
-  ensures  ok ==> var args := env.constants.CommandLineArgs();
-                  var (parsed_config, parsed_servers, parsed_clients) := ParseCommandLineConfiguration(args[0..|args|-1]);
+  ensures  ok ==> id == EndPoint(netc.MyPublicKey())
+  ensures  ok ==> var (parsed_config, parsed_servers, parsed_clients) := ParseCommandLineConfiguration(args);
                   && config == parsed_config
                   && servers == parsed_servers
                   && clients == parsed_clients
                   && ConcreteConfigInit(parsed_config, parsed_servers, parsed_clients)
-                  && id == EndPoint(args[|args|-1])
                   && HostInit(host_state, config, id)
 
 method HostNextImpl(ghost env:HostEnvironment, host_state:HostState) 

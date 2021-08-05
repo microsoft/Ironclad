@@ -31,8 +31,8 @@ class NodeImpl
     {
            CNodeValid(node)
         && NetClientIsValid(netClient)
-        && netClient.LocalEndPoint() == localAddr
-        && netClient.LocalEndPoint() == node.config[node.my_index]
+        && EndPoint(netClient.MyPublicKey()) == localAddr
+        && localAddr == node.config[node.my_index]
         && Repr == { this } + NetClientRepr(netClient)
     }
         
@@ -41,54 +41,27 @@ class NodeImpl
     {
         if netClient!=null then netClient.env else null
     }
-   
-    method ConstructNetClient(me:EndPoint, ghost env_:HostEnvironment) 
-        returns (ok:bool, client:NetClient?)
-        requires env_.Valid() && env_.ok.ok();
-        requires EndPointIsValidPublicKey(me);
-        modifies env_.ok;
-        ensures ok ==> NetClientIsValid(client)
-                    && client.LocalEndPoint() == me
-                    && client.env == env_;
-    {
-        client := null;
-        var my_ep := me;
 
-        var ip_endpoint;
-        ok, ip_endpoint := CryptoEndPoint.Construct(my_ep.public_key, env_);
-        if !ok { return; }
-
-        ok, client := NetClient.Construct(ip_endpoint, env_);
-        if ok {
-            calc {
-                client.LocalEndPoint();
-                ip_endpoint.EP();
-                my_ep;
-            }
-        }
-    }
-
-    method InitNode(config:Config, my_index:uint64, ghost env_:HostEnvironment) returns (ok:bool)
-        requires env_.Valid() && env_.ok.ok();
-        requires ValidConfig(config) && ValidConfigIndex(config, my_index);
-        modifies this, netClient;
-        modifies env_.ok;
+    method InitNode(config:Config, my_index:uint64, nc:NetClient, ghost env_:HostEnvironment) returns (ok:bool)
+        requires env_.Valid() && env_.ok.ok()
+        requires ValidConfig(config) && ValidConfigIndex(config, my_index)
+        requires NetClientIsValid(nc)
+        requires EndPoint(nc.MyPublicKey()) == config[my_index]
+        requires nc.env == env_
+        modifies this
         ensures ok ==>
                Valid()
             && Env() == env_
             && NodeInit(AbstractifyCNode(node), my_index as int, config)
             && node.config == config 
-            && node.my_index == my_index;
+            && node.my_index == my_index
     {
-        ok, netClient := ConstructNetClient(config[my_index], env_); 
-
-        if (ok) {
-            node := NodeInitImpl(my_index, config);
-            assert node.my_index == my_index;
-            localAddr := node.config[my_index];
-            Repr := { this } + NetClientRepr(netClient);
-            
-        }
+        netClient := nc;
+        node := NodeInitImpl(my_index, config);
+        assert node.my_index == my_index;
+        localAddr := node.config[my_index];
+        Repr := { this } + NetClientRepr(netClient);
+        ok := true;
     }
 
     method NodeNextGrant() returns (ok:bool, ghost netEventLog:seq<NetEvent>, ghost ios:seq<LockIo>)

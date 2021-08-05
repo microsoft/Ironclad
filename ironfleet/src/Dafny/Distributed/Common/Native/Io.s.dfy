@@ -7,7 +7,6 @@ import opened Environment_s
 
 class HostEnvironment
 {
-  ghost var constants:HostConstants;
   ghost var ok:OkState;
   ghost var now:NowState;
   ghost var net:NetState;
@@ -20,28 +19,6 @@ class HostEnvironment
   {
     true
   }
-}
-
-//////////////////////////////////////////////////////////////////////////////
-// Per-host constants
-//////////////////////////////////////////////////////////////////////////////
-
-class HostConstants
-{
-  constructor{:axiom} () requires false
-
-  // CommandLineArgs() gives the result of IoNative.cs's HostCommandLineArgs,
-  // which ignores the arguments at the beginning (executable name, network parameters)
-  function{:axiom} CommandLineArgs():seq<seq<byte>> reads this
-
-  static method{:axiom} NumCommandLineArgs(ghost env:HostEnvironment) returns (n:uint32)
-    requires env.Valid()
-    ensures  n as int == |env.constants.CommandLineArgs()|
-
-  static method{:axiom} GetCommandLineArg(i:uint64, ghost env:HostEnvironment) returns (arg:seq<byte>)
-    requires env.Valid()
-    requires 0 <= i as int < |env.constants.CommandLineArgs()|
-    ensures  arg == env.constants.CommandLineArgs()[i]
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -95,49 +72,38 @@ datatype EndPoint = EndPoint(public_key:seq<byte>)
 type NetPacket = LPacket<EndPoint, seq<byte>>
 type NetEvent = LIoOp<EndPoint, seq<byte>>
 
+function MaxPacketSize() : int { 0xFFFF_FFFF_FFFF_FFFF }
+
+predicate ValidPhysicalAddress(endPoint:EndPoint)
+{
+  |endPoint.public_key| < 0x10_0000 // < 1 MB
+}
+    
+predicate ValidPhysicalPacket(p:LPacket<EndPoint, seq<byte>>)
+{
+  && ValidPhysicalAddress(p.src)
+  && ValidPhysicalAddress(p.dst)
+  && |p.msg| <= MaxPacketSize()
+}
+  
+predicate ValidPhysicalIo(io:LIoOp<EndPoint, seq<byte>>)
+{
+  && (io.LIoOpReceive? ==> ValidPhysicalPacket(io.r))
+  && (io.LIoOpSend? ==> ValidPhysicalPacket(io.s))
+}
+
 class NetState
 {
   constructor{:axiom} () requires false
   function{:axiom} history():seq<NetEvent> reads this
 }
 
-class CryptoEndPoint
-{
-  ghost var env:HostEnvironment
-  function{:axiom} PublicKey():seq<byte> reads this
-  function EP():EndPoint reads this { EndPoint(PublicKey()) }
-  constructor{:axiom} () requires false
-
-  method{:axiom} GetPublicKey() returns(public_key:seq<byte>)
-    ensures  public_key == PublicKey()
-    ensures  |public_key| < 0x10_0000 // assumes public key will be < 1 MB
-
-  static method{:axiom} Construct(public_key:seq<byte>, ghost env:HostEnvironment) returns(ok:bool, ep:CryptoEndPoint)
-    requires env.Valid()
-    modifies env.ok
-    ensures  env.ok.ok() == ok
-    ensures  ok ==> fresh(ep) && ep.env == env && ep.PublicKey() == public_key
-}
-
-function MaxPacketSize() : int { 0xFFFF_FFFF_FFFF_FFFF }
-
 class NetClient
 {
   ghost var env:HostEnvironment
-  function{:axiom} LocalEndPoint():EndPoint reads this
+  function method{:axiom} MyPublicKey():seq<byte> reads this
   function{:axiom} IsOpen():bool reads this
   constructor{:axiom} () requires false
-
-  static method{:axiom} Construct(localEP:CryptoEndPoint, ghost env:HostEnvironment)
-    returns(ok:bool, net:NetClient?)
-    requires env.Valid()
-    requires env.ok.ok()
-    modifies env.ok
-    ensures  env.ok.ok() == ok
-    ensures  ok ==> && fresh(net)
-                    && net.env == env
-                    && net.IsOpen()
-                    && net.LocalEndPoint() == localEP.EP()
 
   method{:axiom} Close() returns(ok:bool)
     requires env.Valid()
@@ -148,7 +114,7 @@ class NetClient
     ensures  env == old(env)
     ensures  env.ok.ok() == ok
 
-  method{:axiom} Receive(timeLimit:int32) returns(ok:bool, timedOut:bool, remote:CryptoEndPoint, buffer:array<byte>)
+  method{:axiom} Receive(timeLimit:int32) returns(ok:bool, timedOut:bool, remote:array<byte>, buffer:array<byte>)
     requires env.Valid()
     requires env.ok.ok()
     requires IsOpen()
@@ -161,17 +127,17 @@ class NetClient
     ensures  env == old(env)
     ensures  env.ok.ok() == ok
     ensures  AdvanceTime(old(env.now.now()), env.now.now(), timeLimit as int)
-    ensures  LocalEndPoint() == old(LocalEndPoint())
+    ensures  MyPublicKey() == old(MyPublicKey())
     ensures  ok ==> IsOpen()
     ensures  ok ==> timedOut  ==> env.net.history() == old(env.net.history()) + [LIoOpTimeoutReceive()]
     ensures  ok ==> !timedOut ==>
-               && fresh(remote)
                && fresh(buffer)
                && env.net.history() == old(env.net.history()) +
-                   [LIoOpReceive(LPacket(LocalEndPoint(), remote.EP(), buffer[..]))]
-               && buffer.Length < 0x1_0000_0000_0000_0000;
+                   [LIoOpReceive(LPacket(EndPoint(MyPublicKey()), EndPoint(remote[..]), buffer[..]))]
+               && ValidPhysicalAddress(EndPoint(remote[..]))
+               && buffer.Length <= MaxPacketSize()
 
-  method{:axiom} Send(remote:CryptoEndPoint, buffer:array<byte>) returns(ok:bool)
+  method{:axiom} Send(remote:seq<byte>, buffer:array<byte>) returns(ok:bool)
     requires env.Valid()
     requires env.ok.ok()
     requires IsOpen()
@@ -181,9 +147,9 @@ class NetClient
     modifies env.net
     ensures  env == old(env)
     ensures  env.ok.ok() == ok
-    ensures  LocalEndPoint() == old(LocalEndPoint())
+    ensures  MyPublicKey() == old(MyPublicKey())
     ensures  ok ==> IsOpen()
-    ensures  ok ==> env.net.history() == old(env.net.history()) + [LIoOpSend(LPacket(remote.EP(), LocalEndPoint(), buffer[..]))]
+    ensures  ok ==> env.net.history() == old(env.net.history()) + [LIoOpSend(LPacket(EndPoint(remote), EndPoint(MyPublicKey()), buffer[..]))]
 }
 
 // jonh temporarily neutered this because the opaque type can't be compiled

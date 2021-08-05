@@ -1,4 +1,5 @@
 include "../../Common/Framework/Main.s.dfy"
+include "../../Common/Native/Io.s.dfy"
 include "LockDistributedSystem.i.dfy"
 include "../../Common/Framework/Environment.s.dfy"
 include "../../Protocol/Common/NodeIdentity.i.dfy"
@@ -11,7 +12,6 @@ include "../../Protocol/Lock/RefinementProof/RefinementProof.i.dfy"
 include "Marshall.i.dfy"
 
 module Main_i refines Main_s {
-    import opened Native__NativeTypes_s
     import opened DS_s = Lock_DistributedSystem_i
     import opened Environment_s
     import opened Types_i
@@ -33,8 +33,8 @@ module Main_i refines Main_s {
     import opened Common__SeqIsUniqueDef_i
     import opened Impl_Node_i
     export
-        provides DS_s, Native__Io_s
-        provides Main
+        provides DS_s, Native__Io_s, Native__NativeTypes_s
+        provides IronfleetMain
 
     predicate IsValidBehavior(config:ConcreteConfiguration, db:seq<DS_State>)
         reads *;

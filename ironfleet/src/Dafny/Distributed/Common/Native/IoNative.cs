@@ -30,34 +30,6 @@ namespace Native____Io__s_Compile {
       return Dafny.Sequence<Dafny.ISequence<byte>>.FromArray(Array.ConvertAll(CommandLineArgs, s => Dafny.Sequence<byte>.FromArray(s)));
     }
   }
-
-  public partial class CryptoEndPoint
-  {
-    private byte[] publicKey;
-
-    public CryptoEndPoint(byte[] i_publicKey)
-    { 
-      publicKey = i_publicKey;
-    }
-  
-    public Dafny.ISequence<byte> GetPublicKey()
-    {
-      // no exceptions thrown:
-      return Dafny.Sequence<byte>.FromArray(publicKey);
-    }
-  
-    public static void Construct(Dafny.Sequence<byte> public_key, out bool ok, out CryptoEndPoint endpoint)
-    {
-      if (public_key.Count >= 0x10_0000) {
-        endpoint = null;
-        ok = false;
-      }
-      else {
-        endpoint = new CryptoEndPoint(public_key.Elements);
-        ok = true;
-      }
-    }
-  }
   
   public partial class NetClient
   {
@@ -67,39 +39,35 @@ namespace Native____Io__s_Compile {
     {
       scheduler = i_scheduler;
     }
+
+    public Dafny.ISequence<byte> MyPublicKey()
+    {
+      return Dafny.Sequence<byte>.FromArray(IoScheduler.GetCertificatePublicKey(scheduler.MyCert));
+    }
   
-    public static void Construct(CryptoEndPoint localEP, out bool ok, out NetClient net)
+    public static NetClient Create(PrivateIdentity myIdentity, List<PublicIdentity> knownIdentities,
+                                   bool verbose, int maxSendRetries = 3)
     {
       try
       {
-        IoScheduler scheduler = new IoScheduler(localEP.endpoint, false /* only client */, false /* verbose */);
-        net = new NetClient(scheduler);
-        ok = true;
+        IoScheduler scheduler = new IoScheduler(myIdentity, knownIdentities, verbose, maxSendRetries);
+        return new NetClient(scheduler);
       }
       catch (Exception e)
       {
         System.Console.Error.WriteLine(e);
-        net = null;
-        ok = false;
+        return null;
       }
     }
   
-    public void Close(out bool ok)
+    public void Receive(int timeLimit, out bool ok, out bool timedOut, out byte[] remote, out byte[] buffer)
     {
-      scheduler = null;
-      ok = true;
+      scheduler.ReceivePacket(timeLimit, out ok, out timedOut, out remote, out buffer);
     }
   
-    public void Receive(int timeLimit, out bool ok, out bool timedOut, out CryptoEndPoint remote, out byte[] buffer)
+    public bool Send(Dafny.ISequence<byte> remote, byte[] buffer)
     {
-      CryptoEndPoint remoteEp;
-      scheduler.ReceivePacket(timeLimit, out ok, out timedOut, out remoteEp, out buffer);
-      remote = (remoteEp == null) ? null : new CryptoEndPoint(remoteEp);
-    }
-  
-    public bool Send(CryptoEndPoint remote, byte[] buffer)
-    {
-      return scheduler.SendPacket(remote.endpoint, buffer);
+      return scheduler.SendPacket(remote.Elements, buffer);
     }
   }
   

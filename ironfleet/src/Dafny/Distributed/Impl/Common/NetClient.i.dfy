@@ -59,7 +59,7 @@ predicate NetClientIsValid(netc:NetClient?)
   && netc != null
   && netc.IsOpen()
   && HostEnvironmentIsValid(netc.env)
-  && EndPointIsValidPublicKey(netc.LocalEndPoint())
+  && EndPointIsValidPublicKey(EndPoint(netc.MyPublicKey()))
 }
 
 predicate EndPointsAreValidPublicKeys(eps:seq<EndPoint>) 

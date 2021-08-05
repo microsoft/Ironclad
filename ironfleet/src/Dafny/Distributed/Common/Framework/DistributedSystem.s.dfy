@@ -11,28 +11,7 @@ import opened Native__NativeTypes_s
 
 /////////////////////////////////////////
 // PHYSICAL ENVIRONMENT
-//
-// TODO - Move this stuff to Io.s
-//
 /////////////////////////////////////////
-
-predicate ValidPhysicalAddress(endPoint:EndPoint)
-{
-  |endPoint.public_key| < 0x10_0000 // < 1 MB
-}
-    
-predicate ValidPhysicalPacket(p:LPacket<EndPoint, seq<byte>>)
-{
-  && ValidPhysicalAddress(p.src)
-  && ValidPhysicalAddress(p.dst)
-  && |p.msg| < 0x1_0000_0000_0000_0000
-}
-  
-predicate ValidPhysicalIo(io:LIoOp<EndPoint, seq<byte>>)
-{
-  && (io.LIoOpReceive? ==> ValidPhysicalPacket(io.r))
-  && (io.LIoOpSend? ==> ValidPhysicalPacket(io.s))
-}
 
 predicate ValidPhysicalEnvironmentStep(step:LEnvStep<EndPoint, seq<byte>>)
 {

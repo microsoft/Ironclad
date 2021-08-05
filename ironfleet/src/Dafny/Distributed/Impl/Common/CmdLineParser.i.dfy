@@ -67,24 +67,41 @@ function method parse_end_points(args:seq<seq<byte>>) : (bool, seq<EndPoint>)
       (true, [ep] + rest)
 }
 
-method collect_cmd_line_args(ghost env:HostEnvironment) returns (args:seq<seq<byte>>)
-  requires HostEnvironmentIsValid(env)
-  ensures  |env.constants.CommandLineArgs()| == |args|
-  ensures  forall i :: 0 <= i < |env.constants.CommandLineArgs()| ==> args[i] == env.constants.CommandLineArgs()[i]
+method GetHostIndex(host:EndPoint, hosts:seq<EndPoint>) returns (found:bool, index:uint64)
+  requires EndPointIsValidPublicKey(host)
+  requires SeqIsUnique(hosts)
+  requires |hosts| < 0x1_0000_0000_0000_0000
+  requires forall h :: h in hosts ==> EndPointIsValidPublicKey(h)
+  ensures  found ==> 0 <= index as int < |hosts| && hosts[index] == host
+  ensures !found ==> !(host in hosts)
 {
-  var num_args := HostConstants.NumCommandLineArgs(env);
-  var i := 0;
-  args := [];
+  var i:uint64 := 0;
 
-  while (i < num_args)
-    invariant 0 <= i <= num_args
-    invariant |env.constants.CommandLineArgs()[0..i]| == |args|
-    invariant forall j :: 0 <= j < i ==> args[j] == env.constants.CommandLineArgs()[j];
+  while i < (|hosts| as uint64)
+    invariant i as int <= |hosts|;
+    invariant forall j :: 0 <= j < i ==> hosts[j] != host;
   {
-    var arg := HostConstants.GetCommandLineArg(i as uint64, env);
-    args := args + [arg[..]];
+    if host == hosts[i] {
+      found := true;
+      index := i;
+    
+      calc ==> {
+        true;
+          { reveal_SeqIsUnique(); }
+        forall j :: 0 <= j < |hosts| && j != i as int ==> hosts[j] != host;
+      }
+
+      return;
+    }
+
+    if i == (|hosts| as uint64) - 1 {
+      found := false;
+      return;
+    }
+
     i := i + 1;
   }
+  found := false;
 }
 
 }

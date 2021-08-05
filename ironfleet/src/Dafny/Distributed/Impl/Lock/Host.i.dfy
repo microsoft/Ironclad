@@ -67,17 +67,28 @@ module Host_i refines Host_s {
         (lock_config, endpoints_set, {})
     }
     
-    method HostInitImpl(ghost env:HostEnvironment) returns (ok:bool, host_state:HostState, config:ConcreteConfiguration, ghost servers:set<EndPoint>, ghost clients:set<EndPoint>, id:EndPoint)
+    method HostInitImpl(
+      ghost env:HostEnvironment,
+      netc:NetClient,
+      args:seq<seq<byte>>
+      ) returns (
+      ok:bool,
+      host_state:HostState,
+      config:ConcreteConfiguration,
+      ghost servers:set<EndPoint>,
+      ghost clients:set<EndPoint>,
+      id:EndPoint
+      )
     {
         var my_index;
         var node_impl := new NodeImpl();
         host_state := CScheduler(AbstractifyCNode(node_impl.node), node_impl);
 
-        ok, config, my_index := ParseCmdLine(env);
+        id := EndPoint(netc.MyPublicKey());
+        ok, config, my_index := ParseCmdLine(id, args);
         if !ok { return; }
-        id := config[my_index];
         
-        ok := node_impl.InitNode(config, my_index, env);
+        ok := node_impl.InitNode(config, my_index, netc, env);
         
         if !ok { return; }
         host_state := CScheduler(AbstractifyCNode(node_impl.node), node_impl);
