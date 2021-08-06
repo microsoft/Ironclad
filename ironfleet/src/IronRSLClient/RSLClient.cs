@@ -9,39 +9,39 @@ namespace IronRSLClient
 {
   public class RSLClient
   {
-    IPEndPoint[] serverEps;
-    int myPort;
-    IoScheduler scheduler;
+    ServiceIdentity serviceIdentity;
+    byte[][] serverPublicKeys;
+    bool verbose;
     UInt64 nextSeqNum;
     int primaryServerIndex;
+    IoScheduler scheduler;
 
-    public RSLClient(IEnumerable<IPEndPoint> i_serverEps, int i_myPort)
+    public RSLClient(ServiceIdentity i_serviceIdentity, string serviceName, bool i_verbose = false)
     {
-      serverEps = Enumerable.ToArray(i_serverEps);
-      myPort = i_myPort;
-      var myEp = new IPEndPoint(IPAddress.Any, myPort);
-      scheduler = new IoScheduler(myEp, true, false); // onlyClient = true, verbose = false
+      serviceIdentity = i_serviceIdentity;
+      if (serviceIdentity.ServiceType != "IronRSL" + serviceName) {
+        Console.Error.WriteLine("Provided service identity has type {0}, not IronRSL{1}.",
+                                serviceIdentity.ServiceType, serviceName);
+        throw new Exception("Wrong service type");
+      }
+      serverPublicKeys = serviceIdentity.Servers.Select(server => server.PublicKey).ToArray();
+      verbose = i_verbose;
+      nextSeqNum = 0;
       primaryServerIndex = 0;
+      scheduler = new IoScheduler(null, serviceIdentity.Servers, verbose);
       Start();
     }
 
     private void Start()
     {
-      // Create a random 64-bit initial sequence number.
-
-      Random rng = new Random();
-      byte[] seqNumBytes = new byte[8];
-      rng.NextBytes(seqNumBytes);
-      nextSeqNum = IoEncoder.ExtractUInt64(seqNumBytes, 0);
-
-      // Create connections to all endpoints, so that if any of them
+      // Create connections to all servers, so that if any of them
       // sends a reply we can receive it.  Since we're in "only
       // client" mode, we aren't listening on any port so we have to
       // rely on outgoing connections for all communication.
 
-      foreach (var serverEp in serverEps)
+      foreach (var serverPublicKey in serverPublicKeys)
       {
-        scheduler.Connect(serverEp);
+        scheduler.Connect(serverPublicKey);
       }
     }
 
@@ -58,15 +58,16 @@ namespace IronRSLClient
         requestMessage = memStream.ToArray();
       }
 
-      scheduler.SendPacket(serverEps[primaryServerIndex], requestMessage);
+      scheduler.SendPacket(serverPublicKeys[primaryServerIndex], requestMessage);
       if (verbose) {
-        Console.WriteLine("Sending a request with sequence number {0} to {1}", seqNum, serverEps[primaryServerIndex]);
+        Console.WriteLine("Sending a request with sequence number {0} to {1}",
+                          seqNum, serviceIdentity.Servers[primaryServerIndex]);
       }
 
       while (true)
       {
         bool ok, timedOut;
-        IPEndPoint remote;
+        byte[] remote;
         byte[] replyBytes;
         scheduler.ReceivePacket(timeBeforeServerSwitchMs, out ok, out timedOut, out remote, out replyBytes);
 
@@ -75,11 +76,11 @@ namespace IronRSLClient
         }
 
         if (timedOut) {
-          primaryServerIndex = (primaryServerIndex + 1) % serverEps.Count();
+          primaryServerIndex = (primaryServerIndex + 1) % serviceIdentity.Servers.Count();
           if (verbose) {
             Console.WriteLine("#timeout; rotating to server {0}", primaryServerIndex);
           }
-          scheduler.SendPacket(serverEps[primaryServerIndex], requestMessage);
+          scheduler.SendPacket(serverPublicKeys[primaryServerIndex], requestMessage);
           continue;
         }
 
@@ -93,18 +94,6 @@ namespace IronRSLClient
         }
 
         UInt64 replySeqNum = IoEncoder.ExtractUInt64(replyBytes, 8);
-        if (seqNum < replySeqNum && (replySeqNum < 10 || seqNum > replySeqNum - 10)) {
-          // We apparently got unlucky and started with a sequence
-          // number that was too close to the last sequence number we
-          // used last time.  So, advance past that sequence number
-          // and try again.
-          if (verbose) {
-            Console.WriteLine("Got reply for later sequence number {0}, apparently from an earlier run, so advancing from {1} to {2}",
-                              replySeqNum, seqNum, replySeqNum + 1);
-          }
-          nextSeqNum = replySeqNum + 1;
-          return SubmitRequest(request, verbose, timeBeforeServerSwitchMs);
-        }
         if (replySeqNum != seqNum) {
           // This is a retransmission of a reply for an old sequence
           // number.  Ignore it.

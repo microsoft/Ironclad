@@ -118,11 +118,6 @@ module Main_i refines Main_s {
             rest[replica_order[0] := replicas[replica_order[0]].node]
     }
 
-    function AbstractifyConcreteClients(clients:set<EndPoint>) : set<NodeIdentity>
-    {
-        set e | e in clients :: e
-    }
-
     predicate DsStateIsAbstractable(ds:DS_State) 
     {
            ValidConfig(ds.config)

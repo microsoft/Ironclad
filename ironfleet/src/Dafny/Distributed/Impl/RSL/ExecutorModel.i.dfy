@@ -512,9 +512,7 @@ method GetPacketsFromRepliesImpl(me:EndPoint, requests:CRequestBatch, replies:se
     var cmsg := CMessage_Reply(requests[i].seqno, replies[i].reply);
     if ShouldPrintProgress() {
       print("Sending reply to client ");
-      print(requests[i].client.addr);
-      print(":");
-      print(requests[i].client.port);
+      print(requests[i].client);
       print(" with sequence number ");
       print(requests[i].seqno);
       print("\n");
@@ -753,7 +751,6 @@ method ExecutorProcessAppStateRequest(cs:ExecutorState, cinp:CPacket, reply_cach
   cs' := cs;
 
   reveal AbstractifySetOfCPacketsToSetOfRslPackets();
-  lemma_Uint64EndPointRelationships();
   lemma_AbstractifyEndPointsToNodeIdentities_properties(cs.constants.all.config.replica_ids);
 
   if cinp.src in cs.constants.all.config.replica_ids && CBallotIsNotGreaterThan(cs.max_bal_reflected, cinp.msg.bal_state_req) && cs.ops_complete.n >= cinp.msg.opn_state_req.n {
@@ -793,7 +790,6 @@ method ExecutorProcessStartingPhase2(cs:ExecutorState, cinp:CPacket) returns(cs'
   cs' := cs;
 
   reveal AbstractifySetOfCPacketsToSetOfRslPackets();
-  lemma_Uint64EndPointRelationships();
   lemma_AbstractifyEndPointsToNodeIdentities_properties(cs.constants.all.config.replica_ids);
 
   if cinp.src in cs.constants.all.config.replica_ids && copn.n > cs.ops_complete.n {
@@ -843,9 +839,7 @@ method ExecutorProcessRequest(cs:ExecutorState, cinp:CPacket, cachedReply:CReply
   var msg := CMessage_Reply(cr.seqno, cr.reply);
   if ShouldPrintProgress() {
     print("Sending cached reply to client ");
-    print(cr.client.addr);
-    print(":");
-    print(cr.client.port);
+    print(cr.client);
     print(" with sequence number ");
     print(cr.seqno);
     print("\n");

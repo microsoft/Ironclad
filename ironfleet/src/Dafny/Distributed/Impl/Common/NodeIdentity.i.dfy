@@ -110,7 +110,6 @@ function {:opaque} AbstractifyEndPointsToNodeIdentities(endPoints:seq<EndPoint>)
 }
 
 lemma lemma_AbstractifyEndPointToNodeIdentity_injective(e1:EndPoint, e2:EndPoint)
-  requires EndPointIsValidPublicKey(e1) && EndPointIsValidPublicKey(e2)
   requires AbstractifyEndPointToNodeIdentity(e1) == AbstractifyEndPointToNodeIdentity(e2)
   ensures e1==e2
 {

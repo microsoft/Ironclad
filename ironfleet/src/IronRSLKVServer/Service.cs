@@ -12,7 +12,7 @@ namespace IronRSL
   {
     Dictionary<string, string> kvStore;
 
-    public static string Name { get { return "key-value store"; } }
+    public static string Name { get { return "KV"; } }
 
     private Service()
     {

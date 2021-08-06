@@ -5,23 +5,31 @@ namespace IronRSLCounterClient
 {
   public class Params
   {
-    public int seqNumReservationSize;
-    public int numThreads;
-    public ulong experimentDuration;
-    public IPEndPoint[] serverEps;
-    public int clientPort;
-    public bool verbose;
+    private string serviceFileName;
+    private int numThreads;
+    private ulong experimentDuration;
+    private bool verbose;
 
     public Params()
     {
-      seqNumReservationSize = 1000;
+      serviceFileName = "";
       numThreads = 1;
       experimentDuration = 60;
-      serverEps = new IPEndPoint[3] { IPEndPoint.Parse("127.0.0.1:4001"),
-                                      IPEndPoint.Parse("127.0.0.1:4002"),
-                                      IPEndPoint.Parse("127.0.0.1:4003") };
-      clientPort = 6000;
       verbose = false;
+    }
+
+    public string ServiceFileName { get { return serviceFileName; } }
+    public int NumThreads { get { return numThreads; } }
+    public ulong ExperimentDuration { get { return experimentDuration; } }
+    public bool Verbose { get { return verbose; } }
+
+    public bool Validate()
+    {
+      if (serviceFileName.Length == 0) {
+        Console.WriteLine("ERROR - Missing service parameter");
+        return false;
+      }
+      return true;
     }
 
     public bool ProcessCommandLineArgument(string arg)
@@ -38,52 +46,42 @@ namespace IronRSLCounterClient
 
     private bool SetValue(string key, string value)
     {
-      try {
-        switch (key) {
-          case "clientport" :
-            clientPort = Convert.ToInt32(value);
-            return true;
-
-          case "server1" :
-            serverEps[0] = IronfleetCommon.Networking.ResolveIPEndpoint(value);
-            return serverEps[0] != null;
-
-          case "server2" :
-            serverEps[1] = IronfleetCommon.Networking.ResolveIPEndpoint(value);
-            return serverEps[1] != null;
-
-          case "server3" :
-            serverEps[2] = IronfleetCommon.Networking.ResolveIPEndpoint(value);
-            return serverEps[2] != null;
-
-          case "nthreads" :
-            numThreads = Convert.ToInt32(value);
-            if (numThreads < 1) {
-              Console.WriteLine("Number of threads must be at least 1, so can't be {0}", numThreads);
-              return false;
-            }
-            return true;
-
-          case "duration" :
-            experimentDuration = Convert.ToUInt64(value);
-            return true;
-
-          case "verbose" :
-            if (value == "false") {
-              verbose = false;
-              return true;
-            }
-            if (value == "true") {
-              verbose = true;
-              return true;
-            }
-            Console.WriteLine("Invalid verbose value {0} - should be false or true", value);
-            return false;
-        }
+      if (key == "service") {
+        serviceFileName = value;
+        return true;
       }
-      catch (Exception e) {
-        Console.WriteLine("Invalid value {0} for key {1}, leading to exception:\n{2}", value, key, e);
+
+      if (key == "verbose") {
+        if (value == "false") {
+          verbose = false;
+          return true;
+        }
+        if (value == "true") {
+          verbose = true;
+          return true;
+        }
+        Console.WriteLine("ERROR - Invalid verbose value {0} - should be false or true", value);
         return false;
+      }
+
+      if (key == "nthreads") {
+        try {
+          numThreads = Convert.ToInt32(value);
+          if (numThreads < 1) {
+            Console.WriteLine("Number of threads must be at least 1, so can't be {0}", numThreads);
+            return false;
+          }
+        }
+        catch (Exception e) {
+          Console.WriteLine("Could not parse number of threads {0} as a number. Exception:\n{1}", value, e);
+          return false;
+        }
+        return true;
+      }
+
+      if (key == "duration") {
+        experimentDuration = Convert.ToUInt64(value);
+        return true;
       }
 
       Console.WriteLine("Invalid argument key {0}", key);

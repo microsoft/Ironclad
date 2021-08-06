@@ -20,7 +20,7 @@ method MinCQuorumSize(config:CPaxosConfiguration) returns (quorumSize:uint64)
   lemma_div_basics_forall();  // Needed to prove the operation below is within uint64 bounds
   quorumSize := (|config.replica_ids| as uint64)/2+1;
   ghost var c := AbstractifyCPaxosConfigurationToConfiguration(config);
-  assert EndPointsAreValidIPV4(config.replica_ids);
+  assert EndPointsAreValidPublicKeys(config.replica_ids);
   forall ep1, ep2 | ep1 in config.replica_ids && ep2 in config.replica_ids
                     //&& EndPointIsValidPublicKey(ep1) && EndPointIsValidPublicKey(ep2) 
                     && AbstractifyEndPointToNodeIdentity(ep1) == AbstractifyEndPointToNodeIdentity(ep2) 

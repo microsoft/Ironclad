@@ -200,9 +200,7 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
 {
   if ShouldPrintProgress() {
     print("Received request from client ");
-    print(cpacket.src.addr);
-    print(":");
-    print(cpacket.src.port);
+    print(cpacket.src);
     print(" with sequence number ");
     print(cpacket.msg.seqno);
     print("\n");
@@ -214,7 +212,7 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
 
   // Mention unchanged predicates over mutable state in the old heap.
   ghost var net_client_old := r.netClient;
-  ghost var net_addr_old := r.netClient.LocalEndPoint();
+  ghost var net_addr_old := r.netClient.MyPublicKey();
   assert NetClientIsValid(net_client_old);
 
   var sent_packets;
@@ -223,7 +221,7 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
   // Mention unchanged predicates over mutable state in the new heap.
   assert net_client_old == r.netClient;
   assert NetClientIsValid(r.netClient);
-  assert net_addr_old == r.netClient.LocalEndPoint();
+  assert net_addr_old == r.netClient.MyPublicKey();
 
   lemma_RevealQFromReplicaNextProcessRequestPostconditions(replica_old, r.replica, cpacket, sent_packets);
 
@@ -296,7 +294,7 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
 
   // Mention unchanged predicates over mutable state in the old heap.
   ghost var net_client_old := r.netClient;
-  ghost var net_addr_old := r.netClient.LocalEndPoint();
+  ghost var net_addr_old := r.netClient.MyPublicKey();
   assert NetClientIsValid(net_client_old);
 
   var sent_packets;
@@ -305,7 +303,7 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
   // Mention unchanged predicates over mutable state in the new heap.
   assert net_client_old == r.netClient;
   assert NetClientIsValid(r.netClient);
-  assert net_addr_old == r.netClient.LocalEndPoint();
+  assert net_addr_old == r.netClient.MyPublicKey();
 
   lemma_RevealQFromReplicaNextProcess1aPostconditions(replica_old, r.replica, cpacket, sent_packets);
 
@@ -378,7 +376,7 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
 
   // Mention unchanged predicates over mutable state in the old heap.
   ghost var net_client_old := r.netClient;
-  ghost var net_addr_old := r.netClient.LocalEndPoint();
+  ghost var net_addr_old := r.netClient.MyPublicKey();
   assert NetClientIsValid(net_client_old);
 
   var sent_packets;
@@ -387,7 +385,7 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
   // Mention unchanged predicates over mutable state in the new heap.
   assert net_client_old == r.netClient;
   assert NetClientIsValid(r.netClient);
-  assert net_addr_old == r.netClient.LocalEndPoint();
+  assert net_addr_old == r.netClient.MyPublicKey();
 
   lemma_RevealQFromReplicaNextProcess1bPostconditions(replica_old, r.replica, cpacket, sent_packets);
 
@@ -459,7 +457,7 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
 
   // Mention unchanged predicates over mutable state in the old heap.
   ghost var net_client_old := r.netClient;
-  ghost var net_addr_old := r.netClient.LocalEndPoint();
+  ghost var net_addr_old := r.netClient.MyPublicKey();
   assert NetClientIsValid(net_client_old);
 
   var sent_packets;
@@ -468,7 +466,7 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
   // Mention unchanged predicates over mutable state in the new heap.
   assert net_client_old == r.netClient;
   assert NetClientIsValid(r.netClient);
-  assert net_addr_old == r.netClient.LocalEndPoint();
+  assert net_addr_old == r.netClient.MyPublicKey();
 
   lemma_RevealQFromReplicaNextProcessStartingPhase2Postconditions(replica_old, r.replica, cpacket, sent_packets);
 
@@ -541,7 +539,7 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
 
   // Mention unchanged predicates over mutable state in the old heap.
   ghost var net_client_old := r.netClient;
-  ghost var net_addr_old := r.netClient.LocalEndPoint();
+  ghost var net_addr_old := r.netClient.MyPublicKey();
   assert NetClientIsValid(net_client_old);
 
   var sent_packets;
@@ -550,7 +548,7 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
   // Mention unchanged predicates over mutable state in the new heap.
   assert net_client_old == r.netClient;
   assert NetClientIsValid(r.netClient);
-  assert net_addr_old == r.netClient.LocalEndPoint();
+  assert net_addr_old == r.netClient.MyPublicKey();
 
   lemma_RevealQFromReplicaNextProcess2aPostconditions(replica_old, r.replica, cpacket, sent_packets);
 
@@ -623,7 +621,7 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
 
   // Mention unchanged predicates over mutable state in the old heap.
   ghost var net_client_old := r.netClient;
-  ghost var net_addr_old := r.netClient.LocalEndPoint();
+  ghost var net_addr_old := r.netClient.MyPublicKey();
   assert NetClientIsValid(net_client_old);
 
   var sent_packets;
@@ -632,7 +630,7 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
   // Mention unchanged predicates over mutable state in the new heap.
   assert net_client_old == r.netClient;
   assert NetClientIsValid(r.netClient);
-  assert net_addr_old == r.netClient.LocalEndPoint();
+  assert net_addr_old == r.netClient.MyPublicKey();
 
   lemma_RevealQFromReplicaNextProcess2bPostconditions(replica_old, r.replica, cpacket, sent_packets);
 
@@ -754,7 +752,7 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
 
   // Mention unchanged predicates over mutable state in the old heap.
   ghost var net_client_old := r.netClient;
-  ghost var net_addr_old := r.netClient.LocalEndPoint();
+  ghost var net_addr_old := r.netClient.MyPublicKey();
   assert NetClientIsValid(net_client_old);
 
   var sent_packets;
@@ -763,7 +761,7 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
   // Mention unchanged predicates over mutable state in the new heap.
   assert net_client_old == r.netClient;
   assert NetClientIsValid(r.netClient);
-  assert net_addr_old == r.netClient.LocalEndPoint();
+  assert net_addr_old == r.netClient.MyPublicKey();
 
   lemma_RevealQFromReplicaNextProcessAppStateRequestPostconditions(replica_old, r.replica, cpacket, sent_packets);
 
@@ -836,7 +834,7 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
 
   // Mention unchanged predicates over mutable state in the old heap.
   ghost var net_client_old := r.netClient;
-  ghost var net_addr_old := r.netClient.LocalEndPoint();
+  ghost var net_addr_old := r.netClient.MyPublicKey();
   assert NetClientIsValid(net_client_old);
 
   var sent_packets, replicaChanged;
@@ -845,7 +843,7 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
   // Mention unchanged predicates over mutable state in the new heap.
   assert net_client_old == r.netClient;
   assert NetClientIsValid(r.netClient);
-  assert net_addr_old == r.netClient.LocalEndPoint();
+  assert net_addr_old == r.netClient.MyPublicKey();
 
   lemma_RevealQFromReplicaNextProcessAppStateSupplyPostconditions(replica_old, r.replica, cpacket, sent_packets);
 

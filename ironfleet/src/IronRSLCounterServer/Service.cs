@@ -13,7 +13,7 @@ namespace IronRSL
       counter = i_counter;
     }
 
-    public static string Name { get { return "counter"; } }
+    public static string Name { get { return "Counter"; } }
 
     public static Service Initialize()
     {

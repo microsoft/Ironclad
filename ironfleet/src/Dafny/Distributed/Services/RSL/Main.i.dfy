@@ -8,7 +8,6 @@ include "Marshall.i.dfy"
 
 module Main_i refines Main_s {
 
-import opened Native__NativeTypes_s
 import opened Host = Host_i
 import opened DS_s = RSL_DistributedSystem_i
 import opened DirectRefinement__Refinement_i
@@ -112,11 +111,6 @@ function AbstractifyConcreteReplicas(replicas:map<EndPoint,HostState>, replica_o
     [replicas[replica_order[0]].sched] + AbstractifyConcreteReplicas(replicas, replica_order[1..])
 }
 
-function AbstractifyConcreteClients(clients:set<EndPoint>) : set<NodeIdentity>
-{
-  set e | e in clients :: e
-}
-
 predicate DsStateIsAbstractable(ds:DS_State)
 {
   && ConstantsStateIsAbstractable(ds.config)
@@ -129,8 +123,7 @@ function AbstractifyDsState(ds:DS_State) : RslState
 {
   RslState(AbstractifyConstantsStateToLConstants(ds.config),
            AbstractifyConcreteEnvironment(ds.environment),
-           AbstractifyConcreteReplicas(ds.servers, ds.config.config.replica_ids),
-           AbstractifyConcreteClients(ds.clients))
+           AbstractifyConcreteReplicas(ds.servers, ds.config.config.replica_ids))
 }
 
 lemma lemma_DeduceTransitionFromDsBehavior(
@@ -159,7 +152,6 @@ lemma lemma_DsConsistency(config:ConcreteConfiguration, db:seq<DS_State>, i:int)
   requires 0 <= i < |db|
   ensures  db[i].config == config
   ensures  mapdomain(db[i].servers) == mapdomain(db[0].servers)
-  ensures  db[i].clients == db[0].clients
 {
   if i == 0 {
   } else {

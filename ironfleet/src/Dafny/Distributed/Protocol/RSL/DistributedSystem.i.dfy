@@ -17,8 +17,7 @@ import opened Environment_s
 datatype RslState = RslState(
   constants:LConstants,
   environment:LEnvironment<NodeIdentity, RslMessage>,
-  replicas:seq<LScheduler>,
-  clients:set<NodeIdentity>
+  replicas:seq<LScheduler>
   )
 
 predicate RslMapsComplete(ps:RslState)
@@ -29,7 +28,6 @@ predicate RslMapsComplete(ps:RslState)
 predicate RslConstantsUnchanged(ps:RslState, ps':RslState)
 {
   && |ps'.replicas| == |ps.replicas|
-  && ps'.clients == ps.clients
   && ps'.constants == ps.constants
 }
 

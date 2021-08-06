@@ -1,4 +1,5 @@
 ﻿using IronfleetCommon;
+using IronfleetIoFramework;
 using IronRSL;
 using MathNet.Numerics.Distributions;
 using System;
@@ -9,16 +10,137 @@ using System.Threading;
 
 namespace IronRSLServer
 {
+  public class Params
+  {
+    private string serviceFileName;
+    private string privateKeyFileName;
+    private bool verbose;
+
+    public Params()
+    {
+      serviceFileName = "";
+      privateKeyFileName = "";
+    }
+
+    public string ServiceFileName { get { return serviceFileName; } }
+    public string PrivateKeyFileName { get { return privateKeyFileName; } }
+    public bool Verbose { get { return verbose; } }
+
+    public bool Validate()
+    {
+      if (serviceFileName.Length == 0) {
+        Console.WriteLine("ERROR - Missing service parameter");
+        return false;
+      }
+      if (privateKeyFileName.Length == 0) {
+        Console.WriteLine("ERROR - Missing private parameter");
+        return false;
+      }
+      return true;
+    }
+
+    public bool ProcessCommandLineArgument(string arg)
+    {
+      var pos = arg.IndexOf("=");
+      if (pos < 0) {
+        Console.WriteLine("ERROR - Invalid argument {0}", arg);
+        return false;
+      }
+      var key = arg.Substring(0, pos).ToLower();
+      var value = arg.Substring(pos + 1);
+      return SetValue(key, value);
+    }
+
+    private bool SetValue(string key, string value)
+    {
+      if (key == "service") {
+        serviceFileName = value;
+        return true;
+      }
+
+      if (key == "private") {
+        privateKeyFileName = value;
+        return true;
+      }
+
+      if (key == "verbose") {
+        if (value == "false") {
+          verbose = false;
+          return true;
+        }
+        if (value == "true") {
+          verbose = true;
+          return true;
+        }
+        Console.WriteLine("ERROR - Invalid verbose value {0} - should be false or true", value);
+        return false;
+      }
+
+      Console.WriteLine("ERROR - Invalid argument key {0}", key);
+      return false;
+    }
+  }
+
   class Program
   {
+    static void usage()
+    {
+      Console.Write(@"
+Usage:  dotnet IronRSL{0}Server.dll [key=value]...
+
+Allowed keys:
+  service   - file name containing service description
+  private   - file name containing private key
+  verbose   - use verbose output
+", Service.Name);
+    }
+
     static void Main(string[] args)
     {
+      Console.WriteLine("IronRSL{0}Server program started", Service.Name);
+
+      Console.WriteLine("Processing command-line arguments");
+
+      Params ps = new Params();
+
+      foreach (var arg in args)
+      {
+        if (!ps.ProcessCommandLineArgument(arg)) {
+          usage();
+          return;
+        }
+      }
+
+      if (!ps.Validate()) {
+        usage();
+        return;
+      }
+
+      ServiceIdentity serviceIdentity = ServiceIdentity.ReadFromFile(ps.ServiceFileName);
+      if (serviceIdentity == null) {
+        return;
+      }
+
+      if (serviceIdentity.ServiceType != "IronRSL" + Service.Name) {
+        Console.Error.WriteLine("Provided service identity has type {0}, not IronRSL{1}.",
+                                serviceIdentity.ServiceType, Service.Name);
+        return;
+      }
+
+      PrivateIdentity privateIdentity = PrivateIdentity.ReadFromFile(ps.PrivateKeyFileName);
+      if (privateIdentity == null) {
+        return;
+      }
+
+      var nc = Native____Io__s_Compile.NetClient.Create(privateIdentity, serviceIdentity.Servers, ps.Verbose);
+      Dafny.ISequence<byte>[] serverPublicKeys =
+        serviceIdentity.Servers.Select(server => Dafny.Sequence<byte>.FromArray(server.PublicKey)).ToArray();
+      var ironArgs = Dafny.Sequence<Dafny.ISequence<byte>>.FromArray(serverPublicKeys);
+
       Profiler.Initialize();
-      HostConstants.CommandLineArgs = System.Environment.CommandLineArgs();
       Native____Io__s_Compile.Time.Initialize();
-      Console.WriteLine("IronRSL replica of {0} service started.", Service.Name);
       Console.WriteLine("[[READY]]");
-      Main__i_Compile.__default._Main();
+      Main__i_Compile.__default.IronfleetMain(nc, ironArgs);
       Console.WriteLine("[[EXIT]]");
     }
   }

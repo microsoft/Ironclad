@@ -58,17 +58,16 @@ method HostNextImpl(ghost env:HostEnvironment, host_state:HostState)
   requires HostStateInvariants(host_state, env)
   modifies set x:object | ArbitraryObject(x)     // Everything!
   ensures  ok <==> env.Valid() && env.ok.ok()
-  // TODO: Even when !ok, if sent is non-empty, we need to return valid set of sent packets too
   ensures  ok ==> HostStateInvariants(host_state', env)
   ensures  ok ==> HostNext(host_state, host_state', ios)
   // Connect the low-level IO events to the spec-level IO events
   ensures  ok ==> recvs + clocks + sends == ios
   // These obligations enable us to apply reduction
-  ensures  ok ==> env.net.history() == old(env.net.history()) + (recvs + clocks + sends)
+  // Even when !ok, if sent is non-empty, we need to return valid set of sent packets too
+  ensures  (ok || |sends| > 0) ==> env.net.history() == old(env.net.history()) + (recvs + clocks + sends)
   ensures  forall e :: && (e in recvs ==> e.LIoOpReceive?) 
                  && (e in clocks ==> e.LIoOpReadClock? || e.LIoOpTimeoutReceive?) 
                  && (e in sends ==> e.LIoOpSend?)
   ensures  |clocks| <= 1
 
 }
-

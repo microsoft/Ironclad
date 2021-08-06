@@ -42,6 +42,7 @@ Allowed keys:
       }
 
       if (!ps.Validate()) {
+        usage();
         return;
       }
 

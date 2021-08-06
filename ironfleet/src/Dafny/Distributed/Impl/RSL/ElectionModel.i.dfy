@@ -573,7 +573,6 @@ method {:timeLimitMultiplier 3} ElectionProcessHeartbeat(ces:CElectionState, cp:
   ghost var es := AbstractifyCElectionStateToElectionState(ces);
   ghost var es':ElectionState;
   lemma_AbstractifySeqOfUint64sToSetOfInts_properties(ces.current_view_suspectors);
-  lemma_Uint64EndPointRelationships();
 
   if !found {
     es' := es;

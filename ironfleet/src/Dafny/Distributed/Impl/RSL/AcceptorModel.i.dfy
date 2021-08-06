@@ -282,7 +282,6 @@ method {:timeLimitMultiplier 1} NextAcceptorState_ProcessHeartbeat(acceptor:Acce
   acceptor' := acceptor;
   lemma_AbstractifyEndPointsToNodeIdentities_properties(acceptor.constants.all.config.replica_ids);
   lemma_AbstractifyEndPointToNodeIdentity_injective_forall();
-  lemma_Uint64EndPointRelationships();
   var found:bool, index:uint64 := CGetReplicaIndex(sender, acceptor.constants.all.config);
   if (!found) {
     //print("Acceptor ignoring heartbeat from", sender, "\n");

@@ -142,6 +142,7 @@ namespace CreateIronServiceCert
           Console.WriteLine("ERROR - Can't create requested output directory {0}", outputDir);
           return false;
         }
+        return true;
       }
 
       Match m = Regex.Match(key, @"^addr(\d+)$");

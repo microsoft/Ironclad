@@ -187,7 +187,7 @@ namespace IronfleetIoFramework
     public static X509Certificate2 CreateTransientClientIdentity ()
     {
       var key = RSA.Create(2048);
-      var req = new CertificateRequest("client", key, HashAlgorithmName.SHA256, RSASignaturePadding.Pss);
+      var req = new CertificateRequest("CN = client", key, HashAlgorithmName.SHA256, RSASignaturePadding.Pss);
       var now = DateTime.Now;
       var expiry = now.AddYears(1);
       return req.CreateSelfSigned(now, expiry);
@@ -760,7 +760,12 @@ namespace IronfleetIoFramework
 
     private void ListenLoop()
     {
+      if (scheduler.Verbose) {
+        Console.WriteLine("Starting to listen on {0}", myEndpoint);
+      }
+
       listener = new TcpListener(myEndpoint);
+      listener.ExclusiveAddressUse = true;
       listener.Start();
       while (true)
       {
@@ -920,8 +925,8 @@ namespace IronfleetIoFramework
       myCert = IronfleetCrypto.CreateTransientClientIdentity();
 
       if (verbose) {
-        Console.WriteLine("Starting I/O scheduler as client with public key {0}",
-                          myCert.PublicKey.Key);
+        Console.WriteLine("Starting I/O scheduler as client with certificate {0}",
+                          IoScheduler.CertificateToString(myCert));
       }
 
       sendDispatchThread = new SendDispatchThread(this);
