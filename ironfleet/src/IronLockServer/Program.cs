@@ -19,9 +19,14 @@ namespace IronLockServer
 Usage:  dotnet IronLockServer.dll [key=value]...
 
 Allowed keys:
-  service   - file name containing service description
-  private   - file name containing private key
-  verbose   - use verbose output
+  service  - file name containing service description
+  private  - file name containing private key
+  addr     - local host name or address to listen to (optional)
+  port     - local port to listen to (optional)
+  verbose  - use verbose output
+
+If the optional parameter 'addr' or 'port' is left out,
+we use whatever is in the private key file.
 ");
     }
 
@@ -56,7 +61,8 @@ Allowed keys:
         return;
       }
 
-      var nc = Native____Io__s_Compile.NetClient.Create(privateIdentity, serviceIdentity.Servers, ps.Verbose);
+      var nc = Native____Io__s_Compile.NetClient.Create(privateIdentity, ps.LocalHostNameOrAddress, ps.LocalPort,
+                                                        serviceIdentity.Servers, ps.Verbose);
       Dafny.ISequence<byte>[] serverPublicKeys =
         serviceIdentity.Servers.Select(server => Dafny.Sequence<byte>.FromArray(server.PublicKey)).ToArray();
       var ironArgs = Dafny.Sequence<Dafny.ISequence<byte>>.FromArray(serverPublicKeys);

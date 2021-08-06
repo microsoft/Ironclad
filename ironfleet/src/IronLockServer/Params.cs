@@ -10,16 +10,22 @@ namespace IronLockServer
   {
     private string serviceFileName;
     private string privateKeyFileName;
+    private string localHostNameOrAddress;
+    private int localPort;
     private bool verbose;
 
     public Params()
     {
       serviceFileName = "";
       privateKeyFileName = "";
+      localHostNameOrAddress = "";
+      localPort = 0;
     }
 
     public string ServiceFileName { get { return serviceFileName; } }
     public string PrivateKeyFileName { get { return privateKeyFileName; } }
+    public string LocalHostNameOrAddress { get { return localHostNameOrAddress; } }
+    public int LocalPort { get { return localPort; } }
     public bool Verbose { get { return verbose; } }
 
     public bool Validate()
@@ -57,6 +63,22 @@ namespace IronLockServer
       if (key == "private") {
         privateKeyFileName = value;
         return true;
+      }
+
+      if (key == "addr") {
+        localHostNameOrAddress = value;
+        return true;
+      }
+
+      if (key == "port") {
+        try {
+          localPort = Convert.ToInt32(value);
+          return true;
+        }
+        catch (Exception e) {
+          Console.WriteLine("ERROR - Could not convert port {0} to a number. Exception:\n{1}", value, e);
+          return false;
+        }
       }
 
       if (key == "verbose") {

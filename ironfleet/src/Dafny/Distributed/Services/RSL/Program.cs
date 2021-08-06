@@ -14,16 +14,22 @@ namespace IronRSLServer
   {
     private string serviceFileName;
     private string privateKeyFileName;
+    private string localHostNameOrAddress;
+    private int localPort;
     private bool verbose;
 
     public Params()
     {
       serviceFileName = "";
       privateKeyFileName = "";
+      localHostNameOrAddress = "";
+      localPort = 0;
     }
 
     public string ServiceFileName { get { return serviceFileName; } }
     public string PrivateKeyFileName { get { return privateKeyFileName; } }
+    public string LocalHostNameOrAddress { get { return localHostNameOrAddress; } }
+    public int LocalPort { get { return localPort; } }
     public bool Verbose { get { return verbose; } }
 
     public bool Validate()
@@ -63,6 +69,22 @@ namespace IronRSLServer
         return true;
       }
 
+      if (key == "addr") {
+        localHostNameOrAddress = value;
+        return true;
+      }
+
+      if (key == "port") {
+        try {
+          localPort = Convert.ToInt32(value);
+          return true;
+        }
+        catch (Exception e) {
+          Console.WriteLine("ERROR - Could not convert port {0} to a number. Exception:\n{1}", value, e);
+          return false;
+        }
+      }
+
       if (key == "verbose") {
         if (value == "false") {
           verbose = false;
@@ -89,9 +111,14 @@ namespace IronRSLServer
 Usage:  dotnet IronRSL{0}Server.dll [key=value]...
 
 Allowed keys:
-  service   - file name containing service description
-  private   - file name containing private key
-  verbose   - use verbose output
+  service  - file name containing service description
+  private  - file name containing private key
+  addr     - local host name or address to listen to (optional)
+  port     - port to listen to (optional)
+  verbose  - use verbose output
+
+If the optional parameter 'addr' or 'port' is left out,
+we use whatever is in the private key file.
 ", Service.Name);
     }
 
@@ -132,7 +159,8 @@ Allowed keys:
         return;
       }
 
-      var nc = Native____Io__s_Compile.NetClient.Create(privateIdentity, serviceIdentity.Servers, ps.Verbose);
+      var nc = Native____Io__s_Compile.NetClient.Create(privateIdentity, ps.LocalHostNameOrAddress, ps.LocalPort,
+                                                        serviceIdentity.Servers, ps.Verbose);
       Dafny.ISequence<byte>[] serverPublicKeys =
         serviceIdentity.Servers.Select(server => Dafny.Sequence<byte>.FromArray(server.PublicKey)).ToArray();
       var ironArgs = Dafny.Sequence<Dafny.ISequence<byte>>.FromArray(serverPublicKeys);

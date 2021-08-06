@@ -48,12 +48,13 @@ namespace Native____Io__s_Compile {
       return Dafny.Sequence<byte>.FromArray(IoScheduler.GetCertificatePublicKey(scheduler.MyCert));
     }
   
-    public static NetClient Create(PrivateIdentity myIdentity, List<PublicIdentity> knownIdentities,
-                                   bool verbose, int maxSendRetries = 3)
+    public static NetClient Create(PrivateIdentity myIdentity, string localHostNameOrAddress, int localPort,
+                                   List<PublicIdentity> knownIdentities, bool verbose, int maxSendRetries = 3)
     {
       try
       {
-        IoScheduler scheduler = new IoScheduler(myIdentity, knownIdentities, verbose, maxSendRetries);
+        IoScheduler scheduler = new IoScheduler(myIdentity, localHostNameOrAddress, localPort, knownIdentities,
+                                                verbose, maxSendRetries);
         var myPublicKey = IoScheduler.GetCertificatePublicKey(scheduler.MyCert);
         if (myPublicKey.Length > MaxPublicKeySize) {
           System.Console.Error.WriteLine("ERROR:  The provided public key for my identity is too big ({0} > {1} bytes)",

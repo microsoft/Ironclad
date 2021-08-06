@@ -28,7 +28,7 @@ namespace IronRSLClient
       verbose = i_verbose;
       nextSeqNum = 0;
       primaryServerIndex = 0;
-      scheduler = new IoScheduler(null, serviceIdentity.Servers, verbose);
+      scheduler = new IoScheduler(null, null, 0, serviceIdentity.Servers, verbose);
       Start();
     }
 

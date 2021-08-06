@@ -22,8 +22,6 @@ Allowed keys:
   outputdir    - directory to write certificates into (default ""."")
   addr<n>      - public address (host name or IP) of server #<n>
   port<n>      - public port of server #<n>
-  localaddr<n> - local address of server #<n> (default same as addr<n>)
-  localport<n> - local port of server #<n> (default same as port<n>)
   verbose      - print verbose output (false or true, default false)
 ");
     }
@@ -47,9 +45,9 @@ Allowed keys:
       List<PublicIdentity> serverPublicIdentities = new List<PublicIdentity>();
 
       for (int serverIndex = 1; serverIndex <= ps.MaxServerIndex; ++serverIndex) {
-        string publicAddr, localAddr;
-        int publicPort, localPort;
-        if (!ps.GetServerData(serverIndex, out publicAddr, out publicPort, out localAddr, out localPort)) {
+        string addr;
+        int port;
+        if (!ps.GetServerData(serverIndex, out addr, out port)) {
           Console.WriteLine("ERROR - Missing data for server #{0}", serverIndex);
           return;
         }
@@ -57,8 +55,7 @@ Allowed keys:
         PublicIdentity publicIdentity;
         PrivateIdentity privateIdentity;
         string serverName = string.Format("{0}.{1}.server{2}", ps.ServiceName, ps.ServiceType, serverIndex);
-        IronfleetCrypto.CreateNewIdentity(serverName, publicAddr, publicPort, localAddr, localPort,
-                                          out publicIdentity, out privateIdentity);
+        IronfleetCrypto.CreateNewIdentity(serverName, addr, port, out publicIdentity, out privateIdentity);
 
         var privateKeyFileName = Path.Join(ps.OutputDir, string.Format("{0}.private.txt", serverName));
         if (!privateIdentity.WriteToFile(privateKeyFileName)) {

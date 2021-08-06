@@ -13,10 +13,8 @@ namespace CreateIronServiceCert
     private string serviceType;
     private int maxServerIndex;
     private string outputDir;
-    private Dictionary<int, string> serverPublicAddrs;
-    private Dictionary<int, int> serverPublicPorts;
-    private Dictionary<int, string> serverLocalAddrs;
-    private Dictionary<int, int> serverLocalPorts;
+    private Dictionary<int, string> serverAddrs;
+    private Dictionary<int, int> serverPorts;
     private bool verbose;
 
     public Params()
@@ -25,10 +23,8 @@ namespace CreateIronServiceCert
       serviceType = "IronRSLKV";
       maxServerIndex = 0;
       outputDir = ".";
-      serverPublicAddrs = new Dictionary<int, string>();
-      serverPublicPorts = new Dictionary<int, int>();
-      serverLocalAddrs = new Dictionary<int, string>();
-      serverLocalPorts = new Dictionary<int, int>();
+      serverAddrs = new Dictionary<int, string>();
+      serverPorts = new Dictionary<int, int>();
       verbose = false;
     }
 
@@ -38,24 +34,15 @@ namespace CreateIronServiceCert
     public string OutputDir { get { return outputDir; } }
     public bool Verbose { get { return verbose; } }
 
-    public bool GetServerData (int serverIndex, out string publicAddr, out int publicPort,
-                               out string localAddr, out int localPort)
+    public bool GetServerData (int serverIndex, out string addr, out int port)
     {
-      publicAddr = "";
-      publicPort = 0;
-      localAddr = "";
-      localPort = 0;
-      if (!serverPublicAddrs.TryGetValue(serverIndex, out publicAddr)) {
+      addr = "";
+      port = 0;
+      if (!serverAddrs.TryGetValue(serverIndex, out addr)) {
         return false;
       }
-      if (!serverPublicPorts.TryGetValue(serverIndex, out publicPort)) {
+      if (!serverPorts.TryGetValue(serverIndex, out port)) {
         return false;
-      }
-      if (!serverLocalAddrs.TryGetValue(serverIndex, out localAddr)) {
-        localAddr = publicAddr;
-      }
-      if (!serverLocalPorts.TryGetValue(serverIndex, out localPort)) {
-        localPort = publicPort;
       }
       return true;
     }
@@ -84,11 +71,11 @@ namespace CreateIronServiceCert
       }
 
       for (int serverIndex = 1; serverIndex <= maxServerIndex; ++serverIndex) {
-        if (!serverPublicAddrs.ContainsKey(serverIndex)) {
+        if (!serverAddrs.ContainsKey(serverIndex)) {
           Console.WriteLine("ERROR - Missing addr{0}", serverIndex);
           return false;
         }
-        if (!serverPublicPorts.ContainsKey(serverIndex)) {
+        if (!serverPorts.ContainsKey(serverIndex)) {
           Console.WriteLine("ERROR - Missing port{0}", serverIndex);
           return false;
         }
@@ -155,7 +142,7 @@ namespace CreateIronServiceCert
         if (!UseServerIndex(serverIndex)) {
           return false;
         }
-        serverPublicAddrs[serverIndex] = value;
+        serverAddrs[serverIndex] = value;
         maxServerIndex = Math.Max(maxServerIndex, serverIndex);
         return true;
       }
@@ -180,46 +167,7 @@ namespace CreateIronServiceCert
           return false;
         }
         
-        serverPublicPorts[serverIndex] = port;
-        return true;
-      }
-
-      m = Regex.Match(key, @"^localaddr(\d+)$");
-      if (m.Success) {
-        if (value.Length == 0) {
-          Console.WriteLine("ERROR - Local address {0} cannot be empty", key);
-          return false;
-        }
-        int serverIndex = Convert.ToInt32(m.Groups[1].Value);
-        if (!UseServerIndex(serverIndex)) {
-          return false;
-        }
-        serverLocalAddrs[serverIndex] = value;
-        maxServerIndex = Math.Max(maxServerIndex, serverIndex);
-        return true;
-      }
-
-      m = Regex.Match(key, @"^localport(\d+)$");
-      if (m.Success) {
-        int port;
-        try {
-          port = Convert.ToInt32(value);
-        }
-        catch (Exception e) {
-          Console.WriteLine("ERROR - Invalid port number {0} given for key {1}", value, key);
-          return false;
-        }
-        if (port < 1 || port > 65535) {
-          Console.WriteLine("ERROR - Port number {0} given for key {1} is not in range 1-65535", value, key);
-          return false;
-        }
-
-        int serverIndex = Convert.ToInt32(m.Groups[1].Value);
-        if (!UseServerIndex(serverIndex)) {
-          return false;
-        }
-        
-        serverLocalPorts[serverIndex] = port;
+        serverPorts[serverIndex] = port;
         return true;
       }
 

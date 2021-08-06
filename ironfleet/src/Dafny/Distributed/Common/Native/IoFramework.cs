@@ -158,8 +158,7 @@ namespace IronfleetIoFramework
 
   public class IronfleetCrypto
   {
-    public static void CreateNewIdentity(string friendlyName, string publicHostNameOrAddress, int publicPort,
-                                         string localHostNameOrAddress, int localPort,
+    public static void CreateNewIdentity(string friendlyName, string hostNameOrAddress, int port,
                                          out PublicIdentity publicIdentity, out PrivateIdentity privateIdentity)
     {
       var key = RSA.Create(4096);
@@ -173,14 +172,14 @@ namespace IronfleetIoFramework
       publicIdentity = new PublicIdentity {
         FriendlyName = friendlyName,
         PublicKey = IoScheduler.GetCertificatePublicKey(cert),
-        HostNameOrAddress = publicHostNameOrAddress,
-        Port = publicPort
+        HostNameOrAddress = hostNameOrAddress,
+        Port = port
       };
       privateIdentity = new PrivateIdentity {
         FriendlyName = friendlyName,
         Pkcs12 = pkcs12,
-        HostNameOrAddress = localHostNameOrAddress,
-        Port = localPort
+        HostNameOrAddress = hostNameOrAddress,
+        Port = port
       };
     }
 
@@ -861,8 +860,8 @@ namespace IronfleetIoFramework
     private ListenerThread listenerThread;
     private SendDispatchThread sendDispatchThread;
 
-    public IoScheduler(PrivateIdentity myIdentity, List<PublicIdentity> knownIdentities,
-                       bool i_verbose = false, int i_maxSendTries = 3)
+    public IoScheduler(PrivateIdentity myIdentity, string localHostNameOrAddress, int localPort,
+                       List<PublicIdentity> knownIdentities, bool i_verbose = false, int i_maxSendTries = 3)
     {
       verbose = i_verbose;
       maxSendTries = i_maxSendTries;
@@ -878,11 +877,11 @@ namespace IronfleetIoFramework
         StartClient();
       }
       else {
-        StartServer(myIdentity);
+        StartServer(myIdentity, localHostNameOrAddress, localPort);
       }
     }
 
-    private void StartServer(PrivateIdentity myIdentity)
+    private void StartServer(PrivateIdentity myIdentity, string localHostNameOrAddress, int localPort)
     {
       onlyClient = false;
 
@@ -894,13 +893,23 @@ namespace IronfleetIoFramework
         throw new Exception("Can't start server because private key not decryptable");
       }
 
-      var addresses = Dns.GetHostAddresses(myIdentity.HostNameOrAddress);
+      // The `local` parameters override the parameters in
+      // `myIdentity`, unless they're empty or zero.
+
+      if (localHostNameOrAddress == null || localHostNameOrAddress.Length == 0) {
+        localHostNameOrAddress = myIdentity.HostNameOrAddress;
+      }
+      if (localPort == 0) {
+        localPort = myIdentity.Port;
+      }
+
+      var addresses = Dns.GetHostAddresses(localHostNameOrAddress);
       if (addresses.Length < 1) {
         Console.Error.WriteLine("ERROR:  Could not find any addresses when resolving {0}, which I'm supposed to bind to.");
         throw new Exception("Can't resolve binding address");
       }
       var address = addresses[0];
-      var myEndpoint = new IPEndPoint(address, myIdentity.Port);
+      var myEndpoint = new IPEndPoint(address, localPort);
 
       if (verbose) {
         Console.WriteLine("Starting I/O scheduler as server listening to {0} certified as {1}",
