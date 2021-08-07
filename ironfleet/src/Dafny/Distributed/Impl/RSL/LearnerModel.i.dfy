@@ -48,7 +48,6 @@ lemma lemma_Received2bPacketsSameSizeAsAbstraction(l_learner_tuple:CLearnerTuple
     assert src in l_learner_tuple.received_2b_message_senders;
 
     forall x | x in l_received_2b_message_senders'
-      ensures EndPointIsValidPublicKey(x)
       ensures AbstractifyEndPointToNodeIdentity(x) in h_learner_tuple'.received_2b_message_senders
     {
       var idx :| 0 <= idx < |l_received_2b_message_senders'| && x == l_received_2b_message_senders'[idx];

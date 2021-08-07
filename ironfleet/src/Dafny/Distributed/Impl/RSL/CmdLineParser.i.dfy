@@ -29,8 +29,6 @@ method parse_cmd_line(id:EndPoint, args:seq<seq<byte>>) returns (ok:bool, config
                 && config == paxos_config_parsing(args)
                 && config.replica_ids[my_index] == id
 {
-  ok := false;
-
   var tuple1 := parse_end_points(args);
   ok := tuple1.0;
   if !ok {

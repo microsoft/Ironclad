@@ -21,7 +21,7 @@ function ConstantsStateNull () : ConstantsState
   ConstantsState(EndPointNull(), [], StaticParams())
 }
 
-function sht_config_parsing(args:seq<seq<byte>>) : ConstantsState
+function sht_cmd_line_parsing(args:seq<seq<byte>>) : ConstantsState
 {
   var (ok, endpoints) := parse_end_points(args);
   if !ok then
@@ -36,20 +36,6 @@ function sht_parse_id(arg:seq<byte>) : EndPoint
 {
   var (ok, ep) := parse_end_point(arg);
   ep
-}
-
-function sht_cmd_line_parsing(env:HostEnvironment) : (ConstantsState, EndPoint)
-  reads env
-  reads env.constants
-{
-  var args := env.constants.CommandLineArgs();
-  if |args| < 1 then
-    (ConstantsStateNull(), EndPointNull()) 
-  else
-    var final_arg := args[|args|-1];
-    var config := sht_config_parsing(args[..|args|-1]);
-    var me := sht_parse_id(final_arg);
-    (config, me)
 }
 
 method GetHostIndex(host:EndPoint, hosts:seq<EndPoint>) returns (found:bool, index:uint64)
@@ -91,39 +77,18 @@ method GetHostIndex(host:EndPoint, hosts:seq<EndPoint>) returns (found:bool, ind
   found := false;
 }
 
-method parse_cmd_line(ghost env:HostEnvironment) returns (ok:bool, config:ConstantsState, my_index:uint64)
-  requires HostEnvironmentIsValid(env)
-  ensures ok ==> ConstantsStateIsValid(config)
-  ensures ok ==> |config.hostIds| > 0
-  ensures ok ==> 0 <= my_index as int < |config.hostIds|
-  //ensures (config, my_index) == sht_cmd_line_parsing(env)
-  ensures var (config', my_ep') := sht_cmd_line_parsing(env);
-          ok ==> config == config' && config.hostIds[my_index] == my_ep'
+method parse_cmd_line(id:EndPoint, args:seq<seq<byte>>) returns (ok:bool, config:ConstantsState, my_index:uint64)
+  requires EndPointIsValidPublicKey(id)
+  ensures ok ==> && ConstantsStateIsValid(config)
+                && 0 <= my_index as int < |config.hostIds|
+                && config == sht_cmd_line_parsing(args)
+                && config.hostIds[my_index] == id
 {
-  ok := false;
-  var num_args := HostConstants.NumCommandLineArgs(env);
-  var args := collect_cmd_line_args(env);
-  assert args == env.constants.CommandLineArgs();
-
-  if |args| < 2 {
-    print "Incorrect number of command line arguments.\n";
-    print "Expected: ./Main.exe [public_key]+ [public_key]\n";
-    print "  where the final argument is one of the public keys provided earlier \n";
-    print "Note that the first public key indicates the root identity\n";
-    return;
-  }
-
-  var tuple1 := parse_end_points(args[..|args|-1]);
+  var tuple1 := parse_end_points(args);
   ok := tuple1.0;
   var endpoints := tuple1.1;
   if !ok || |endpoints| >= 0xffff_ffff_ffff_ffff {
     ok := false;
-    return;
-  }
-
-  var tuple2 := parse_end_point(args[|args|-1]);
-  ok := tuple2.0;
-  if !ok {
     return;
   }
 
@@ -133,20 +98,12 @@ method parse_cmd_line(ghost env:HostEnvironment) returns (ok:bool, config:Consta
     return;
   }
 
-  ok, my_index := GetHostIndex(tuple2.1, endpoints);
+  ok, my_index := GetHostIndex(id, endpoints);
   if !ok {
     return;
   }
   var root_identity := endpoints[0];
-  var hosts := endpoints;
-  var me := endpoints[my_index];
 
-  config := ConstantsState(root_identity, hosts, StaticParams());
-
-  ghost var ghost_tuple := sht_cmd_line_parsing(env);
-  ghost var config', my_ep' := ghost_tuple.0, ghost_tuple.1;
-  assert endpoints == config'.hostIds;
-  assert config == config';
-  assert me == my_ep';
+  config := ConstantsState(root_identity, endpoints, StaticParams());
 }
 }

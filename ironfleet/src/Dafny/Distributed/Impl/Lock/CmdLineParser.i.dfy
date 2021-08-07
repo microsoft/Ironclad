@@ -23,8 +23,6 @@ method ParseCmdLine(id:EndPoint, args:seq<seq<byte>>)
                 && SeqIsUnique(host_ids)
                 && (forall h :: h in host_ids ==> EndPointIsValidPublicKey(h))
 {
-  ok := false;
-
   var tuple1 := parse_end_points(args);
   ok := tuple1.0;
   if !ok {

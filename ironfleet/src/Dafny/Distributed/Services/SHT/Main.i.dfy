@@ -12,7 +12,6 @@ module Main_i refines Main_s {
     import opened AS_s = AbstractServiceSHT_s`Spec
     import opened DS_s = SHT_DistributedSystem_i
     import opened DS_s.H_s
-    import opened Native__NativeTypes_s
     import opened Math__mod_auto_i
     import opened Collections__Sets_i
     import opened Collections__Maps2_s
@@ -47,8 +46,8 @@ module Main_i refines Main_s {
     import opened Common__NodeIdentity_i
 
     export
-        provides DS_s, Native__Io_s
-        provides Main
+        provides DS_s, Native__Io_s, Native__NativeTypes_s
+        provides IronfleetMain
 
     predicate IsValidBehavior(config:ConcreteConfiguration, db:seq<DS_State>)
         reads *;
@@ -134,11 +133,6 @@ module Main_i refines Main_s {
             [replicas[replica_order[0]].sched] + AbstractifyConcreteReplicas(replicas, replica_order[1..])
     }
 
-    function AbstractifyConcreteClients(clients:set<EndPoint>) : set<NodeIdentity>
-    {
-        set e | e in clients :: e
-    }
-
     predicate DsStateIsAbstractable(ds:DS_State) 
     {
            ConstantsStateIsValid(ds.config)
@@ -180,7 +174,6 @@ module Main_i refines Main_s {
         requires 0 <= i < |db|;
         ensures  db[i].config == config;
         ensures  Collections__Maps2_s.mapdomain(db[i].servers) == Collections__Maps2_s.mapdomain(db[0].servers);
-        ensures  db[i].clients == db[0].clients;
     {
         if i == 0 {
         } else {

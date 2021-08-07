@@ -97,11 +97,11 @@ function AbstractifyEndPointToNodeIdentity(endpoint:EndPoint) : NodeIdentity
 
 predicate SeqOfEndPointsIsAbstractable(endPoints:seq<EndPoint>)
 {
-  forall e :: e in endPoints ==> EndPointIsValidPublicKey(e)
+  forall e :: e in endPoints ==> EndPointIsAbstractable(e)
 }
 
 function {:opaque} AbstractifyEndPointsToNodeIdentities(endPoints:seq<EndPoint>) : seq<NodeIdentity>
-  requires forall e :: e in endPoints ==> EndPointIsValidPublicKey(e)
+  requires forall e :: e in endPoints ==> EndPointIsAbstractable(e)
   ensures |AbstractifyEndPointsToNodeIdentities(endPoints)| == |endPoints|
   ensures forall i :: 0<=i<|endPoints| ==> AbstractifyEndPointToNodeIdentity(endPoints[i]) == AbstractifyEndPointsToNodeIdentities(endPoints)[i]
 {
@@ -117,12 +117,9 @@ lemma lemma_AbstractifyEndPointToNodeIdentity_injective(e1:EndPoint, e2:EndPoint
 
 lemma lemma_AbstractifyEndPointToNodeIdentity_injective_forall()
   ensures forall e1, e2 {:trigger AbstractifyEndPointToNodeIdentity(e1),AbstractifyEndPointToNodeIdentity(e2)} ::
-            (EndPointIsValidPublicKey(e1) && EndPointIsValidPublicKey(e2)
-             && AbstractifyEndPointToNodeIdentity(e1) == AbstractifyEndPointToNodeIdentity(e2))
-            ==> e1 == e2;
+            AbstractifyEndPointToNodeIdentity(e1) == AbstractifyEndPointToNodeIdentity(e2) ==> e1 == e2;
 {
-  forall e1, e2 | (EndPointIsValidPublicKey(e1) && EndPointIsValidPublicKey(e2)
-                   && AbstractifyEndPointToNodeIdentity(e1) == AbstractifyEndPointToNodeIdentity(e2))
+  forall e1, e2 | AbstractifyEndPointToNodeIdentity(e1) == AbstractifyEndPointToNodeIdentity(e2)
     ensures e1 == e2
   {
     lemma_AbstractifyEndPointToNodeIdentity_injective(e1, e2);
@@ -139,7 +136,7 @@ lemma lemma_seqs_set_cardinality_EndPoint(Q:seq<EndPoint>, S:set<EndPoint>)
 }
 
 lemma lemma_sets_cardinality_EndPoint(S:set<EndPoint>, T:set<NodeIdentity>)
-  requires forall e :: e in S ==> EndPointIsValidPublicKey(e)
+  requires forall e :: e in S ==> EndPointIsAbstractable(e)
   requires T == set e | e in S :: AbstractifyEndPointToNodeIdentity(e)
   ensures |S| == |T|
   decreases |S|
@@ -161,9 +158,9 @@ lemma lemma_AbstractifyEndPointsToNodeIdentities_properties(endpoints:seq<EndPoi
   requires SeqOfEndPointsIsAbstractable(endpoints)
   ensures |AbstractifyEndPointsToNodeIdentities(endpoints)| == |endpoints|
   ensures forall e :: e in endpoints ==> AbstractifyEndPointToNodeIdentity(e) in AbstractifyEndPointsToNodeIdentities(endpoints)
-  ensures forall e :: EndPointIsValidPublicKey(e) ==> (e in endpoints <==> AbstractifyEndPointToNodeIdentity(e) in AbstractifyEndPointsToNodeIdentities(endpoints))
+  ensures forall e :: EndPointIsAbstractable(e) ==> (e in endpoints <==> AbstractifyEndPointToNodeIdentity(e) in AbstractifyEndPointsToNodeIdentities(endpoints))
 {
-  forall e |  EndPointIsValidPublicKey(e)
+  forall e |  EndPointIsAbstractable(e)
     ensures e in endpoints <==> AbstractifyEndPointToNodeIdentity(e) in AbstractifyEndPointsToNodeIdentities(endpoints)
   {
     if e in endpoints {
@@ -178,8 +175,8 @@ lemma lemma_AbstractifyEndPointsToNodeIdentities_properties(endpoints:seq<EndPoi
 }
 
 lemma lemma_AbstractifyEndPointsToNodeIdentities_injective_elements(s1:seq<EndPoint>, s2:seq<EndPoint>)
-  requires forall e :: e in s1 ==> EndPointIsValidPublicKey(e)
-  requires forall e :: e in s2 ==> EndPointIsValidPublicKey(e)
+  requires forall e :: e in s1 ==> EndPointIsAbstractable(e)
+  requires forall e :: e in s2 ==> EndPointIsAbstractable(e)
   requires AbstractifyEndPointsToNodeIdentities(s1) == AbstractifyEndPointsToNodeIdentities(s2)
   ensures  forall e :: e in s1 <==> e in s2
 {
@@ -188,8 +185,8 @@ lemma lemma_AbstractifyEndPointsToNodeIdentities_injective_elements(s1:seq<EndPo
 }
 
 lemma lemma_AbstractifyEndPointsToNodeIdentities_injective(s1:seq<EndPoint>, s2:seq<EndPoint>)
-  requires forall e :: e in s1 ==> EndPointIsValidPublicKey(e)
-  requires forall e :: e in s2 ==> EndPointIsValidPublicKey(e)
+  requires forall e :: e in s1 ==> EndPointIsAbstractable(e)
+  requires forall e :: e in s2 ==> EndPointIsAbstractable(e)
   requires AbstractifyEndPointsToNodeIdentities(s1) == AbstractifyEndPointsToNodeIdentities(s2)
   ensures  s1 == s2;
 {
@@ -203,19 +200,15 @@ lemma lemma_AbstractifyEndPointsToNodeIdentities_injective(s1:seq<EndPoint>, s2:
 
 predicate NodeIdentityIsRefinable(id:NodeIdentity)
 {
-  exists ep :: EndPointIsValidPublicKey(ep) && AbstractifyEndPointToNodeIdentity(ep) == id
+  true
 }
 
 // Give Dafny a symbol handle for this choose (:|) expression
 function{:opaque} RefineNodeIdentityToEndPoint(id:NodeIdentity) : EndPoint
-  // requires NodeIdentityIsRefinable(id)
-  ensures  NodeIdentityIsRefinable(id) ==> EndPointIsValidPublicKey(RefineNodeIdentityToEndPoint(id))
+  ensures  NodeIdentityIsRefinable(id) ==> EndPointIsAbstractable(RefineNodeIdentityToEndPoint(id))
   ensures  NodeIdentityIsRefinable(id) ==> AbstractifyEndPointToNodeIdentity(RefineNodeIdentityToEndPoint(id)) == id
 {
-  if(NodeIdentityIsRefinable(id)) then 
-    (var ep :| EndPointIsValidPublicKey(ep) && AbstractifyEndPointToNodeIdentity(ep) == id; ep)
-  else    
-    var e:EndPoint :| (true); e
+  id
 }
 
 

@@ -70,7 +70,7 @@ predicate CDelegationMapIsComplete(m:CDelegationMap)
 
 predicate CDelegationMapHasValidEndPoints(lows:seq<Mapping>)
 {
-    forall m :: m in lows ==> EndPointIsAbstractable(m.id)
+    forall m :: m in lows ==> EndPointIsValidPublicKey(m.id)
 }
 
 predicate CDelegationMapIsValid(m:CDelegationMap)
@@ -159,7 +159,7 @@ lemma CDM_Partitioned(m:CDelegationMap, k:KeyPlus, index:int)
 
 function method CDM_IndexForKey(m:CDelegationMap, k:KeyPlus) : uint64
     requires 0<|m.lows|;
-    requires CDelegationMapIsValid(m);
+    requires CDelegationMapIsAbstractable(m) || CDelegationMapIsValid(m)
     ensures 0 <= CDM_IndexForKey(m, k) as int < |m.lows|;
     ensures !k.KeyInf? ==> KeyRangeContains(CDM_IndexToKeyRange(m, CDM_IndexForKey(m, k) as int), k);
     ensures k.KeyInf? ==> CDM_IndexForKey(m, k) as int == |m.lows| - 1;
@@ -179,19 +179,20 @@ function CDM_IndexForKeyRange(m:CDelegationMap, kr:KeyRange) : uint64
 
 predicate CDelegationMapIsAbstractable(m:CDelegationMap)
 {
-    CDelegationMapIsValid(m)
+  && (forall low :: low in m.lows ==> EndPointIsAbstractable(low.id))
+  && CDelegationMapIsComplete(m)
 }
 
 function RefineToDelegationMapEntry(m:CDelegationMap, k:Key) : NodeIdentity
     requires CDelegationMapIsAbstractable(m);
-    requires forall low :: low in m.lows ==> EndPointIsValidPublicKey(low.id);
+    requires forall low :: low in m.lows ==> EndPointIsAbstractable(low.id);
 {
     AbstractifyEndPointToNodeIdentity(m.lows[CDM_IndexForKey(m,KeyPlus(k))].id)
 }
 
 function AbstractifyCDelegationMapToDelegationMap(m:CDelegationMap) : DelegationMap
     requires CDelegationMapIsAbstractable(m);
-    requires forall low :: low in m.lows ==> EndPointIsValidPublicKey(low.id);
+    requires forall low :: low in m.lows ==> EndPointIsAbstractable(low.id);
 {
     imap k:Key {:trigger CDM_IndexForKey(m,KeyPlus(k))} :: RefineToDelegationMapEntry(m, k)
 }
