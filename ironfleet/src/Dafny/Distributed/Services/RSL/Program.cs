@@ -147,7 +147,6 @@ we use whatever is in the private key file.
       if (serviceIdentity == null) {
         return;
       }
-
       if (serviceIdentity.ServiceType != "IronRSL" + Service.Name) {
         Console.Error.WriteLine("Provided service identity has type {0}, not IronRSL{1}.",
                                 serviceIdentity.ServiceType, Service.Name);
@@ -158,6 +157,9 @@ we use whatever is in the private key file.
       if (privateIdentity == null) {
         return;
       }
+
+      File.Delete(ps.PrivateKeyFileName);
+      Console.WriteLine("Deleted private key file after reading it since RSL servers should never run twice.");
 
       var nc = Native____Io__s_Compile.NetClient.Create(privateIdentity, ps.LocalHostNameOrAddress, ps.LocalPort,
                                                         serviceIdentity.Servers, ps.Verbose);
