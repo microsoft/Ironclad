@@ -235,7 +235,8 @@ predicate HostIgnoringUnParseable(host:Host, host':Host, packets:set<Packet>)
  && host.receivedPacket.v.msg.SingleMessage? 
  && host.receivedPacket.v.msg.m.Delegate?
  && var msg := host.receivedPacket.v.msg.m;
-    !(ValidKeyRange(msg.range) && ValidHashtable(msg.h) && !EmptyKeyRange(msg.range))
+   !(ValidKeyRange(msg.range) && ValidHashtable(msg.h) && !EmptyKeyRange(msg.range)
+    && ValidPhysicalAddress(host.receivedPacket.v.msg.dst))
 }
 
 method {:timeLimitMultiplier 4} HostModelNextDelegate(host:HostState, cpacket:CPacket) returns (host':HostState, sent_packets:seq<CPacket>)
@@ -456,7 +457,7 @@ method {:timeLimitMultiplier 2} HostModelSpontaneouslyRetransmit(host:HostState)
     ghost var sent_packets' := AbstractifyOutboundPacketsToSeqOfLSHTPackets(sent_packets);
     
     lemma_AbstractifyEndPointToNodeIdentity_injective_forall();
-    assert forall p :: p in sent_packets ==> CPacketIsAbstractable(p) && EndPointIsValidPublicKey(p.dst) && EndPointIsValidPublicKey(p.src);
+    assert forall p :: p in sent_packets ==> CPacketIsAbstractable(p) && EndPointIsAbstractable(p.dst) && EndPointIsAbstractable(p.src);
     assert forall p :: p in sent_packets ==> LPacket(AbstractifyEndPointToNodeIdentity(p.dst), AbstractifyEndPointToNodeIdentity(p.src), AbstractifyCSingleMessageToSingleMessage(p.msg)) in sent_packets';
     
     assert forall p':: p' in sent_packets' ==> exists p :: p in sent_packets && LPacket(AbstractifyEndPointToNodeIdentity(p.dst), AbstractifyEndPointToNodeIdentity(p.src), AbstractifyCSingleMessageToSingleMessage(p.msg)) == p';

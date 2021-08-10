@@ -234,7 +234,7 @@ method {:timeLimitMultiplier 3} SendSingleCMessage(acct:CSingleDeliveryAcct, m:C
     requires CSingleDeliveryAccountIsValid(acct, params);
     requires CMessageIsAbstractable(m);
     requires MessageMarshallable(m);
-    requires EndPointIsAbstractable(dst);
+    requires ValidPhysicalAddress(dst);
     requires CParametersIsValid(params);
     ensures  CSingleDeliveryAccountIsValid(acct', params);
     ensures  CSingleMessageIsAbstractable(sm);

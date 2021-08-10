@@ -165,6 +165,7 @@ predicate NextDelegatePreconditions(host:HostState, cpacket:CPacket)
     && (forall k :: k in cpacket.msg.m.h ==> ValidValue(cpacket.msg.m.h[k]))*/
     //&& CSingleMessageMarshallable(cpacket.msg)
     && HostState_common_preconditions(host, cpacket)
+    && ValidPhysicalAddress(host.me)
     //&& host.numDelegations < host.constants.params.max_delegations - 2
 
 }

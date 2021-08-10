@@ -195,14 +195,12 @@ module MarshallProof_i {
         rest := parse_Uint64(data).1;
     }
 
-    lemma lemma_ParseUint64Offset(s1:seq<byte>, s2:seq<byte>, i:int, j:int)
-        requires 0 <= i < j <= |s2|;
-        requires |s1| < 0x1_0000_0000_0000_0000;
-        requires s2 == parse_Val(s1, GUint64).1;
-        ensures  j+8 <= |s1|;
-        ensures  s2[i..j] == s1[i+8..j+8];
+    lemma lemma_SeqOffset(s1:seq<byte>, s2:seq<byte>, offset:int, i:int, j:int)
+      requires 0 <= offset <= |s1|
+      requires s2 == s1[offset..]
+      requires 0 <= i <= j <= |s2|
+      ensures  s2[i..j] == s1[i+offset..j+offset]
     {
-        reveal_parse_Val();
     }
 
     lemma {:fuel ValInGrammar,3} lemma_ParseMarshallGetRequest(bytes:seq<byte>, msg:SingleMessage<Message>)
@@ -280,7 +278,7 @@ module MarshallProof_i {
         assert |data| == 40 + len_dst as int;
     }
 
-    lemma {:fuel ValInGrammar,5} lemma_ParseMarshallSetRequest(bytes:seq<byte>, msg:SingleMessage<Message>)
+    lemma {:fuel ValInGrammar,5} {:timeLimitMultiplier 2} lemma_ParseMarshallSetRequest(bytes:seq<byte>, msg:SingleMessage<Message>)
         returns (reserved_bytes:seq<byte>)
         requires msg.SingleMessage? && msg.m.SetRequest?;
         requires CSingleMessageIsAbstractable(SHTDemarshallData(bytes));
@@ -353,10 +351,15 @@ module MarshallProof_i {
             assert rest4[..8] == [ 0, 0, 0, 0, 0, 0, 0, 0];
             calc {
                 rest4[..8];
+                  { lemma_SeqOffset(rest3, rest4, 8, 0, 8); }
                 rest3[8..16];
+                  { lemma_SeqOffset(rest2, rest3, 8, 8, 16); }
                 rest2[16..24];
+                  { lemma_SeqOffset(rest1, rest2, 8 + len_dst as int, 16, 24); }
                 rest1[24+len_dst as int..32+len_dst as int];
+                  { lemma_SeqOffset(rest0, rest1, 8, 24 + len_dst as int, 32 + len_dst as int); }
                 rest0[32+len_dst as int..40+len_dst as int];
+                  { lemma_SeqOffset(data, rest0, 8, 32 + len_dst as int, 40 + len_dst as int); }
                 data[40+len_dst as int..48+len_dst as int];
             }
             var byteLen, bytesVal, rest6 := lemma_ParseValCorrectVByteArray(rest5, valCaseVal, GByteArray);
@@ -401,7 +404,7 @@ module MarshallProof_i {
         }
     }
 
-    lemma {:fuel ValInGrammar,5} {:timeLimitMultiplier 2} lemma_ParseMarshallReply(bytes:seq<byte>, reply:AppReply, msg:SingleMessage<Message>, reserved_bytes:seq<byte>) 
+    lemma {:fuel ValInGrammar,5} {:timeLimitMultiplier 4} lemma_ParseMarshallReply(bytes:seq<byte>, reply:AppReply, msg:SingleMessage<Message>, reserved_bytes:seq<byte>) 
         requires CSingleMessageIsAbstractable(SHTDemarshallData(bytes));
         requires AbstractifyCSingleMessageToSingleMessage(SHTDemarshallData(bytes)) == msg;
         requires CSingleMessageMarshallable(SHTDemarshallData(bytes));
@@ -509,10 +512,15 @@ module MarshallProof_i {
 
             calc {
               rest4[..8];
+                { lemma_SeqOffset(rest3, rest4, 8, 0, 8); }
               rest3[8..16];
+                { lemma_SeqOffset(rest2, rest3, 8, 8, 16); }
               rest2[16..24];
+                { lemma_SeqOffset(rest1, rest2, 8 + len_dst as int, 16, 24); }
               rest1[24+len_dst as int..32+len_dst as int];
+                { lemma_SeqOffset(rest0, rest1, 8, 24 + len_dst as int, 32 + len_dst as int); }
               rest0[32+len_dst as int..40+len_dst as int];
+                { lemma_SeqOffset(data, rest0, 8, 32 + len_dst as int, 40 + len_dst as int); }
               data[40+len_dst as int..48+len_dst as int];
             }
 

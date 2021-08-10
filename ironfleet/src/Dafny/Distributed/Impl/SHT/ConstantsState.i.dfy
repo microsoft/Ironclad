@@ -29,5 +29,6 @@ predicate ConstantsStateIsValid(constants:ConstantsState) {
     ConstantsStateIsAbstractable(constants)
  && CParametersIsValid(constants.params)
  && SeqIsUnique(constants.hostIds)
+ && ValidPhysicalAddress(constants.rootIdentity)
 }
 } 

@@ -8,6 +8,7 @@ include "../../Services/SHT/AbstractService.s.dfy"
 include "../Common/NodeIdentity.i.dfy"
 
 module SHT__Host_i {
+import opened Native__Io_s
 import opened Collections__Maps2_s
 import opened SHT__SingleDelivery_i
 import opened SHT__Delegations_i
@@ -66,8 +67,13 @@ function ExtractPacketsFromLSHTPackets(seqPackets:seq<LSHTPacket>) : set<Packet>
     MapSeqToSet(seqPackets, LSHTPacketToPacket)
 }
 
+predicate DelegationMap_InitTrigger(k:Key)
+{
+  true
+}
+
 function DelegationMap_Init(rootIdentity:NodeIdentity) : DelegationMap {
-    imap k {:auto_trigger} :: rootIdentity
+    imap k {:trigger DelegationMap_InitTrigger(k)} :: rootIdentity
 }
 
 function method HashtableLookup(h:Hashtable, k:Key) : OptionalValue
@@ -206,6 +212,7 @@ predicate NextShard_Wrapper(s:Host, s':Host, pkt:Packet, out:set<Packet>)
        pkt.msg.m.Shard?
     && if (   pkt.msg.m.recipient == s.me
            || !ValidKeyRange(pkt.msg.m.kr)
+           || !ValidPhysicalAddress(pkt.msg.m.recipient)
            || EmptyKeyRange(pkt.msg.m.kr)
            || pkt.msg.m.recipient !in s.constants.hostIds 
            || !DelegateForKeyRangeIsHost(s.delegationMap, pkt.msg.m.kr, s.me)
