@@ -15,10 +15,11 @@ namespace IronRSLCounterClient
     static void usage()
     {
       Console.Write(@"
-Usage:  dotnet IronRSLCounterClient.dll [key=value]...
+Usage:  dotnet IronRSLCounterClient.dll <service> [key=value]...
+
+  <service> - file path of the service description
 
 Allowed keys:
-  service   - file name containing service description (required)
   nthreads  - number of client threads to run (default 1)
   duration  - duration of experiment in seconds (default 60)
   verbose   - print verbose output (false or true, default false)

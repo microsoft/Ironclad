@@ -36,8 +36,14 @@ namespace IronRSLCounterClient
     {
       var pos = arg.IndexOf("=");
       if (pos < 0) {
-        Console.WriteLine("Invalid argument {0}", arg);
-        return false;
+        if (serviceFileName.Length == 0) {
+          serviceFileName = arg;
+          return true;
+        }
+        else {
+          Console.WriteLine("Invalid argument {0}", arg);
+          return false;
+        }
       }
       var key = arg.Substring(0, pos).ToLower();
       var value = arg.Substring(pos + 1);
@@ -46,11 +52,6 @@ namespace IronRSLCounterClient
 
     private bool SetValue(string key, string value)
     {
-      if (key == "service") {
-        serviceFileName = value;
-        return true;
-      }
-
       if (key == "verbose") {
         if (value == "false") {
           verbose = false;

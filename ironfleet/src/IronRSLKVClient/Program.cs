@@ -15,10 +15,11 @@ namespace IronRSLKVClient
     static void usage()
     {
       Console.Write(@"
-Usage:  dotnet IronRSLKVClient.dll [key=value]...
+Usage:  dotnet IronRSLKVClient.dll <service> [key=value]...
+
+  <service>      - file path of the service description
 
 Allowed keys:
-  service        - file name containing service description (required)
   nthreads       - number of client threads to run (default 1)
   duration       - duration of experiment in seconds (default 60)
   setfraction    - fraction of requests that are sets (default 0.25)

@@ -45,8 +45,18 @@ namespace TestIoFramework
     {
       var pos = arg.IndexOf("=");
       if (pos < 0) {
-        Console.WriteLine("ERROR - Invalid argument {0}", arg);
-        return false;
+        if (serviceFileName.Length == 0) {
+          serviceFileName = arg;
+          return true;
+        }
+        else if (privateKeyFileName.Length == 0) {
+          privateKeyFileName = arg;
+          return true;
+        }
+        else {
+          Console.WriteLine("ERROR - Invalid argument {0}", arg);
+          return false;
+        }
       }
       var key = arg.Substring(0, pos).ToLower();
       var value = arg.Substring(pos + 1);
@@ -55,16 +65,6 @@ namespace TestIoFramework
 
     private bool SetValue(string key, string value)
     {
-      if (key == "service") {
-        serviceFileName = value;
-        return true;
-      }
-
-      if (key == "private") {
-        privateKeyFileName = value;
-        return true;
-      }
-
       if (key == "addr") {
         localHostNameOrAddress = value;
         return true;

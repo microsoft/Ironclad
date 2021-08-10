@@ -13,17 +13,17 @@ namespace IronSHTServer
     static void usage()
     {
       Console.Write(@"
-Usage:  dotnet IronSHTServer.dll [key=value]...
+Usage:  dotnet IronSHTServer.dll <service> <private> [key=value]...
+
+  <service> - file path of the service description
+  <private> - file path of the private key
 
 Allowed keys:
-  service  - file name containing service description
-  private  - file name containing private key
-  addr     - local host name or address to listen to (optional)
-  port     - local port to listen to (optional)
-  verbose  - use verbose output
-
-If the optional parameter 'addr' or 'port' is left out,
-we use whatever is in the private key file.
+  addr      - local host name or address to listen to (default:
+              whatever's specified in the private key file)
+  port      - port to listen to (default: whatever's specified
+              in the private key file)
+  verbose   - use verbose output (false or true, default: false)
 ");
     }
 

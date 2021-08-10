@@ -53,8 +53,8 @@ namespace IronfleetIoFramework
       try {
         json = File.ReadAllText(fileName);
       }
-      catch (Exception e) {
-        Console.Error.WriteLine("Could not read contents of private key file {0}. Exception:\n{1}", fileName, e);
+      catch (Exception) {
+        Console.Error.WriteLine("ERROR - Could not read contents of private key file {0}");
         return null;
       }
 
@@ -115,8 +115,8 @@ namespace IronfleetIoFramework
       try {
         json = File.ReadAllText(fileName);
       }
-      catch (Exception e) {
-        Console.Error.WriteLine("Could not read contents of service file {0}. Exception:\n{1}", fileName, e);
+      catch (Exception) {
+        Console.Error.WriteLine("ERROR - Could not read contents of service file {0}", fileName);
         return null;
       }
 

@@ -49,8 +49,18 @@ namespace IronRSLServer
     {
       var pos = arg.IndexOf("=");
       if (pos < 0) {
-        Console.WriteLine("ERROR - Invalid argument {0}", arg);
-        return false;
+        if (serviceFileName.Length == 0) {
+          serviceFileName = arg;
+          return true;
+        }
+        else if (privateKeyFileName.Length == 0) {
+          privateKeyFileName = arg;
+          return true;
+        }
+        else {
+          Console.WriteLine("ERROR - Invalid argument {0}", arg);
+          return false;
+        }
       }
       var key = arg.Substring(0, pos).ToLower();
       var value = arg.Substring(pos + 1);
@@ -59,16 +69,6 @@ namespace IronRSLServer
 
     private bool SetValue(string key, string value)
     {
-      if (key == "service") {
-        serviceFileName = value;
-        return true;
-      }
-
-      if (key == "private") {
-        privateKeyFileName = value;
-        return true;
-      }
-
       if (key == "addr") {
         localHostNameOrAddress = value;
         return true;
@@ -108,17 +108,17 @@ namespace IronRSLServer
     static void usage()
     {
       Console.Write(@"
-Usage:  dotnet IronRSL{0}Server.dll [key=value]...
+Usage:  dotnet IronRSL{0}Server.dll <service> <private> [key=value]...
+
+  <service> - file path of the service description
+  <private> - file path of the private key
 
 Allowed keys:
-  service  - file name containing service description
-  private  - file name containing private key
-  addr     - local host name or address to listen to (optional)
-  port     - port to listen to (optional)
-  verbose  - use verbose output
-
-If the optional parameter 'addr' or 'port' is left out,
-we use whatever is in the private key file.
+  addr      - local host name or address to listen to (default:
+              whatever's specified in the private key file)
+  port      - port to listen to (default: whatever's specified
+              in the private key file)
+  verbose   - use verbose output (false or true, default: false)
 ", Service.Name);
     }
 

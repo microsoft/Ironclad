@@ -15,10 +15,11 @@ namespace IronSHTClient
     static void usage()
     {
       Console.Write(@"
-Usage:  dotnet IronSHTClient.dll [key=value]...
+Usage:  dotnet IronSHTClient.dll <service> [key=value]...
+
+  <service> - file path of the service description
 
 Allowed keys:
-  service   - file name containing service description (required)
   nthreads  - number of experiment client threads to run, not
               counting the setup thread (default 1)
   duration  - duration of experiment in seconds (default 60)
