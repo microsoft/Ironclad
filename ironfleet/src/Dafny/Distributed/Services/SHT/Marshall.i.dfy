@@ -7,6 +7,7 @@ include "AppInterface.i.dfy"
 
 module MarshallProof_i {
     import opened Native__NativeTypes_s
+    import opened Native__Io_s
     import opened Bytes_s
     import opened Math__power2_i
     import opened AbstractServiceSHT_s`All
@@ -31,6 +32,8 @@ module MarshallProof_i {
         ensures  rest == parse_Uint64(data).1;
         ensures  |rest| >= len as int;
         ensures  val == VByteArray(rest[0..len]);
+        ensures  parse_Val(data, g) == parse_ByteArray(data)
+        ensures  parse_ByteArray(data).1 == rest[len..]
     {
         reveal_parse_Val();
         len := parse_Uint64(data).0.v.u;
@@ -53,6 +56,7 @@ module MarshallProof_i {
         ensures  val == parse_Val(rest, g.cases[caseId]).0.v
         ensures  v == VCase(caseId, val);
         ensures  ValInGrammar(val, g.cases[caseId]);
+        ensures  parse_Val(data, g) == parse_Case(data, g.cases)
     {
         reveal_parse_Val();
         caseId := parse_Uint64(data).0.v.u;
@@ -184,98 +188,12 @@ module MarshallProof_i {
         ensures  u == parse_Uint64(data).0.v.u;
         ensures  v == VUint64(u);
         ensures  rest == parse_Val(data, g).1;
+        ensures  rest == parse_Uint64(data).1;
     {
         reveal_parse_Val();
         u := parse_Uint64(data).0.v.u;
         rest := parse_Uint64(data).1;
     }
-
-    lemma {:fuel ValInGrammar,3} {:fuel SizeOfV,4} lemma_SizeOfGetRequest(v:V)
-        requires ValInGrammar(v, CSingleMessage_grammar());
-        requires ValInGrammar(v.val, GTuple([GUint64, EndPoint_grammar(), CMessage_grammar()]));
-        requires ValInGrammar(v.val.t[2].val, CMessage_GetRequest_grammar());
-        ensures  SizeOfV(v) == 40;
-    {
-        lemma_SeqSum_3(v.val);
-        reveal_SeqSum();
-    }
-
-    lemma {:fuel ValInGrammar,4} {:fuel SizeOfV,5} lemma_SizeOfSetRequest(v:V, cmsg:CSingleMessage)
-        requires ValInGrammar(v, CSingleMessage_grammar());
-        requires ValInGrammar(v.val, GTuple([GUint64, EndPoint_grammar(), CMessage_grammar()]));
-        requires ValInGrammar(v.val.t[2].val, CMessage_SetRequest_grammar());
-        requires parse_CSingleMessage(v) == cmsg;
-        requires cmsg.m.CSetRequest?;
-        ensures  SizeOfV(v) == if cmsg.m.v_setrequest.ValuePresent? then 56 + |cmsg.m.v_setrequest.v| else 48;
-    {
-        lemma_SeqSum_2(v.val.t[2].val);
-        lemma_SeqSum_3(v.val);
-        reveal_SeqSum();
-        calc {
-            SizeOfV(v);
-            8 + SizeOfV(v.val);
-            8 + 8 + 8 + SizeOfV(v.val.t[2]);
-            8 + 8 + 8 + 8 + SizeOfV(v.val.t[2].val);
-            8 + 8 + 8 + 8 + 8 + SizeOfV(v.val.t[2].val.t[1]);
-            8 + 8 + 8 + 8 + 8 + 8 + SizeOfV(v.val.t[2].val.t[1].val);
-            48 + SizeOfV(v.val.t[2].val.t[1].val);
-        }
-        if cmsg.m.v_setrequest.ValueAbsent? {
-            assert SizeOfV(v.val.t[2].val.t[1].val) == 0;
-        } else {
-            assert SizeOfV(v.val.t[2].val.t[1].val) == 8 + |v.val.t[2].val.t[1].val.b|;
-        }   
-
-    }
-
-    lemma {:fuel ValInGrammar,4} {:fuel SizeOfV,5} lemma_SizeOfReply(v:V, cmsg:CSingleMessage)
-        requires ValInGrammar(v, CSingleMessage_grammar());
-        requires ValInGrammar(v.val, GTuple([GUint64, EndPoint_grammar(), CMessage_grammar()]));
-        requires ValInGrammar(v.val.t[2].val, CMessage_Reply_grammar());
-        requires parse_CSingleMessage(v) == cmsg;
-        requires cmsg.m.CReply?;
-        ensures  SizeOfV(v) == if cmsg.m.v.ValuePresent? then 56 + |cmsg.m.v.v| else 48;
-    {
-        lemma_SeqSum_2(v.val.t[2].val);
-        lemma_SeqSum_3(v.val);
-        reveal_SeqSum();
-        calc {
-            SizeOfV(v);
-            8 + SizeOfV(v.val);
-            8 + 8 + 8 + SizeOfV(v.val.t[2]);
-            8 + 8 + 8 + 8 + SizeOfV(v.val.t[2].val);
-            8 + 8 + 8 + 8 + 8 + SizeOfV(v.val.t[2].val.t[1]);
-            8 + 8 + 8 + 8 + 8 + 8 + SizeOfV(v.val.t[2].val.t[1].val);
-            48 + SizeOfV(v.val.t[2].val.t[1].val);
-        }
-        if cmsg.m.v.ValueAbsent? {
-            assert SizeOfV(v.val.t[2].val.t[1].val) == 0;
-        } else {
-            assert SizeOfV(v.val.t[2].val.t[1].val) == 8 + |v.val.t[2].val.t[1].val.b|;
-        }   
-
-    }
-/*
-    lemma {:fuel ValInGrammar,3} {:fuel SizeOfV,3} lemma_SizeOfCMessageRequest1(v:V)
-        requires ValInGrammar(v, CMessage_grammar());
-        requires ValInGrammar(v.val, CMessage_Request_grammar());
-        requires v.val.t[1].c == 1;
-        ensures  SizeOfV(v) == 32;
-    {
-        lemma_SeqSum2(v.val);
-        reveal_SeqSum();
-    }
-
-    lemma {:fuel ValInGrammar,3} {:fuel SizeOfV,3} lemma_SizeOfCMessageRequest(v:V)
-        requires ValInGrammar(v, CMessage_grammar());
-        requires ValInGrammar(v.val, CMessage_Request_grammar());
-        requires v.val.t[1].c == 0 || v.val.t[1].c == 2;
-        ensures  SizeOfV(v) == 24;
-    {
-        lemma_SeqSum2(v.val);
-        reveal_SeqSum();
-    }
-*/
 
     lemma lemma_ParseUint64Offset(s1:seq<byte>, s2:seq<byte>, i:int, j:int)
         requires 0 <= i < j <= |s2|;
@@ -287,26 +205,42 @@ module MarshallProof_i {
         reveal_parse_Val();
     }
 
-    lemma {:fuel ValInGrammar,3} lemma_ParseMarshallGetRequest(bytes:seq<byte>, msg:SingleMessage<Message>) returns (reserved_bytes:seq<byte>)
+    lemma {:fuel ValInGrammar,3} lemma_ParseMarshallGetRequest(bytes:seq<byte>, msg:SingleMessage<Message>)
+        returns (reserved_bytes:seq<byte>)
         requires msg.SingleMessage? && msg.m.GetRequest?;
         requires CSingleMessageIsAbstractable(SHTDemarshallData(bytes));
         requires AbstractifyCSingleMessageToSingleMessage(SHTDemarshallData(bytes)) == msg;
-        ensures  |reserved_bytes| == 8;
+        ensures  |reserved_bytes| < 0x10_0000;
         ensures  bytes == MarshallServiceGetRequest(AppGetRequest(msg.seqno, msg.m.k_getrequest), reserved_bytes);
     {
         var cmsg := SHTDemarshallData(bytes);
         assert cmsg.CSingleMessage?;
+        assert ValidPhysicalAddress(cmsg.dst);
         var data := bytes;
         var g := CSingleMessage_grammar();
         var v := DemarshallFunc(data, g);
 
-        lemma_SizeOfGetRequest(v);
-        assert SizeOfV(v) == 40;
+        assert cmsg.dst == msg.dst;
+        assert SHTDemarshallData(bytes) == parse_CSingleMessage(v);
+        var cs := parse_CSingleMessage(v);
+        assert v.c == 0;
+        assert cs == CSingleMessage(v.val.t[0].u, parse_EndPoint(v.val.t[1]), parse_Message(v.val.t[2]));
+        assert AbstractifyCSingleMessageToSingleMessage(cs) == msg;
+        assert cs.dst == parse_EndPoint(v.val.t[1]);
+        assert cs.dst == EndPoint(v.val.t[1].b);
+        assert cs.dst == msg.dst;
+        assert |v.val.t[1].b| < 0x10_0000;
+
+        reserved_bytes := v.val.t[1].b;
 
         // Walk through the generic parsing process
         var msgCaseId, msgCaseVal, rest0 := lemma_ParseValCorrectVCase(data, v, g);
         var seqnoVal, dstVal, msgVal, rest1, rest2 := lemma_ParseValCorrectTuple3(rest0, msgCaseVal, g.cases[msgCaseId]);
         var mCaseId, mCaseVal, rest3 := lemma_ParseValCorrectVCase(rest2, msgVal, g.cases[msgCaseId].t[2]);
+
+        assert v.val.t[0] == seqnoVal;
+        assert v.val.t[1] == dstVal;
+        assert v.val.t[2] == msgVal;
 
         // Prove that the first 8 bytes are correct
         assert msgCaseId == 0;
@@ -321,60 +255,37 @@ module MarshallProof_i {
         lemma_BEByteSeqToInt_BEUintToSeqByte_invertability();
         assert rest0[..8] == Uint64ToSeqByte(msg.seqno as uint64);
         assert data[8..16] == rest0[..8];
+        assert rest == rest0[8..];
+        assert rest1 == rest0[8..];
 
-        // Prove that the 8 bytes of dst are correct
-        var u_dst, rest_dst := lemma_ParseValCorrectVUint64(rest1, dstVal, GUint64);
+        // Prove that the bytes of dst are correct
+        var len_dst, val_dst, rest_dst := lemma_ParseValCorrectVByteArray(rest1, dstVal, EndPoint_grammar());
+        assert val_dst == VByteArray(dstVal.b);
+        assert rest1[..8] == Uint64ToSeqByte(len_dst);
+        assert rest1[..8] == rest0[8..16];
+        assert data[16..24] == rest1[..8];
+        assert data[24..24+len_dst] == val_dst.b;
+        assert len_dst as int == |cmsg.dst.public_key|;
 
-        assert SeqByteToUint64(rest1[..8]) == u_dst;
-        assert Uint64ToSeqByte(u_dst) == Uint64ToBytes(u_dst);
-        lemma_BEByteSeqToInt_BEUintToSeqByte_invertability();
-        assert rest1[..8] == Uint64ToSeqByte(u_dst);
-        reveal_parse_Val();
-        calc {
-            data[16..24];
-            rest0[8..16];
-                { assert rest1 == parse_Val(rest0, GUint64).1; reveal_parse_Val(); }
-            rest1[..8];
-        }
-        reserved_bytes := data[16..24];
-        //lemma_ParseEndPoint(msg.dst, u_dst, data[16..24]);
-
-        // Prove that the 8 bytes of the case ID for CMessage is handled correctly
         assert mCaseId == 0;
-        calc {
-            SeqByteToUint64(bytes[24..32]);
-                { lemma_ParseUint64Offset(data, rest0, 16, 24); }
-            SeqByteToUint64(rest0[16..24]);
-                { assert rest0[16..24] == rest1[8..16]; }
-            SeqByteToUint64(rest1[8..16]);
-            SeqByteToUint64(rest2[..8]);
-            0;
-        }
-        //assert bytes[24..32] == [ 0, 0, 0, 0, 0, 0, 0, 0];
+        assert rest2 == rest1[8 + len_dst..] == data[24 + len_dst ..];
+        assert rest2[..8] == data[24 + len_dst .. 32 + len_dst];
+        assert mCaseId == SeqByteToUint64(rest2[..8]) == SeqByteToUint64(data[24 + len_dst .. 32 + len_dst]);
+        assert data[24 + len_dst .. 32 + len_dst] == Uint64ToSeqByte(mCaseId);
         
         var key, rest_key := lemma_ParseValCorrectVUint64(rest3, mCaseVal, GUint64);
-
-        assert data[..40] == [ 0, 0, 0, 0, 0, 0, 0, 0] 
-                           + Uint64ToSeqByte(msg.seqno as uint64)
-                           + reserved_bytes
-                           + [ 0, 0, 0, 0, 0, 0, 0, 0]
-                           + Uint64ToSeqByte(msg.m.k_getrequest);
-
         assert Uint64ToSeqByte(msg.m.k_getrequest) == MarshallSHTKey(msg.m.k_getrequest);
-        if |data| > 40 {
-            assert data[0..|data|] == data[..];
-            lemma_parse_Val_view_specific_size(data, v, CSingleMessage_grammar(), 0, |data|);
-            lemma_parse_Val_view_specific(data, v, CSingleMessage_grammar(), 0, |data|);
-            assert false;
-        }
-        assert |data| == 40;
+        assert data[32 + len_dst .. 40 + len_dst] == Uint64ToSeqByte(msg.m.k_getrequest);
+
+        assert |data| == 40 + len_dst as int;
     }
 
-    lemma {:fuel ValInGrammar,5} lemma_ParseMarshallSetRequest(bytes:seq<byte>, msg:SingleMessage<Message>) returns (reserved_bytes:seq<byte>)
+    lemma {:fuel ValInGrammar,5} lemma_ParseMarshallSetRequest(bytes:seq<byte>, msg:SingleMessage<Message>)
+        returns (reserved_bytes:seq<byte>)
         requires msg.SingleMessage? && msg.m.SetRequest?;
         requires CSingleMessageIsAbstractable(SHTDemarshallData(bytes));
         requires AbstractifyCSingleMessageToSingleMessage(SHTDemarshallData(bytes)) == msg;
-        ensures  |reserved_bytes| == 8;
+        ensures  |reserved_bytes| < 0x10_0000
         ensures  bytes == MarshallServiceSetRequest(AppSetRequest(msg.seqno, msg.m.k_setrequest, msg.m.v_setrequest), reserved_bytes);
     {
         var cmsg := SHTDemarshallData(bytes);
@@ -383,8 +294,17 @@ module MarshallProof_i {
         var g := CSingleMessage_grammar();
         var v := DemarshallFunc(data, g);
 
-        lemma_SizeOfSetRequest(v, cmsg);
-        assert SizeOfV(v) >= 48;
+        assert cmsg.dst == msg.dst;
+        assert SHTDemarshallData(bytes) == parse_CSingleMessage(v);
+        var cs := parse_CSingleMessage(v);
+        assert v.c == 0;
+        assert cs == CSingleMessage(v.val.t[0].u, parse_EndPoint(v.val.t[1]), parse_Message(v.val.t[2]));
+        assert AbstractifyCSingleMessageToSingleMessage(cs) == msg;
+        assert cs.dst == parse_EndPoint(v.val.t[1]);
+        assert cs.dst == EndPoint(v.val.t[1].b);
+        assert cs.dst == msg.dst;
+        assert |v.val.t[1].b| < 0x10_0000;
+        reserved_bytes := v.val.t[1].b;
 
         // Walk through the generic parsing process
         var msgCaseId, msgCaseVal, rest0 := lemma_ParseValCorrectVCase(data, v, g);
@@ -406,64 +326,23 @@ module MarshallProof_i {
         lemma_BEByteSeqToInt_BEUintToSeqByte_invertability();
         assert rest0[..8] == Uint64ToSeqByte(msg.seqno as uint64);
         assert data[8..16] == rest0[..8];
+        assert rest == rest0[8..];
+        assert rest1 == rest0[8..];
 
-        // Prove that the 8 bytes of dst are correct
-        var u_dst, rest_dst := lemma_ParseValCorrectVUint64(rest1, dstVal, GUint64);
+        // Prove that the bytes of dst are correct
+        var len_dst, val_dst, rest_dst := lemma_ParseValCorrectVByteArray(rest1, dstVal, EndPoint_grammar());
+        assert val_dst == VByteArray(dstVal.b);
+        assert rest1[..8] == Uint64ToSeqByte(len_dst);
+        assert rest1[..8] == rest0[8..16];
+        assert data[16..24] == rest1[..8];
+        assert data[24..24+len_dst] == val_dst.b;
+        assert len_dst as int == |cmsg.dst.public_key|;
 
-        assert SeqByteToUint64(rest1[..8]) == u_dst;
-        assert Uint64ToSeqByte(u_dst) == Uint64ToBytes(u_dst);
-        lemma_BEByteSeqToInt_BEUintToSeqByte_invertability();
-        assert rest1[..8] == Uint64ToSeqByte(u_dst);
-        reveal_parse_Val();
-        calc {
-            data[16..24];
-            rest0[8..16];
-                { assert rest1 == parse_Val(rest0, GUint64).1; reveal_parse_Val(); }
-            rest1[..8];
-        }
-        reserved_bytes := data[16..24];
-
-        // Prove some length relationships to show that our indices are within bounds
-        calc ==> {
-           true;
-           rest0 == parse_Uint64(data).1;
-           |rest0| == |data| - 8;
-        }
-        calc ==> {
-           true;
-           rest1 == parse_Uint64(rest0).1;
-           |rest1| == |rest0| - 8;
-        }
-        calc ==> {
-           true;
-           rest2 == parse_Uint64(rest1).1;
-           |rest2| == |rest1| - 8;
-        }
-        calc ==> {
-           true;
-           rest3 == parse_Uint64(rest2).1;
-           |rest3| == |rest2| - 8;
-        }
-
-        // Prove that the 8 bytes of the case ID for CMessage is handled correctly
         assert mCaseId == 1;
-        calc {
-            SeqByteToUint64(bytes[24..32]);
-                { reveal_parse_Val(); lemma_ParseUint64Offset(data, rest0, 16, 24); }
-            SeqByteToUint64(rest0[16..24]);
-            SeqByteToUint64(rest1[8..16]);
-            SeqByteToUint64(rest2[..8]);
-            1;
-        }
-       
-        // Prove that the key is handled correctly
-        var key, rest_key := lemma_ParseValCorrectVUint64(rest3, keyVal, GUint64);
-
-        assert data[..40] == [ 0, 0, 0, 0, 0, 0, 0, 0] 
-                           + Uint64ToSeqByte(msg.seqno as uint64)
-                           + reserved_bytes
-                           + [ 0, 0, 0, 0, 0, 0, 0, 1]
-                           + Uint64ToSeqByte(msg.m.k_setrequest);
+        assert rest2 == rest1[8 + len_dst..] == data[24 + len_dst ..];
+        assert rest2[..8] == data[24 + len_dst .. 32 + len_dst];
+        assert mCaseId == SeqByteToUint64(rest2[..8]) == SeqByteToUint64(data[24 + len_dst .. 32 + len_dst]);
+        assert data[24 + len_dst .. 32 + len_dst] == Uint64ToSeqByte(mCaseId);
 
         assert Uint64ToSeqByte(msg.m.k_setrequest) == MarshallSHTKey(msg.m.k_setrequest);
 
@@ -476,56 +355,58 @@ module MarshallProof_i {
                 rest4[..8];
                 rest3[8..16];
                 rest2[16..24];
-                rest1[24..32];
-                rest0[32..40];
-                data[40..48];
+                rest1[24+len_dst as int..32+len_dst as int];
+                rest0[32+len_dst as int..40+len_dst as int];
+                data[40+len_dst as int..48+len_dst as int];
             }
             var byteLen, bytesVal, rest6 := lemma_ParseValCorrectVByteArray(rest5, valCaseVal, GByteArray);
-            assert data[..56+byteLen] == 
+            assert data[..56+(len_dst as int)+(byteLen as int)] == 
                                  [ 0, 0, 0, 0, 0, 0, 0, 0] 
                                + Uint64ToSeqByte(msg.seqno as uint64)
+                               + Uint64ToSeqByte(|reserved_bytes| as uint64)
                                + reserved_bytes
                                + [ 0, 0, 0, 0, 0, 0, 0, 1]
                                + Uint64ToSeqByte(msg.m.k_setrequest)
                                + [ 0, 0, 0, 0, 0, 0, 0, 0] 
                                + Uint64ToSeqByte(byteLen) 
                                + bytesVal.b;
-            assert SizeOfV(v) == 56 + byteLen as int;
-            if |data| > 56 + byteLen as int {
+            if |data| > 56 + (len_dst as int) + (byteLen as int) {
                 assert data[0..|data|] == data[..];
                 lemma_parse_Val_view_specific_size(data, v, CSingleMessage_grammar(), 0, |data|);
                 lemma_parse_Val_view_specific(data, v, CSingleMessage_grammar(), 0, |data|);
                 assert false;
             }
-            assert |data| == 56 + byteLen as int;
+            assert |data| == 56 + (len_dst as int) + (byteLen as int);
+            assert bytes == MarshallServiceSetRequest(AppSetRequest(msg.seqno, msg.m.k_setrequest, msg.m.v_setrequest), reserved_bytes);
         } else {
             assert cmsg.m.v_setrequest.ValueAbsent?;
             assert valCaseId == 1;
             assert 1 == SeqByteToUint64(rest4[..8]);
             assert rest4[..8] == [ 0, 0, 0, 0, 0, 0, 0, 1];
-            assert data[..48] == [ 0, 0, 0, 0, 0, 0, 0, 0] 
+            assert data[..48+len_dst as int] == [ 0, 0, 0, 0, 0, 0, 0, 0] 
                                + Uint64ToSeqByte(msg.seqno as uint64)
+                               + Uint64ToSeqByte(|reserved_bytes| as uint64)
                                + reserved_bytes
                                + [ 0, 0, 0, 0, 0, 0, 0, 1]
                                + Uint64ToSeqByte(msg.m.k_setrequest)
                                + [ 0, 0, 0, 0, 0, 0, 0, 1];
-
-            if |data| > 48 {
+            if |data| > 48 + len_dst as int {
                 assert data[0..|data|] == data[..];
                 lemma_parse_Val_view_specific_size(data, v, CSingleMessage_grammar(), 0, |data|);
                 lemma_parse_Val_view_specific(data, v, CSingleMessage_grammar(), 0, |data|);
                 assert false;
             }
-            assert |data| == 48;
+            assert |data| == 48 + len_dst as int;
+            assert bytes == MarshallServiceSetRequest(AppSetRequest(msg.seqno, msg.m.k_setrequest, msg.m.v_setrequest), reserved_bytes);
         }
     }
 
-    lemma {:fuel ValInGrammar,5} lemma_ParseMarshallReply(bytes:seq<byte>, reply:AppReply, msg:SingleMessage<Message>, reserved_bytes:seq<byte>) 
+    lemma {:fuel ValInGrammar,5} {:timeLimitMultiplier 2} lemma_ParseMarshallReply(bytes:seq<byte>, reply:AppReply, msg:SingleMessage<Message>, reserved_bytes:seq<byte>) 
         requires CSingleMessageIsAbstractable(SHTDemarshallData(bytes));
         requires AbstractifyCSingleMessageToSingleMessage(SHTDemarshallData(bytes)) == msg;
         requires CSingleMessageMarshallable(SHTDemarshallData(bytes));
         requires bytes == MarshallServiceReply(reply, reserved_bytes);
-        requires |reserved_bytes| == 8;
+        requires |reserved_bytes| < 0x10_0000;
         ensures  msg.SingleMessage?;
         ensures  msg.seqno     == reply.seqno;
         ensures  msg.m.Reply?;
@@ -565,8 +446,9 @@ module MarshallProof_i {
             assert msg.seqno == u as int;
             assert reply.seqno == msg.seqno;
 
+            var len_dst, val_dst, rest_dst := lemma_ParseValCorrectVByteArray(rest1, dstVal, EndPoint_grammar());
+
             // Prove some length relationships to show that our indices are within bounds
-            reveal_parse_Val();
             calc ==> {
                true;
                rest0 == parse_Uint64(data).1;
@@ -579,8 +461,7 @@ module MarshallProof_i {
             }
             calc ==> {
                true;
-               rest2 == parse_Uint64(rest1).1;
-               |rest2| == |rest1| - 8;
+               |rest2| == |rest1| - 8 - len_dst as int;
             }
             calc ==> {
                true;
@@ -588,20 +469,28 @@ module MarshallProof_i {
                |rest3| == |rest2| - 8;
             }
 
-            // Prove that the 8 bytes of the case ID for CMessage is handled correctly
-            calc {
-                SeqByteToUint64(bytes[24..32]);
-                    { reveal_parse_Val(); lemma_ParseUint64Offset(data, rest0, 16, 24); }
-                SeqByteToUint64(rest0[16..24]);
-                    { reveal_parse_Val(); lemma_ParseUint64Offset(rest0, rest1, 8, 16); }
-                SeqByteToUint64(rest1[8..16]);
-                SeqByteToUint64(rest2[..8]);
-                2;
+            assert rest0 == data[8..];
+            assert rest1 == rest0[8..] == data[16..];
+            assert rest2 == rest1[8 + len_dst..] == data[24 + len_dst..];
+            assert rest3 == rest2[8..] == data[32 + len_dst..];
+
+            assert data[16..24] == Uint64ToSeqByte(|reserved_bytes| as uint64);
+            assert SeqByteToUint64(data[16..24]) == |reserved_bytes| as uint64 by {
+              lemma_BEByteSeqToInt_BEUintToSeqByte_invertability();
             }
+            assert len_dst == SeqByteToUint64(rest1[..8]) == SeqByteToUint64(data[16..24]) == |reserved_bytes| as uint64;
+            assert len_dst as int == |reserved_bytes|;
+
+            assert val_dst.b == rest1[8 .. 8 + len_dst];
+            assert val_dst.b == data[24 .. 24 + len_dst] == reserved_bytes;
+
+            assert rest2[..8] == data[24 + len_dst .. 32 + len_dst] == [0, 0, 0, 0, 0, 0, 0, 2];
             assert mCaseId == 2;
            
             var keyVal, optValueVal, rest4 := lemma_ParseValCorrectTuple2(rest3, mCaseVal, g.cases[msgCaseId].t[2].cases[mCaseId]);
             var valCaseId, valCaseVal, rest5 := lemma_ParseValCorrectVCase(rest4, optValueVal, OptionalValue_grammar());
+
+            assert rest4 == rest3[8..] == data[40 + len_dst..];
 
             // Prove that the key is handled correctly
             var key, rest_key := lemma_ParseValCorrectVUint64(rest3, keyVal, GUint64);
@@ -618,17 +507,18 @@ module MarshallProof_i {
                 reply.k;
             }
 
+            calc {
+              rest4[..8];
+              rest3[8..16];
+              rest2[16..24];
+              rest1[24+len_dst as int..32+len_dst as int];
+              rest0[32+len_dst as int..40+len_dst as int];
+              data[40+len_dst as int..48+len_dst as int];
+            }
+
             // Handle the two subcases of OptionalValue
             if reply.ov.ValuePresent? {
                 assert rest4[..8] == [ 0, 0, 0, 0, 0, 0, 0, 0];
-                calc {
-                    rest4[..8];
-                    rest3[8..16];
-                    rest2[16..24];
-                    rest1[24..32];
-                    rest0[32..40];
-                    data[40..48];
-                }
                 var byteLen, bytesVal, rest6 := lemma_ParseValCorrectVByteArray(rest5, valCaseVal, GByteArray);
                 calc {
                     byteLen;
@@ -650,7 +540,6 @@ module MarshallProof_i {
             } else {
                 assert rest4[..8] == [ 0, 0, 0, 0, 0, 0, 0, 1];
             }
-
         } else {
             assert bytes == [1];
             reveal_parse_Val();

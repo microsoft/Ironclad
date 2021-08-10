@@ -43,8 +43,9 @@ module Main_i refines Main_s {
     import opened LiveSHT__Unsendable_i
     import opened LiveSHT__SHTRefinement_i
     import opened Common__GenericMarshalling_i
+    import opened Common__NetClient_i
     import opened Common__NodeIdentity_i
-
+    
     export
         provides DS_s, Native__Io_s, Native__NativeTypes_s
         provides IronfleetMain
@@ -111,7 +112,7 @@ module Main_i refines Main_s {
     }
 
     function AbstractifyConcreteConfiguration(ds_config:ConcreteConfiguration) : SHTConfiguration
-        requires ConstantsStateIsValid(ds_config);
+        requires ConstantsStateIsAbstractable(ds_config);
     {
         AbstractifyToConfiguration( 
                                 SHTConcreteConfiguration(
@@ -813,7 +814,7 @@ module Main_i refines Main_s {
         if Demarshallable(p.msg, g) {
             var cmsg := parse_CSingleMessage(DemarshallFunc(p.msg, g));
             if cmsg.CSingleMessage? {
-                assert !EndPointIsAbstractable(cmsg.dst) || !MessageMarshallable(cmsg.m);
+                assert !EndPointIsValidPublicKey(cmsg.dst) || !MessageMarshallable(cmsg.m);
             }
         }
     }
@@ -1440,7 +1441,7 @@ module Main_i refines Main_s {
                     p in concretePkts 
                  && p.src in serviceState.serverAddresses 
                  && p.msg == MarshallServiceReply(reply, reserved_bytes)
-                 && |reserved_bytes| == 8
+                 && |reserved_bytes| < 0x10_0000
                  ensures reply in serviceState.replies;
             {
                 var lsht_packet := AbstractifyConcretePacket(p);
@@ -1479,7 +1480,7 @@ module Main_i refines Main_s {
             forall req | req in serviceState.requests && req.AppGetRequest? 
                       ensures exists p, reserved_bytes :: p in concretePkts && p.dst in serviceState.serverAddresses 
                                                    && p.msg == MarshallServiceGetRequest(req, reserved_bytes)
-                                                   && |reserved_bytes| == 8;
+                                                   && |reserved_bytes| < 0x10_0000;
             {
                 
                 assert serviceState == Refinement(sht_state);
@@ -1512,7 +1513,7 @@ module Main_i refines Main_s {
             forall req | req in serviceState.requests && req.AppSetRequest? 
                       ensures exists p, reserved_bytes :: p in concretePkts && p.dst in serviceState.serverAddresses 
                                                    && p.msg == MarshallServiceSetRequest(req, reserved_bytes)
-                                                   && |reserved_bytes| == 8;
+                                                   && |reserved_bytes| < 0x10_0000;
             {
                 assert serviceState == Refinement(sht_state);
                 var h,req_index :| h in maprange(sht_state.hosts) && 0 <= req_index < |h.receivedRequests| && req == h.receivedRequests[req_index];

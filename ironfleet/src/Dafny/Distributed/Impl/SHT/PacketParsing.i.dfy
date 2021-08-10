@@ -221,11 +221,16 @@ function method {:fuel ValidVal,2} parse_CSingleMessage(val:V) : CSingleMessage
         CAck(val.val.u)
 }
 
-function SHTDemarshallData(data:seq<byte>) : CSingleMessage
+function SHTDemarshallData(data:seq<byte>) : (result:CSingleMessage)
+  ensures result.CSingleMessage? ==> EndPointIsValidPublicKey(result.dst)
 {
     if Demarshallable(data, CSingleMessage_grammar()) then
-    var val := DemarshallFunc(data, CSingleMessage_grammar());
-    parse_CSingleMessage(val)
+      var val := DemarshallFunc(data, CSingleMessage_grammar());
+      var result := parse_CSingleMessage(val);
+      if result.CSingleMessage? && !EndPointIsValidPublicKey(result.dst) then
+        CInvalidMessage()
+      else
+        result
     else
         CInvalidMessage()
 }
@@ -243,7 +248,9 @@ method SHTDemarshallDataMethod(data:array<byte>) returns (msg:CSingleMessage)
     if success {
         assert ValInGrammar(val, CSingleMessage_grammar());
         msg := parse_CSingleMessage(val);
-        assert !msg.CInvalidMessage?;
+        if msg.CSingleMessage? && !EndPointIsValidPublicKey(msg.dst) {
+          msg := CInvalidMessage();
+        }
     } else {
         msg := CInvalidMessage();
     }

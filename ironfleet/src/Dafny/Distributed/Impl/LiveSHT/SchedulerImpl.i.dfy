@@ -30,6 +30,7 @@ import opened LiveSHT__NetSHT_i
 import opened LiveSHT__SchedulerModel_i
 import opened LiveSHT__Unsendable_i
 import opened LiveSHT__Environment_i
+import opened Common__GenericMarshalling_i
 import opened Common__NetClient_i
 import opened Common__NodeIdentity_i 
 import opened Common__Util_i
@@ -343,6 +344,7 @@ class SchedulerImpl
         requires rr.RRPacket?;
         requires receive_event.LIoOpReceive?;
         requires CPacketIsAbstractable(rr.cpacket);
+        requires ValidPhysicalAddress(rr.cpacket.src);
         requires NetPacketIsAbstractable(receive_event.r);
         //requires CSingleMessageMarshallable(rr.cpacket.msg);
         requires !rr.cpacket.msg.CInvalidMessage? && CSingleMessageIs64Bit(rr.cpacket.msg);
@@ -490,6 +492,7 @@ class SchedulerImpl
                 netEventLog := [netEvent0];
                 ghost var receive_io := LIoOpReceive(AbstractifyNetPacketToLSHTPacket(netEvent0.r));
                 ios := [receive_io];
+                assert IosReflectIgnoringUnDemarshallable(netEventLog);
             } else {
             //assert CPacketIsAbstractable(cpacket) && CSingleMessageMarshallable(cpacket.msg);
                 ok, netEventLog, ios := HostNextReceivePacket(old(Env().net.history()), rr, netEvent0); 
@@ -605,7 +608,6 @@ class SchedulerImpl
         var b;
         if (host.receivedPacket.Some?)
         {
-        
             b := ShouldProcessReceivedMessageImpl(host);
             if (b) {
                 var cpacket := host.receivedPacket.v;

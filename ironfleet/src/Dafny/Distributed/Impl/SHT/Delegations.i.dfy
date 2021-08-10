@@ -105,7 +105,7 @@ function KeyRangesFromCDelegationMap(m:CDelegationMap) : set<KeyRange>
 }
 
 function method {:opaque} CDM_IndexForKey_helper(m:CDelegationMap, k:KeyPlus, index:uint64) : uint64
-    requires CDelegationMapIsValid(m);
+    requires CDelegationMapIsAbstractable(m);
     requires forall i :: 0 <= i <= index as int && i < |m.lows| ==> KeyPlusLe(m.lows[i].klo, k);
     decreases |m.lows| - index as int;
     ensures  0 <= CDM_IndexForKey_helper(m, k, index) as int < |m.lows|;
@@ -159,7 +159,7 @@ lemma CDM_Partitioned(m:CDelegationMap, k:KeyPlus, index:int)
 
 function method CDM_IndexForKey(m:CDelegationMap, k:KeyPlus) : uint64
     requires 0<|m.lows|;
-    requires CDelegationMapIsAbstractable(m) || CDelegationMapIsValid(m)
+    requires CDelegationMapIsAbstractable(m)
     ensures 0 <= CDM_IndexForKey(m, k) as int < |m.lows|;
     ensures !k.KeyInf? ==> KeyRangeContains(CDM_IndexToKeyRange(m, CDM_IndexForKey(m, k) as int), k);
     ensures k.KeyInf? ==> CDM_IndexForKey(m, k) as int == |m.lows| - 1;

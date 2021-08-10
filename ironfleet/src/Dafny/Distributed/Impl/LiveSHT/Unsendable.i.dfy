@@ -16,7 +16,8 @@ module LiveSHT__Unsendable_i {
     {
            |ios| == 1
         && ios[0].LIoOpReceive?
-        && !Demarshallable(ios[0].r.msg, CSingleMessage_grammar())
+//        && !Demarshallable(ios[0].r.msg, CSingleMessage_grammar())
+        && SHTDemarshallData(ios[0].r.msg).CInvalidMessage?
     }
 
 

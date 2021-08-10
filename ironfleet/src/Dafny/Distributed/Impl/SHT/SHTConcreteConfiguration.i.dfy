@@ -24,17 +24,15 @@ datatype SHTConcreteConfiguration = SHTConcreteConfiguration(
 
 predicate SHTConcreteConfigurationIsAbstractable(config:SHTConcreteConfiguration)
 {
-    (forall e :: e in config.hostIds ==> EndPointIsValidPublicKey(e))
-    && SeqIsUnique(config.hostIds)
-    && EndPointIsValidPublicKey(config.rootIdentity)
-    && CParametersIsValid(config.params)
+    (forall e :: e in config.hostIds ==> EndPointIsAbstractable(e))
+    && EndPointIsAbstractable(config.rootIdentity)
 }
 
 predicate SHTConcreteConfigurationIsValid(config:SHTConcreteConfiguration)
-    ensures SHTConcreteConfigurationIsValid(config) ==> SeqIsUnique(config.hostIds);
 {
        0 < |config.hostIds| < 0xffff_ffff_ffff_ffff
     && SHTConcreteConfigurationIsAbstractable(config)
+    && SeqIsUnique(config.hostIds)
     && CParametersIsValid(config.params)
 }
 
@@ -64,12 +62,14 @@ predicate ReplicaIndicesValid(indices:seq<uint64>, config:SHTConcreteConfigurati
 lemma lemma_WFSHTConcreteConfiguration(config:SHTConcreteConfiguration)
     ensures SHTConcreteConfigurationIsAbstractable(config)
     && 0 < |config.hostIds|
+    && SeqIsUnique(config.hostIds)
     && config.rootIdentity in config.hostIds
     ==> SHTConcreteConfigurationIsAbstractable(config)
         && WFSHTConfiguration(AbstractifyToConfiguration(config));
 {
     if (SHTConcreteConfigurationIsAbstractable(config)
-        && 0 < |config.hostIds|)
+        && 0 < |config.hostIds|
+        && SeqIsUnique(config.hostIds))
     {
         //lemma_CardinalityNonEmpty(config.hostIds);
         var e := config.hostIds[0];
@@ -103,6 +103,7 @@ predicate WFSHTConcreteConfiguration(config:SHTConcreteConfiguration)
     lemma_WFSHTConcreteConfiguration(config);
        SHTConcreteConfigurationIsAbstractable(config)
     && 0 < |config.hostIds|
+    && SeqIsUnique(config.hostIds)
     && config.rootIdentity in config.hostIds
 }
 

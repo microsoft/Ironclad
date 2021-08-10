@@ -59,6 +59,7 @@ function AbstractifyHostStateToHost(host:HostState) : Host
 predicate HostStateIsValid(host:HostState)
 {
        HostStateIsAbstractable(host)
+    && CDelegationMapIsValid(host.delegationMap)
     && (forall k :: k in host.h ==> ValidKey(k)) 
     && (forall k :: k in host.h ==> ValidValue(host.h[k]))
     && CSingleDeliveryAccountIsValid(host.sd, host.constants.params)
@@ -70,6 +71,7 @@ predicate HostStateIsValid(host:HostState)
     && ConstantsStateIsValid(host.constants)
     && host.numDelegations < host.constants.params.max_delegations
     && |host.delegationMap.lows| <= 2 * host.numDelegations as int
+    && (host.receivedPacket.Some? ==> ValidPhysicalAddress(host.receivedPacket.v.src))
 }
 
 
@@ -88,6 +90,7 @@ predicate HostState_common_preconditions(host:HostState, cpacket:CPacket)
        HostStateIsAbstractable(host)
     && CPacketIsAbstractable(cpacket)
     && HostStateIsValid(host)
+    && ValidPhysicalAddress(cpacket.src)
 }
 
 predicate HostState_common_postconditions(host:HostState, cpacket:CPacket, host':HostState, sent_packets:seq<CPacket>)
@@ -110,6 +113,7 @@ predicate NextGetRequestPreconditions(host:HostState, cpacket:CPacket)
     && CPacketIsAbstractable(cpacket)
     && cpacket.msg.CSingleMessage?
     && cpacket.msg.m.CGetRequest?
+    && EndPointIsValidPublicKey(cpacket.src)
     //&& ValidKey(cpacket.msg.m.k_getrequest)
     //&& CSingleMessageMarshallable(cpacket.msg)
     && CSingleDeliveryAccountIsValid(host.sd, host.constants.params)
