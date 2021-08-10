@@ -372,7 +372,8 @@ namespace IronSHTClient
       }
     }
 
-    private void ReceiveReply(int serverIdx, byte[] myPublicKey, ulong requestKey, bool receiveOnlyAcks)
+    private void ReceiveReply(int serverIdx, byte[] myPublicKey, ulong requestKey, bool receiveOnlyAcks,
+                              bool expectRedirect = false)
     {
       var receivedReply = false;
       while (!receivedReply)
@@ -422,7 +423,7 @@ namespace IronSHTClient
               }
             }
 
-            if (replyKey == requestKey && cmessage_case == 2)
+            if (replyKey == requestKey && (expectRedirect ? cmessage_case == 3 : cmessage_case == 2))
             {
               receivedReply = true;
             }
@@ -433,7 +434,7 @@ namespace IronSHTClient
 
     public void Experiment()
     {
-      ulong requestKey = 150;
+      ulong requestKey;
       int serverIdx = 0;
             
       scheduler = IoScheduler.CreateClient(serviceIdentity.Servers, ps.Verbose);
@@ -444,8 +445,12 @@ namespace IronSHTClient
       // Test the functionality of the Sharding
       if (ps.Workload == 'f')
       {
-        ulong k_lo = 100;
-        ulong k_hi = 150;
+        // A delegation can delegate at most 61 keys, so make sure
+        // there can't be that many keys in the range by having the
+        // range be smaller than 61.
+        ulong k_lo = 125;
+        ulong k_hi = 175;
+        requestKey = 150;
         var recipient = serviceIdentity.Servers[(serverIdx + 1) % serviceIdentity.Servers.Count()];
 
         seqNum++;
@@ -466,7 +471,7 @@ namespace IronSHTClient
         seqNum++;
         msg = new GetRequestMessage(seqNum, myPublicKey, requestKey);
         this.Send(msg, serviceIdentity.Servers[(serverIdx + 0) % serviceIdentity.Servers.Count()].PublicKey);
-        ReceiveReply(serverIdx, myPublicKey, requestKey, false);
+        ReceiveReply(serverIdx, myPublicKey, requestKey, false, expectRedirect: true);
 
         Thread.Sleep(5000);
 
@@ -476,6 +481,8 @@ namespace IronSHTClient
         msg = new GetRequestMessage(1, myPublicKey, requestKey);
         this.Send(msg, serviceIdentity.Servers[(serverIdx + 1) % serviceIdentity.Servers.Count()].PublicKey);
         ReceiveReply((serverIdx + 1) % serviceIdentity.Servers.Count(), myPublicKey, requestKey, false);
+
+        Console.WriteLine("Successfully received reply");
                 
         return;
       }
