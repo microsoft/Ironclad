@@ -1,4 +1,5 @@
 ﻿using IronfleetCommon;
+using IronfleetIoFramework;
 using MathNet.Numerics.Distributions;
 using System;
 using System.Linq;
@@ -9,13 +10,69 @@ namespace IronSHTServer
 {
   class Program
   {
+    static void usage()
+    {
+      Console.Write(@"
+Usage:  dotnet IronSHTServer.dll [key=value]...
+
+Allowed keys:
+  service  - file name containing service description
+  private  - file name containing private key
+  addr     - local host name or address to listen to (optional)
+  port     - local port to listen to (optional)
+  verbose  - use verbose output
+
+If the optional parameter 'addr' or 'port' is left out,
+we use whatever is in the private key file.
+");
+    }
+
     static void Main(string[] args)
     {
+      Console.WriteLine("IronSHTServer program started");
+
+      Console.WriteLine("Processing command-line arguments");
+
+      Params ps = new Params();
+
+      foreach (var arg in args)
+      {
+        if (!ps.ProcessCommandLineArgument(arg)) {
+          usage();
+          return;
+        }
+      }
+
+      if (!ps.Validate()) {
+        usage();
+        return;
+      }
+
+      ServiceIdentity serviceIdentity = ServiceIdentity.ReadFromFile(ps.ServiceFileName);
+      if (serviceIdentity == null) {
+        return;
+      }
+      if (serviceIdentity.ServiceType != "IronSHT") {
+        Console.Error.WriteLine("ERROR - Service described by {0} isn't of type IronSHT", ps.ServiceFileName);
+        return;
+      }
+
+      PrivateIdentity privateIdentity = PrivateIdentity.ReadFromFile(ps.PrivateKeyFileName);
+      if (privateIdentity == null) {
+        return;
+      }
+
+      var nc = Native____Io__s_Compile.NetClient.Create(privateIdentity, ps.LocalHostNameOrAddress, ps.LocalPort,
+                                                        serviceIdentity.Servers, ps.Verbose);
+      Dafny.ISequence<byte>[] serverPublicKeys =
+        serviceIdentity.Servers.Select(server => Dafny.Sequence<byte>.FromArray(server.PublicKey)).ToArray();
+      var ironArgs = Dafny.Sequence<Dafny.ISequence<byte>>.FromArray(serverPublicKeys);
+
       Profiler.Initialize();
       Native____Io__s_Compile.Time.Initialize();
       Console.WriteLine("IronFleet program started.");
       Console.WriteLine("[[READY]]");
-      Main__i_Compile.__default._Main();
+      Main__i_Compile.__default.IronfleetMain(nc, ironArgs);
       Console.WriteLine("[[EXIT]]");
     }
   }

@@ -21,7 +21,8 @@ namespace TestIoFramework
     {
       serviceIdentity = i_serviceIdentity;
       privateIdentity = i_privateIdentity;
-      scheduler = new IoScheduler(privateIdentity, ps.LocalHostNameOrAddress, ps.LocalPort, serviceIdentity.Servers, ps.Verbose);
+      scheduler = IoScheduler.CreateServer(privateIdentity, ps.LocalHostNameOrAddress, ps.LocalPort,
+                                           serviceIdentity.Servers, ps.Verbose);
     }
 
     public void Run()

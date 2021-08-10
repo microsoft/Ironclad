@@ -53,8 +53,8 @@ namespace Native____Io__s_Compile {
     {
       try
       {
-        IoScheduler scheduler = new IoScheduler(myIdentity, localHostNameOrAddress, localPort, knownIdentities,
-                                                verbose, maxSendRetries);
+        var scheduler = IoScheduler.CreateServer(myIdentity, localHostNameOrAddress, localPort, knownIdentities,
+                                                 verbose, maxSendRetries);
         var myPublicKey = IoScheduler.GetCertificatePublicKey(scheduler.MyCert);
         if (myPublicKey.Length > MaxPublicKeySize) {
           System.Console.Error.WriteLine("ERROR:  The provided public key for my identity is too big ({0} > {1} bytes)",

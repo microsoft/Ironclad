@@ -28,21 +28,7 @@ namespace IronRSLClient
       verbose = i_verbose;
       nextSeqNum = 0;
       primaryServerIndex = 0;
-      scheduler = new IoScheduler(null, null, 0, serviceIdentity.Servers, verbose);
-      Start();
-    }
-
-    private void Start()
-    {
-      // Create connections to all servers, so that if any of them
-      // sends a reply we can receive it.  Since we're in "only
-      // client" mode, we aren't listening on any port so we have to
-      // rely on outgoing connections for all communication.
-
-      foreach (var serverPublicKey in serverPublicKeys)
-      {
-        scheduler.Connect(serverPublicKey);
-      }
+      scheduler = IoScheduler.CreateClient(serviceIdentity.Servers, verbose);
     }
 
     public byte[] SubmitRequest (byte[] request, bool verbose = false, int timeBeforeServerSwitchMs = 1000)

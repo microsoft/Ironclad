@@ -860,8 +860,8 @@ namespace IronfleetIoFramework
     private ListenerThread listenerThread;
     private SendDispatchThread sendDispatchThread;
 
-    public IoScheduler(PrivateIdentity myIdentity, string localHostNameOrAddress, int localPort,
-                       List<PublicIdentity> knownIdentities, bool i_verbose = false, int i_maxSendTries = 3)
+    private IoScheduler(PrivateIdentity myIdentity, string localHostNameOrAddress, int localPort,
+                        List<PublicIdentity> knownIdentities, bool i_verbose = false, int i_maxSendTries = 3)
     {
       verbose = i_verbose;
       maxSendTries = i_maxSendTries;
@@ -879,6 +879,25 @@ namespace IronfleetIoFramework
       else {
         StartServer(myIdentity, localHostNameOrAddress, localPort);
       }
+    }
+
+    public static IoScheduler CreateServer(PrivateIdentity myIdentity, string localHostNameOrAddress, int localPort,
+                                           List<PublicIdentity> knownIdentities, bool verbose = false,
+                                           int maxSendTries = 3)
+    {
+      return new IoScheduler(myIdentity, localHostNameOrAddress, localPort, knownIdentities, verbose, maxSendTries);
+    }
+
+    public static IoScheduler CreateClient(List<PublicIdentity> serverIdentities, bool verbose = false,
+                                           bool connectToAllServers = true, int maxSendTries = 3)
+    {
+      var scheduler = new IoScheduler(null, null, 0, serverIdentities, verbose, maxSendTries);
+      if (connectToAllServers) {
+        foreach (var serverIdentity in serverIdentities) {
+          scheduler.Connect(serverIdentity.PublicKey);
+        }
+      }
+      return scheduler;
     }
 
     private void StartServer(PrivateIdentity myIdentity, string localHostNameOrAddress, int localPort)
