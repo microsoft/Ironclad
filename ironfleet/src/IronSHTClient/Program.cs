@@ -42,6 +42,9 @@ Allowed keys:
       }
 
       var serviceIdentity = ServiceIdentity.ReadFromFile(ps.ServiceFileName);
+      if (serviceIdentity == null) {
+        return;
+      }
       if (serviceIdentity.ServiceType != "IronSHT") {
         Console.Error.WriteLine("ERROR - Service described by {0} isn't of type IronSHT", ps.ServiceFileName);
         return;

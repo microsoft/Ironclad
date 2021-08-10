@@ -189,7 +189,10 @@ namespace IronfleetIoFramework
       var req = new CertificateRequest("CN = client", key, HashAlgorithmName.SHA256, RSASignaturePadding.Pss);
       var now = DateTime.Now;
       var expiry = now.AddYears(1);
-      return req.CreateSelfSigned(now, expiry);
+      var cert = req.CreateSelfSigned(now, expiry);
+      // On Linux, it's OK to just return cert. But on Windows, we need the following
+      // code to allow it to be used to authenticate a client.
+      return new X509Certificate2(cert.Export(X509ContentType.Pkcs12));
     }
   }
 
@@ -701,8 +704,7 @@ namespace IronfleetIoFramework
                                     checkCertificateRevocation: false);
       }
       catch (Exception e) {
-        Console.Error.WriteLine("Could not authenticate connection to {0} as client, so disconnecting. Exception:\n{1}",
-                                IoScheduler.PublicIdentityToString(destinationPublicIdentity), e);
+        scheduler.ReportException(e, "authenticating connection to " + IoScheduler.PublicIdentityToString(destinationPublicIdentity));
         return false;
       }
 
@@ -922,12 +924,11 @@ namespace IronfleetIoFramework
         localPort = myIdentity.Port;
       }
 
-      var addresses = Dns.GetHostAddresses(localHostNameOrAddress);
-      if (addresses.Length < 1) {
+      var address = LookupHostNameOrAddress(localHostNameOrAddress);
+      if (address == null) {
         Console.Error.WriteLine("ERROR:  Could not find any addresses when resolving {0}, which I'm supposed to bind to.");
         throw new Exception("Can't resolve binding address");
       }
-      var address = addresses[0];
       var myEndpoint = new IPEndPoint(address, localPort);
 
       if (verbose) {
@@ -960,6 +961,27 @@ namespace IronfleetIoFramework
       sendDispatchThread = new SendDispatchThread(this);
       Thread st = new Thread(sendDispatchThread.Run);
       st.Start();
+    }
+
+    private static IPAddress LookupHostNameOrAddress(string hostNameOrAddress)
+    {
+      var addresses = Dns.GetHostAddresses(hostNameOrAddress);
+      if (addresses.Length < 1) {
+        return null;
+      }
+
+      // Return the first IPv4 address in the list.
+
+      foreach (var address in addresses) {
+        if (address.AddressFamily == AddressFamily.InterNetwork) {
+          return address;
+        }
+      }
+
+      // If there was no IPv4 address, return the first address in the
+      // list.
+
+      return addresses[0];
     }
 
     public bool Verbose { get { return verbose; } }

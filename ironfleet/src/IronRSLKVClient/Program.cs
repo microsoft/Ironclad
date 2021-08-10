@@ -45,6 +45,9 @@ Allowed keys:
       }
 
       var serviceIdentity = ServiceIdentity.ReadFromFile(ps.ServiceFileName);
+      if (serviceIdentity == null) {
+        return;
+      }
 
       HiResTimer.Initialize();
       if (ps.Verbose) {
