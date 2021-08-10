@@ -445,7 +445,7 @@ namespace IronSHTClient
       if (ps.Workload == 'f')
       {
         ulong k_lo = 100;
-        ulong k_hi = 200;
+        ulong k_hi = 150;
         var recipient = serviceIdentity.Servers[(serverIdx + 1) % serviceIdentity.Servers.Count()];
 
         seqNum++;
@@ -471,10 +471,11 @@ namespace IronSHTClient
         Thread.Sleep(5000);
 
         Console.WriteLine("Sending a GetRequest after a Shard to the second host, expect a reply");
-        seqNum++;
-        msg = new GetRequestMessage(seqNum, myPublicKey, requestKey);
+        // Must use sequence number 1 since this is the first message
+        // to this server.
+        msg = new GetRequestMessage(1, myPublicKey, requestKey);
         this.Send(msg, serviceIdentity.Servers[(serverIdx + 1) % serviceIdentity.Servers.Count()].PublicKey);
-        ReceiveReply(serverIdx, myPublicKey, requestKey, false);
+        ReceiveReply((serverIdx + 1) % serviceIdentity.Servers.Count(), myPublicKey, requestKey, false);
                 
         return;
       }
