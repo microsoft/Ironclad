@@ -63,15 +63,15 @@ limit 120 seconds instead of the default 60 seconds.
 
 Running scons will produce the following executables:
 ```
-  src/CreateIronServiceCert/bin/Release/net5.0/CreateIronServiceCert.dll
-  src/TestIoFramework/bin/Release/net5.0/TestIoFramework.dll
-  src/IronLockServer/bin/Release/net5.0/IronLockServer.dll
-  src/IronRSLCounterServer/bin/Release/net5.0/IronRSLCounterServer.dll
-  src/IronRSLCounterClient/bin/Release/net5.0/IronRSLCounterClient.dll
-  src/IronRSLKVServer/bin/Release/net5.0/IronRSLKVServer.dll
-  src/IronRSLKVClient/bin/Release/net5.0/IronRSLKVClient.dll
-  src/IronSHTServer/bin/Release/net5.0/IronSHTServer.dll
-  src/IronSHTClient/bin/Release/net5.0/IronSHTClient.dll
+  bin/CreateIronServiceCert.dll
+  bin/TestIoFramework.dll
+  bin/IronLockServer.dll
+  bin/IronRSLCounterServer.dll
+  bin/IronRSLCounterClient.dll
+  bin/IronRSLKVServer.dll
+  bin/IronRSLKVClient.dll
+  bin/IronSHTServer.dll
+  bin/IronSHTClient.dll
 ```
 
 To produce these executables without performing verification, use `--no-verify`.
@@ -89,7 +89,7 @@ such address can be a hostname like `www.myservice.com` or an IP address like
 
 For instance, you can run the following command:
 ```
-  dotnet src/CreateIronServiceCert/bin/Release/net5.0/CreateIronServiceCert.dll outputdir=certs name=MyService type=TestService addr1=server1.com port1=6000 addr2=server2.com port2=7000
+  dotnet bin/CreateIronServiceCert.dll outputdir=certs name=MyService type=TestService addr1=server1.com port1=6000 addr2=server2.com port2=7000
 ```
 This will create three files in the directory `certs`.  Two of these files,
 `MyService.TestService.server1.private.txt` and
@@ -112,15 +112,15 @@ configuration with three processes:
 
 Create the service with:
 ```
-  dotnet src/CreateIronServiceCert/bin/Release/net5.0/CreateIronServiceCert.dll outputdir=certs name=MyLock type=IronLock addr1=127.0.0.1 port1=4001 addr2=127.0.0.1 port2=4002 addr3=127.0.0.1 port3=4003
+  dotnet bin/CreateIronServiceCert.dll outputdir=certs name=MyLock type=IronLock addr1=127.0.0.1 port1=4001 addr2=127.0.0.1 port2=4002 addr3=127.0.0.1 port3=4003
 ```
 
 Run the service by executing the following three commands in three different
 windows:
 ```
-  dotnet src/IronLockServer/bin/Release/net5.0/IronLockServer.dll certs/MyLock.IronLock.service.txt certs/MyLock.IronLock.server2.private.txt
-  dotnet src/IronLockServer/bin/Release/net5.0/IronLockServer.dll certs/MyLock.IronLock.service.txt certs/MyLock.IronLock.server3.private.txt
-  dotnet src/IronLockServer/bin/Release/net5.0/IronLockServer.dll certs/MyLock.IronLock.service.txt certs/MyLock.IronLock.server1.private.txt
+  dotnet bin/IronLockServer.dll certs/MyLock.IronLock.service.txt certs/MyLock.IronLock.server2.private.txt
+  dotnet bin/IronLockServer.dll certs/MyLock.IronLock.service.txt certs/MyLock.IronLock.server3.private.txt
+  dotnet bin/IronLockServer.dll certs/MyLock.IronLock.service.txt certs/MyLock.IronLock.server1.private.txt
 ```
 
 It's important that you start the "first" process last (as in the above
@@ -146,19 +146,19 @@ To test the IronRSL counter on a single machine, you can do the following.
 
 First, create certificates with:
 ```
-  dotnet src/CreateIronServiceCert/bin/Release/net5.0/CreateIronServiceCert.dll outputdir=certs name=MyCounter type=IronRSLCounter addr1=127.0.0.1 port1=4001 addr2=127.0.0.1 port2=4002 addr3=127.0.0.1 port3=4003
+  dotnet bin/CreateIronServiceCert.dll outputdir=certs name=MyCounter type=IronRSLCounter addr1=127.0.0.1 port1=4001 addr2=127.0.0.1 port2=4002 addr3=127.0.0.1 port3=4003
 ```
 
 Then, run each of the following three server commands, each in a different window.
 ```
-  dotnet src/IronRSLCounterServer/bin/Release/net5.0/IronRSLCounterServer.dll certs/MyCounter.IronRSLCounter.service.txt certs/MyCounter.IronRSLCounter.server1.private.txt
-  dotnet src/IronRSLCounterServer/bin/Release/net5.0/IronRSLCounterServer.dll certs/MyCounter.IronRSLCounter.service.txt certs/MyCounter.IronRSLCounter.server2.private.txt
-  dotnet src/IronRSLCounterServer/bin/Release/net5.0/IronRSLCounterServer.dll certs/MyCounter.IronRSLCounter.service.txt certs/MyCounter.IronRSLCounter.server3.private.txt
+  dotnet bin/IronRSLCounterServer.dll certs/MyCounter.IronRSLCounter.service.txt certs/MyCounter.IronRSLCounter.server1.private.txt
+  dotnet bin/IronRSLCounterServer.dll certs/MyCounter.IronRSLCounter.service.txt certs/MyCounter.IronRSLCounter.server2.private.txt
+  dotnet bin/IronRSLCounterServer.dll certs/MyCounter.IronRSLCounter.service.txt certs/MyCounter.IronRSLCounter.server3.private.txt
 ```
 
 Finally, run this client command in yet another window:
 ```
-  dotnet src/IronRSLCounterClient/bin/Release/net5.0/IronRSLCounterClient.dll certs/MyCounter.IronRSLCounter.service.txt nthreads=10 duration=30 print=true
+  dotnet bin/IronRSLCounterClient.dll certs/MyCounter.IronRSLCounter.service.txt nthreads=10 duration=30 print=true
 ```
 
 If you don't want the client to print the counter values it receives in replies,
@@ -192,19 +192,19 @@ information. Make sure your firewall isn't blocking the TCP ports you use.
 To test the IronRSL key-value store on a single machine, you can do the following.
 First, create certificates with:
 ```
-  dotnet src/CreateIronServiceCert/bin/Release/net5.0/CreateIronServiceCert.dll outputdir=certs name=MyKV type=IronRSLKV addr1=127.0.0.1 port1=4001 addr2=127.0.0.1 port2=4002 addr3=127.0.0.1 port3=4003
+  dotnet bin/CreateIronServiceCert.dll outputdir=certs name=MyKV type=IronRSLKV addr1=127.0.0.1 port1=4001 addr2=127.0.0.1 port2=4002 addr3=127.0.0.1 port3=4003
 ```
 
 Then, run each of the following three server commands, each in a different window:
 ```
-  dotnet src/IronRSLKVServer/bin/Release/net5.0/IronRSLKVServer.dll certs/MyKV.IronRSLKV.service.txt certs/MyKV.IronRSLKV.server1.private.txt
-  dotnet src/IronRSLKVServer/bin/Release/net5.0/IronRSLKVServer.dll certs/MyKV.IronRSLKV.service.txt certs/MyKV.IronRSLKV.server2.private.txt
-  dotnet src/IronRSLKVServer/bin/Release/net5.0/IronRSLKVServer.dll certs/MyKV.IronRSLKV.service.txt certs/MyKV.IronRSLKV.server3.private.txt
+  dotnet bin/IronRSLKVServer.dll certs/MyKV.IronRSLKV.service.txt certs/MyKV.IronRSLKV.server1.private.txt
+  dotnet bin/IronRSLKVServer.dll certs/MyKV.IronRSLKV.service.txt certs/MyKV.IronRSLKV.server2.private.txt
+  dotnet bin/IronRSLKVServer.dll certs/MyKV.IronRSLKV.service.txt certs/MyKV.IronRSLKV.server3.private.txt
 ```
 
 Finally, run this client command in yet another window:
 ```
-  dotnet src/IronRSLKVClient/bin/Release/net5.0/IronRSLKVClient.dll certs/MyKV.IronRSLKV.service.txt nthreads=10 duration=30 setfraction=0.25 deletefraction=0.05 print=true
+  dotnet bin/IronRSLKVClient.dll certs/MyKV.IronRSLKV.service.txt nthreads=10 duration=30 setfraction=0.25 deletefraction=0.05 print=true
 ```
 
 If you don't want the client to print the requests it sends and the replies it
@@ -238,19 +238,19 @@ information. Make sure your firewall isn't blocking the TCP ports you use.
 To test the IronSHT sharded hash table on a single machine, you can do the following.
 First, create certificates with:
 ```
-  dotnet src/CreateIronServiceCert/bin/Release/net5.0/CreateIronServiceCert.dll outputdir=certs name=MySHT type=IronSHT addr1=127.0.0.1 port1=4001 addr2=127.0.0.1 port2=4002 addr3=127.0.0.1 port3=4003
+  dotnet bin/CreateIronServiceCert.dll outputdir=certs name=MySHT type=IronSHT addr1=127.0.0.1 port1=4001 addr2=127.0.0.1 port2=4002 addr3=127.0.0.1 port3=4003
 ```
 
 Then, run each of the following three server commands, each in a different window:
 ```
-  dotnet src/IronSHTServer/bin/Release/net5.0/IronSHTServer.dll certs/MySHT.IronSHT.service.txt certs/MySHT.IronSHT.server1.private.txt
-  dotnet src/IronSHTServer/bin/Release/net5.0/IronSHTServer.dll certs/MySHT.IronSHT.service.txt certs/MySHT.IronSHT.server2.private.txt
-  dotnet src/IronSHTServer/bin/Release/net5.0/IronSHTServer.dll certs/MySHT.IronSHT.service.txt certs/MySHT.IronSHT.server3.private.txt
+  dotnet bin/IronSHTServer.dll certs/MySHT.IronSHT.service.txt certs/MySHT.IronSHT.server1.private.txt
+  dotnet bin/IronSHTServer.dll certs/MySHT.IronSHT.service.txt certs/MySHT.IronSHT.server2.private.txt
+  dotnet bin/IronSHTServer.dll certs/MySHT.IronSHT.service.txt certs/MySHT.IronSHT.server3.private.txt
 ```
 
 Finally, run this client command in yet another window:
 ```
-  dotnet src/IronSHTClient/bin/Release/net5.0/IronSHTClient.dll certs/MySHT.IronSHT.service.txt nthreads=10 duration=30 workload=g numkeys=1000
+  dotnet bin/IronSHTClient.dll certs/MySHT.IronSHT.service.txt nthreads=10 duration=30 workload=g numkeys=1000
 ```
 The client's output will primarily consist of reports of the form `#req
 <thread-ID> <request-number> <time-in-ms>`.
