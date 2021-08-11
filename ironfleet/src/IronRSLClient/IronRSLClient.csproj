@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>net5.0</TargetFramework>
     <PackageId>IronRSLClient</PackageId>
-    <Version>1.0.2</Version>
+    <Version>1.0.3</Version>
     <Authors>Jay Lorch and Chris Hawblitzel</Authors>
     <Company>Microsoft Corporation</Company>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
