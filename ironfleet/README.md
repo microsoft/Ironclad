@@ -63,6 +63,8 @@ limit 120 seconds instead of the default 60 seconds.
 
 Running scons will produce the following executables:
 ```
+  src/CreateIronServiceCert/bin/Release/net5.0/CreateIronServiceCert.dll
+  src/TestIoFramework/bin/Release/net5.0/TestIoFramework.dll
   src/IronLockServer/bin/Release/net5.0/IronLockServer.dll
   src/IronRSLCounterServer/bin/Release/net5.0/IronRSLCounterServer.dll
   src/IronRSLCounterClient/bin/Release/net5.0/IronRSLCounterClient.dll
@@ -82,6 +84,30 @@ in `ShouldPrintProgress` in the same file.
 
 # Running
 
+## Creating certificates
+
+Ironfleet servers identify themselves using certificates.  So, before running
+any Ironfleet services, you need to generate certificates for the service by
+running `CreateIronServiceCert`.  On the command line you'll specify the name
+and type of the service and, for each server, its public address and port.  Each
+such address can be a hostname like `www.myservice.com` or an IP address like
+`127.0.0.1` or `2001:db8:3333:4444:CCCC:DDDD:EEEE:FFFF`.
+
+For instance, you can run the following command:
+```
+  dotnet src/CreateIronServiceCert/bin/Release/net5.0/CreateIronServiceCert.dll outputdir=certs name=MyService type=TestService addr1=server1.com port1=6000 addr2=server2.com port2=7000
+```
+This will create three files in the directory `certs`.  Two of these files,
+`MyService.TestService.server1.private.txt` and
+`MyService.TestService.server2.private.txt`, are the private key files for the
+two servers.  The third, `MyService.TestService.service.txt`, contains the
+service identity, including the public keys of the two servers.
+
+You'll distribute the service file to all servers and all clients.  But,
+you should only copy a private key file to the server corresponding to that private key, and after copying it you should delete your local copy.  So, in
+this example, you'd copy `MyService.TestService.server1.private.txt` only to
+server1.com.
+
 ## IronLock
 
 IronLock is the simplest of the protocols we've verified, so it may be a good
@@ -90,10 +116,17 @@ you need to supply each process with the IP-port pairs of all processes, as
 well as its own IP-pair.  Also, make sure your firewall isn't blocking the TCP
 ports you use.  Here's an example configuration with three processes:
 
+Create the service with:
 ```
-  dotnet src/IronLockServer/bin/Release/net5.0/IronLockServer.dll localhost:4001 localhost:4002 localhost:4003 localhost:4002
-  dotnet src/IronLockServer/bin/Release/net5.0/IronLockServer.dll localhost:4001 localhost:4002 localhost:4003 localhost:4003
-  dotnet src/IronLockServer/bin/Release/net5.0/IronLockServer.dll localhost:4001 localhost:4002 localhost:4003 localhost:4001
+  dotnet src/CreateIronServiceCert/bin/Release/net5.0/CreateIronServiceCert.dll outputdir=certs name=MyLock type=IronLock addr1=127.0.0.1 port1=4001 addr2=127.0.0.1 port2=4002 addr3=127.0.0.1 port3=4003
+```
+
+Run the service by executing the following three commands in three different
+windows:
+```
+  dotnet src/IronLockServer/bin/Release/net5.0/IronLockServer.dll certs/MyLock.IronLock.service.txt certs/MyLock.IronLock.server2.private.txt
+  dotnet src/IronLockServer/bin/Release/net5.0/IronLockServer.dll certs/MyLock.IronLock.service.txt certs/MyLock.IronLock.server3.private.txt
+  dotnet src/IronLockServer/bin/Release/net5.0/IronLockServer.dll certs/MyLock.IronLock.service.txt certs/MyLock.IronLock.server1.private.txt
 ```
 
 It's important that you start the "first" process last (as in the above
@@ -109,28 +142,47 @@ can, printing a message everytime they accept or grant the lock.
 
 To run the counter service replicated with IronRSL, you should ideally use
 four different machines, but in a pinch you can use four separate windows on
-the same machine. The server executable expects a list of IP-port pairs that
-identifies all of the replicas in the system (in this example we're using 3,
-but more is feasible). Each server instance also needs to be told which
-IP-port pair belongs to it.
+the same machine.
 
 The client has reasonable defaults that you can override with key=value
-command-line arguments. Run the client with `--help` to get detailed usage
+command-line arguments. Run the client with no arguments to get detailed usage
 information. Make sure your firewall isn't blocking the TCP ports you use.
 
-For example, to test the IronRSL counter on a single machine, you can run each
-of the following four commands in a different console:
+To test the IronRSL counter on a single machine, you can do the following.
 
+First, create certificates with:
 ```
-  dotnet src/IronRSLCounterServer/bin/Release/net5.0/IronRSLCounterServer.dll localhost:4001 localhost:4002 localhost:4003 localhost:4001
-  dotnet src/IronRSLCounterServer/bin/Release/net5.0/IronRSLCounterServer.dll localhost:4001 localhost:4002 localhost:4003 localhost:4002
-  dotnet src/IronRSLCounterServer/bin/Release/net5.0/IronRSLCounterServer.dll localhost:4001 localhost:4002 localhost:4003 localhost:4003
-  dotnet src/IronRSLCounterClient/bin/Release/net5.0/IronRSLCounterClient.dll nthreads=10 duration=30 clientport=6000 verbose=true
+  dotnet src/CreateIronServiceCert/bin/Release/net5.0/CreateIronServiceCert.dll outputdir=certs name=MyCounter type=IronRSLCounter addr1=127.0.0.1 port1=4001 addr2=127.0.0.1 port2=4002 addr3=127.0.0.1 port3=4003
 ```
 
-The first three are the RSL servers, and the latter is the client.  If you use
-`verbose=false`, the client's output will primarily consist of reports of the
-form `#req <thread-ID> <request-number> <time-in-ms>`.
+Then, run each of the following three server commands, each in a different window.
+(Note that if you start them one at a time, the first one will complain that it
+can't reach the other two, and the second one will complain that it can't reach
+the third one. You can ignore these benign warnings, as they'll connect fine
+once they're all started.)
+```
+  dotnet src/IronRSLCounterServer/bin/Release/net5.0/IronRSLCounterServer.dll certs/MyCounter.IronRSLCounter.service.txt certs/MyCounter.IronRSLCounter.server1.private.txt
+  dotnet src/IronRSLCounterServer/bin/Release/net5.0/IronRSLCounterServer.dll certs/MyCounter.IronRSLCounter.service.txt certs/MyCounter.IronRSLCounter.server2.private.txt
+  dotnet src/IronRSLCounterServer/bin/Release/net5.0/IronRSLCounterServer.dll certs/MyCounter.IronRSLCounter.service.txt certs/MyCounter.IronRSLCounter.server3.private.txt
+```
+
+Finally, run this client command in yet another window:
+```
+  dotnet src/IronRSLCounterClient/bin/Release/net5.0/IronRSLCounterClient.dll certs/MyCounter.IronRSLCounter.service.txt nthreads=10 duration=30
+```
+
+The client's output will primarily consist of reports of the form `#req
+<thread-ID> <request-number> <time-in-ms>`.
+
+You can run the client as many times as you want.  But, you can only run each
+server once since we haven't implemented crash recovery.  To prevent you from
+accidentally running a server multiple times, the server program deletes its
+private key file right after reading it.
+
+Fortunately, `IronRSLCounter` can deal with the failure of fewer than half its
+servers.  But, if half of them or more fail, you'll have to create a new
+service.  That is, you'll have to start over by running `CreateIronServiceCert`,
+and that new service's counter will start at 0.
 
 Note that the servers use non-blocking network receives, so they may be slow
 to respond to Ctrl-C.
@@ -139,28 +191,46 @@ to respond to Ctrl-C.
 
 To run the key-value service replicated with IronRSL, you should ideally use
 four different machines, but in a pinch you can use four separate windows on
-the same machine. The server executable expects a list of IP-port pairs that
-identifies all of the replicas in the system (in this example we're using 3,
-but more is feasible). Each server instance also needs to be told which
-IP-port pair belongs to it.
+the same machine.
 
 The client has reasonable defaults that you can override with key=value
-command-line arguments. Run the client with `--help` to get detailed usage
+command-line arguments. Run the client with no arguments to get detailed usage
 information. Make sure your firewall isn't blocking the TCP ports you use.
 
-For example, to test the IronRSL key-value store on a single machine, you can
-run each of the following four commands in a different console:
-
+To test the IronRSL key-value store on a single machine, you can do the following.
+First, create certificates with:
 ```
-  dotnet src/IronRSLKVServer/bin/Release/net5.0/IronRSLKVServer.dll localhost:4001 localhost:4002 localhost:4003 localhost:4001
-  dotnet src/IronRSLKVServer/bin/Release/net5.0/IronRSLKVServer.dll localhost:4001 localhost:4002 localhost:4003 localhost:4002
-  dotnet src/IronRSLKVServer/bin/Release/net5.0/IronRSLKVServer.dll localhost:4001 localhost:4002 localhost:4003 localhost:4003
-  dotnet src/IronRSLKVClient/bin/Release/net5.0/IronRSLKVClient.dll nthreads=10 duration=30 clientport=6000 setfraction=0.25 deletefraction=0.05 verbose=true
+  dotnet src/CreateIronServiceCert/bin/Release/net5.0/CreateIronServiceCert.dll outputdir=certs name=MyKV type=IronRSLKV addr1=127.0.0.1 port1=4001 addr2=127.0.0.1 port2=4002 addr3=127.0.0.1 port3=4003
 ```
 
-The first three are the RSL servers, and the latter is the client.  If you use
-`verbose=false`, the client's output will primarily consist of reports of the
-form `#req <thread-ID> <request-number> <time-in-ms>`.
+Then, run each of the following three server commands, each in a different window:
+(Note that if you start them one at a time, the first one will complain that it
+can't reach the other two, and the second one will complain that it can't reach
+the third one. You can ignore these benign warnings, as they'll connect fine
+once they're all started.)
+```
+  dotnet src/IronRSLKVServer/bin/Release/net5.0/IronRSLKVServer.dll certs/MyKV.IronRSLKV.service.txt certs/MyKV.IronRSLKV.server1.private.txt
+  dotnet src/IronRSLKVServer/bin/Release/net5.0/IronRSLKVServer.dll certs/MyKV.IronRSLKV.service.txt certs/MyKV.IronRSLKV.server2.private.txt
+  dotnet src/IronRSLKVServer/bin/Release/net5.0/IronRSLKVServer.dll certs/MyKV.IronRSLKV.service.txt certs/MyKV.IronRSLKV.server3.private.txt
+```
+
+Finally, run this client command in yet another window:
+```
+  dotnet src/IronRSLKVClient/bin/Release/net5.0/IronRSLKVClient.dll certs/MyKV.IronRSLKV.service.txt nthreads=10 duration=30 setfraction=0.25 deletefraction=0.05
+```
+
+The client's output will primarily consist of reports of the form `#req
+<thread-ID> <request-number> <time-in-ms>`.
+
+You can run the client as many times as you want.  But, you can only run each
+server once since we haven't implemented crash recovery.  To prevent you from
+accidentally running a server multiple times, the server program deletes its
+private key file right after reading it.
+
+Fortunately, `IronRSLKV` can deal with the failure of fewer than half its
+servers.  But, if half of them or more fail, you'll have to create a new
+service.  That is, you'll have to start over by running `CreateIronServiceCert`,
+and that new service's key-value store will start out empty.
 
 Note that the servers use non-blocking network receives, so they may be slow
 to respond to Ctrl-C.
@@ -169,31 +239,32 @@ to respond to Ctrl-C.
 
 To run IronSHT (our sharded hash table), you should ideally use multiple
 different machines, but in a pinch you can use separate windows on the same
-machine. Like IronRSL, IronSHT server executables require a list of IP-port
-pairs, and the IronSHT client takes command-line arguments of the form
-key=value. Make sure your firewall isn't blocking the TCP ports you use.
+machine.
 
-For example, you can run each of the following four commands in a different
-console:
+The client has reasonable defaults that you can override with key=value
+command-line arguments. Run the client with no arguments to get detailed usage
+information. Make sure your firewall isn't blocking the TCP ports you use.
+
+To test the IronSHT sharded hash table on a single machine, you can do the following.
+First, create certificates with:
 ```
-  dotnet src/IronSHTServer/bin/Release/net5.0/IronSHTServer.dll localhost:4001 localhost:4002 localhost:4003 localhost:4001
-  dotnet src/IronSHTServer/bin/Release/net5.0/IronSHTServer.dll localhost:4001 localhost:4002 localhost:4003 localhost:4002
-  dotnet src/IronSHTServer/bin/Release/net5.0/IronSHTServer.dll localhost:4001 localhost:4002 localhost:4003 localhost:4003
-  dotnet src/IronSHTClient/bin/Release/net5.0/IronSHTClient.dll nthreads=10 duration=30 workload=g numkeys=10000 clientport=6000 verbose=true
+  dotnet src/CreateIronServiceCert/bin/Release/net5.0/CreateIronServiceCert.dll outputdir=certs name=MySHT type=IronSHT addr1=127.0.0.1 port1=4001 addr2=127.0.0.1 port2=4002 addr3=127.0.0.1 port3=4003
 ```
+Then, run each of the following three server commands, each in a different window:
+```
+  dotnet src/IronSHTServer/bin/Release/net5.0/IronSHTServer.dll certs/MySHT.IronSHT.service.txt certs/MySHT.IronSHT.server1.private.txt
+  dotnet src/IronSHTServer/bin/Release/net5.0/IronSHTServer.dll certs/MySHT.IronSHT.service.txt certs/MySHT.IronSHT.server2.private.txt
+  dotnet src/IronSHTServer/bin/Release/net5.0/IronSHTServer.dll certs/MySHT.IronSHT.service.txt certs/MySHT.IronSHT.server3.private.txt
+```
+Finally, run this client command in yet another window:
+```
+  dotnet src/IronSHTClient/bin/Release/net5.0/IronSHTClient.dll certs/MySHT.IronSHT.service.txt nthreads=10 duration=30 workload=g numkeys=1000
+```
+The client's output will primarily consist of reports of the form `#req
+<thread-ID> <request-number> <time-in-ms>`.
 
-The client will print its output to standard output.  If you use
-`verbose=false`, the client's output will primarily consist of reports of the
-form `#req <thread-ID> <request-number> <time-in-ms>`.
-
-Note that until you stop all the SHT servers, each client endpoint is expected
-to use strictly increasing sequence numbers, starting with 1.  Since the test
-client program always starts with 1, you should never reuse the same client
-endpoint until you restart the SHT servers, and you should keep in mind that
-the client uses `nthreads+1` consecutive ports: one for setup and `nthreads`
-for experiments.  So, for instance, if you use `nthreads=10
-client=localhost:6000`, then the next time you run you could use
-`client=localhost:6011`.
+We haven't implemented crash recovery, so if you restart a server its state will
+be empty.
 
 # Custom Replicated Services
 
