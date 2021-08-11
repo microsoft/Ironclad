@@ -674,8 +674,10 @@ namespace IronfleetIoFramework
     {
       var destinationPublicIdentity = scheduler.LookupPublicKey(destinationPublicKey);
       if (destinationPublicIdentity == null) {
-        Console.Error.WriteLine("Could not connect to destination public key {0} because we don't know its address.",
-                                IoScheduler.PublicKeyToString(destinationPublicKey));
+        if (scheduler.Verbose) {
+          Console.Error.WriteLine("Could not connect to destination public key {0} because we don't know its address.",
+                                  IoScheduler.PublicKeyToString(destinationPublicKey));
+        }
         return false;
       }
 
