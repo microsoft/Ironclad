@@ -485,7 +485,9 @@ namespace IronfleetIoFramework
         UInt64 messageSize;
         success = IoEncoder.ReadUInt64(stream, out messageSize);
         if (!success) {
-          Console.Error.WriteLine("Failed to receive message size from {0}", IoScheduler.CertificateToString(remoteCert));
+          if (scheduler.Verbose) {
+            Console.Error.WriteLine("Failed to receive message size from {0}", IoScheduler.CertificateToString(remoteCert));
+          }
           return;
         }
         if (scheduler.Verbose) {
@@ -495,8 +497,10 @@ namespace IronfleetIoFramework
         byte[] messageBuf = new byte[messageSize];
         success = IoEncoder.ReadBytes(stream, messageBuf, 0, messageSize);
         if (!success) {
-          Console.Error.WriteLine("Failed to receive message of size {0} from {1}",
-                                  messageSize, IoScheduler.CertificateToString(remoteCert));
+          if (scheduler.Verbose) {
+            Console.Error.WriteLine("Failed to receive message of size {0} from {1}",
+                                    messageSize, IoScheduler.CertificateToString(remoteCert));
+          }
           return;
         }
         if (scheduler.Verbose) {
