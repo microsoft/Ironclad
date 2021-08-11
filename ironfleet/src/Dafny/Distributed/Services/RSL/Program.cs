@@ -19,6 +19,7 @@ namespace IronRSLServer
     private bool profile;
     private bool progress;
     private bool verbose;
+    private bool safeguard;
 
     public Params()
     {
@@ -28,6 +29,8 @@ namespace IronRSLServer
       localPort = 0;
       profile = false;
       progress = false;
+      verbose = false;
+      safeguard = true;
     }
 
     public string ServiceFileName { get { return serviceFileName; } }
@@ -37,6 +40,7 @@ namespace IronRSLServer
     public bool Profile { get { return profile; } }
     public bool Progress { get { return progress; } }
     public bool Verbose { get { return verbose; } }
+    public bool Safeguard { get { return safeguard; } }
 
     public bool Validate()
     {
@@ -119,6 +123,10 @@ namespace IronRSLServer
         return SetBoolValue(key, value, ref verbose);
       }
 
+      if (key == "safeguard") {
+        return SetBoolValue(key, value, ref safeguard);
+      }
+
       Console.WriteLine("ERROR - Invalid argument key {0}", key);
       return false;
     }
@@ -142,6 +150,21 @@ Allowed keys:
   profile   - print profiling info (false or true, default: false)
   progress  - print progress (false or true, default: false)
   verbose   - use verbose output (false or true, default: false)
+  safeguard - delete the private key file after reading it to
+              prevent running the same instance twice (false or
+              true, default: true [see below])
+
+You should only run an instance of this server once, since we haven't
+implemented crash recovery.  To prevent you from accidentally running
+it multiple times, this program deletes its private key file right
+after reading it.  You can override this behavior with
+safeguard=false, but this is a VERY UNSAFE thing to do.
+
+Fortunately, IronRSL can deal with the failure of fewer than half its
+servers.  But, if half of them or more fail, you'll have to create a
+new service.  That is, you'll have to start over by running
+CreateIronServiceCert, and that new service will be in its initial
+state.
 ", Service.Name);
     }
 
@@ -183,8 +206,17 @@ Allowed keys:
 
       Native____Io__s_Compile.PrintParams.SetParameters(ps.Profile, ps.Progress);
 
-      File.Delete(ps.PrivateKeyFileName);
-      Console.WriteLine("Deleted private key file after reading it since RSL servers should never run twice.");
+      if (ps.Safeguard) {
+        File.Delete(ps.PrivateKeyFileName);
+        Console.WriteLine("Deleted private key file after reading it since RSL servers should never run twice.");
+      }
+      else {
+        Console.WriteLine(@"
+  *** DANGER:  Because you specified safeguard=false, we didn't delete the ***
+  *** private key file to prevent you from running the RSL server twice.   ***
+  *** Hopefully, you're just testing things.                               ***
+");
+      }
 
       var nc = Native____Io__s_Compile.NetClient.Create(privateIdentity, ps.LocalHostNameOrAddress, ps.LocalPort,
                                                         serviceIdentity.Servers, ps.Verbose);
