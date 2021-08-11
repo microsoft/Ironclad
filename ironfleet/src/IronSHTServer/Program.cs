@@ -53,7 +53,8 @@ Allowed keys:
         return;
       }
       if (serviceIdentity.ServiceType != "IronSHT") {
-        Console.Error.WriteLine("ERROR - Service described by {0} isn't of type IronSHT", ps.ServiceFileName);
+        Console.Error.WriteLine("ERROR - Service described by {0} is of type {1}, not IronSHT", ps.ServiceFileName,
+                                serviceIdentity.ServiceType);
         return;
       }
 

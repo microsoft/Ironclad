@@ -54,7 +54,7 @@ namespace IronfleetIoFramework
         json = File.ReadAllText(fileName);
       }
       catch (Exception) {
-        Console.Error.WriteLine("ERROR - Could not read contents of private key file {0}");
+        Console.Error.WriteLine("ERROR - Could not read contents of private key file {0}", fileName);
         return null;
       }
 

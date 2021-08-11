@@ -55,6 +55,11 @@ Allowed keys:
       if (serviceIdentity == null) {
         return;
       }
+      if (serviceIdentity.ServiceType != "IronLock") {
+        Console.Error.WriteLine("ERROR - Service described by {0} is of type {1}, not IronLock", ps.ServiceFileName,
+                                serviceIdentity.ServiceType);
+        return;
+      }
 
       PrivateIdentity privateIdentity = PrivateIdentity.ReadFromFile(ps.PrivateKeyFileName);
       if (privateIdentity == null) {
