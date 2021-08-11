@@ -7,14 +7,14 @@ using System.Net;
 using System.Numerics;
 using System.Threading;
 
-namespace CreateIronServiceCert
+namespace CreateIronServiceCerts
 {
   class Program
   {
     static void usage()
     {
       Console.Write(@"
-Usage:  dotnet CreateIronServiceCert.dll [key=value]...
+Usage:  dotnet CreateIronServiceCerts.dll [key=value]...
 
 Allowed keys:
   name         - friendly name of the service (default ""MyIronfleetService"")

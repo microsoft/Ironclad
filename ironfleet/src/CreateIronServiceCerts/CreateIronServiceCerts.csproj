@@ -10,7 +10,7 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <StartupObject>CreateIronServiceCert.Program</StartupObject>
+    <StartupObject>CreateIronServiceCerts.Program</StartupObject>
   </PropertyGroup>
 
   <ItemGroup>

@@ -163,7 +163,7 @@ safeguard=false, but this is a VERY UNSAFE thing to do.
 Fortunately, IronRSL can deal with the failure of fewer than half its
 servers.  But, if half of them or more fail, you'll have to create a
 new service.  That is, you'll have to start over by running
-CreateIronServiceCert, and that new service will be in its initial
+CreateIronServiceCerts, and that new service will be in its initial
 state.
 ", Service.Name);
     }

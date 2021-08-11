@@ -369,5 +369,5 @@ env.DotnetBuild('bin/IronSHTClient.dll', 'src/IronSHTClient/IronSHTClient.csproj
 env.DafnyCompile('src/Dafny/Distributed/Services/Lock/Main.i.cs', 'src/Dafny/Distributed/Services/Lock/Main.i.dfy')
 env.DotnetBuild('bin/IronLockServer.dll', 'src/IronLockServer/IronLockServer.csproj')
 
-env.DotnetBuild('bin/CreateIronServiceCert.dll', 'src/CreateIronServiceCert/CreateIronServiceCert.csproj')
+env.DotnetBuild('bin/CreateIronServiceCerts.dll', 'src/CreateIronServiceCerts/CreateIronServiceCerts.csproj')
 env.DotnetBuild('bin/TestIoFramework.dll', 'src/TestIoFramework/TestIoFramework.csproj')

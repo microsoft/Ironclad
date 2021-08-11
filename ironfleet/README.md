@@ -63,7 +63,7 @@ limit 120 seconds instead of the default 60 seconds.
 
 Running scons will produce the following executables:
 ```
-  bin/CreateIronServiceCert.dll
+  bin/CreateIronServiceCerts.dll
   bin/TestIoFramework.dll
   bin/IronLockServer.dll
   bin/IronRSLCounterServer.dll
@@ -82,14 +82,14 @@ To produce these executables without performing verification, use `--no-verify`.
 
 Ironfleet servers identify themselves using certificates.  So, before running
 any Ironfleet services, you need to generate certificates for the service by
-running `CreateIronServiceCert`.  On the command line you'll specify the name
+running `CreateIronServiceCerts`.  On the command line you'll specify the name
 and type of the service and, for each server, its public address and port.  Each
 such address can be a hostname like `www.myservice.com` or an IP address like
 `127.0.0.1` or `2001:db8:3333:4444:CCCC:DDDD:EEEE:FFFF`.
 
 For instance, you can run the following command:
 ```
-  dotnet bin/CreateIronServiceCert.dll outputdir=certs name=MyService type=TestService addr1=server1.com port1=6000 addr2=server2.com port2=7000
+  dotnet bin/CreateIronServiceCerts.dll outputdir=certs name=MyService type=TestService addr1=server1.com port1=6000 addr2=server2.com port2=7000
 ```
 This will create three files in the directory `certs`.  Two of these files,
 `MyService.TestService.server1.private.txt` and
@@ -112,7 +112,7 @@ configuration with three processes:
 
 Create the service with:
 ```
-  dotnet bin/CreateIronServiceCert.dll outputdir=certs name=MyLock type=IronLock addr1=127.0.0.1 port1=4001 addr2=127.0.0.1 port2=4002 addr3=127.0.0.1 port3=4003
+  dotnet bin/CreateIronServiceCerts.dll outputdir=certs name=MyLock type=IronLock addr1=127.0.0.1 port1=4001 addr2=127.0.0.1 port2=4002 addr3=127.0.0.1 port3=4003
 ```
 
 Run the service by executing the following three commands in three different
@@ -146,7 +146,7 @@ To test the IronRSL counter on a single machine, you can do the following.
 
 First, create certificates with:
 ```
-  dotnet bin/CreateIronServiceCert.dll outputdir=certs name=MyCounter type=IronRSLCounter addr1=127.0.0.1 port1=4001 addr2=127.0.0.1 port2=4002 addr3=127.0.0.1 port3=4003
+  dotnet bin/CreateIronServiceCerts.dll outputdir=certs name=MyCounter type=IronRSLCounter addr1=127.0.0.1 port1=4001 addr2=127.0.0.1 port2=4002 addr3=127.0.0.1 port3=4003
 ```
 
 Then, run each of the following three server commands, each in a different window.
@@ -173,7 +173,7 @@ private key file right after reading it.
 
 Fortunately, `IronRSLCounter` can deal with the failure of fewer than half its
 servers.  But, if half of them or more fail, you'll have to create a new
-service.  That is, you'll have to start over by running `CreateIronServiceCert`,
+service.  That is, you'll have to start over by running `CreateIronServiceCerts`,
 and that new service's counter will start at 0.
 
 Note that the servers use non-blocking network receives, so they may be slow
@@ -192,7 +192,7 @@ information. Make sure your firewall isn't blocking the TCP ports you use.
 To test the IronRSL key-value store on a single machine, you can do the following.
 First, create certificates with:
 ```
-  dotnet bin/CreateIronServiceCert.dll outputdir=certs name=MyKV type=IronRSLKV addr1=127.0.0.1 port1=4001 addr2=127.0.0.1 port2=4002 addr3=127.0.0.1 port3=4003
+  dotnet bin/CreateIronServiceCerts.dll outputdir=certs name=MyKV type=IronRSLKV addr1=127.0.0.1 port1=4001 addr2=127.0.0.1 port2=4002 addr3=127.0.0.1 port3=4003
 ```
 
 Then, run each of the following three server commands, each in a different window:
@@ -219,7 +219,7 @@ private key file right after reading it.
 
 Fortunately, `IronRSLKV` can deal with the failure of fewer than half its
 servers.  But, if half of them or more fail, you'll have to create a new
-service.  That is, you'll have to start over by running `CreateIronServiceCert`,
+service.  That is, you'll have to start over by running `CreateIronServiceCerts`,
 and that new service's key-value store will start out empty.
 
 Note that the servers use non-blocking network receives, so they may be slow
@@ -238,7 +238,7 @@ information. Make sure your firewall isn't blocking the TCP ports you use.
 To test the IronSHT sharded hash table on a single machine, you can do the following.
 First, create certificates with:
 ```
-  dotnet bin/CreateIronServiceCert.dll outputdir=certs name=MySHT type=IronSHT addr1=127.0.0.1 port1=4001 addr2=127.0.0.1 port2=4002 addr3=127.0.0.1 port3=4003
+  dotnet bin/CreateIronServiceCerts.dll outputdir=certs name=MySHT type=IronSHT addr1=127.0.0.1 port1=4001 addr2=127.0.0.1 port2=4002 addr3=127.0.0.1 port3=4003
 ```
 
 Then, run each of the following three server commands, each in a different window:
