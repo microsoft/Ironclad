@@ -76,12 +76,6 @@ Running scons will produce the following executables:
 
 To produce these executables without performing verification, use `--no-verify`.
 
-To avoid hampering performance, we've turned off most hosts' output.  To make
-hosts collect and print profile information, change `false` to `true` in
-`ShouldPrintProfilingInfo` in `./src/Dafny/Distributed/Impl/Common/Util.i.dfy`.
-To make hosts print information about their progress, change `false` to `true`
-in `ShouldPrintProgress` in the same file.
-
 # Running
 
 ## Creating certificates
