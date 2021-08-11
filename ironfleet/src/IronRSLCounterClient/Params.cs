@@ -9,6 +9,7 @@ namespace IronRSLCounterClient
     private int numThreads;
     private ulong experimentDuration;
     private bool verbose;
+    private bool printReplies;
 
     public Params()
     {
@@ -16,11 +17,13 @@ namespace IronRSLCounterClient
       numThreads = 1;
       experimentDuration = 60;
       verbose = false;
+      printReplies = false;
     }
 
     public string ServiceFileName { get { return serviceFileName; } }
     public int NumThreads { get { return numThreads; } }
     public ulong ExperimentDuration { get { return experimentDuration; } }
+    public bool PrintReplies { get { return printReplies; } }
     public bool Verbose { get { return verbose; } }
 
     public bool Validate()
@@ -50,19 +53,30 @@ namespace IronRSLCounterClient
       return SetValue(key, value);
     }
 
+    private bool SetBoolValue(string key, string value, ref bool p)
+    {
+      if (value == "false") {
+        p = false;
+        return true;
+      }
+      else if (value == "true") {
+        p = true;
+        return true;
+      }
+      else {
+        Console.WriteLine("ERROR - Invalid {0} value {1} - should be false or true", key, value);
+        return false;
+      }
+    }
+
     private bool SetValue(string key, string value)
     {
       if (key == "verbose") {
-        if (value == "false") {
-          verbose = false;
-          return true;
-        }
-        if (value == "true") {
-          verbose = true;
-          return true;
-        }
-        Console.WriteLine("ERROR - Invalid verbose value {0} - should be false or true", value);
-        return false;
+        return SetBoolValue(key, value, ref verbose);
+      }
+
+      if (key == "print") {
+        return SetBoolValue(key, value, ref printReplies);
       }
 
       if (key == "nthreads") {

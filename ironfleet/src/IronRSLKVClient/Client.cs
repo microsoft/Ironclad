@@ -56,19 +56,19 @@ namespace IronRSLKVClient
         valBuilder.Append(v);
         valBuilder.Append(rng.Next(100000));
         string val = valBuilder.ToString();
-        if (ps.Verbose) {
+        if (ps.PrintRequestsAndReplies) {
           Console.WriteLine("Submitting set request for {0} => {1}", key, val);
         }
         return new KVSetRequest(key, val);
       }
       else if (reqTypeSelector < (ps.SetFraction + ps.DeleteFraction) * Int32.MaxValue) {
-        if (ps.Verbose) {
+        if (ps.PrintRequestsAndReplies) {
           Console.WriteLine("Submitting delete request for {0}", key);
         }
         return new KVDeleteRequest(key);
       }
       else {
-        if (ps.Verbose) {
+        if (ps.PrintRequestsAndReplies) {
           Console.WriteLine("Submitting get request for {0}", key);
         }
         return new KVGetRequest(key);
@@ -92,7 +92,7 @@ namespace IronRSLKVClient
         var endTime = HiResTimer.Ticks;
         KVReply reply = KVReply.Decode(replyBytes, 0);
 
-        if (ps.Verbose) {
+        if (ps.PrintRequestsAndReplies) {
           Console.WriteLine("Received reply of type {0}", reply.ReplyType);
           if (reply is KVGetFoundReply gfr) {
             Console.WriteLine("Value obtained for get was {0}", gfr.Val);

@@ -22,6 +22,7 @@ Usage:  dotnet IronRSLCounterClient.dll <service> [key=value]...
 Allowed keys:
   nthreads  - number of client threads to run (default 1)
   duration  - duration of experiment in seconds (default 60)
+  print     - print replies (false or true, default false)
   verbose   - print verbose output (false or true, default false)
 ");
     }

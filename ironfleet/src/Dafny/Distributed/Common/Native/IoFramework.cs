@@ -1090,15 +1090,21 @@ namespace IronfleetIoFramework
       }
       if (e is SocketException se) {
         if (se.SocketErrorCode == SocketError.ConnectionReset) {
-          Console.WriteLine("Stopped {0} because of a connection reset. Will try again later if necessary.", activity);
+          if (verbose) {
+            Console.WriteLine("Stopped {0} because of a connection reset. Will try again later if necessary.", activity);
+          }
           return;
         }
         if (se.SocketErrorCode == SocketError.ConnectionRefused) {
-          Console.WriteLine("Stopped {0} because the connection was refused. Will try again later if necessary.", activity);
+          if (verbose) {
+            Console.WriteLine("Stopped {0} because the connection was refused. Will try again later if necessary.", activity);
+          }
           return;
         }
         if (se.SocketErrorCode == SocketError.Shutdown) {
-          Console.WriteLine("Stopped {0} because the connection was shut down. Will try again later if necessary.", activity);
+          if (verbose) {
+            Console.WriteLine("Stopped {0} because the connection was shut down. Will try again later if necessary.", activity);
+          }
           return;
         }
       }

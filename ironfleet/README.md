@@ -104,7 +104,8 @@ two servers.  The third, `MyService.TestService.service.txt`, contains the
 service identity, including the public keys of the two servers.
 
 You'll distribute the service file to all servers and all clients.  But,
-you should only copy a private key file to the server corresponding to that private key, and after copying it you should delete your local copy.  So, in
+you should only copy a private key file to the server corresponding to that
+private key, and after copying it you should delete your local copy.  So, in
 this example, you'd copy `MyService.TestService.server1.private.txt` only to
 server1.com.
 
@@ -156,10 +157,6 @@ First, create certificates with:
 ```
 
 Then, run each of the following three server commands, each in a different window.
-(Note that if you start them one at a time, the first one will complain that it
-can't reach the other two, and the second one will complain that it can't reach
-the third one. You can ignore these benign warnings, as they'll connect fine
-once they're all started.)
 ```
   dotnet src/IronRSLCounterServer/bin/Release/net5.0/IronRSLCounterServer.dll certs/MyCounter.IronRSLCounter.service.txt certs/MyCounter.IronRSLCounter.server1.private.txt
   dotnet src/IronRSLCounterServer/bin/Release/net5.0/IronRSLCounterServer.dll certs/MyCounter.IronRSLCounter.service.txt certs/MyCounter.IronRSLCounter.server2.private.txt
@@ -168,11 +165,13 @@ once they're all started.)
 
 Finally, run this client command in yet another window:
 ```
-  dotnet src/IronRSLCounterClient/bin/Release/net5.0/IronRSLCounterClient.dll certs/MyCounter.IronRSLCounter.service.txt nthreads=10 duration=30
+  dotnet src/IronRSLCounterClient/bin/Release/net5.0/IronRSLCounterClient.dll certs/MyCounter.IronRSLCounter.service.txt nthreads=10 duration=30 print=true
 ```
 
-The client's output will primarily consist of reports of the form `#req
-<thread-ID> <request-number> <time-in-ms>`.
+If you don't want the client to print the counter values it receives in replies,
+remove `print=true` from the client command.  In that case, its output will
+primarily consist of reports of the form `#req <thread-ID> <request-number>
+<time-in-ms>`.
 
 You can run the client as many times as you want.  But, you can only run each
 server once since we haven't implemented crash recovery.  To prevent you from
@@ -204,10 +203,6 @@ First, create certificates with:
 ```
 
 Then, run each of the following three server commands, each in a different window:
-(Note that if you start them one at a time, the first one will complain that it
-can't reach the other two, and the second one will complain that it can't reach
-the third one. You can ignore these benign warnings, as they'll connect fine
-once they're all started.)
 ```
   dotnet src/IronRSLKVServer/bin/Release/net5.0/IronRSLKVServer.dll certs/MyKV.IronRSLKV.service.txt certs/MyKV.IronRSLKV.server1.private.txt
   dotnet src/IronRSLKVServer/bin/Release/net5.0/IronRSLKVServer.dll certs/MyKV.IronRSLKV.service.txt certs/MyKV.IronRSLKV.server2.private.txt
@@ -216,11 +211,13 @@ once they're all started.)
 
 Finally, run this client command in yet another window:
 ```
-  dotnet src/IronRSLKVClient/bin/Release/net5.0/IronRSLKVClient.dll certs/MyKV.IronRSLKV.service.txt nthreads=10 duration=30 setfraction=0.25 deletefraction=0.05
+  dotnet src/IronRSLKVClient/bin/Release/net5.0/IronRSLKVClient.dll certs/MyKV.IronRSLKV.service.txt nthreads=10 duration=30 setfraction=0.25 deletefraction=0.05 print=true
 ```
 
-The client's output will primarily consist of reports of the form `#req
-<thread-ID> <request-number> <time-in-ms>`.
+If you don't want the client to print the requests it sends and the replies it
+receives, remove `print=true` from the client command.  In that case, its output
+will primarily consist of reports of the form `#req <thread-ID> <request-number>
+<time-in-ms>`.
 
 You can run the client as many times as you want.  But, you can only run each
 server once since we haven't implemented crash recovery.  To prevent you from
@@ -250,12 +247,14 @@ First, create certificates with:
 ```
   dotnet src/CreateIronServiceCert/bin/Release/net5.0/CreateIronServiceCert.dll outputdir=certs name=MySHT type=IronSHT addr1=127.0.0.1 port1=4001 addr2=127.0.0.1 port2=4002 addr3=127.0.0.1 port3=4003
 ```
+
 Then, run each of the following three server commands, each in a different window:
 ```
   dotnet src/IronSHTServer/bin/Release/net5.0/IronSHTServer.dll certs/MySHT.IronSHT.service.txt certs/MySHT.IronSHT.server1.private.txt
   dotnet src/IronSHTServer/bin/Release/net5.0/IronSHTServer.dll certs/MySHT.IronSHT.service.txt certs/MySHT.IronSHT.server2.private.txt
   dotnet src/IronSHTServer/bin/Release/net5.0/IronSHTServer.dll certs/MySHT.IronSHT.service.txt certs/MySHT.IronSHT.server3.private.txt
 ```
+
 Finally, run this client command in yet another window:
 ```
   dotnet src/IronSHTClient/bin/Release/net5.0/IronSHTClient.dll certs/MySHT.IronSHT.service.txt nthreads=10 duration=30 workload=g numkeys=1000

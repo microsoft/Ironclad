@@ -16,6 +16,8 @@ namespace IronRSLServer
     private string privateKeyFileName;
     private string localHostNameOrAddress;
     private int localPort;
+    private bool profile;
+    private bool progress;
     private bool verbose;
 
     public Params()
@@ -24,12 +26,16 @@ namespace IronRSLServer
       privateKeyFileName = "";
       localHostNameOrAddress = "";
       localPort = 0;
+      profile = false;
+      progress = false;
     }
 
     public string ServiceFileName { get { return serviceFileName; } }
     public string PrivateKeyFileName { get { return privateKeyFileName; } }
     public string LocalHostNameOrAddress { get { return localHostNameOrAddress; } }
     public int LocalPort { get { return localPort; } }
+    public bool Profile { get { return profile; } }
+    public bool Progress { get { return progress; } }
     public bool Verbose { get { return verbose; } }
 
     public bool Validate()
@@ -67,6 +73,22 @@ namespace IronRSLServer
       return SetValue(key, value);
     }
 
+    private bool SetBoolValue(string key, string value, ref bool p)
+    {
+      if (value == "false") {
+        p = false;
+        return true;
+      }
+      else if (value == "true") {
+        p = true;
+        return true;
+      }
+      else {
+        Console.WriteLine("ERROR - Invalid {0} value {1} - should be false or true", key, value);
+        return false;
+      }
+    }
+
     private bool SetValue(string key, string value)
     {
       if (key == "addr") {
@@ -85,17 +107,16 @@ namespace IronRSLServer
         }
       }
 
+      if (key == "profile") {
+        return SetBoolValue(key, value, ref profile);
+      }
+
+      if (key == "progress") {
+        return SetBoolValue(key, value, ref progress);
+      }
+
       if (key == "verbose") {
-        if (value == "false") {
-          verbose = false;
-          return true;
-        }
-        if (value == "true") {
-          verbose = true;
-          return true;
-        }
-        Console.WriteLine("ERROR - Invalid verbose value {0} - should be false or true", value);
-        return false;
+        return SetBoolValue(key, value, ref verbose);
       }
 
       Console.WriteLine("ERROR - Invalid argument key {0}", key);
@@ -118,6 +139,8 @@ Allowed keys:
               whatever's specified in the private key file)
   port      - port to listen to (default: whatever's specified
               in the private key file)
+  profile   - print profiling info (false or true, default: false)
+  progress  - print progress (false or true, default: false)
   verbose   - use verbose output (false or true, default: false)
 ", Service.Name);
     }
@@ -157,6 +180,8 @@ Allowed keys:
       if (privateIdentity == null) {
         return;
       }
+
+      Native____Io__s_Compile.PrintParams.SetParameters(ps.Profile, ps.Progress);
 
       File.Delete(ps.PrivateKeyFileName);
       Console.WriteLine("Deleted private key file after reading it since RSL servers should never run twice.");

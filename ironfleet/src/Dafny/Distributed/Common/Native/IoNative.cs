@@ -11,24 +11,18 @@ using FStream = System.IO.FileStream;
 
 namespace Native____Io__s_Compile {
 
-  public partial class HostConstants
+  public partial class PrintParams
   {
-    public static byte[][] CommandLineArgs;
+    internal static bool shouldPrintProfilingInfo = false;
+    internal static bool shouldPrintProgress = false;
 
-    public static uint NumCommandLineArgs()
-    {
-      return (uint)CommandLineArgs.Length;
-    }
+    public static bool ShouldPrintProfilingInfo() { return shouldPrintProfilingInfo; }
+    public static bool ShouldPrintProgress() { return shouldPrintProgress; }
 
-    public static Dafny.ISequence<byte> GetCommandLineArg(ulong i)
+    public static void SetParameters(bool i_shouldPrintProfilingInfo, bool i_shouldPrintProgress)
     {
-      return Dafny.Sequence<byte>.FromArray(CommandLineArgs[i]);
-    }
-
-    public static Dafny.ISequence<Dafny.ISequence<byte>> HostCommandLineArgs()
-    {
-      return Dafny.Sequence<Dafny.ISequence<byte>>.FromArray(
-               Array.ConvertAll(CommandLineArgs, s => Dafny.Sequence<byte>.FromArray(s)));
+      shouldPrintProfilingInfo = i_shouldPrintProfilingInfo;
+      shouldPrintProgress = i_shouldPrintProgress;
     }
   }
   

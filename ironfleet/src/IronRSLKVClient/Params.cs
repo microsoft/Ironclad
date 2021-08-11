@@ -11,6 +11,7 @@ namespace IronRSLKVClient
     private double setFraction;
     private double deleteFraction;
     private bool verbose;
+    private bool printRequestsAndReplies;
 
     public Params()
     {
@@ -20,6 +21,7 @@ namespace IronRSLKVClient
       setFraction = 0.05;
       deleteFraction = 0.25;
       verbose = false;
+      printRequestsAndReplies = false;
     }
 
     public string ServiceFileName { get { return serviceFileName; } }
@@ -27,6 +29,7 @@ namespace IronRSLKVClient
     public ulong ExperimentDuration { get { return experimentDuration; } }
     public double SetFraction { get { return setFraction; } }
     public double DeleteFraction { get { return deleteFraction; } }
+    public bool PrintRequestsAndReplies { get { return printRequestsAndReplies; } }
     public bool Verbose { get { return verbose; } }
 
     public bool Validate()
@@ -56,19 +59,30 @@ namespace IronRSLKVClient
       return SetValue(key, value);
     }
 
+    private bool SetBoolValue(string key, string value, ref bool p)
+    {
+      if (value == "false") {
+        p = false;
+        return true;
+      }
+      else if (value == "true") {
+        p = true;
+        return true;
+      }
+      else {
+        Console.WriteLine("ERROR - Invalid {0} value {1} - should be false or true", key, value);
+        return false;
+      }
+    }
+
     private bool SetValue(string key, string value)
     {
       if (key == "verbose") {
-        if (value == "false") {
-          verbose = false;
-          return true;
-        }
-        if (value == "true") {
-          verbose = true;
-          return true;
-        }
-        Console.WriteLine("ERROR - Invalid verbose value {0} - should be false or true", value);
-        return false;
+        return SetBoolValue(key, value, ref verbose);
+      }
+
+      if (key == "print") {
+        return SetBoolValue(key, value, ref printRequestsAndReplies);
       }
 
       if (key == "nthreads") {

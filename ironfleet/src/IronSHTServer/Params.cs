@@ -12,6 +12,7 @@ namespace IronSHTServer
     private string privateKeyFileName;
     private string localHostNameOrAddress;
     private int localPort;
+    private bool profile;
     private bool verbose;
 
     public Params()
@@ -20,12 +21,15 @@ namespace IronSHTServer
       privateKeyFileName = "";
       localHostNameOrAddress = "";
       localPort = 0;
+      profile = false;
+      verbose = false;
     }
 
     public string ServiceFileName { get { return serviceFileName; } }
     public string PrivateKeyFileName { get { return privateKeyFileName; } }
     public string LocalHostNameOrAddress { get { return localHostNameOrAddress; } }
     public int LocalPort { get { return localPort; } }
+    public bool Profile { get { return profile; } }
     public bool Verbose { get { return verbose; } }
 
     public bool Validate()
@@ -63,6 +67,22 @@ namespace IronSHTServer
       return SetValue(key, value);
     }
 
+    private bool SetBoolValue(string key, string value, ref bool p)
+    {
+      if (value == "false") {
+        p = false;
+        return true;
+      }
+      else if (value == "true") {
+        p = true;
+        return true;
+      }
+      else {
+        Console.WriteLine("ERROR - Invalid {0} value {1} - should be false or true", key, value);
+        return false;
+      }
+    }
+
     private bool SetValue(string key, string value)
     {
       if (key == "addr") {
@@ -81,17 +101,12 @@ namespace IronSHTServer
         }
       }
 
+      if (key == "profile") {
+        return SetBoolValue(key, value, ref profile);
+      }
+
       if (key == "verbose") {
-        if (value == "false") {
-          verbose = false;
-          return true;
-        }
-        if (value == "true") {
-          verbose = true;
-          return true;
-        }
-        Console.WriteLine("ERROR - Invalid verbose value {0} - should be false or true", value);
-        return false;
+        return SetBoolValue(key, value, ref verbose);
       }
 
       Console.WriteLine("ERROR - Invalid argument key {0}", key);

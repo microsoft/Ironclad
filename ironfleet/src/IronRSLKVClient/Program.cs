@@ -24,6 +24,7 @@ Allowed keys:
   duration       - duration of experiment in seconds (default 60)
   setfraction    - fraction of requests that are sets (default 0.25)
   deletefraction - fraction of requests that are deletes (default 0.05)
+  print          - print requests and replies (false or true, default false)
   verbose        - print verbose output (false or true, default false)
 ");
     }

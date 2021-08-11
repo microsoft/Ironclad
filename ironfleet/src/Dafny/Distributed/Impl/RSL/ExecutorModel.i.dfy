@@ -510,7 +510,7 @@ method GetPacketsFromRepliesImpl(me:EndPoint, requests:CRequestBatch, replies:se
   {
     assert ValidRequest(requests[i]) && ValidReply(replies[i]);
     var cmsg := CMessage_Reply(requests[i].seqno, replies[i].reply);
-    if ShouldPrintProgress() {
+    if PrintParams.ShouldPrintProgress() {
       print("Sending reply to client ");
       print(requests[i].client);
       print(" with sequence number ");
@@ -837,7 +837,7 @@ method ExecutorProcessRequest(cs:ExecutorState, cinp:CPacket, cachedReply:CReply
   assert cinp.msg.seqno <= cachedReply.seqno;
   var cr := cachedReply;
   var msg := CMessage_Reply(cr.seqno, cr.reply);
-  if ShouldPrintProgress() {
+  if PrintParams.ShouldPrintProgress() {
     print("Sending cached reply to client ");
     print(cr.client);
     print(" with sequence number ");

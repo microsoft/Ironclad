@@ -198,7 +198,7 @@ method {:fuel AbstractifyReplicaStateToLReplica,0,0} {:fuel ReplicaStateIsValid,
             && r.Env() == old(r.Env())
             && old_net_history + netEventLog == r.Env().net.history()
 {
-  if ShouldPrintProgress() {
+  if PrintParams.ShouldPrintProgress() {
     print("Received request from client ");
     print(cpacket.src);
     print(" with sequence number ");

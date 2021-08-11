@@ -33,6 +33,17 @@ class OkState
 }
 
 //////////////////////////////////////////////////////////////////////////////
+// Print parameters
+//////////////////////////////////////////////////////////////////////////////
+
+class PrintParams
+{
+  constructor{:axiom} () requires false
+  static function method{:axiom} ShouldPrintProfilingInfo() : bool
+  static function method{:axiom} ShouldPrintProgress() : bool
+}
+
+//////////////////////////////////////////////////////////////////////////////
 // Time
 //////////////////////////////////////////////////////////////////////////////
 
@@ -58,9 +69,9 @@ class Time
     ensures  AdvanceTime(old(env.now.now()), env.now.now(), 0)
     ensures  env.net.history() == old(env.net.history()) + [LIoOpReadClock(t as int)]
 
-    // Used for performance debugging
-    static method{:axiom} GetDebugTimeTicks() returns(t:uint64)
-    static method{:axiom} RecordTiming(name:array<char>, time:uint64)
+  // Used for performance debugging
+  static method{:axiom} GetDebugTimeTicks() returns(t:uint64)
+  static method{:axiom} RecordTiming(name:array<char>, time:uint64)
 }
 
 //////////////////////////////////////////////////////////////////////////////

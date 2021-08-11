@@ -34,7 +34,7 @@ import opened LiveRSL__NetRSL_i
 import opened Environment_s
 import opened Common__NetClient_i
 
-lemma lemma_ReplicaNextReadClockAndProcessPacketHelper(
+lemma {:timeLimitMultiplier 2} lemma_ReplicaNextReadClockAndProcessPacketHelper(
   old_history:seq<NetEvent>,
   pre_clock_history:seq<NetEvent>,
   pre_delivery_history:seq<NetEvent>,

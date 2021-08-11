@@ -23,6 +23,7 @@ Allowed keys:
               whatever's specified in the private key file)
   port      - port to listen to (default: whatever's specified
               in the private key file)
+  profile   - print profiling info (false or true, default: false)
   verbose   - use verbose output (false or true, default: false)
 ");
     }
@@ -62,6 +63,8 @@ Allowed keys:
       if (privateIdentity == null) {
         return;
       }
+
+      Native____Io__s_Compile.PrintParams.SetParameters(ps.Profile, i_shouldPrintProgress: false);
 
       var nc = Native____Io__s_Compile.NetClient.Create(privateIdentity, ps.LocalHostNameOrAddress, ps.LocalPort,
                                                         serviceIdentity.Servers, ps.Verbose);

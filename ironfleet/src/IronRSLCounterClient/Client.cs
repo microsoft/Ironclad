@@ -81,7 +81,7 @@ namespace IronRSLCounterClient
         byte[] replyBytes = rslClient.SubmitRequest(requestBytes, ps.Verbose);
         var endTime = HiResTimer.Ticks;
         var reply = IncrementReply.Decode(replyBytes);
-        if (ps.Verbose) {
+        if (ps.PrintReplies) {
           Console.WriteLine("Received increment reply with counter {0}", reply.counterValue);
         }
         Console.WriteLine("#req {0} {1} {2}",
