@@ -107,9 +107,8 @@ server1.com.
 
 IronLock is the simplest of the protocols we've verified, so it may be a good
 starting point.  It consists of N processes passing around a lock. To run it,
-you need to supply each process with the IP-port pairs of all processes, as
-well as its own IP-pair.  Also, make sure your firewall isn't blocking the TCP
-ports you use.  Here's an example configuration with three processes:
+make sure your firewall isn't blocking the TCP ports you use.  Here's an example
+configuration with three processes:
 
 Create the service with:
 ```
