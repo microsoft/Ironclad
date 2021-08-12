@@ -136,8 +136,8 @@ method {:timeLimitMultiplier 2} ProposerProcessRequest(proposer:ProposerState, p
   ghost var ref_val := AbstractifyCRequestToRequest(val);
   ghost var ref_myOutstandingProposedValues := AbstractifyMapOfSeqNums(proposer.highest_seqno_requested_by_client_this_view);
   lemma_AbstractifyMapOfSeqNums_properties(proposer.highest_seqno_requested_by_client_this_view);
-  assert forall e :: (e !in proposer.highest_seqno_requested_by_client_this_view && EndPointIsValidIPV4(e) ==> AbstractifyEndPointToNodeIdentity(e) !in AbstractifyMapOfSeqNums(proposer.highest_seqno_requested_by_client_this_view));
-  assert EndPointIsValidIPV4(packet.src);
+  assert forall e :: (e !in proposer.highest_seqno_requested_by_client_this_view && EndPointIsValidPublicKey(e) ==> AbstractifyEndPointToNodeIdentity(e) !in AbstractifyMapOfSeqNums(proposer.highest_seqno_requested_by_client_this_view));
+  assert EndPointIsValidPublicKey(packet.src);
   assert packet.src !in proposer.highest_seqno_requested_by_client_this_view ==> AbstractifyEndPointToNodeIdentity(packet.src) !in AbstractifyMapOfSeqNums(proposer.highest_seqno_requested_by_client_this_view);
   assert packet.src in proposer.highest_seqno_requested_by_client_this_view ==> 
          (packet.msg.seqno > proposer.highest_seqno_requested_by_client_this_view[packet.src] <==>
@@ -245,7 +245,7 @@ method ProposerMaybeEnterNewViewAndSend1a(proposer:ProposerState) returns (propo
 method ProposerProcess1b(proposer:ProposerState, packet:CPacket) returns (proposer':ProposerState)
   requires ProposerIsValid(proposer)
   requires proposer.current_state == 1
-  requires EndPointIsValidIPV4(packet.src)
+  requires EndPointIsValidPublicKey(packet.src)
   requires packet.src in proposer.constants.all.config.replica_ids
   requires packet.msg.CMessage_1b?
   requires packet.msg.bal_1b == proposer.max_ballot_i_sent_1a

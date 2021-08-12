@@ -73,7 +73,7 @@ lemma lemma_CReplyCacheUpdate(batch:CRequestBatch, reply_cache:CReplyCache, repl
     lemma_AbstractifyCReplyCacheToReplyCache_properties(newReplyCache);
     assert exists e :: e in newReplyCache && r_client == AbstractifyEndPointToNodeIdentity(e);
     var client :| client in newReplyCache && AbstractifyEndPointToNodeIdentity(client) == r_client;
-    assert EndPointIsValidIPV4(client);
+    assert EndPointIsValidPublicKey(client);
     if client in reply_cache && newReplyCache[client] == reply_cache[client] {
       lemma_AbstractifyEndPointToNodeIdentity_injective_forall();
       assert r_client in r_replyCache;
@@ -106,7 +106,7 @@ method {:timeLimitMultiplier 2} HandleRequestBatchImpl(
   requires ValidReplyCache(reply_cache)
   requires ValidRequestBatch(batch)
   requires CReplyCacheIsAbstractable(reply_cache)
-  requires forall req :: req in batch ==> EndPointIsValidIPV4(req.client)
+  requires forall req :: req in batch ==> EndPointIsValidPublicKey(req.client)
   requires MutableMap.MapOf(reply_cache_mutable) == reply_cache
   modifies reply_cache_mutable
   modifies state
@@ -261,7 +261,7 @@ method {:timeLimitMultiplier 2} HandleRequestBatchImpl(
 }
 
 method {:timeLimitMultiplier 6} UpdateReplyCache(ghost reply_cache:CReplyCache, reply_cache_mutable:MutableMap<EndPoint, CReply>, ep:EndPoint, newReply:CReply, reply:CAppReply, i:uint64, batch:CRequestBatch, ghost replies:seq<CReply>) returns (ghost newReplyCache:CReplyCache)
-  requires EndPointIsValidIPV4(ep)
+  requires EndPointIsValidPublicKey(ep)
   requires ValidReply(newReply)
   requires CReplyIsAbstractable(newReply)
   requires 0 <= i as int < |batch|
@@ -298,24 +298,24 @@ method {:timeLimitMultiplier 6} UpdateReplyCache(ghost reply_cache:CReplyCache, 
   }
   lemma_AbstractifyCReplyCacheToReplyCache_properties(slimReplyCache);
   assert ValidReplyCache(slimReplyCache);
-  forall e {:trigger EndPointIsValidIPV4(e)} | e in slimReplyCache 
-    ensures EndPointIsValidIPV4(e) && CReplyIsAbstractable(slimReplyCache[e])
+  forall e {:trigger EndPointIsValidPublicKey(e)} | e in slimReplyCache 
+    ensures EndPointIsValidPublicKey(e) && CReplyIsAbstractable(slimReplyCache[e])
   {
   }
   newReplyCache := slimReplyCache[ep := newReply];
   reply_cache_mutable.Set(ep, newReply);
-  forall e {:trigger EndPointIsValidIPV4(e)} | e in newReplyCache 
-    ensures EndPointIsValidIPV4(e) && CReplyIsAbstractable(newReplyCache[e])
+  forall e {:trigger EndPointIsValidPublicKey(e)} | e in newReplyCache 
+    ensures EndPointIsValidPublicKey(e) && CReplyIsAbstractable(newReplyCache[e])
   {
     if (e == ep) {
 
     }
   }
-//  assert forall e {:trigger EndPointIsValidIPV4(e)} :: e in newReplyCache ==> EndPointIsValidIPV4(e) && CReplyIsAbstractable(newReplyCache[e]);
+//  assert forall e {:trigger EndPointIsValidPublicKey(e)} :: e in newReplyCache ==> EndPointIsValidPublicKey(e) && CReplyIsAbstractable(newReplyCache[e]);
   assert CReplyCacheIsAbstractable(newReplyCache);
   lemma_AbstractifyCReplyCacheToReplyCache_properties(newReplyCache);
   assert ep in newReplyCache;
-  assert EndPointIsValidIPV4(ep);
+  assert EndPointIsValidPublicKey(ep);
   assert CReplyCacheIsAbstractable(newReplyCache);
   assert ValidReplyCache(newReplyCache);
   ghost var r_newReplyCache := AbstractifyCReplyCacheToReplyCache(newReplyCache);
@@ -355,7 +355,7 @@ method {:timeLimitMultiplier 6} UpdateReplyCache(ghost reply_cache:CReplyCache, 
   forall client | client in newReplyCache 
     ensures ReplyCacheUpdated(client, reply_cache, newReplyCache, batch[..i+1], replies)
   {
-    assert EndPointIsValidIPV4(client); // OBSERVE: Needed b/c someone put an oddly strict trigger on lemma_AbstractifyCReplyCacheToReplyCache_properties
+    assert EndPointIsValidPublicKey(client); // OBSERVE: Needed b/c someone put an oddly strict trigger on lemma_AbstractifyCReplyCacheToReplyCache_properties
     lemma_AbstractifyCReplyCacheToReplyCache_properties(newReplyCache);
     assert AbstractifyEndPointToNodeIdentity(client) in r_newReplyCache;
     lemma_AbstractifyEndPointToNodeIdentity_injective_forall();
@@ -490,7 +490,7 @@ method GetPacketsFromRepliesImpl(me:EndPoint, requests:CRequestBatch, replies:se
   requires |requests| == |replies| < 0x1_0000_0000_0000_0000
   requires forall r :: r in requests ==> ValidRequest(r)
   requires forall r :: r in replies ==> ValidReply(r) && CReplyIsAbstractable(r)
-  requires EndPointIsValidIPV4(me)
+  requires EndPointIsValidPublicKey(me)
   ensures CPacketSeqIsAbstractable(cout_seq)
   ensures |cout_seq| == |replies|
   ensures  forall p :: p in cout_seq ==> p.src == me && p.msg.CMessage_Reply? && CPacketIsSendable(p)
@@ -510,11 +510,9 @@ method GetPacketsFromRepliesImpl(me:EndPoint, requests:CRequestBatch, replies:se
   {
     assert ValidRequest(requests[i]) && ValidReply(replies[i]);
     var cmsg := CMessage_Reply(requests[i].seqno, replies[i].reply);
-    if ShouldPrintProgress() {
+    if PrintParams.ShouldPrintProgress() {
       print("Sending reply to client ");
-      print(requests[i].client.addr);
-      print(":");
-      print(requests[i].client.port);
+      print(requests[i].client);
       print(" with sequence number ");
       print(requests[i].seqno);
       print("\n");
@@ -644,8 +642,8 @@ method {:timeLimitMultiplier 4} ExecutorExecute(cs:ExecutorState, reply_cache_mu
   assert cme in cs.constants.all.config.replica_ids;
   assert ReplicaConstantsState_IsValid(cs.constants);
   assert CPaxosConfigurationIsValid(cs.constants.all.config);
-  assert forall r :: r in cs.constants.all.config.replica_ids ==> EndPointIsValidIPV4(r);
-  assert EndPointIsValidIPV4(cme);
+  assert forall r :: r in cs.constants.all.config.replica_ids ==> EndPointIsValidPublicKey(r);
+  assert EndPointIsValidPublicKey(cme);
     
   var start_time_get_packets := Time.GetDebugTimeTicks();
   var packets := GetPacketsFromRepliesImpl(cme, cv, creplies);
@@ -753,7 +751,6 @@ method ExecutorProcessAppStateRequest(cs:ExecutorState, cinp:CPacket, reply_cach
   cs' := cs;
 
   reveal AbstractifySetOfCPacketsToSetOfRslPackets();
-  lemma_Uint64EndPointRelationships();
   lemma_AbstractifyEndPointsToNodeIdentities_properties(cs.constants.all.config.replica_ids);
 
   if cinp.src in cs.constants.all.config.replica_ids && CBallotIsNotGreaterThan(cs.max_bal_reflected, cinp.msg.bal_state_req) && cs.ops_complete.n >= cinp.msg.opn_state_req.n {
@@ -793,7 +790,6 @@ method ExecutorProcessStartingPhase2(cs:ExecutorState, cinp:CPacket) returns(cs'
   cs' := cs;
 
   reveal AbstractifySetOfCPacketsToSetOfRslPackets();
-  lemma_Uint64EndPointRelationships();
   lemma_AbstractifyEndPointsToNodeIdentities_properties(cs.constants.all.config.replica_ids);
 
   if cinp.src in cs.constants.all.config.replica_ids && copn.n > cs.ops_complete.n {
@@ -841,11 +837,9 @@ method ExecutorProcessRequest(cs:ExecutorState, cinp:CPacket, cachedReply:CReply
   assert cinp.msg.seqno <= cachedReply.seqno;
   var cr := cachedReply;
   var msg := CMessage_Reply(cr.seqno, cr.reply);
-  if ShouldPrintProgress() {
+  if PrintParams.ShouldPrintProgress() {
     print("Sending cached reply to client ");
-    print(cr.client.addr);
-    print(":");
-    print(cr.client.port);
+    print(cr.client);
     print(" with sequence number ");
     print(cr.seqno);
     print("\n");

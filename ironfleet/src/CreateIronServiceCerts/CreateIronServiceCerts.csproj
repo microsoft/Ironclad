@@ -1,0 +1,24 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net5.0</TargetFramework>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <NoWarn>1701;1702;162;164;168;183;219;436;1717;1718</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <StartupObject>CreateIronServiceCerts.Program</StartupObject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MathNet.Numerics" Version="4.15.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Dafny\Distributed\Common\Native\IoFramework.cs" />
+  </ItemGroup>
+
+</Project>

@@ -83,24 +83,15 @@ predicate OnlySentMarshallableData(rawlog:seq<NetEvent>)
 
 datatype ReceiveResult = RRFail() | RRTimeout() | RRPacket(cpacket:CPacket)
 
-method GetEndPoint(ipe:IPEndPoint) returns (ep:EndPoint)
-  ensures ep == ipe.EP()
-  ensures EndPointIsValidIPV4(ep)
-{
-  var addr := ipe.GetAddress();
-  var port := ipe.GetPort();
-  ep := EndPoint(addr[..], port);
-}
-
 method{:timeLimitMultiplier 2} Receive(netClient:NetClient, localAddr:EndPoint, config:CPaxosConfiguration, msg_grammar:G) returns (rr:ReceiveResult, ghost netEvent:NetEvent)
   requires NetClientIsValid(netClient)
-  requires netClient.LocalEndPoint() == localAddr
+  requires EndPoint(netClient.MyPublicKey()) == localAddr
   //requires KnownSendersMatchConfig(config)
   requires CPaxosConfigurationIsValid(config)
   requires msg_grammar == CMessage_grammar()
   modifies NetClientRepr(netClient)
   ensures netClient.env == old(netClient.env)
-  ensures netClient.LocalEndPoint() == old(netClient.LocalEndPoint())
+  ensures netClient.MyPublicKey() == old(netClient.MyPublicKey())
   ensures NetClientOk(netClient) <==> !rr.RRFail?
   ensures old(NetClientRepr(netClient)) == NetClientRepr(netClient)
   ensures !rr.RRFail? ==>
@@ -112,7 +103,7 @@ method{:timeLimitMultiplier 2} Receive(netClient:NetClient, localAddr:EndPoint, 
             && NetPacketIsAbstractable(netEvent.r)
             && CPacketIsAbstractable(rr.cpacket)
             && CMessageIs64Bit(rr.cpacket.msg)
-            && EndPointIsValidIPV4(rr.cpacket.src)
+            && EndPointIsValidPublicKey(rr.cpacket.src)
             && AbstractifyCPacketToRslPacket(rr.cpacket) == AbstractifyNetPacketToRslPacket(netEvent.r)
             && rr.cpacket.msg == PaxosDemarshallData(netEvent.r.msg)
             && PaxosEndPointIsValid(rr.cpacket.src, config)
@@ -132,7 +123,8 @@ method{:timeLimitMultiplier 2} Receive(netClient:NetClient, localAddr:EndPoint, 
     return;
   }
 
-  netEvent := LIoOpReceive(LPacket(netClient.LocalEndPoint(), remote.EP(), buffer[..]));
+  var srcEp:EndPoint := EndPoint(remote);
+  netEvent := LIoOpReceive(LPacket(EndPoint(netClient.MyPublicKey()), srcEp, buffer[..]));
   assert netClient.env.net.history() == old_net_history + [netEvent];
   var start_time := Time.GetDebugTimeTicks();
   lemma_CMessageGrammarValid();
@@ -140,7 +132,6 @@ method{:timeLimitMultiplier 2} Receive(netClient:NetClient, localAddr:EndPoint, 
   var end_time := Time.GetDebugTimeTicks();
   RecordTimingSeq("PaxosDemarshallDataMethod", start_time, end_time);
 
-  var srcEp := GetEndPoint(remote);
   var cpacket := CPacket(localAddr, srcEp, cmessage);
   rr := RRPacket(cpacket);
   assert netClient.env.net.history() == old_net_history + [netEvent];
@@ -169,7 +160,7 @@ method{:timeLimitMultiplier 2} Receive(netClient:NetClient, localAddr:EndPoint, 
     RecordTimingSeq("DemarshallMessage_StartingPhase2", start_time, end_time);
   }
 
-  assert EndPointIsValidIPV4(netClient.LocalEndPoint());
+  assert EndPointIsValidPublicKey(EndPoint(netClient.MyPublicKey()));
   assert PaxosEndPointIsValid(rr.cpacket.src, config);
   assert AbstractifyCPacketToRslPacket(rr.cpacket) == AbstractifyNetPacketToRslPacket(netEvent.r);
 
@@ -180,7 +171,7 @@ method{:timeLimitMultiplier 2} Receive(netClient:NetClient, localAddr:EndPoint, 
   {
 //    lemma_Uint64EndPointRelationships();
 //    assert ConvertEndPointToUint64(srcEp) == rr.cpacket.src;    // OBSERVE trigger
-      assert EndPointIsValidIPV4(netClient.LocalEndPoint());  // OBSERVE trigger
+      assert EndPointIsValidPublicKey(netClient.LocalEndPoint());  // OBSERVE trigger
   }
   */
 }
@@ -196,7 +187,7 @@ method ReadClock(netClient:NetClient) returns (clock:CClockReading, ghost clockE
   ensures clock.t as int == clockEvent.t
   ensures NetClientIsValid(netClient)
   ensures NetEventIsAbstractable(clockEvent)
-  ensures netClient.LocalEndPoint() == old(netClient.LocalEndPoint())
+  ensures netClient.MyPublicKey() == old(netClient.MyPublicKey())
   // TODO we're going to call GetTime, which returns a single value.
 {
   var t := Time.GetTime(netClient.env);
@@ -309,12 +300,12 @@ lemma lemma_NetEventLogAppend(broadcast:CBroadcast, netEventLog:seq<NetEvent>, n
 method SendBroadcast(netClient:NetClient, broadcast:CBroadcast, ghost localAddr_:EndPoint) returns (ok:bool, ghost netEventLog:seq<NetEvent>)
   requires NetClientIsValid(netClient)
   requires CBroadcastIsValid(broadcast)
-  requires netClient.LocalEndPoint() == localAddr_
+  requires EndPoint(netClient.MyPublicKey()) == localAddr_
   requires broadcast.CBroadcast? ==> broadcast.src == localAddr_
   modifies NetClientRepr(netClient)
   ensures old(NetClientRepr(netClient)) == NetClientRepr(netClient)
   ensures netClient.env == old(netClient.env)
-  ensures netClient.LocalEndPoint() == old(netClient.LocalEndPoint())
+  ensures netClient.MyPublicKey() == old(netClient.MyPublicKey())
   ensures NetClientOk(netClient) <==> ok
   ensures ok ==>
             && NetClientIsValid(netClient)
@@ -351,7 +342,7 @@ method SendBroadcast(netClient:NetClient, broadcast:CBroadcast, ghost localAddr_
       invariant |netEventLog| == i as int
       invariant NetClientRepr(netClient) == old(NetClientRepr(netClient))
       invariant netClient.env == old(netClient.env)
-      invariant netClient.LocalEndPoint() == old(netClient.LocalEndPoint())
+      invariant netClient.MyPublicKey() == old(netClient.MyPublicKey())
       invariant NetClientIsValid(netClient)
       invariant NetClientOk(netClient)
       invariant old(netClient.env.net.history()) + netEventLog == netClient.env.net.history()
@@ -367,20 +358,15 @@ method SendBroadcast(netClient:NetClient, broadcast:CBroadcast, ghost localAddr_
       // Construct the remote address -- TODO: Only do this once per replica!
       var dstEp:EndPoint := broadcast.dsts[i];
       //var construct_start_time := Time.GetDebugTimeTicks();
-      var dstAddrAry := seqToArrayOpt(dstEp.addr);
-      var remote;
-      ok, remote := IPEndPoint.Construct(dstAddrAry, dstEp.port, netClient.env);
-      if (!ok) { return; }
-      //var construct_end_time := Time.GetDebugTimeTicks();
-      //RecordTimingSeq("SendBroadcast_IPEndPointConstruct", construct_start_time, construct_end_time);
+      //RecordTimingSeq("SendBroadcast", construct_start_time, construct_end_time);
 
       //var send_start_time := Time.GetDebugTimeTicks();
-      ok := netClient.Send(remote, buffer);
+      ok := netClient.Send(dstEp.public_key, buffer);
       if (!ok) { return; }
       //var send_end_time := Time.GetDebugTimeTicks();
       //RecordTimingSeq("SendBroadcast_Send", send_start_time, send_end_time);
 
-      ghost var netEvent := LIoOpSend(LPacket(remote.EP(), netClient.LocalEndPoint(), buffer[..]));
+      ghost var netEvent := LIoOpSend(LPacket(dstEp, EndPoint(netClient.MyPublicKey()), buffer[..]));
       netEventLog := netEventLog + [netEvent];
 
       lemma_NetEventLogAppend(broadcast, netEventLog_old, netEvent);
@@ -395,12 +381,12 @@ method SendPacket(netClient:NetClient, packets:OutboundPackets, ghost localAddr_
   requires NetClientIsValid(netClient)
   requires packets.OutboundPacket?
   requires OutboundPacketsIsValid(packets)
-  requires netClient.LocalEndPoint() == localAddr_
+  requires EndPoint(netClient.MyPublicKey()) == localAddr_
   requires OutboundPacketsHasCorrectSrc(packets, localAddr_)
   modifies NetClientRepr(netClient)
   ensures old(NetClientRepr(netClient)) == NetClientRepr(netClient)
   ensures netClient.env == old(netClient.env)
-  ensures netClient.LocalEndPoint() == old(netClient.LocalEndPoint())
+  ensures netClient.MyPublicKey() == old(netClient.MyPublicKey())
   ensures NetClientOk(netClient) <==> ok
   ensures ok ==> && NetClientIsValid(netClient)
                  && netClient.IsOpen()
@@ -422,10 +408,6 @@ method SendPacket(netClient:NetClient, packets:OutboundPackets, ghost localAddr_
 
     // Construct the remote address
     var dstEp:EndPoint := cpacket.dst;
-    var dstAddrAry := seqToArrayOpt(dstEp.addr);
-    var remote;
-    ok, remote := IPEndPoint.Construct(dstAddrAry, dstEp.port, netClient.env);
-    if (!ok) { return; }
 
     assert CMessageIsAbstractable(cpacket.msg);
     assert Marshallable(cpacket.msg);
@@ -437,10 +419,10 @@ method SendPacket(netClient:NetClient, packets:OutboundPackets, ghost localAddr_
     ghost var data := buffer[..];
     assert BufferRefinementAgreesWithMessageRefinement(cpacket.msg, data);
 
-    ok := netClient.Send(remote, buffer);
+    ok := netClient.Send(dstEp.public_key, buffer);
     if (!ok) { return; }
 
-    ghost var netEvent := LIoOpSend(LPacket(remote.EP(), netClient.LocalEndPoint(), buffer[..]));
+    ghost var netEvent := LIoOpSend(LPacket(dstEp, EndPoint(netClient.MyPublicKey()), buffer[..]));
     ghost var net := netEvent.s;
 
     calc {
@@ -461,12 +443,12 @@ method{:timeLimitMultiplier 2} SendPacketSequence(netClient:NetClient, packets:O
   requires NetClientIsValid(netClient)
   requires OutboundPacketsIsValid(packets)
   requires packets.PacketSequence?
-  requires netClient.LocalEndPoint() == localAddr_
+  requires EndPoint(netClient.MyPublicKey()) == localAddr_
   requires OutboundPacketsHasCorrectSrc(packets, localAddr_)
   modifies NetClientRepr(netClient)
   ensures old(NetClientRepr(netClient)) == NetClientRepr(netClient)
   ensures netClient.env == old(netClient.env)
-  ensures netClient.LocalEndPoint() == old(netClient.LocalEndPoint())
+  ensures netClient.MyPublicKey() == old(netClient.MyPublicKey())
   ensures NetClientOk(netClient) <==> ok
   ensures ok ==>
             && NetClientIsValid(netClient)
@@ -487,7 +469,7 @@ method{:timeLimitMultiplier 2} SendPacketSequence(netClient:NetClient, packets:O
   while i < |cpackets| as uint64
     invariant old(NetClientRepr(netClient)) == NetClientRepr(netClient)
     invariant netClient.env == old(netClient.env)
-    invariant netClient.LocalEndPoint() == old(netClient.LocalEndPoint())
+    invariant netClient.MyPublicKey() == old(netClient.MyPublicKey())
     invariant NetClientOk(netClient) <==> ok
     invariant ok ==> ( NetClientIsValid(netClient) && netClient.IsOpen())
     invariant ok ==> netClientEnvHistory_old + netEventLog == netClient.env.net.history()
@@ -503,11 +485,6 @@ method{:timeLimitMultiplier 2} SendPacketSequence(netClient:NetClient, packets:O
     assert cpacket in cpackets;
     assert OutboundPacketsIsValid(packets);
 
-    var dstAddrAry := seqToArrayOpt(dstEp.addr);
-    var remote;
-    ok, remote := IPEndPoint.Construct(dstAddrAry, dstEp.port, netClient.env);
-    if (!ok) { return; }
-
     assert CMessageIsAbstractable(cpacket.msg);
          
     assert Marshallable(cpacket.msg);
@@ -516,10 +493,10 @@ method{:timeLimitMultiplier 2} SendPacketSequence(netClient:NetClient, packets:O
     ghost var data := buffer[..];
     assert BufferRefinementAgreesWithMessageRefinement(cpacket.msg, data);
 
-    ok := netClient.Send(remote, buffer);
+    ok := netClient.Send(dstEp.public_key, buffer);
     if (!ok) { return; }
 
-    ghost var netEvent := LIoOpSend(LPacket(remote.EP(), netClient.LocalEndPoint(), buffer[..]));
+    ghost var netEvent := LIoOpSend(LPacket(dstEp, EndPoint(netClient.MyPublicKey()), buffer[..]));
     ghost var net := netEvent.s;
 
     calc {

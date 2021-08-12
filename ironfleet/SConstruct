@@ -262,8 +262,9 @@ def add_dafny_compiler_builder(env):
 ####################################################################
 
 def generate_dotnet_actions(source, target, env, for_signature):
+  target_dir = os.path.dirname(str(target[0]))
   return [
-    ["dotnet", "build", "--configuration", "Release", str(source[0])]
+    ["dotnet", "build", "--configuration", "Release", "--output", target_dir, str(source[0])]
   ]
 
 def get_dotnet_dependencies(target, source, env):
@@ -356,14 +357,17 @@ verify_dafny_file('src/Dafny/Distributed/Protocol/RSL/LivenessProof/LivenessProo
 verify_dafny_file('src/Dafny/Distributed/Protocol/LiveSHT/LivenessProof/LivenessProof.i.dfy')
 
 env.DafnyCompile('src/Dafny/Distributed/Services/RSL/Main.i.cs', 'src/Dafny/Distributed/Services/RSL/Main.i.dfy')
-env.DotnetBuild('src/IronRSLCounterServer/bin/Release/net5.0/IronRSLCounterServer.dll', 'src/IronRSLCounterServer/IronRSLCounterServer.csproj')
-env.DotnetBuild('src/IronRSLCounterClient/bin/Release/net5.0/IronRSLCounterClient.dll', 'src/IronRSLCounterClient/IronRSLCounterClient.csproj')
-env.DotnetBuild('src/IronRSLKVServer/bin/Release/net5.0/IronRSLKVServer.dll', 'src/IronRSLKVServer/IronRSLKVServer.csproj')
-env.DotnetBuild('src/IronRSLKVClient/bin/Release/net5.0/IronRSLKVClient.dll', 'src/IronRSLKVClient/IronRSLKVClient.csproj')
+env.DotnetBuild('bin/IronRSLCounterServer.dll', 'src/IronRSLCounterServer/IronRSLCounterServer.csproj')
+env.DotnetBuild('bin/IronRSLCounterClient.dll', 'src/IronRSLCounterClient/IronRSLCounterClient.csproj')
+env.DotnetBuild('bin/IronRSLKVServer.dll', 'src/IronRSLKVServer/IronRSLKVServer.csproj')
+env.DotnetBuild('bin/IronRSLKVClient.dll', 'src/IronRSLKVClient/IronRSLKVClient.csproj')
 
 env.DafnyCompile('src/Dafny/Distributed/Services/SHT/Main.i.cs', 'src/Dafny/Distributed/Services/SHT/Main.i.dfy')
-env.DotnetBuild('src/IronSHTServer/bin/Release/net5.0/IronSHTServer.dll', 'src/IronSHTServer/IronSHTServer.csproj')
-env.DotnetBuild('src/IronSHTClient/bin/Release/net5.0/IronSHTClient.dll', 'src/IronSHTClient/IronSHTClient.csproj')
+env.DotnetBuild('bin/IronSHTServer.dll', 'src/IronSHTServer/IronSHTServer.csproj')
+env.DotnetBuild('bin/IronSHTClient.dll', 'src/IronSHTClient/IronSHTClient.csproj')
 
 env.DafnyCompile('src/Dafny/Distributed/Services/Lock/Main.i.cs', 'src/Dafny/Distributed/Services/Lock/Main.i.dfy')
-env.DotnetBuild('src/IronLockServer/bin/Release/net5.0/IronLockServer.dll', 'src/IronLockServer/IronLockServer.csproj')
+env.DotnetBuild('bin/IronLockServer.dll', 'src/IronLockServer/IronLockServer.csproj')
+
+env.DotnetBuild('bin/CreateIronServiceCerts.dll', 'src/CreateIronServiceCerts/CreateIronServiceCerts.csproj')
+env.DotnetBuild('bin/TestIoFramework.dll', 'src/TestIoFramework/TestIoFramework.csproj')

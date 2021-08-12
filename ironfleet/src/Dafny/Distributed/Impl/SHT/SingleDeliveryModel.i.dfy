@@ -229,12 +229,12 @@ method ReceiveSingleMessageImpl(acct:CSingleDeliveryAcct, pkt:CPacket, ghost par
 }
 
 
-method SendSingleCMessage(acct:CSingleDeliveryAcct, m:CMessage, dst:EndPoint, params:CParameters) 
+method {:timeLimitMultiplier 3} SendSingleCMessage(acct:CSingleDeliveryAcct, m:CMessage, dst:EndPoint, params:CParameters) 
     returns (acct':CSingleDeliveryAcct, sm:CSingleMessage, shouldSend:bool)
     requires CSingleDeliveryAccountIsValid(acct, params);
     requires CMessageIsAbstractable(m);
     requires MessageMarshallable(m);
-    requires EndPointIsAbstractable(dst);
+    requires ValidPhysicalAddress(dst);
     requires CParametersIsValid(params);
     ensures  CSingleDeliveryAccountIsValid(acct', params);
     ensures  CSingleMessageIsAbstractable(sm);

@@ -16,7 +16,8 @@ module LiveSHT__Unsendable_i {
     {
            |ios| == 1
         && ios[0].LIoOpReceive?
-        && !Demarshallable(ios[0].r.msg, CSingleMessage_grammar())
+//        && !Demarshallable(ios[0].r.msg, CSingleMessage_grammar())
+        && SHTDemarshallData(ios[0].r.msg).CInvalidMessage?
     }
 
 
@@ -27,7 +28,8 @@ module LiveSHT__Unsendable_i {
          && s.host.receivedPacket.v.msg.SingleMessage? 
          && s.host.receivedPacket.v.msg.m.Delegate?
          && var msg := s.host.receivedPacket.v.msg.m;
-            !(ValidKeyRange(msg.range) && ValidHashtable(msg.h) && !EmptyKeyRange(msg.range)))
+            !(ValidKeyRange(msg.range) && ValidHashtable(msg.h) && !EmptyKeyRange(msg.range)
+              && ValidPhysicalAddress(s.host.receivedPacket.v.msg.dst)))
     }
     
     predicate HostNextIgnoreUnsendableReceive(s:LScheduler, s':LScheduler, ios:seq<LIoOp<EndPoint, seq<byte>>>)

@@ -66,13 +66,13 @@ namespace IronSHTClient
   {
     public byte[] Value { get; set; }
     public ulong seqNum;
-    public ulong myaddr;
+    public byte[] myPublicKey;
     public ulong key;
 
-    public GetRequestMessage(ulong seqNum, ulong myaddr, ulong key) : base(0)
+    public GetRequestMessage(ulong seqNum, byte[] myPublicKey, ulong key) : base(0)
     {
       this.seqNum = seqNum;
-      this.myaddr = myaddr;
+      this.myPublicKey = myPublicKey;
       this.key = key;    
     }
 
@@ -92,7 +92,7 @@ namespace IronSHTClient
       {
         this.EncodeUlong(memStream, (ulong)0); // case for CSingleMessage
         this.EncodeUlong(memStream, (ulong)seqNum); // field one in CSingleMessage
-        this.EncodeUlong(memStream, (ulong)this.myaddr); // field two in CSingleMessage  
+        this.EncodeBytes(memStream, myPublicKey); // field two in CSingleMessage  
         this.EncodeUlong(memStream, (ulong)0); // case for GetRequest
         this.EncodeUlong(memStream, key); // field one in GetRequest
                 
@@ -104,15 +104,15 @@ namespace IronSHTClient
   public class SetRequestMessage : MessageBase
   {
     public ulong seqNum;
-    public ulong myaddr;
+    public byte[] myPublicKey;
     public ulong key;
     public ulong sizeValue;
     public Random rnd;
 
-    public SetRequestMessage(ulong seqNum, ulong myaddr, ulong key, ulong sizeValue) : base(0)
+    public SetRequestMessage(ulong seqNum, byte[] myPublicKey, ulong key, ulong sizeValue) : base(0)
     {
       this.seqNum = seqNum;
-      this.myaddr = myaddr;
+      this.myPublicKey = myPublicKey;
       this.key = key;
       this.sizeValue = sizeValue;
       rnd = new Random();
@@ -138,7 +138,7 @@ namespace IronSHTClient
 
         this.EncodeUlong(memStream, (ulong)0); // case for CSingleMessage
         this.EncodeUlong(memStream, (ulong)seqNum); // field one in CSingleMessage
-        this.EncodeUlong(memStream, (ulong)this.myaddr); // field two in CSingleMessage  
+        this.EncodeBytes(memStream, this.myPublicKey); // field two in CSingleMessage  
         this.EncodeUlong(memStream, (ulong)1); // case for SetRequest
         this.EncodeUlong(memStream, key); // field one in SetRequest
         this.EncodeUlong(memStream, (ulong)0); // case for OptionalValue
@@ -151,14 +151,14 @@ namespace IronSHTClient
   public class ShardRequestMessage : MessageBase
   {
     public ulong seqNum;
-    public ulong myaddr;
+    public byte[] myPublicKey;
     public ulong k_lo, k_hi;
-    public ulong recipient;
+    public byte[] recipient;
 
-    public ShardRequestMessage(ulong seqNum, ulong myaddr, ulong k_lo, ulong k_hi, ulong recipient) : base(0)
+    public ShardRequestMessage(ulong seqNum, byte[] myPublicKey, ulong k_lo, ulong k_hi, byte[] recipient) : base(0)
     {
       this.seqNum = seqNum;
-      this.myaddr = myaddr;
+      this.myPublicKey = myPublicKey;
       this.k_lo = k_lo;
       this.k_hi = k_hi;
       this.recipient = recipient;
@@ -180,7 +180,7 @@ namespace IronSHTClient
       {
         this.EncodeUlong(memStream, (ulong)0); // case for CSingleMessage
         this.EncodeUlong(memStream, (ulong)seqNum); // field one in CSingleMessage
-        this.EncodeUlong(memStream, (ulong)this.myaddr); // field two in CSingleMessage  
+        this.EncodeBytes(memStream, this.myPublicKey); // field two in CSingleMessage  
                 
         this.EncodeUlong(memStream, (ulong)4); // case for ShardRequest
 
@@ -191,7 +191,7 @@ namespace IronSHTClient
         this.EncodeUlong(memStream, (ulong)k_hi); // khi
 
         // encode the recipient
-        this.EncodeUlong(memStream, this.recipient);
+        this.EncodeBytes(memStream, this.recipient);
 
         return memStream.ToArray();
       }
@@ -202,12 +202,10 @@ namespace IronSHTClient
   {
     public byte[] Value { get; set; }
     public ulong seqNum;
-    public ulong myaddr;
 
-    public AckMessage(ulong seqNum, ulong myaddr) : base(0)
+    public AckMessage(ulong seqNum) : base(0)
     {
       this.seqNum = seqNum;
-      this.myaddr = myaddr;
     }
 
     public override byte[] ToBigEndianByteArray()
@@ -248,39 +246,41 @@ namespace IronSHTClient
     public int id;
     public Params ps;
     public IoScheduler scheduler;
+    public ServiceIdentity serviceIdentity;
 
-    private Client(int i_id, Params i_ps)
+    private Client(int i_id, Params i_ps, ServiceIdentity i_serviceIdentity)
     {
       id = i_id;
       ps = i_ps;
+      serviceIdentity = i_serviceIdentity;
     }
 
-    static public IEnumerable<Thread> StartSetupThreads(Params ps)
+    static public IEnumerable<Thread> StartSetupThreads(Params ps, ServiceIdentity serviceIdentity)
     {
-      if (ps.numThreads < 0)
+      if (ps.NumThreads < 0)
       {
         throw new ArgumentException("count is less than 1", "count");
       }
 
-      for (int i = 0; i < ps.numSetupThreads; ++i)
+      for (int i = 0; i < ps.NumSetupThreads; ++i)
       {
-        var c = new Client(i, ps);
+        var c = new Client(i, ps, serviceIdentity);
         Thread t = new Thread(c.Setup);
         t.Start();
         yield return t;
       }
     }
 
-    static public IEnumerable<Thread> StartExperimentThreads(Params ps)
+    static public IEnumerable<Thread> StartExperimentThreads(Params ps, ServiceIdentity serviceIdentity)
     {
-      if (ps.numThreads < 0)
+      if (ps.NumThreads < 0)
       {
         throw new ArgumentException("count is less than 1", "count");
       }
 
-      for (int i = 0; i < ps.numThreads; ++i)
+      for (int i = 0; i < ps.NumThreads; ++i)
       {
-        var c = new Client(i, ps);
+        var c = new Client(i, ps, serviceIdentity);
         Thread t = new Thread(c.Experiment);
         t.Start();
         yield return t;
@@ -295,24 +295,22 @@ namespace IronSHTClient
 
     public void Setup()
     {
-      IPEndPoint myEndpoint = new IPEndPoint(IPAddress.Any, ps.clientPort + (int)id);
-      scheduler = new IoScheduler(myEndpoint, false /* only client */, false /* verbose */);
-
-      ulong myaddr = EncodeIpPort(myEndpoint);
+      scheduler = IoScheduler.CreateClient(serviceIdentity.Servers, ps.Verbose);
+      byte[] myPublicKey = IoScheduler.GetCertificatePublicKey(scheduler.MyCert);
             
       int serverIdx = 0;
       ulong seqNum = 0;
       ulong requestKey;
 
-      for (requestKey = 0; requestKey < (ulong)ps.numKeys; ++requestKey)
+      for (requestKey = 0; requestKey < (ulong)ps.NumKeys; ++requestKey)
       {
         seqNum++;
-        var msg = new SetRequestMessage(seqNum, myaddr, requestKey, (ulong)ps.valueSize);
+        var msg = new SetRequestMessage(seqNum, myPublicKey, requestKey, (ulong)ps.ValueSize);
 
-        if (ps.verbose) {
+        if (ps.Verbose) {
           Console.WriteLine("Sending set request message with seq {0}, key {1} to server {2}", seqNum, requestKey, serverIdx);
         }
-        this.Send(msg, ps.serverEps[serverIdx]);
+        this.Send(msg, serviceIdentity.Servers[serverIdx].PublicKey);
                 
         // Wait for the reply
         var receivedReply = false;
@@ -321,9 +319,9 @@ namespace IronSHTClient
           byte[] bytes = Receive();
           var endTime = HiResTimer.Ticks;
           if (bytes == null) {
-            //serverIdx = (serverIdx + 1) % ps.serverEps.Count();
+            //serverIdx = (serverIdx + 1) % serviceIdentity.Servers.Count();
             Console.WriteLine("#timeout; retrying {0}", serverIdx);
-            this.Send(msg, ps.serverEps[serverIdx]);
+            this.Send(msg, serviceIdentity.Servers[serverIdx].PublicKey);
             continue;
           }
           //Trace("Got the following reply:" + ByteArrayToString(bytes));
@@ -331,43 +329,51 @@ namespace IronSHTClient
           if (bytes.Length == 16)
           {
             //Ignore acks
-            if (ps.verbose) {
+            if (ps.Verbose) {
               Console.WriteLine("Received ack");
             }
           }
           else if (bytes.Length >= 48) 
           {
             var replySeqNum = ExtractBE64(bytes, offset: 8);
-            if (ps.verbose) {
+            if (ps.Verbose) {
               Console.WriteLine("Reply sequence number : {0}", replySeqNum);
             }
 
-            var ack_msg = new AckMessage(replySeqNum, myaddr);
+            var ack_msg = new AckMessage(replySeqNum);
 
-            if (ps.verbose) {
+            if (ps.Verbose) {
               Console.Out.WriteLine("Client {0}: Sending an ack with sequence number {1} to {2}",
-                                    id, replySeqNum, ps.serverEps[serverIdx]);
+                                    id, replySeqNum, serviceIdentity.Servers[serverIdx]);
             }
-            this.Send(ack_msg, ps.serverEps[serverIdx]);
+            this.Send(ack_msg, serviceIdentity.Servers[serverIdx].PublicKey);
 
-            var replyKey = ExtractBE64(bytes, offset: 32);
-            // Need to send an ack
-            if (ps.verbose) {
-              Console.WriteLine("Request key : {0}", requestKey);
-              Console.WriteLine("Reply key : {0}", replyKey);
-              Console.WriteLine("Got packet length: {0}", bytes.Length);
+            int publicKeyLength = Convert.ToInt32(ExtractBE64(bytes, offset: 16));
+            if (bytes.Length < publicKeyLength + 40) {
+              Console.WriteLine("ERROR - Received too-short message (size {0} not long enough for public key of length {1})",
+                                bytes.Length, publicKeyLength);
             }
+            else {
+              var replyKey = ExtractBE64(bytes, offset: 32 + publicKeyLength);
+              // Need to send an ack
+              if (ps.Verbose) {
+                Console.WriteLine("Request key : {0}", requestKey);
+                Console.WriteLine("Reply key : {0}", replyKey);
+                Console.WriteLine("Got packet length: {0}", bytes.Length);
+              }
 
-            if (replyKey == requestKey)
-            {
-              receivedReply = true;
+              if (replyKey == requestKey)
+              {
+                receivedReply = true;
+              }
             }
           }
         }
       }
     }
 
-    private void ReceiveReply(int serverIdx, ulong myaddr, ulong requestKey, bool receiveOnlyAcks)
+    private void ReceiveReply(int serverIdx, byte[] myPublicKey, ulong requestKey, bool receiveOnlyAcks,
+                              bool expectRedirect = false)
     {
       var receivedReply = false;
       while (!receivedReply)
@@ -381,7 +387,7 @@ namespace IronSHTClient
         if (bytes.Length == 16)
         {
           var replySeqNum = ExtractBE64(bytes, offset: 8);
-          if (ps.verbose) {
+          if (ps.Verbose) {
             Console.WriteLine("Received an ack for sequence number {0}", replySeqNum);
           }
                     
@@ -393,27 +399,34 @@ namespace IronSHTClient
         else if (bytes.Length >= 48)
         {
           var replySeqNum = ExtractBE64(bytes, offset: 8);
-          var ack_msg = new AckMessage(replySeqNum, myaddr);
-          this.Send(ack_msg, ps.serverEps[serverIdx]);
+          var ack_msg = new AckMessage(replySeqNum);
+          this.Send(ack_msg, serviceIdentity.Servers[serverIdx].PublicKey);
 
-          var cmessage_case = ExtractBE64(bytes, offset: 24);
-          if (ps.verbose) {
-            Console.WriteLine("Received Message Case {0}", cmessage_case);
+          int publicKeyLength = Convert.ToInt32(ExtractBE64(bytes, offset: 16));
+          if (bytes.Length < publicKeyLength + 40) {
+            Console.WriteLine("ERROR - Received too-short message (size {0} not long enough for public key of length {1})",
+                              bytes.Length, publicKeyLength);
           }
-
-          var replyKey = ExtractBE64(bytes, offset: 32);
-          if (ps.verbose) {
-            if (cmessage_case == 2) {
-              Console.WriteLine("Received a reply with key {0}", replyKey);
+          else {
+            var cmessage_case = ExtractBE64(bytes, offset: 24 + publicKeyLength);
+            if (ps.Verbose) {
+              Console.WriteLine("Received Message Case {0}", cmessage_case);
             }
-            else if (cmessage_case == 3) {
-              Console.WriteLine("Received a redirect for key {0}", replyKey);
-            }
-          }
 
-          if (replyKey == requestKey && cmessage_case == 2)
-          {
-            receivedReply = true;
+            var replyKey = ExtractBE64(bytes, offset: 32 + publicKeyLength);
+            if (ps.Verbose) {
+              if (cmessage_case == 2) {
+                Console.WriteLine("Received a reply with key {0}", replyKey);
+              }
+              else if (cmessage_case == 3) {
+                Console.WriteLine("Received a redirect for key {0}", replyKey);
+              }
+            }
+
+            if (replyKey == requestKey && (expectRedirect ? cmessage_case == 3 : cmessage_case == 2))
+            {
+              receivedReply = true;
+            }
           }
         }
       }
@@ -421,48 +434,55 @@ namespace IronSHTClient
 
     public void Experiment()
     {
-      ulong requestKey = 150;
+      ulong requestKey;
       int serverIdx = 0;
             
-      IPEndPoint myEndpoint = new IPEndPoint(IPAddress.Any, ps.clientPort + ps.numSetupThreads + (int)id);
-      scheduler = new IoScheduler(myEndpoint, false /* only client */, false /* verbose */);
-      ulong myaddr = EncodeIpPort(myEndpoint);
+      scheduler = IoScheduler.CreateClient(serviceIdentity.Servers, ps.Verbose);
+
+      byte[] myPublicKey = IoScheduler.GetCertificatePublicKey(scheduler.MyCert);
       ulong seqNum = 0;
             
       // Test the functionality of the Sharding
-      if (ps.workload == 'f')
+      if (ps.Workload == 'f')
       {
-        ulong k_lo = 100;
-        ulong k_hi = 200;
-        var recipient = EncodeIpPort(ps.serverEps[(serverIdx + 1) % ps.serverEps.Count()]);
+        // A delegation can delegate at most 61 keys, so make sure
+        // there can't be that many keys in the range by having the
+        // range be smaller than 61.
+        ulong k_lo = 125;
+        ulong k_hi = 175;
+        requestKey = 150;
+        var recipient = serviceIdentity.Servers[(serverIdx + 1) % serviceIdentity.Servers.Count()];
 
         seqNum++;
-        var msg = new GetRequestMessage(seqNum, myaddr, requestKey);
-        this.Send(msg, ps.serverEps[serverIdx]);
-        ReceiveReply(serverIdx, myaddr, requestKey, false);
+        var msg = new GetRequestMessage(seqNum, myPublicKey, requestKey);
+        this.Send(msg, serviceIdentity.Servers[serverIdx].PublicKey);
+        ReceiveReply(serverIdx, myPublicKey, requestKey, false);
 
         seqNum++;
         Console.WriteLine("Sending a Shard request with a sequence number {0}", seqNum);
-        var shardMessage = new ShardRequestMessage(seqNum, myaddr, k_lo, k_hi, recipient);
-        this.Send(shardMessage, ps.serverEps[serverIdx]);
-        ReceiveReply(serverIdx, myaddr, requestKey, true);
+        var shardMessage = new ShardRequestMessage(seqNum, myPublicKey, k_lo, k_hi, recipient.PublicKey);
+        this.Send(shardMessage, serviceIdentity.Servers[serverIdx].PublicKey);
+        ReceiveReply(serverIdx, myPublicKey, requestKey, true);
 
         Thread.Sleep(5000);
 
         Console.WriteLine("Sending a GetRequest after a Shard, expect a redirect");
 
         seqNum++;
-        msg = new GetRequestMessage(seqNum, myaddr, requestKey);
-        this.Send(msg, ps.serverEps[(serverIdx + 0) % ps.serverEps.Count()]);
-        ReceiveReply(serverIdx, myaddr, requestKey, false);
+        msg = new GetRequestMessage(seqNum, myPublicKey, requestKey);
+        this.Send(msg, serviceIdentity.Servers[(serverIdx + 0) % serviceIdentity.Servers.Count()].PublicKey);
+        ReceiveReply(serverIdx, myPublicKey, requestKey, false, expectRedirect: true);
 
         Thread.Sleep(5000);
 
         Console.WriteLine("Sending a GetRequest after a Shard to the second host, expect a reply");
-        seqNum++;
-        msg = new GetRequestMessage(seqNum, myaddr, requestKey);
-        this.Send(msg, ps.serverEps[(serverIdx + 1) % ps.serverEps.Count()]);
-        ReceiveReply(serverIdx, myaddr, requestKey, false);
+        // Must use sequence number 1 since this is the first message
+        // to this server.
+        msg = new GetRequestMessage(1, myPublicKey, requestKey);
+        this.Send(msg, serviceIdentity.Servers[(serverIdx + 1) % serviceIdentity.Servers.Count()].PublicKey);
+        ReceiveReply((serverIdx + 1) % serviceIdentity.Servers.Count(), myPublicKey, requestKey, false);
+
+        Console.WriteLine("Successfully received reply");
                 
         return;
       }
@@ -472,20 +492,20 @@ namespace IronSHTClient
       {
         seqNum++;
         var receivedReply = false;
-        requestKey = seqNum % (ulong)ps.numKeys;
+        requestKey = seqNum % (ulong)ps.NumKeys;
                                
         MessageBase msg;
-        if (ps.workload == 'g') 
+        if (ps.Workload == 'g') 
         {
-          msg = new GetRequestMessage(seqNum, myaddr, requestKey);
+          msg = new GetRequestMessage(seqNum, myPublicKey, requestKey);
         }
         else
         {
-          msg = new SetRequestMessage(seqNum, myaddr, requestKey, (ulong)ps.valueSize);
+          msg = new SetRequestMessage(seqNum, myPublicKey, requestKey, (ulong)ps.ValueSize);
         }
 
         var startTime = HiResTimer.Ticks;
-        this.Send(msg, ps.serverEps[serverIdx]);
+        this.Send(msg, serviceIdentity.Servers[serverIdx].PublicKey);
         
         // Wait for the reply
                 
@@ -493,48 +513,59 @@ namespace IronSHTClient
         {
           byte[] bytes = Receive();
           if (bytes == null) {
-            //serverIdx = (serverIdx + 1) % ps.serverEps.Count();
+            //serverIdx = (serverIdx + 1) % serviceIdentity.Servers.Count();
             //Console.WriteLine("#timeout; rotating to server {0}", serverIdx);
             Console.WriteLine("#timeout; retrying {0}", serverIdx);
-            this.Send(msg, ps.serverEps[serverIdx]);
+            this.Send(msg, serviceIdentity.Servers[serverIdx].PublicKey);
             continue;
           }
           var endTime = HiResTimer.Ticks;
-                    
+
           if (bytes.Length == 16)
           {
             //Ignore acks
           }
-          else if (bytes.Length >= 56) 
+          else if (bytes.Length >= 56)
           {
             var replySeqNum = ExtractBE64(bytes, offset: 8);
-            if (ps.verbose) {
+            if (ps.Verbose)
+            {
               Console.WriteLine("Reply sequence number : {0}", replySeqNum);
               Console.WriteLine("Client {0}: Sending an ack with sequence number {1} to {2}",
-                                id, replySeqNum, ps.serverEps[serverIdx]);
+                                id, replySeqNum, serviceIdentity.Servers[serverIdx]);
             }
             if (seqNum % 100 == 0)
             {
-              var ack_msg = new AckMessage(replySeqNum, myaddr);
-              this.Send(ack_msg, ps.serverEps[serverIdx]);
+              var ack_msg = new AckMessage(replySeqNum);
+              this.Send(ack_msg, serviceIdentity.Servers[serverIdx].PublicKey);
             }
 
-            var replyKey = ExtractBE64(bytes, offset: 32);
-            // Need to send an ack
-            if (ps.verbose) {
-              Console.WriteLine("Request key : {0}", requestKey);
-              Console.WriteLine("Reply key : {0}", replyKey);
-              Console.WriteLine("Got packet length: {0}", bytes.Length);
-            }
-
-            // key is the same as the sequence number
-            if (replyKey == requestKey)
+            int publicKeyLength = Convert.ToInt32(ExtractBE64(bytes, offset: 16));
+            if (bytes.Length < publicKeyLength + 40)
             {
-              receivedReply = true;
-              Console.WriteLine("#req {0} {1} {2}",
-                                id,
-                                seqNum,
-                                HiResTimer.TicksToMilliseconds(endTime - startTime));
+              Console.WriteLine("ERROR - Received too-short message (size {0} not long enough for public key of length {1})",
+                                bytes.Length, publicKeyLength);
+            }
+            else
+            {
+              var replyKey = ExtractBE64(bytes, offset: 32 + publicKeyLength);
+              // Need to send an ack
+              if (ps.Verbose)
+              {
+                Console.WriteLine("Request key : {0}", requestKey);
+                Console.WriteLine("Reply key : {0}", replyKey);
+                Console.WriteLine("Got packet length: {0}", bytes.Length);
+              }
+
+              // key is the same as the sequence number
+              if (replyKey == requestKey)
+              {
+                receivedReply = true;
+                Console.WriteLine("#req {0} {1} {2}",
+                                  id,
+                                  seqNum,
+                                  HiResTimer.TicksToMilliseconds(endTime - startTime));
+              }
             }
           }
           else {
@@ -544,7 +575,7 @@ namespace IronSHTClient
       }
     }
 
-    private void Send(MessageBase msg, System.Net.IPEndPoint remote)
+    private void Send(MessageBase msg, byte[] remote)
     {
       var a = msg.ToBigEndianByteArray();
       if (!scheduler.SendPacket(remote, a))
@@ -557,7 +588,7 @@ namespace IronSHTClient
     {
       bool ok;
       bool timedOut;
-      IPEndPoint remote;
+      byte[] remote;
       byte[] buffer;
       scheduler.ReceivePacket(1000, out ok, out timedOut, out remote, out buffer);
       return buffer;

@@ -146,8 +146,8 @@ function AbstractifyNetPacket(net:NetPacket) : LockPacket
 
 predicate CLockPacketValid(p:CLockPacket)
 {
-       EndPointIsValidIPV4(p.src)
-    && EndPointIsValidIPV4(p.dst)
+      EndPointIsValidPublicKey(p.src)
+    && EndPointIsValidPublicKey(p.dst)
     && !p.msg.CInvalid?
 }
 

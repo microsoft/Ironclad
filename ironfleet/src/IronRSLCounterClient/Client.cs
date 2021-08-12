@@ -47,18 +47,20 @@ namespace IronRSLCounterClient
   {
     public int id;
     public Params ps;
+    public ServiceIdentity serviceIdentity;
 
-    private Client(int i_id, Params i_ps)
+    private Client(int i_id, Params i_ps, ServiceIdentity i_serviceIdentity)
     {
       id = i_id;
       ps = i_ps;
+      serviceIdentity = i_serviceIdentity;
     }
 
-    static public IEnumerable<Thread> StartThreads<T>(Params ps)
+    static public IEnumerable<Thread> StartThreads<T>(Params ps, ServiceIdentity serviceIdentity)
     {
-      for (int i = 0; i < ps.numThreads; ++i)
+      for (int i = 0; i < ps.NumThreads; ++i)
       {
-        Client c = new Client(i, ps);
+        Client c = new Client(i, ps, serviceIdentity);
         Thread t = new Thread(c.Run);
         t.Start();
         yield return t;
@@ -67,7 +69,7 @@ namespace IronRSLCounterClient
 
     private void Run()
     {
-      RSLClient rslClient = new RSLClient(ps.serverEps, ps.clientPort + (int)id);
+      RSLClient rslClient = new RSLClient(serviceIdentity, "Counter", ps.Verbose);
 
       Thread.Sleep(3000);
 
@@ -76,10 +78,10 @@ namespace IronRSLCounterClient
         var request = new IncrementRequest();
         byte[] requestBytes = request.Encode();
         var startTime = HiResTimer.Ticks;
-        byte[] replyBytes = rslClient.SubmitRequest(requestBytes, ps.verbose);
+        byte[] replyBytes = rslClient.SubmitRequest(requestBytes, ps.Verbose);
         var endTime = HiResTimer.Ticks;
         var reply = IncrementReply.Decode(replyBytes);
-        if (ps.verbose) {
+        if (ps.PrintReplies) {
           Console.WriteLine("Received increment reply with counter {0}", reply.counterValue);
         }
         Console.WriteLine("#req {0} {1} {2}",

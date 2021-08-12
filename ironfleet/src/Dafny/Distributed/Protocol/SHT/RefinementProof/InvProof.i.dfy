@@ -1,6 +1,7 @@
 include "InvDefs.i.dfy"
 
 module SHT__InvProof_i {
+import opened Native__Io_s
 import opened SHT__SHT_i
 import opened Concrete_NodeIdentity_i`Spec
 import opened SHT__Network_i
@@ -1659,6 +1660,7 @@ lemma NextInv_Process_Message(s:SHT_State, s':SHT_State, id:NodeIdentity, recv:s
     } else if (NextShard_Wrapper(h, h', rpkt, out)) {
         if (   rpkt.msg.m.recipient == h.me 
             || !ValidKeyRange(rpkt.msg.m.kr)
+            || !ValidPhysicalAddress(rpkt.msg.m.recipient)
             || EmptyKeyRange(rpkt.msg.m.kr)
             || rpkt.msg.m.recipient !in h.constants.hostIds 
             || !DelegateForKeyRangeIsHost(h.delegationMap, rpkt.msg.m.kr, h.me)

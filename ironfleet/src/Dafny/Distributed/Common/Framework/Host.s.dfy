@@ -14,45 +14,36 @@ predicate HostInit(host_state:HostState, config:ConcreteConfiguration, id:EndPoi
   reads *
 predicate HostNext(host_state:HostState, host_state':HostState, ios:seq<LIoOp<EndPoint, seq<byte>>>)
   reads *
-predicate ConcreteConfigInit(config:ConcreteConfiguration, servers:set<EndPoint>, clients:set<EndPoint>)
+
+predicate ConcreteConfigInit(config:ConcreteConfiguration)
+function ConcreteConfigToServers(config:ConcreteConfiguration) : set<EndPoint>
 
 predicate HostStateInvariants(host_state:HostState, env:HostEnvironment)
   reads *
-predicate ConcreteConfigurationInvariants(config:ConcreteConfiguration)
 
-function ResolveCommandLine(args:seq<seq<uint16>>) : (args':seq<seq<uint16>>)
-  ensures |args'| >= |args|
-function ParseCommandLineConfiguration(args:seq<seq<uint16>>) : (ConcreteConfiguration, set<EndPoint>, set<EndPoint>)
-function ParseCommandLineId(ip:seq<uint16>, port:seq<uint16>) : EndPoint
+function ParseCommandLineConfiguration(args:seq<seq<byte>>) : ConcreteConfiguration
 
 predicate ArbitraryObject(o:object) { true }
 
-// TODO: Prohibit HostInitImpl from sending (and receiving?) packets
-method HostInitImpl(ghost env:HostEnvironment) returns (
+method HostInitImpl(ghost env:HostEnvironment, netc:NetClient, args:seq<seq<byte>>) returns (
   ok:bool,
-  host_state:HostState,
-  config:ConcreteConfiguration,
-  ghost servers:set<EndPoint>,
-  ghost clients:set<EndPoint>,
-  id:EndPoint
+  host_state:HostState
   )
   requires env.Valid()
   requires env.ok.ok()
-  requires |env.constants.CommandLineArgs()| >= 2
+  requires netc.IsOpen()
+  requires netc.env == env
+  requires ValidPhysicalAddress(EndPoint(netc.MyPublicKey()))
   modifies set x:object | ArbitraryObject(x)     // Everything!
   ensures  ok ==> env.Valid() && env.ok.ok()
-  ensures  ok ==> |env.constants.CommandLineArgs()| >= 2
   ensures  ok ==> HostStateInvariants(host_state, env)
-  ensures  ok ==> ConcreteConfigurationInvariants(config)
-  ensures  ok ==> var args := ResolveCommandLine(env.constants.CommandLineArgs());
-                  var (parsed_config, parsed_servers, parsed_clients) := ParseCommandLineConfiguration(args[0..|args|-2]);
-                  && config == parsed_config
-                  && servers == parsed_servers
-                  && clients == parsed_clients
-                  && ConcreteConfigInit(parsed_config, parsed_servers, parsed_clients);
-  ensures  ok ==> var args := ResolveCommandLine(env.constants.CommandLineArgs());
-                  && id == ParseCommandLineId(args[|args|-2], args[|args|-1])
-                  && HostInit(host_state, config, id);
+  ensures  ok ==> var id := EndPoint(netc.MyPublicKey());
+                 var config := ParseCommandLineConfiguration(args);
+                 && id in ConcreteConfigToServers(config)
+                 && ConcreteConfigInit(config)
+                 && HostInit(host_state, config, id)
+  ensures  env.net.history() == old(env.net.history()) // Prohibit HostInitImpl from sending (and receiving) packets
+
 
 method HostNextImpl(ghost env:HostEnvironment, host_state:HostState) 
   returns (
@@ -67,17 +58,16 @@ method HostNextImpl(ghost env:HostEnvironment, host_state:HostState)
   requires HostStateInvariants(host_state, env)
   modifies set x:object | ArbitraryObject(x)     // Everything!
   ensures  ok <==> env.Valid() && env.ok.ok()
-  // TODO: Even when !ok, if sent is non-empty, we need to return valid set of sent packets too
   ensures  ok ==> HostStateInvariants(host_state', env)
   ensures  ok ==> HostNext(host_state, host_state', ios)
   // Connect the low-level IO events to the spec-level IO events
   ensures  ok ==> recvs + clocks + sends == ios
   // These obligations enable us to apply reduction
-  ensures  ok ==> env.net.history() == old(env.net.history()) + (recvs + clocks + sends)
+  // Even when !ok, if sent is non-empty, we need to return valid set of sent packets too
+  ensures  (ok || |sends| > 0) ==> env.net.history() == old(env.net.history()) + (recvs + clocks + sends)
   ensures  forall e :: && (e in recvs ==> e.LIoOpReceive?) 
                  && (e in clocks ==> e.LIoOpReadClock? || e.LIoOpTimeoutReceive?) 
                  && (e in sends ==> e.LIoOpSend?)
   ensures  |clocks| <= 1
 
 }
-

@@ -1,4 +1,5 @@
 ﻿using IronfleetCommon;
+using IronfleetIoFramework;
 using System;
 using System.Linq;
 using System.Numerics;
@@ -14,26 +15,17 @@ namespace IronRSLKVClient
     static void usage()
     {
       Console.Write(@"
-Usage:  dotnet IronRSLKVClient.dll [key=value]...
+Usage:  dotnet IronRSLKVClient.dll <service> [key=value]...
+
+  <service>      - file path of the service description
 
 Allowed keys:
-  clientport     - Port this client should bind to (default 6000)
-  server1        - IP address+port of first server (default 127.0.0.1:4001)
-  server2        - IP address+port of second server (default 127.0.0.1:4002)
-  server3        - IP address+port of third server (default 127.0.0.1:4003)
   nthreads       - number of client threads to run (default 1)
   duration       - duration of experiment in seconds (default 60)
   setfraction    - fraction of requests that are sets (default 0.25)
   deletefraction - fraction of requests that are deletes (default 0.05)
+  print          - print requests and replies (false or true, default false)
   verbose        - print verbose output (false or true, default false)
-
-If nthreads > 1, then each thread will use a different port number,
-using consecutive port numbers starting with clientport.
-
-NOTE: Each client endpoint is expected to use strictly increasing
-sequence numbers, which it tracks by writing files named port<num>.
-So if you run this program multiple times using the same client
-address and port, make sure you run from the same directory.
 ");
     }
 
@@ -49,23 +41,33 @@ address and port, make sure you run from the same directory.
         }
       }
 
+      if (!ps.Validate()) {
+        usage();
+        return;
+      }
+
+      var serviceIdentity = ServiceIdentity.ReadFromFile(ps.ServiceFileName);
+      if (serviceIdentity == null) {
+        return;
+      }
+
       HiResTimer.Initialize();
-      if (ps.verbose) {
-        Console.WriteLine("Client process starting {0} threads running for {1} s...", ps.numThreads, ps.experimentDuration);
+      if (ps.Verbose) {
+        Console.WriteLine("Client process starting {0} threads running for {1} s...", ps.NumThreads, ps.ExperimentDuration);
       }
             
       Console.WriteLine("[[READY]]");
             
       // Start the experiment
-      var threads = Client.StartThreads<Client>(ps).ToArray();
+      var threads = Client.StartThreads<Client>(ps, serviceIdentity).ToArray();
 
-      if (ps.experimentDuration == 0)
+      if (ps.ExperimentDuration == 0)
       {
         threads[0].Join();
       }
       else
       {
-        Thread.Sleep((int)ps.experimentDuration * 1000);
+        Thread.Sleep((int)ps.ExperimentDuration * 1000);
         Console.Out.WriteLine("[[DONE]]");
         Console.Out.Flush();
         Environment.Exit(0);

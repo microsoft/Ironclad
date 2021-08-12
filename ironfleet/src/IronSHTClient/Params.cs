@@ -5,43 +5,57 @@ namespace IronSHTClient
 {
   public class Params
   {
-    public int seqNumReservationSize;
-    public int numSetupThreads;
-    public int numThreads;
-    public ulong experimentDuration;
-    public int clientPort;
-    public IPEndPoint[] serverEps;
-    public ulong initialSeqNum;
-    public double setFraction;
-    public double deleteFraction;
-    public char workload;
-    public int numKeys;
-    public int valueSize;
-    public bool verbose;
+    private string serviceFileName;
+    private int numSetupThreads;
+    private int numThreads;
+    private ulong experimentDuration;
+    private char workload;
+    private int numKeys;
+    private int valueSize;
+    private bool verbose;
 
     public Params()
     {
-      seqNumReservationSize = 1000;
+      serviceFileName = "";
       numSetupThreads = 1;
       numThreads = 1;
       experimentDuration = 60;
-      serverEps = new IPEndPoint[3] { IPEndPoint.Parse("127.0.0.1:4001"),
-                                      IPEndPoint.Parse("127.0.0.1:4002"),
-                                      IPEndPoint.Parse("127.0.0.1:4003") };
-      clientPort = 6000;
-      initialSeqNum = 0;
       workload = 's';
       numKeys = 1000;
       valueSize = 1000;
       verbose = false;
     }
 
+    public string ServiceFileName { get { return serviceFileName; } }
+    public int NumSetupThreads { get { return numSetupThreads; } }
+    public int NumThreads { get { return numThreads; } }
+    public ulong ExperimentDuration { get { return experimentDuration; } }
+    public char Workload { get { return workload; } }
+    public int NumKeys { get { return numKeys; } }
+    public int ValueSize { get { return valueSize; } }
+    public bool Verbose { get { return verbose; } }
+
+    public bool Validate()
+    {
+      if (serviceFileName.Length == 0) {
+        Console.WriteLine("ERROR - Missing service parameter");
+        return false;
+      }
+      return true;
+    }
+
     public bool ProcessCommandLineArgument(string arg)
     {
       var pos = arg.IndexOf("=");
       if (pos < 0) {
-        Console.WriteLine("Invalid argument {0}", arg);
-        return false;
+        if (serviceFileName.Length == 0) {
+          serviceFileName = arg;
+          return true;
+        }
+        else {
+          Console.WriteLine("Invalid argument {0}", arg);
+          return false;
+        }
       }
       var key = arg.Substring(0, pos).ToLower();
       var value = arg.Substring(pos + 1);
@@ -50,76 +64,64 @@ namespace IronSHTClient
 
     private bool SetValue(string key, string value)
     {
-      try {
-        switch (key) {
-          case "clientport" :
-            clientPort = Convert.ToInt32(value);
-            return true;
-
-          case "server1" :
-            serverEps[0] = IronfleetCommon.Networking.ResolveIPEndpoint(value);
-            return serverEps[0] != null;
-
-          case "server2" :
-            serverEps[1] = IronfleetCommon.Networking.ResolveIPEndpoint(value);
-            return serverEps[1] != null;
-
-          case "server3" :
-            serverEps[2] = IronfleetCommon.Networking.ResolveIPEndpoint(value);
-            return serverEps[2] != null;
-
-          case "nthreads" :
-            numThreads = Convert.ToInt32(value);
-            if (numThreads < 1) {
-              Console.WriteLine("Number of threads must be at least 1, so can't be {0}", numThreads);
-              return false;
-            }
-            return true;
-
-          case "duration" :
-            experimentDuration = Convert.ToUInt64(value);
-            return true;
-
-          case "initialseqno" :
-            initialSeqNum = Convert.ToUInt64(value);
-            return true;
-
-          case "workload" :
-            if (value != "g" && value != "s" && value != "f") {
-              Console.WriteLine("Workload must be 'g', 's', or 'f', but you specified {0}", value);
-              return false;
-            }
-            workload = value[0];
-            return true;
-
-          case "numkeys" :
-            numKeys = Convert.ToInt32(value);
-            return true;
-
-          case "valuesize" :
-            valueSize = Convert.ToInt32(value);
-            if (valueSize < 0 || valueSize >= 1024) {
-              Console.WriteLine("Value size must be non-negative and less than 1024, but you specified {0}", valueSize);
-              return false;
-            }
-            return true;
-
-          case "verbose" :
-            if (value == "false") {
-              verbose = false;
-              return true;
-            }
-            if (value == "true") {
-              verbose = true;
-              return true;
-            }
-            Console.WriteLine("Invalid verbose value {0} - should be false or true", value);
-            return false;
+      if (key == "verbose") {
+        if (value == "false") {
+          verbose = false;
+          return true;
         }
-      }
-      catch (Exception e) {
-        Console.WriteLine("Invalid value {0} for key {1}, leading to exception:\n{2}", value, key, e);
+        if (value == "true") {
+          verbose = true;
+          return true;
+        }
+        Console.WriteLine("ERROR - Invalid verbose value {0} - should be false or true", value);
         return false;
+      }
+
+      if (key == "nthreads") {
+        try {
+          numThreads = Convert.ToInt32(value);
+          if (numThreads < 1) {
+            Console.WriteLine("Number of threads must be at least 1, so can't be {0}", numThreads);
+            return false;
+          }
+        }
+        catch (Exception e) {
+          Console.WriteLine("Could not parse number of threads {0} as a number. Exception:\n{1}", value, e);
+          return false;
+        }
+        return true;
+      }
+
+      if (key == "duration") {
+        experimentDuration = Convert.ToUInt64(value);
+        return true;
+      }
+
+      if (key == "workload") {
+        if (value != "g" && value != "s" && value != "f") {
+          Console.WriteLine("Workload must be 'g', 's', or 'f', but you specified {0}", value);
+          return false;
+        }
+        workload = value[0];
+        return true;
+      }
+
+      if (key == "numkeys") {
+        numKeys = Convert.ToInt32(value);
+        if (numKeys < 1) {
+          Console.WriteLine("Number of keys must be greater than zero, not {0}", value);
+          return false;
+        }
+        return true;
+      }
+
+      if (key == "valuesize") {
+        valueSize = Convert.ToInt32(value);
+        if (valueSize < 0 || valueSize >= 1024) {
+          Console.WriteLine("Value size must be non-negative and less than 1024, but you specified {0}", valueSize);
+          return false;
+        }
+        return true;
       }
 
       Console.WriteLine("Invalid argument key {0}", key);

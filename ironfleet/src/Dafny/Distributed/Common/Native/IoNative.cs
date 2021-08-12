@@ -11,84 +11,18 @@ using FStream = System.IO.FileStream;
 
 namespace Native____Io__s_Compile {
 
-  public partial class HostConstants
+  public partial class PrintParams
   {
-    public static uint NumCommandLineArgs()
-    {
-      return (uint)System.Environment.GetCommandLineArgs().Length;
-    }
+    internal static bool shouldPrintProfilingInfo = false;
+    internal static bool shouldPrintProgress = false;
 
-    public static ushort[] GetCommandLineArg(ulong i)
-    {
-      return Array.ConvertAll(System.Environment.GetCommandLineArgs()[i].ToCharArray(), c => (ushort)c);
-    }
-  }
+    public static bool ShouldPrintProfilingInfo() { return shouldPrintProfilingInfo; }
+    public static bool ShouldPrintProgress() { return shouldPrintProgress; }
 
-  public partial class IPEndPoint
-  {
-    internal System.Net.IPEndPoint endpoint;
-    internal IPEndPoint(System.Net.IPEndPoint endpoint) { this.endpoint = endpoint; }
-  
-    public byte[] GetAddress()
+    public static void SetParameters(bool i_shouldPrintProfilingInfo, bool i_shouldPrintProgress)
     {
-      // no exceptions thrown:
-      return (byte[])(endpoint.Address.GetAddressBytes().Clone());
-    }
-  
-    public ushort GetPort()
-    {
-      // no exceptions thrown:
-      return (ushort)endpoint.Port;
-    }
-  
-    public static void Construct(byte[] ipAddress, ushort port, out bool ok, out IPEndPoint endpoint)
-    {
-      try
-      {
-        ipAddress = (byte[])(ipAddress.Clone());
-        endpoint = new IPEndPoint(new System.Net.IPEndPoint(new System.Net.IPAddress(ipAddress), port));
-        ok = true;
-      }
-      catch (Exception e)
-      {
-        System.Console.Error.WriteLine(e);
-        endpoint = null;
-        ok = false;
-      }
-    }
-  
-    // DnsResolve is a Dafny function, which must be deterministic, so remember lookup results
-    private static System.Collections.Generic.Dictionary<string, string> dns =
-          new System.Collections.Generic.Dictionary<string, string>();
-  
-    public static Dafny.ISequence<ushort> DnsResolve(Dafny.ISequence<ushort> name)
-    {
-      var str_name = new String(Array.ConvertAll(name.Elements, c => (char)c));
-      try
-      {
-        if (dns.ContainsKey(str_name))
-        {
-          return Dafny.Sequence<ushort>.FromArray(Array.ConvertAll(dns[str_name].ToCharArray(), c => (ushort)c));
-        }
-        foreach (var addr in System.Net.Dns.GetHostEntry(str_name).AddressList)
-        {
-          if (addr.AddressFamily == AddressFamily.InterNetwork)
-          {
-            dns.Add(str_name, addr.ToString());
-            return Dafny.Sequence<ushort>.FromArray(Array.ConvertAll(addr.ToString().ToCharArray(), c => (ushort)c));
-          }
-        }
-      }
-      catch (Exception e)
-      {
-        System.Console.Error.WriteLine("Error: DNS lookup failed for " + str_name);
-        System.Console.Error.WriteLine(e);
-        dns.Add(str_name, str_name);
-        return name;
-      }
-      System.Console.Error.WriteLine("Error: could not find IPv4 address for " + str_name);
-      dns.Add(str_name, str_name);
-      return name;
+      shouldPrintProfilingInfo = i_shouldPrintProfilingInfo;
+      shouldPrintProgress = i_shouldPrintProgress;
     }
   }
   
@@ -100,39 +34,54 @@ namespace Native____Io__s_Compile {
     {
       scheduler = i_scheduler;
     }
+
+    public static int MaxPublicKeySize { get { return 0xFFFFF; } }
+
+    public Dafny.ISequence<byte> MyPublicKey()
+    {
+      return Dafny.Sequence<byte>.FromArray(IoScheduler.GetCertificatePublicKey(scheduler.MyCert));
+    }
   
-    public static void Construct(IPEndPoint localEP, out bool ok, out NetClient net)
+    public static NetClient Create(PrivateIdentity myIdentity, string localHostNameOrAddress, int localPort,
+                                   List<PublicIdentity> knownIdentities, bool verbose, int maxSendRetries = 3)
     {
       try
       {
-        IoScheduler scheduler = new IoScheduler(localEP.endpoint, false /* only client */, false /* verbose */);
-        net = new NetClient(scheduler);
-        ok = true;
+        var scheduler = IoScheduler.CreateServer(myIdentity, localHostNameOrAddress, localPort, knownIdentities,
+                                                 verbose, maxSendRetries);
+        var myPublicKey = IoScheduler.GetCertificatePublicKey(scheduler.MyCert);
+        if (myPublicKey.Length > MaxPublicKeySize) {
+          System.Console.Error.WriteLine("ERROR:  The provided public key for my identity is too big ({0} > {1} bytes)",
+                                         myPublicKey.Length, MaxPublicKeySize);
+          return null;
+        }
+        return new NetClient(scheduler);
       }
       catch (Exception e)
       {
         System.Console.Error.WriteLine(e);
-        net = null;
-        ok = false;
+        return null;
       }
     }
   
-    public void Close(out bool ok)
+    public void Receive(int timeLimit, out bool ok, out bool timedOut, out Dafny.ISequence<byte> remote, out byte[] buffer)
     {
-      scheduler = null;
-      ok = true;
+      byte[] remoteBytes;
+      scheduler.ReceivePacket(timeLimit, out ok, out timedOut, out remoteBytes, out buffer);
+      if (ok && !timedOut && remoteBytes != null && remoteBytes.Length > MaxPublicKeySize) {
+        timedOut = true;
+      }
+      if (ok && !timedOut) {
+        remote = Dafny.Sequence<byte>.FromArray(remoteBytes);
+      }
+      else {
+        remote = Dafny.Sequence<byte>.Empty;
+      }
     }
   
-    public void Receive(int timeLimit, out bool ok, out bool timedOut, out IPEndPoint remote, out byte[] buffer)
+    public bool Send(Dafny.ISequence<byte> remote, byte[] buffer)
     {
-      System.Net.IPEndPoint remoteEp;
-      scheduler.ReceivePacket(timeLimit, out ok, out timedOut, out remoteEp, out buffer);
-      remote = (remoteEp == null) ? null : new IPEndPoint(remoteEp);
-    }
-  
-    public bool Send(IPEndPoint remote, byte[] buffer)
-    {
-      return scheduler.SendPacket(remote.endpoint, buffer);
+      return scheduler.SendPacket(remote.Elements, buffer);
     }
   }
   

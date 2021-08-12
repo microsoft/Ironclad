@@ -87,7 +87,7 @@ lemma lemma_AbstractifySeqOfUint64sToSetOfInts_append(original_seq:seq<uint64>, 
 
 predicate EndPointIsAbstractable(endpoint:EndPoint)
 {
-  EndPointIsValidIPV4(endpoint)
+  true
 }
 
 function AbstractifyEndPointToNodeIdentity(endpoint:EndPoint) : NodeIdentity
@@ -95,18 +95,13 @@ function AbstractifyEndPointToNodeIdentity(endpoint:EndPoint) : NodeIdentity
   endpoint
 }
 
-predicate Uint64IsAbstractableToNodeIdentity(id:uint64)
-{
-  EndPointUint64Representation(id)
-}
-
 predicate SeqOfEndPointsIsAbstractable(endPoints:seq<EndPoint>)
 {
-  forall e :: e in endPoints ==> EndPointIsValidIPV4(e)
+  forall e :: e in endPoints ==> EndPointIsAbstractable(e)
 }
 
 function {:opaque} AbstractifyEndPointsToNodeIdentities(endPoints:seq<EndPoint>) : seq<NodeIdentity>
-  requires forall e :: e in endPoints ==> EndPointIsValidIPV4(e)
+  requires forall e :: e in endPoints ==> EndPointIsAbstractable(e)
   ensures |AbstractifyEndPointsToNodeIdentities(endPoints)| == |endPoints|
   ensures forall i :: 0<=i<|endPoints| ==> AbstractifyEndPointToNodeIdentity(endPoints[i]) == AbstractifyEndPointsToNodeIdentities(endPoints)[i]
 {
@@ -114,183 +109,17 @@ function {:opaque} AbstractifyEndPointsToNodeIdentities(endPoints:seq<EndPoint>)
   else [AbstractifyEndPointToNodeIdentity(endPoints[0])] + AbstractifyEndPointsToNodeIdentities(endPoints[1..])
 }
 
-predicate EndPointSeqRepresentation(s:seq<byte>)
-{
-  |s| == 8 && s[0]==0 && s[1]==0
-}
-
-predicate EndPointUint64Representation(u:uint64)
-{
-  u <= 0xffffffffffff
-}
-
-lemma EndPointRepresentations()
-  ensures forall u :: EndPointUint64Representation(u) ==> EndPointSeqRepresentation(Uint64ToSeqByte(u))
-{
-}
-
-function method {:opaque} ConvertEndPointToSeqByte(e:EndPoint) : seq<byte>
-  requires EndPointIsValidIPV4(e)
-  ensures EndPointSeqRepresentation(ConvertEndPointToSeqByte(e))
-{
-  [0, 0] + e.addr + Uint16ToSeqByte(e.port)
-}
-
-function method {:opaque} ConvertSeqByteToEndPoint(s:seq<byte>) : EndPoint
-  requires EndPointSeqRepresentation(s)
-  ensures EndPointIsValidIPV4(ConvertSeqByteToEndPoint(s))  // trivially true with current defn
-{
-  EndPoint(s[2..6], SeqByteToUint16(s[6..]))
-}
-
-lemma{:timeLimitMultiplier 3} EndPointSeqRepresentations()
-  ensures forall s :: EndPointSeqRepresentation(s) ==> ConvertEndPointToSeqByte(ConvertSeqByteToEndPoint(s)) == s
-  ensures forall e :: EndPointIsValidIPV4(e) ==> ConvertSeqByteToEndPoint(ConvertEndPointToSeqByte(e)) == e
-{
-  forall s | EndPointSeqRepresentation(s)
-    ensures ConvertEndPointToSeqByte(ConvertSeqByteToEndPoint(s)) == s
-  {
-    reveal ConvertEndPointToSeqByte();
-    reveal ConvertSeqByteToEndPoint();
-    var e := ConvertSeqByteToEndPoint(s);
-    assert e == EndPoint(s[2..6], SeqByteToUint16(s[6..]));
-    var s' := [0, 0] + e.addr + Uint16ToSeqByte(e.port);
-    assert{:split_here} true;
-    assert s'[0] == 0 == s[0];
-    assert s'[1] == 0 == s[1];
-    assert s'[2..6] == e.addr;
-    assert |e.addr| == 4;
-    assert s'[6..] == Uint16ToSeqByte(e.port);
-    assert s' == s; // OBSERVE seq
-  }
-
-  forall e | EndPointIsValidIPV4(e)
-    ensures ConvertSeqByteToEndPoint(ConvertEndPointToSeqByte(e)) == e
-  {
-    var s := [0, 0] + e.addr + Uint16ToSeqByte(e.port);
-    calc {
-      ConvertSeqByteToEndPoint(ConvertEndPointToSeqByte(e));
-        { reveal ConvertEndPointToSeqByte(); }
-      ConvertSeqByteToEndPoint(s);
-        { reveal ConvertSeqByteToEndPoint(); }
-      EndPoint(s[2..6], SeqByteToUint16(s[6..]));
-      e;
-    }
-  }
-}
-
-function method {:opaque} ConvertEndPointToUint64(e:EndPoint) : uint64
-  requires EndPointIsValidIPV4(e)
-  ensures  EndPointUint64Representation(ConvertEndPointToUint64(e))
-{
-  SeqByteToUint64(ConvertEndPointToSeqByte(e))
-}
-
-function method {:opaque} ConvertUint64ToEndPoint(u:uint64) : EndPoint
-  requires EndPointUint64Representation(u)
-  ensures EndPointIsValidIPV4(ConvertUint64ToEndPoint(u))
-{
-  EndPointRepresentations();
-  ConvertSeqByteToEndPoint(Uint64ToSeqByte(u))
-}
-
-lemma lemma_ConvertUint64ToNodeIdentity_injective_forall()
-  ensures forall u1, u2 ::
-            && EndPointUint64Representation(u1)
-            && EndPointUint64Representation(u2)
-            && AbstractifyUint64ToNodeIdentity(u1) == AbstractifyUint64ToNodeIdentity(u2)
-            ==> u1==u2
-{
-  forall u1, u2 |
-    && EndPointUint64Representation(u1)
-    && EndPointUint64Representation(u2)
-    && AbstractifyUint64ToNodeIdentity(u1) == AbstractifyUint64ToNodeIdentity(u2)
-    ensures u1==u2;
-  {
-    lemma_ConvertUint64ToNodeIdentity_injective(u1, u2);
-  }
-}
-
-lemma Uint64EndPointRelationships()
-  ensures forall u :: EndPointUint64Representation(u) ==> EndPointIsValidIPV4(ConvertUint64ToEndPoint(u)) && ConvertEndPointToUint64(ConvertUint64ToEndPoint(u)) == u
-  ensures forall e :: EndPointIsValidIPV4(e) ==> ConvertUint64ToEndPoint(ConvertEndPointToUint64(e)) == e
-{
-  var pv := power2(8);
-  lemma_2toX();
-  reveal ConvertUint64ToEndPoint();
-  EndPointSeqRepresentations();
-
-  forall u | EndPointUint64Representation(u)
-    ensures ConvertEndPointToUint64(ConvertUint64ToEndPoint(u)) == u
-  {
-    reveal ConvertEndPointToUint64();
-    lemma_BEByteSeqToInt_BEUintToSeqByte_invertability();
-  }
-
-  forall e | EndPointIsValidIPV4(e)
-    ensures ConvertUint64ToEndPoint(ConvertEndPointToUint64(e)) == e
-  {
-    reveal ConvertEndPointToUint64();
-    var s := ConvertEndPointToSeqByte(e);
-    lemma_BEByteSeqToInt_BEUintToSeqByte_invertability();
-  }
-}
-
-lemma lemma_Uint64EndPointRelationships()
-  ensures forall u {:trigger ConvertEndPointToUint64(ConvertUint64ToEndPoint(u))} :: EndPointUint64Representation(u) ==> EndPointIsValidIPV4(ConvertUint64ToEndPoint(u)) && ConvertEndPointToUint64(ConvertUint64ToEndPoint(u)) == u
-  ensures forall e {:trigger ConvertUint64ToEndPoint(ConvertEndPointToUint64(e))} :: EndPointIsValidIPV4(e) ==> ConvertUint64ToEndPoint(ConvertEndPointToUint64(e)) == e
-{
-  reveal ConvertUint64ToEndPoint();
-  Uint64EndPointRelationships();
-}
-
-//////////////////////////////////////////////////////////////////////////////
-
-function AbstractifyUint64ToNodeIdentity(u:uint64) : NodeIdentity
-  requires EndPointUint64Representation(u)
-{
-  reveal ConvertUint64ToEndPoint();
-  AbstractifyEndPointToNodeIdentity(ConvertUint64ToEndPoint(u))
-}
-
-//lemma lemma_ConvertUint64ToEndPoint_injective(u1:uint64, u2:uint64)
-//  requires EndPointUint64Representation(u1) && EndPointUint64Representation(u2)
-//  requires ConvertUint64ToEndPoint(u1) == ConvertUint64ToEndPoint(u2)
-//  ensures u1==u2
-//{
-//  Uint64EndPointRelationships();
-//}
-
-lemma lemma_ConvertUint64ToNodeIdentity_injective(u1:uint64, u2:uint64)
-  requires EndPointUint64Representation(u1) && EndPointUint64Representation(u2)
-  requires AbstractifyUint64ToNodeIdentity(u1) == AbstractifyUint64ToNodeIdentity(u2)
-  ensures u1==u2
-{
-  reveal ConvertSeqByteToEndPoint();
-  reveal ConvertUint64ToEndPoint();
-  Uint64EndPointRelationships();
-}
-
 lemma lemma_AbstractifyEndPointToNodeIdentity_injective(e1:EndPoint, e2:EndPoint)
-  requires EndPointIsValidIPV4(e1) && EndPointIsValidIPV4(e2)
   requires AbstractifyEndPointToNodeIdentity(e1) == AbstractifyEndPointToNodeIdentity(e2)
   ensures e1==e2
 {
-  reveal ConvertSeqByteToEndPoint();
-  var u1 := ConvertEndPointToUint64(e1);
-  var u2 := ConvertEndPointToUint64(e2);
-  lemma_ConvertUint64ToNodeIdentity_injective(u1, u2);
-  Uint64EndPointRelationships();
 }
 
 lemma lemma_AbstractifyEndPointToNodeIdentity_injective_forall()
   ensures forall e1, e2 {:trigger AbstractifyEndPointToNodeIdentity(e1),AbstractifyEndPointToNodeIdentity(e2)} ::
-            (EndPointIsValidIPV4(e1) && EndPointIsValidIPV4(e2)
-             && AbstractifyEndPointToNodeIdentity(e1) == AbstractifyEndPointToNodeIdentity(e2))
-            ==> e1 == e2;
+            AbstractifyEndPointToNodeIdentity(e1) == AbstractifyEndPointToNodeIdentity(e2) ==> e1 == e2;
 {
-  forall e1, e2 | (EndPointIsValidIPV4(e1) && EndPointIsValidIPV4(e2)
-                   && AbstractifyEndPointToNodeIdentity(e1) == AbstractifyEndPointToNodeIdentity(e2))
+  forall e1, e2 | AbstractifyEndPointToNodeIdentity(e1) == AbstractifyEndPointToNodeIdentity(e2)
     ensures e1 == e2
   {
     lemma_AbstractifyEndPointToNodeIdentity_injective(e1, e2);
@@ -307,7 +136,7 @@ lemma lemma_seqs_set_cardinality_EndPoint(Q:seq<EndPoint>, S:set<EndPoint>)
 }
 
 lemma lemma_sets_cardinality_EndPoint(S:set<EndPoint>, T:set<NodeIdentity>)
-  requires forall e :: e in S ==> EndPointIsValidIPV4(e)
+  requires forall e :: e in S ==> EndPointIsAbstractable(e)
   requires T == set e | e in S :: AbstractifyEndPointToNodeIdentity(e)
   ensures |S| == |T|
   decreases |S|
@@ -329,9 +158,9 @@ lemma lemma_AbstractifyEndPointsToNodeIdentities_properties(endpoints:seq<EndPoi
   requires SeqOfEndPointsIsAbstractable(endpoints)
   ensures |AbstractifyEndPointsToNodeIdentities(endpoints)| == |endpoints|
   ensures forall e :: e in endpoints ==> AbstractifyEndPointToNodeIdentity(e) in AbstractifyEndPointsToNodeIdentities(endpoints)
-  ensures forall e :: EndPointIsValidIPV4(e) ==> (e in endpoints <==> AbstractifyEndPointToNodeIdentity(e) in AbstractifyEndPointsToNodeIdentities(endpoints))
+  ensures forall e :: EndPointIsAbstractable(e) ==> (e in endpoints <==> AbstractifyEndPointToNodeIdentity(e) in AbstractifyEndPointsToNodeIdentities(endpoints))
 {
-  forall e |  EndPointIsValidIPV4(e)
+  forall e |  EndPointIsAbstractable(e)
     ensures e in endpoints <==> AbstractifyEndPointToNodeIdentity(e) in AbstractifyEndPointsToNodeIdentities(endpoints)
   {
     if e in endpoints {
@@ -346,8 +175,8 @@ lemma lemma_AbstractifyEndPointsToNodeIdentities_properties(endpoints:seq<EndPoi
 }
 
 lemma lemma_AbstractifyEndPointsToNodeIdentities_injective_elements(s1:seq<EndPoint>, s2:seq<EndPoint>)
-  requires forall e :: e in s1 ==> EndPointIsValidIPV4(e)
-  requires forall e :: e in s2 ==> EndPointIsValidIPV4(e)
+  requires forall e :: e in s1 ==> EndPointIsAbstractable(e)
+  requires forall e :: e in s2 ==> EndPointIsAbstractable(e)
   requires AbstractifyEndPointsToNodeIdentities(s1) == AbstractifyEndPointsToNodeIdentities(s2)
   ensures  forall e :: e in s1 <==> e in s2
 {
@@ -356,8 +185,8 @@ lemma lemma_AbstractifyEndPointsToNodeIdentities_injective_elements(s1:seq<EndPo
 }
 
 lemma lemma_AbstractifyEndPointsToNodeIdentities_injective(s1:seq<EndPoint>, s2:seq<EndPoint>)
-  requires forall e :: e in s1 ==> EndPointIsValidIPV4(e)
-  requires forall e :: e in s2 ==> EndPointIsValidIPV4(e)
+  requires forall e :: e in s1 ==> EndPointIsAbstractable(e)
+  requires forall e :: e in s2 ==> EndPointIsAbstractable(e)
   requires AbstractifyEndPointsToNodeIdentities(s1) == AbstractifyEndPointsToNodeIdentities(s2)
   ensures  s1 == s2;
 {
@@ -371,19 +200,15 @@ lemma lemma_AbstractifyEndPointsToNodeIdentities_injective(s1:seq<EndPoint>, s2:
 
 predicate NodeIdentityIsRefinable(id:NodeIdentity)
 {
-  exists ep :: EndPointIsValidIPV4(ep) && AbstractifyEndPointToNodeIdentity(ep) == id
+  true
 }
 
 // Give Dafny a symbol handle for this choose (:|) expression
 function{:opaque} RefineNodeIdentityToEndPoint(id:NodeIdentity) : EndPoint
-  // requires NodeIdentityIsRefinable(id)
-  ensures  NodeIdentityIsRefinable(id) ==> EndPointIsValidIPV4(RefineNodeIdentityToEndPoint(id))
+  ensures  NodeIdentityIsRefinable(id) ==> EndPointIsAbstractable(RefineNodeIdentityToEndPoint(id))
   ensures  NodeIdentityIsRefinable(id) ==> AbstractifyEndPointToNodeIdentity(RefineNodeIdentityToEndPoint(id)) == id
 {
-  if(NodeIdentityIsRefinable(id)) then 
-    (var ep :| EndPointIsValidIPV4(ep) && AbstractifyEndPointToNodeIdentity(ep) == id; ep)
-  else    
-    var e:EndPoint :| (true); e
+  id
 }
 
 

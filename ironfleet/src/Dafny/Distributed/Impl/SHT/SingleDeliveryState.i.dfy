@@ -38,8 +38,8 @@ predicate CTombstoneTableIsAbstractable(ts:CTombstoneTable)
 function AbstractifyCTombstoneTableToTombstoneTable(ts:CTombstoneTable) : TombstoneTable
     requires CTombstoneTableIsAbstractable(ts);
 {
-    lemma_AbstractifyEndPointToNodeIdentity_injective_forall();
-    AbstractifyMap(ts, AbstractifyEndPointToNodeIdentity, uint64_to_nat_t, RefineNodeIdentityToEndPoint)
+  lemma_AbstractifyEndPointToNodeIdentity_injective_forall();
+  AbstractifyMap(ts, AbstractifyEndPointToNodeIdentity, uint64_to_nat_t, RefineNodeIdentityToEndPoint)
 }
 
 //////////////////////////////////////////////////////////////////////////////

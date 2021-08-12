@@ -21,7 +21,7 @@ datatype CNode = CNode(held:bool, epoch:uint64, my_index:uint64, config:Config)
 predicate ValidConfig(c:Config)
 {
     0 < |c| < 0x1_0000_0000_0000_0000
- && (forall e :: e in c ==> EndPointIsValidIPV4(e))
+ && (forall e :: e in c ==> EndPointIsValidPublicKey(e))
  && SeqIsUnique(c)
 }
 

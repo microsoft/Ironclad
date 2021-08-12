@@ -19,8 +19,8 @@ module Host_i refines Host_s {
         provides Native__Io_s, Environment_s, Native__NativeTypes_s
         provides HostState
         provides ConcreteConfiguration
-        provides HostInit, HostNext, ConcreteConfigInit, HostStateInvariants, ConcreteConfigurationInvariants
-        provides ResolveCommandLine, ParseCommandLineConfiguration, ParseCommandLineId, ArbitraryObject
+        provides HostInit, HostNext, ConcreteConfigInit, HostStateInvariants, ConcreteConfigToServers
+        provides ParseCommandLineConfiguration, ArbitraryObject
         provides HostInitImpl, HostNextImpl
     export All reveals *
 
@@ -29,11 +29,6 @@ module Host_i refines Host_s {
 
     type HostState = CScheduler
     type ConcreteConfiguration = ConstantsState
-
-    predicate ConcreteConfigurationInvariants(config:ConcreteConfiguration) 
-    {
-        ConstantsStateIsValid(config)
-    }
 
     predicate HostStateInvariants(host_state:HostState, env:HostEnvironment)
     {
@@ -63,41 +58,37 @@ module Host_i refines Host_s {
             || HostNextIgnoreUnsendable(host_state.sched, host_state'.sched, ios))
     }
 
-    predicate ConcreteConfigInit(config:ConcreteConfiguration, servers:set<EndPoint>, clients:set<EndPoint>)
+    predicate ConcreteConfigInit(config:ConcreteConfiguration)
     {
         ConstantsStateIsValid(config)
      && config.rootIdentity in config.hostIds
      //&& (forall i :: 0 <= i < |config.hostIds| ==> c
-     && MapSeqToSet(config.hostIds, x=>x) == servers
-     && (forall e :: e in servers ==> EndPointIsAbstractable(e))
-     && (forall e :: e in clients ==> EndPointIsAbstractable(e))
     }
 
-    function ResolveCommandLine(args:seq<seq<uint16>>) : seq<seq<uint16>>
+    function ConcreteConfigToServers(config:ConcreteConfiguration) : set<EndPoint>
     {
-        resolve_cmd_line_args(args)
+      MapSeqToSet(config.hostIds, x=>x)
     }
 
-    function ParseCommandLineConfiguration(args:seq<seq<uint16>>) : (ConcreteConfiguration, set<EndPoint>, set<EndPoint>)
+    function ParseCommandLineConfiguration(args:seq<seq<byte>>) : ConcreteConfiguration
     {
-        var sht_config := sht_config_parsing(args);
-        var endpoints_set := (set e{:trigger e in sht_config.hostIds} | e in sht_config.hostIds);
-        (sht_config, endpoints_set, {})
-    }
-
-    function ParseCommandLineId(ip:seq<uint16>, port:seq<uint16>) : EndPoint
-    {
-        sht_parse_id(ip, port)
+       sht_cmd_line_parsing(args)
     }
     
-    method {:timeLimitMultiplier 4} HostInitImpl(ghost env:HostEnvironment) returns (ok:bool, host_state:HostState, config:ConcreteConfiguration, ghost servers:set<EndPoint>, ghost clients:set<EndPoint>, id:EndPoint)
+    method {:timeLimitMultiplier 4} HostInitImpl(
+      ghost env:HostEnvironment,
+      netc:NetClient,
+      args:seq<seq<byte>>
+      ) returns (
+      ok:bool,
+      host_state:HostState
+      )
     {
-        var init_config:ConstantsState, my_index;
-        ok, init_config, my_index := parse_cmd_line(env);
+        var config:ConstantsState, my_index:uint64;
+        var id := EndPoint(netc.MyPublicKey());
+        ok, config, my_index := parse_cmd_line(id, args);
         if !ok { return; }
-        assert env.constants == old(env.constants);
-        id := init_config.hostIds[my_index];
-        config := init_config;
+        assert config.hostIds[my_index] in config.hostIds;
         
         var scheduler := new SchedulerImpl();
 //        calc {
@@ -108,24 +99,12 @@ module Host_i refines Host_s {
 
         assert env.Valid() && env.ok.ok();
         
-        ok := scheduler.Host_Init_Impl(config, id, env);
+        ok := scheduler.Host_Init_Impl(config, my_index, id, netc, env);
         
         if !ok { return; }
         host_state := CScheduler(scheduler.AbstractifyToLScheduler(), scheduler);
-        servers := set e | e in config.hostIds;
-        clients := {};
-        assert env.constants == old(env.constants);
-        ghost var args := resolve_cmd_line_args(env.constants.CommandLineArgs());
-        ghost var tuple := ParseCommandLineConfiguration(args[0..|args|-2]);
-        ghost var parsed_config, parsed_servers, parsed_clients := tuple.0, tuple.1, tuple.2;
-        //assert config.config == parsed_config.config;
-        assert config.params == parsed_config.params;
-        //assert config == parsed_config[me := parsed_config.hostIds[my_index]];
-        assert servers == parsed_servers; 
-        assert clients == parsed_clients;
-        assert ConcreteConfigInit(parsed_config, parsed_servers, parsed_clients);
+        assert ConcreteConfigInit(config);
         assert HostInit(host_state, config, id);
-        assert config == parsed_config && servers == parsed_servers && clients == parsed_clients && ConcreteConfigInit(parsed_config, parsed_servers, parsed_clients);
     }
     
     predicate EventsConsistent(recvs:seq<NetEvent>, clocks:seq<NetEvent>, sends:seq<NetEvent>) 

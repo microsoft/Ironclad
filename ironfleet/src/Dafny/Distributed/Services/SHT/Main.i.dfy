@@ -12,7 +12,6 @@ module Main_i refines Main_s {
     import opened AS_s = AbstractServiceSHT_s`Spec
     import opened DS_s = SHT_DistributedSystem_i
     import opened DS_s.H_s
-    import opened Native__NativeTypes_s
     import opened Math__mod_auto_i
     import opened Collections__Sets_i
     import opened Collections__Maps2_s
@@ -44,11 +43,12 @@ module Main_i refines Main_s {
     import opened LiveSHT__Unsendable_i
     import opened LiveSHT__SHTRefinement_i
     import opened Common__GenericMarshalling_i
+    import opened Common__NetClient_i
     import opened Common__NodeIdentity_i
-
+    
     export
-        provides DS_s, Native__Io_s
-        provides Main
+        provides DS_s, Native__Io_s, Native__NativeTypes_s
+        provides IronfleetMain
 
     predicate IsValidBehavior(config:ConcreteConfiguration, db:seq<DS_State>)
         reads *;
@@ -112,7 +112,7 @@ module Main_i refines Main_s {
     }
 
     function AbstractifyConcreteConfiguration(ds_config:ConcreteConfiguration) : SHTConfiguration
-        requires ConstantsStateIsValid(ds_config);
+        requires ConstantsStateIsAbstractable(ds_config);
     {
         AbstractifyToConfiguration( 
                                 SHTConcreteConfiguration(
@@ -132,11 +132,6 @@ module Main_i refines Main_s {
         if replica_order == [] then []
         else
             [replicas[replica_order[0]].sched] + AbstractifyConcreteReplicas(replicas, replica_order[1..])
-    }
-
-    function AbstractifyConcreteClients(clients:set<EndPoint>) : set<NodeIdentity>
-    {
-        set e | e in clients :: e
     }
 
     predicate DsStateIsAbstractable(ds:DS_State) 
@@ -180,7 +175,6 @@ module Main_i refines Main_s {
         requires 0 <= i < |db|;
         ensures  db[i].config == config;
         ensures  Collections__Maps2_s.mapdomain(db[i].servers) == Collections__Maps2_s.mapdomain(db[0].servers);
-        ensures  db[i].clients == db[0].clients;
     {
         if i == 0 {
         } else {
@@ -820,7 +814,7 @@ module Main_i refines Main_s {
         if Demarshallable(p.msg, g) {
             var cmsg := parse_CSingleMessage(DemarshallFunc(p.msg, g));
             if cmsg.CSingleMessage? {
-                assert !EndPointIsAbstractable(cmsg.dst) || !MessageMarshallable(cmsg.m);
+                assert !EndPointIsValidPublicKey(cmsg.dst) || !MessageMarshallable(cmsg.m);
             }
         }
     }
@@ -1447,7 +1441,7 @@ module Main_i refines Main_s {
                     p in concretePkts 
                  && p.src in serviceState.serverAddresses 
                  && p.msg == MarshallServiceReply(reply, reserved_bytes)
-                 && |reserved_bytes| == 8
+                 && |reserved_bytes| < 0x10_0000
                  ensures reply in serviceState.replies;
             {
                 var lsht_packet := AbstractifyConcretePacket(p);
@@ -1486,7 +1480,7 @@ module Main_i refines Main_s {
             forall req | req in serviceState.requests && req.AppGetRequest? 
                       ensures exists p, reserved_bytes :: p in concretePkts && p.dst in serviceState.serverAddresses 
                                                    && p.msg == MarshallServiceGetRequest(req, reserved_bytes)
-                                                   && |reserved_bytes| == 8;
+                                                   && |reserved_bytes| < 0x10_0000;
             {
                 
                 assert serviceState == Refinement(sht_state);
@@ -1519,7 +1513,7 @@ module Main_i refines Main_s {
             forall req | req in serviceState.requests && req.AppSetRequest? 
                       ensures exists p, reserved_bytes :: p in concretePkts && p.dst in serviceState.serverAddresses 
                                                    && p.msg == MarshallServiceSetRequest(req, reserved_bytes)
-                                                   && |reserved_bytes| == 8;
+                                                   && |reserved_bytes| < 0x10_0000;
             {
                 assert serviceState == Refinement(sht_state);
                 var h,req_index :| h in maprange(sht_state.hosts) && 0 <= req_index < |h.receivedRequests| && req == h.receivedRequests[req_index];

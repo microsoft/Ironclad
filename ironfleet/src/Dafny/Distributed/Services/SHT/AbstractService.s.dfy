@@ -58,9 +58,10 @@ predicate Service_Next(s:ServiceState, s':ServiceState)
 function MarshallServiceGetRequest(app:AppRequest, reserved:seq<byte>) : seq<byte>
     requires app.AppGetRequest?
 {
-    if 0 <= app.g_seqno < 0x1_0000_0000_0000_0000 then
+    if 0 <= app.g_seqno < 0x1_0000_0000_0000_0000 && |reserved| < 0x10_0000 then
         [ 0, 0, 0, 0, 0, 0, 0, 0] // CSingleMessage_grammar magic number        
       + Uint64ToBytes(app.g_seqno as uint64)
+      + Uint64ToBytes(|reserved| as uint64)
       + reserved
       + [ 0, 0, 0, 0, 0, 0, 0, 0] // CMessage_GetRequest_grammar magic number
       + MarshallSHTKey(app.g_k)
@@ -71,9 +72,10 @@ function MarshallServiceGetRequest(app:AppRequest, reserved:seq<byte>) : seq<byt
 function MarshallServiceSetRequest(app:AppRequest, reserved:seq<byte>) : seq<byte>
     requires app.AppSetRequest?
 {    
-    if 0 <= app.s_seqno < 0x1_0000_0000_0000_0000 then
+    if 0 <= app.s_seqno < 0x1_0000_0000_0000_0000 && |reserved| < 0x10_0000 then
         [ 0, 0, 0, 0, 0, 0, 0, 0] // CSingleMessage_grammar magic number        
       + Uint64ToBytes(app.s_seqno as uint64)
+      + Uint64ToBytes(|reserved| as uint64)
       + reserved
       + [ 0, 0, 0, 0, 0, 0, 0, 1] // CMessage_SetRequest_grammar magic number
       + MarshallSHTKey(app.s_k)
@@ -88,9 +90,10 @@ function MarshallServiceSetRequest(app:AppRequest, reserved:seq<byte>) : seq<byt
 
 function MarshallServiceReply(app:AppReply, reserved:seq<byte>) : seq<byte>
 {
-    if 0 <= app.seqno < 0x1_0000_0000_0000_0000 then
+    if 0 <= app.seqno < 0x1_0000_0000_0000_0000 && |reserved| < 0x10_0000 then
         [ 0, 0, 0, 0, 0, 0, 0, 0] // CSingleMessage_grammar magic number        
       + Uint64ToBytes(app.seqno as uint64)
+      + Uint64ToBytes(|reserved| as uint64)
       + reserved
       + [ 0, 0, 0, 0, 0, 0, 0, 2] // CMessage_Reply_grammar magic number
       + MarshallSHTKey(app.k)
@@ -109,16 +112,16 @@ predicate Service_Correspondence(concretePkts:set<LPacket<EndPoint, seq<byte>>>,
                     p in concretePkts 
                  && p.src in serviceState.serverAddresses 
                  && p.msg == MarshallServiceReply(reply, reserved_bytes)
-                 && |reserved_bytes| == 8
+                 && |reserved_bytes| < 0x10_0000
                     ==> reply in serviceState.replies)
     && (forall req :: req in serviceState.requests && req.AppGetRequest? 
                       ==> exists p, reserved_bytes :: p in concretePkts && p.dst in serviceState.serverAddresses 
                                                    && p.msg == MarshallServiceGetRequest(req, reserved_bytes)
-                                                   && |reserved_bytes| == 8)
+                                                   && |reserved_bytes| < 0x10_0000)
     && (forall req :: req in serviceState.requests && req.AppSetRequest? 
                       ==> exists p, reserved_bytes :: p in concretePkts && p.dst in serviceState.serverAddresses 
                                                    && p.msg == MarshallServiceSetRequest(req, reserved_bytes)
-                                                   && |reserved_bytes| == 8)
+                                                   && |reserved_bytes| < 0x10_0000)
 }
 
 }

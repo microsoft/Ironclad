@@ -71,7 +71,7 @@ class ReplicaImpl
                     COperationNumber(0), COperationNumber(0));
     var acceptor_state :=
       AcceptorState(rcs, CBallot(0, 0), CVotes(map []), [], COperationNumber(0), COperationNumber(0));
-    var ep := EndPoint([], 0);
+    var ep := EndPoint([]);
     var learner_state := CLearnerState(rcs, CBallot(0, 0), map [], false, COperationNumber(0), false, CPacket(ep, ep, CMessage_Invalid()));
     var app_state := AppStateMachine.Initialize();
     var executor_state := ExecutorState(rcs, app_state, COperationNumber(0), CBallot(0, 0), COutstandingOpUnknown(), map[]);
@@ -90,8 +90,8 @@ class ReplicaImpl
     && (0 <= nextActionIndex as int < 10)
     && netClient != null
     && NetClientIsValid(netClient)
-    && netClient.LocalEndPoint() == localAddr
-    && netClient.LocalEndPoint() == replica.constants.all.config.replica_ids[replica.constants.my_index]
+    && EndPoint(netClient.MyPublicKey()) == localAddr
+    && EndPoint(netClient.MyPublicKey()) == replica.constants.all.config.replica_ids[replica.constants.my_index]
     && ReplicaStateIsValid(replica)
     && Repr == { this } + NetClientRepr(netClient)
     && cur_req_set != prev_req_set
@@ -126,55 +126,34 @@ class ReplicaImpl
       nextActionIndex as int)
   }
 
-  method ConstructNetClient(constants:ReplicaConstantsState, ghost env_:HostEnvironment) returns (ok:bool, client:NetClient?)
-    requires env_.Valid() && env_.ok.ok()
-    requires ReplicaConstantsState_IsValid(constants)
-    modifies env_.ok
-    ensures ok ==> && client != null
-                   && NetClientIsValid(client)
-                   && client.LocalEndPoint() == constants.all.config.replica_ids[constants.my_index]
-                   && client.env == env_
-  {
-    var my_ep := constants.all.config.replica_ids[constants.my_index];
-    var ip_byte_array := new byte[|my_ep.addr|];
-    assert EndPointIsValidIPV4(my_ep);
-    seqIntoArrayOpt(my_ep.addr, ip_byte_array);
-    var ip_endpoint;
-    ok, ip_endpoint := IPEndPoint.Construct(ip_byte_array, my_ep.port, env_);
-    if !ok { return; }
-    ok, client := NetClient.Construct(ip_endpoint, env_);
-    if ok {
-      calc {
-        client.LocalEndPoint();
-        ip_endpoint.EP();
-        my_ep;
-      }
-    }
-  }
-
-  method {:timeLimitMultiplier 7} Replica_Init(constants:ReplicaConstantsState, ghost env_:HostEnvironment) returns (ok:bool)
+  method Replica_Init(
+    constants:ReplicaConstantsState,
+    nc:NetClient,
+    ghost env_:HostEnvironment
+    ) returns (
+    ok:bool
+    )
     requires env_.Valid() && env_.ok.ok()
     requires ReplicaConstantsState_IsValid(constants)
     requires WellFormedLConfiguration(AbstractifyReplicaConstantsStateToLReplicaConstants(constants).all.config)
+    requires NetClientIsValid(nc)
+    requires EndPoint(nc.MyPublicKey()) == constants.all.config.replica_ids[constants.my_index]
+    requires nc.env == env_
     //requires KnownSendersMatchConfig(constants.all.config)
-    modifies this, netClient
-    modifies env_.ok
+    modifies this
     ensures ok ==>
             && Valid()
             && Env() == env_
             && this.replica.constants == constants
             && LSchedulerInit(AbstractifyToLScheduler(), AbstractifyReplicaConstantsStateToLReplicaConstants(constants))
   {
-    ok, netClient := ConstructNetClient(constants, env_); 
-
-    if (ok)
-    {
-      replica, cur_req_set, prev_req_set, reply_cache_mutable := InitReplicaState(constants);
-      nextActionIndex := 0;
-      localAddr := replica.constants.all.config.replica_ids[replica.constants.my_index];
-      Repr := { this } + NetClientRepr(netClient);
-      this.msg_grammar := CMessage_grammar();
-    }
+    netClient := nc;
+    replica, cur_req_set, prev_req_set, reply_cache_mutable := InitReplicaState(constants);
+    nextActionIndex := 0;
+    localAddr := replica.constants.all.config.replica_ids[replica.constants.my_index];
+    Repr := { this } + NetClientRepr(netClient);
+    this.msg_grammar := CMessage_grammar();
+    ok := true;
   }
 
   predicate ReceivedPacketProperties(cpacket:CPacket, netEvent0:NetEvent, io0:RslIo)

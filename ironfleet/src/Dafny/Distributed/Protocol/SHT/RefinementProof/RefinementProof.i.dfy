@@ -4,6 +4,7 @@ include "Refinement.i.dfy"
 include "InvProof.i.dfy"
 
 module SHT__RefinementProof_i {
+import opened Native__Io_s
 import opened Logic__Option_i
 import opened Collections__Maps2_s
 import opened Collections__Maps2_i
@@ -1568,6 +1569,7 @@ lemma {:timeLimitMultiplier 12} Next_Process_Message_Refines(s:SHT_State, s':SHT
         reveal_HiddenRefinement();
         if (   rpkt.msg.m.recipient == h.me 
             || !ValidKeyRange(rpkt.msg.m.kr)
+            || !ValidPhysicalAddress(rpkt.msg.m.recipient)
             || EmptyKeyRange(rpkt.msg.m.kr)
             || rpkt.msg.m.recipient !in h.constants.hostIds
             || !DelegateForKeyRangeIsHost(h.delegationMap, rpkt.msg.m.kr, h.me) 

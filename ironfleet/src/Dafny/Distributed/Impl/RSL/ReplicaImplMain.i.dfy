@@ -74,7 +74,7 @@ method {:timeLimitMultiplier 2} ReplicaNextMainProcessPacketX(r:ReplicaImpl)
 
   // Mention unchanged predicates over mutable state in the old heap.
   ghost var net_client_old := r.netClient;
-  ghost var net_addr_old := r.netClient.LocalEndPoint();
+  ghost var net_addr_old := r.netClient.MyPublicKey();
   assert NetClientIsValid(net_client_old);
 
   ghost var replica := r.AbstractifyToLReplica();
@@ -84,7 +84,7 @@ method {:timeLimitMultiplier 2} ReplicaNextMainProcessPacketX(r:ReplicaImpl)
   // Mention unchanged predicates over mutable state in the new heap.
   assert net_client_old == r.netClient;
   assert NetClientIsValid(r.netClient);
-  assert net_addr_old == r.netClient.LocalEndPoint();
+  assert net_addr_old == r.netClient.MyPublicKey();
 
   assert r.Valid();
 
@@ -137,7 +137,7 @@ method ReplicaNextMainNoClock(r:ReplicaImpl)
 
   // Mention unchanged predicates over mutable state in the old heap.
   ghost var net_client_old := r.netClient;
-  ghost var net_addr_old := r.netClient.LocalEndPoint();
+  ghost var net_addr_old := r.netClient.MyPublicKey();
   assert NetClientIsValid(net_client_old);
 
   ghost var replica := r.AbstractifyToLReplica();
@@ -148,7 +148,7 @@ method ReplicaNextMainNoClock(r:ReplicaImpl)
   // Mention unchanged predicates over mutable state in the new heap.
   assert net_client_old == r.netClient;
   assert NetClientIsValid(r.netClient);
-  assert net_addr_old == r.netClient.LocalEndPoint();
+  assert net_addr_old == r.netClient.MyPublicKey();
 
   assert r.Valid();
         
@@ -194,7 +194,7 @@ method ReplicaNextMainReadClock(r:ReplicaImpl)
 
   // Mention unchanged predicates over mutable state in the old heap.
   ghost var net_client_old := r.netClient;
-  ghost var net_addr_old := r.netClient.LocalEndPoint();
+  ghost var net_addr_old := r.netClient.MyPublicKey();
   assert NetClientIsValid(net_client_old);
 
   ghost var replica := r.AbstractifyToLReplica();
@@ -205,7 +205,7 @@ method ReplicaNextMainReadClock(r:ReplicaImpl)
   // Mention unchanged predicates over mutable state in the new heap.
   assert net_client_old == r.netClient;
   assert NetClientIsValid(r.netClient);
-  assert net_addr_old == r.netClient.LocalEndPoint();
+  assert net_addr_old == r.netClient.MyPublicKey();
 
   assert r.Valid();
         

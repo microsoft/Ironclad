@@ -48,7 +48,6 @@ lemma lemma_Received2bPacketsSameSizeAsAbstraction(l_learner_tuple:CLearnerTuple
     assert src in l_learner_tuple.received_2b_message_senders;
 
     forall x | x in l_received_2b_message_senders'
-      ensures EndPointIsValidIPV4(x)
       ensures AbstractifyEndPointToNodeIdentity(x) in h_learner_tuple'.received_2b_message_senders
     {
       var idx :| 0 <= idx < |l_received_2b_message_senders'| && x == l_received_2b_message_senders'[idx];
@@ -58,7 +57,7 @@ lemma lemma_Received2bPacketsSameSizeAsAbstraction(l_learner_tuple:CLearnerTuple
       assert AbstractifyEndPointToNodeIdentity(x) in SeqToSet(AbstractifyEndPointsToNodeIdentities(l_learner_tuple.received_2b_message_senders[1..]));
     }
 
-    forall x | EndPointIsValidIPV4(x) && AbstractifyEndPointToNodeIdentity(x) in h_learner_tuple'.received_2b_message_senders
+    forall x | EndPointIsValidPublicKey(x) && AbstractifyEndPointToNodeIdentity(x) in h_learner_tuple'.received_2b_message_senders
       ensures x in l_received_2b_message_senders'
     {
       var idx :| 0 <= idx < |l_learner_tuple'.received_2b_message_senders| && AbstractifyEndPointToNodeIdentity(x) == AbstractifyEndPointToNodeIdentity(l_learner_tuple'.received_2b_message_senders[idx]);
@@ -98,7 +97,7 @@ lemma lemma_Received2bPacketsSameSizeAsAbstraction(l_learner_tuple:CLearnerTuple
 
 lemma lemma_AbstractifyCLearnerTupleOfOneSource(l_tup:CLearnerTuple, h_tup:LearnerTuple, src:EndPoint)
   requires l_tup.received_2b_message_senders == [src]
-  requires EndPointIsValidIPV4(src)
+  requires EndPointIsValidPublicKey(src)
   requires LearnerTupleIsAbstractable(l_tup)
   requires h_tup.received_2b_message_senders == {AbstractifyEndPointToNodeIdentity(src)}
   requires h_tup.candidate_learned_value == AbstractifyCRequestBatchToRequestBatch(l_tup.candidate_learned_value)
@@ -127,7 +126,7 @@ lemma lemma_AbstractifyCLearnerTupleOfOneSource(l_tup:CLearnerTuple, h_tup:Learn
 
 lemma lemma_AddingSourceToSequenceAddsToSet(source:EndPoint, sseq1:seq<EndPoint>, sset1:set<NodeIdentity>,
                                             sseq2:seq<EndPoint>, sset2:set<NodeIdentity>)
-  requires EndPointIsValidIPV4(source)
+  requires EndPointIsValidPublicKey(source)
   requires SeqOfEndPointsIsAbstractable(sseq1)
   requires SeqOfEndPointsIsAbstractable(sseq2)
   requires sset1 == SeqToSet(AbstractifyEndPointsToNodeIdentities(sseq1))

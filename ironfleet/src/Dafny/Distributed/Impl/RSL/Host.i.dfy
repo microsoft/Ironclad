@@ -29,9 +29,14 @@ datatype CScheduler = CScheduler(ghost sched:LScheduler, replica_impl:ReplicaImp
 type HostState = CScheduler
 type ConcreteConfiguration = ConstantsState
 
-predicate ConcreteConfigurationInvariants(config:ConcreteConfiguration) 
+predicate ConcreteConfigInit(config:ConcreteConfiguration) 
 {
   ConstantsStateIsValid(config)
+}
+
+function ConcreteConfigToServers(config:ConcreteConfiguration) : set<EndPoint>
+{
+  MapSeqToSet(config.config.replica_ids, x=>x)
 }
 
 predicate HostStateInvariants(host_state:HostState, env:HostEnvironment)
@@ -58,44 +63,32 @@ predicate HostNext(host_state:HostState, host_state':HostState, ios:seq<LIoOp<En
      || HostNextIgnoreUnsendable(host_state.sched, host_state'.sched, ios))
 }
 
-predicate ConcreteConfigInit(config:ConcreteConfiguration, servers:set<EndPoint>, clients:set<EndPoint>)
-{
-  && ConstantsStateIsValid(config)
-  && MapSeqToSet(config.config.replica_ids, x=>x) == servers
-  && (forall e :: e in servers ==> EndPointIsAbstractable(e))
-  && (forall e :: e in clients ==> EndPointIsAbstractable(e))
-}
-
-function ResolveCommandLine(args:seq<seq<uint16>>) : seq<seq<uint16>>
-{
-  resolve_cmd_line_args(args)
-}
-
-function ParseCommandLineConfiguration(args:seq<seq<uint16>>) : (ConcreteConfiguration, set<EndPoint>, set<EndPoint>)
+function ParseCommandLineConfiguration(args:seq<seq<byte>>) : ConcreteConfiguration
 {
   var paxos_config := paxos_config_parsing(args);
   var params := StaticParams();
-  var endpoints_set := (set e{:trigger e in paxos_config.replica_ids} | e in paxos_config.replica_ids);
-  (ConstantsState(paxos_config, params), endpoints_set, {})
+  ConstantsState(paxos_config, params)
 }
 
-function ParseCommandLineId(ip:seq<uint16>, port:seq<uint16>) : EndPoint
-{
-  paxos_parse_id(ip, port)
-}
-
-method {:timeLimitMultiplier 4} HostInitImpl(ghost env:HostEnvironment) returns (ok:bool, host_state:HostState, config:ConcreteConfiguration, ghost servers:set<EndPoint>, ghost clients:set<EndPoint>, id:EndPoint)
+method {:timeLimitMultiplier 4} HostInitImpl(
+  ghost env:HostEnvironment,
+  netc:NetClient,
+  args:seq<seq<byte>>
+  ) returns (
+  ok:bool,
+  host_state:HostState
+  )
 {
   var pconfig:CPaxosConfiguration, my_index;
-  ok, pconfig, my_index := parse_cmd_line(env);
+  var id := EndPoint(netc.MyPublicKey());
+  ok, pconfig, my_index := parse_cmd_line(id, args);
 
   var lschedule:LScheduler;
   var repImpl:ReplicaImpl := new ReplicaImpl(); 
   host_state := CScheduler(lschedule,repImpl);
 
   if !ok { return; }
-  assert env.constants == old(env.constants);
-  id := pconfig.replica_ids[my_index];
+  assert id == pconfig.replica_ids[my_index];
 
   var scheduler := new ReplicaImpl();
   var constants := InitReplicaConstantsState(id, pconfig); //SystemConfiguration(me_ep);
@@ -111,22 +104,9 @@ method {:timeLimitMultiplier 4} HostInitImpl(ghost env:HostEnvironment) returns 
   assert ReplicaConstantsState_IsValid(constants);
   assert WellFormedLConfiguration(AbstractifyReplicaConstantsStateToLReplicaConstants(constants).all.config);
 
-  ok := scheduler.Replica_Init(constants, env);
+  ok := scheduler.Replica_Init(constants, netc, env);
   if !ok { return; }
   host_state := CScheduler(scheduler.AbstractifyToLScheduler(), scheduler);
-  config := constants.all;
-  servers := set e | e in constants.all.config.replica_ids;
-  clients := {};
-  assert env.constants == old(env.constants);
-  ghost var args := resolve_cmd_line_args(env.constants.CommandLineArgs());
-  ghost var tuple := ParseCommandLineConfiguration(args[0..|args|-2]);
-  ghost var parsed_config, parsed_servers, parsed_clients := tuple.0, tuple.1, tuple.2;
-  assert config.config == parsed_config.config;
-  assert config.params == parsed_config.params;
-  assert config == parsed_config;
-  assert servers == parsed_servers; 
-  assert clients == parsed_clients;
-  assert ConcreteConfigInit(parsed_config, parsed_servers, parsed_clients);
 }
 
 predicate EventsConsistent(recvs:seq<NetEvent>, clocks:seq<NetEvent>, sends:seq<NetEvent>) 

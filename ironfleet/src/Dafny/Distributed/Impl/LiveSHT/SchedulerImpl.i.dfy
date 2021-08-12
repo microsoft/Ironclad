@@ -30,6 +30,7 @@ import opened LiveSHT__NetSHT_i
 import opened LiveSHT__SchedulerModel_i
 import opened LiveSHT__Unsendable_i
 import opened LiveSHT__Environment_i
+import opened Common__GenericMarshalling_i
 import opened Common__NetClient_i
 import opened Common__NodeIdentity_i 
 import opened Common__Util_i
@@ -57,8 +58,8 @@ class SchedulerImpl
         && (0 <= nextActionIndex as int < LHost_NumActions())
         && (0 <= resendCount as int < 100000000)
         && NetClientIsValid(netClient)
-        && netClient.LocalEndPoint() == localAddr
-        && netClient.LocalEndPoint() == host.me
+        && EndPoint(netClient.MyPublicKey()) == localAddr
+        && EndPoint(netClient.MyPublicKey()) == host.me
         && HostStateIsValid(host)
         && Repr == { this } + NetClientRepr(netClient)
         && CSingleDeliveryAccountIsValid(host.sd, host.constants.params)
@@ -86,58 +87,38 @@ class SchedulerImpl
             nextActionIndex as int,
             resendCount as int)
     }
-      
-    method ConstructNetClient(constants:ConstantsState, me:EndPoint, ghost env_:HostEnvironment) returns (ok:bool, client:NetClient?)
-        requires env_.Valid() && env_.ok.ok();
-        requires ConstantsStateIsValid(constants);
-        requires EndPointIsAbstractable(me);
-        modifies env_.ok;
-        ensures ok ==> NetClientIsValid(client)
-                    && client.LocalEndPoint() == me
-                    && client.env == env_;
-    {
-        var my_ep := me;
-        var ip_byte_array := new byte[|my_ep.addr|];
-        assert EndPointIsValidIPV4(my_ep);
-        seqIntoArrayOpt(my_ep.addr, ip_byte_array);
-        var ip_endpoint;
-        ok, ip_endpoint := IPEndPoint.Construct(ip_byte_array, my_ep.port, env_);
-        if !ok { return; }
-        ok, client := NetClient.Construct(ip_endpoint, env_);
-        if ok {
-            calc {
-                client.LocalEndPoint();
-                ip_endpoint.EP();
-                my_ep;
-            }
-        }
-    }
-
     
-    method {:timeLimitMultiplier 2} Host_Init_Impl(constants:ConstantsState, me:EndPoint, ghost env_:HostEnvironment) returns (ok:bool)
-        requires env_.Valid() && env_.ok.ok();
-        requires ConstantsStateIsValid(constants);
-        requires EndPointIsAbstractable(me);
-        modifies this, netClient;
-        modifies env_.ok;
-        ensures ok ==>
-               Valid()
+    method {:timeLimitMultiplier 2} Host_Init_Impl(
+      constants:ConstantsState,
+      my_index:uint64,
+      me:EndPoint,
+      nc:NetClient,
+      ghost env_:HostEnvironment
+      ) returns (
+      ok:bool
+      )
+      requires env_.Valid() && env_.ok.ok()
+      requires ConstantsStateIsValid(constants)
+      requires EndPointIsValidPublicKey(me)
+      requires NetClientIsValid(nc)
+      requires EndPoint(nc.MyPublicKey()) == me
+      requires 0 <= my_index as int < |constants.hostIds|
+      requires EndPoint(nc.MyPublicKey()) == constants.hostIds[my_index]
+      requires nc.env == env_
+      modifies this
+      ensures ok ==>
+              Valid()
             && Env() == env_
             && LScheduler_Init(AbstractifyToLScheduler(), AbstractifyEndPointToNodeIdentity(me), AbstractifyEndPointToNodeIdentity(constants.rootIdentity), AbstractifyEndPointsToNodeIdentities(constants.hostIds), AbstractifyCParametersToParameters(constants.params))
-            && host.constants == constants;
+            && host.constants == constants
     {
-        ok, netClient := ConstructNetClient(constants, me, env_); 
-
-        if (ok)
-        {
-            
-            host := InitHostState(constants, me);
-            nextActionIndex := 0;
-            resendCount := 0;
-            localAddr := host.me;
-            Repr := { this } + NetClientRepr(netClient);
-            
-        }
+      netClient := nc;
+      host := InitHostState(constants, me);
+      nextActionIndex := 0;
+      resendCount := 0;
+      localAddr := host.me;
+      Repr := { this } + NetClientRepr(netClient);
+      ok := true;
     }
 
     static method rollActionIndex(a:uint64) returns (a':uint64)
@@ -231,7 +212,7 @@ class SchedulerImpl
         //requires SHTConcreteConfigurationIsValid(host.constants.all.config);
     {
            CPacketIsSendable(cpacket)
-        && EndPointIsValidIPV4(host.me)
+        && EndPointIsValidPublicKey(host.me)
         && io0.LIoOpReceive?
         && NetEventIsAbstractable(netEvent0)
         && io0 == AbstractifyNetEventToLSHTIo(netEvent0)
@@ -363,6 +344,7 @@ class SchedulerImpl
         requires rr.RRPacket?;
         requires receive_event.LIoOpReceive?;
         requires CPacketIsAbstractable(rr.cpacket);
+        requires ValidPhysicalAddress(rr.cpacket.src);
         requires NetPacketIsAbstractable(receive_event.r);
         //requires CSingleMessageMarshallable(rr.cpacket.msg);
         requires !rr.cpacket.msg.CInvalidMessage? && CSingleMessageIs64Bit(rr.cpacket.msg);
@@ -398,7 +380,7 @@ class SchedulerImpl
 
         assert Env() == old(Env());
         assert Valid();
-        assert netClient.LocalEndPoint() == host.me;
+        assert EndPoint(netClient.MyPublicKey()) == host.me;
         ok, log_tail, ios_tail := DeliverOutboundPackets(sent_packets);
         if (!ok) { return; }
         
@@ -510,6 +492,7 @@ class SchedulerImpl
                 netEventLog := [netEvent0];
                 ghost var receive_io := LIoOpReceive(AbstractifyNetPacketToLSHTPacket(netEvent0.r));
                 ios := [receive_io];
+                assert IosReflectIgnoringUnDemarshallable(netEventLog);
             } else {
             //assert CPacketIsAbstractable(cpacket) && CSingleMessageMarshallable(cpacket.msg);
                 ok, netEventLog, ios := HostNextReceivePacket(old(Env().net.history()), rr, netEvent0); 
@@ -533,7 +516,7 @@ class SchedulerImpl
             }
             assert Env() == old(Env());
                 assert Valid();
-            assert netClient.LocalEndPoint() == host.me;
+            assert EndPoint(netClient.MyPublicKey()) == host.me;
             ok, log_tail, ios_tail := DeliverOutboundPackets(sent_packets);
             if (!ok) { return; }
             
@@ -625,7 +608,6 @@ class SchedulerImpl
         var b;
         if (host.receivedPacket.Some?)
         {
-        
             b := ShouldProcessReceivedMessageImpl(host);
             if (b) {
                 var cpacket := host.receivedPacket.v;

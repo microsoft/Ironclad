@@ -6,18 +6,23 @@ include "../Collections/Seqs.s.dfy"
 abstract module Main_s
 {
 import opened Native__Io_s
+import opened Native__NativeTypes_s
 import opened DS_s : DistributedSystem_s
 import opened AS_s : AbstractService_s
 import opened Collections__Seqs_s
 
-method {:main} Main(ghost env:HostEnvironment)
+method IronfleetMain(ghost env:HostEnvironment, netc:NetClient, args:seq<seq<byte>>)
   requires env.Valid() && env.ok.ok()
   requires env.net.history() == []
-  requires |env.constants.CommandLineArgs()| >= 2
+  requires netc.IsOpen()
+  requires netc.env == env
+  requires ValidPhysicalAddress(EndPoint(netc.MyPublicKey()))
   modifies set x:object | DS_s.H_s.ArbitraryObject(x)     // Everything!
   decreases *
 {
-  var ok, host_state, config, servers, clients, id := DS_s.H_s.HostInitImpl(env);
+  var ok, host_state := DS_s.H_s.HostInitImpl(env, netc, args);
+  var config := DS_s.H_s.ParseCommandLineConfiguration(args);
+  var id := EndPoint(netc.MyPublicKey());
   assert ok ==> DS_s.H_s.HostInit(host_state, config, id);
 
   while (ok) 

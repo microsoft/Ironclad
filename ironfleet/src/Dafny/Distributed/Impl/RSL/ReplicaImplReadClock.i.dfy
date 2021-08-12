@@ -20,6 +20,7 @@ import opened LiveRSL__CMessageRefinements_i
 import opened LiveRSL__CPaxosConfiguration_i
 import opened LiveRSL__CTypes_i
 import opened LiveRSL__Environment_i
+import opened LiveRSL__PacketParsing_i
 import opened LiveRSL__QRelations_i
 import opened LiveRSL__Replica_i
 import opened LiveRSL__ReplicaModel_i
@@ -33,7 +34,7 @@ import opened LiveRSL__NetRSL_i
 import opened Environment_s
 import opened Common__NetClient_i
 
-lemma lemma_ReplicaNextReadClockAndProcessPacketHelper(
+lemma {:timeLimitMultiplier 2} lemma_ReplicaNextReadClockAndProcessPacketHelper(
   old_history:seq<NetEvent>,
   pre_clock_history:seq<NetEvent>,
   pre_delivery_history:seq<NetEvent>,
@@ -91,6 +92,13 @@ lemma lemma_ReplicaNextReadClockAndProcessPacketHelper(
     old_history + ([receive_event, clock_event] + send_events);
       { assert ([receive_event, clock_event] + send_events) == all_events; }
     old_history + all_events;
+  }
+
+  forall io | io in all_events && io.LIoOpSend?
+    ensures NetPacketBound(io.s.msg)
+    ensures Marshallable(PaxosDemarshallData(io.s.msg))
+  {
+    assert io in send_events;
   }
 }
 
