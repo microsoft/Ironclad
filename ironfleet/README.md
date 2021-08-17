@@ -291,7 +291,8 @@ where you fill out the ellipses to provide:
 Your client implementation, like in `src/IronRSLKVClient/Client.cs`, will
 create a connection to the replicated service with:
 ```
-   RSLClient rslClient = new RSLClient(serverEndpoints, myPortNumber);
+   var serviceIdentity = ServiceIdentity.ReadFromFile(serviceFileName);
+   RSLClient rslClient = new RSLClient(serviceIdentity, serviceName);
 ```
 and submit requests to that replicated service with:
 ```
