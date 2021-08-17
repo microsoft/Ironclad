@@ -97,7 +97,7 @@ module Main_i refines Main_s {
                      AbstractifyConcreteEnvStep(ds_env.nextStep))
     }
 
-    function AbstractifyConcreteReplicas(replicas:map<EndPoint,HostState>, replica_order:seq<EndPoint>) : map<EndPoint,Node>
+    function {:opaque} AbstractifyConcreteReplicas(replicas:map<EndPoint,HostState>, replica_order:seq<EndPoint>) : map<EndPoint,Node>
         requires forall i :: 0 <= i < |replica_order| ==> replica_order[i] in replicas;
         requires SeqIsUnique(replica_order);
         ensures  |AbstractifyConcreteReplicas(replicas, replica_order)| == |replica_order|;
@@ -261,7 +261,24 @@ module Main_i refines Main_s {
         assert LEnvironment_PerformIos(le, le', id, r_ios);
     }
 
-    lemma {:timeLimitMultiplier 10} RefinementToLSState(config:ConcreteConfiguration, db:seq<DS_State>) returns (sb:seq<LS_State>)
+    lemma RefinementToLSStateHelper(ds:DS_State, ds':DS_State, ss:LS_State, ss':LS_State)
+        requires DsStateIsAbstractable(ds)
+        requires DsStateIsAbstractable(ds')
+        requires ss == AbstractifyDsState(ds)
+        requires ss' == AbstractifyDsState(ds')
+        requires DS_Next(ds, ds')
+        ensures  LS_Next(ss, ss')
+    {
+      reveal_HostNext();
+      if !ds.environment.nextStep.LEnvStepHostIos? {
+        assert LS_Next(ss, ss');
+      } else {
+        lemma_LEnvironmentNextHost(ds.environment, ss.environment, ds'.environment, ss'.environment);
+        assert LS_Next(ss, ss');
+      }
+    }
+
+    lemma RefinementToLSState(config:ConcreteConfiguration, db:seq<DS_State>) returns (sb:seq<LS_State>)
         requires |db| > 0;
         requires DS_Init(db[0], config);
         requires forall i {:trigger DS_Next(db[i], db[i+1])} :: 0 <= i < |db| - 1 ==> DS_Next(db[i], db[i+1]);
@@ -278,7 +295,6 @@ module Main_i refines Main_s {
         } else {
             lemma_DeduceTransitionFromDsBehavior(config, db, |db|-2);
             lemma_DsConsistency(config, db, |db|-2);
-            lemma_DsConsistency(config, db, |db|-1);
             var ls := AbstractifyDsState(db[|db|-2]);
             var ls' := AbstractifyDsState(last(db));
             var rest := RefinementToLSState(config, all_but_last(db));
@@ -290,12 +306,7 @@ module Main_i refines Main_s {
                 if (0 <= i < |sb|-2) {
                     assert LS_Next(sb[i], sb[i+1]);
                 } else {
-                    if !db[i].environment.nextStep.LEnvStepHostIos? {
-                        assert LS_Next(sb[i], sb[i+1]);
-                    } else {
-                        lemma_LEnvironmentNextHost(db[i].environment, ls.environment, db[i+1].environment, ls'.environment);
-                        assert LS_Next(sb[i], sb[i+1]);
-                    }
+                    RefinementToLSStateHelper(db[i], db[i+1], sb[i], sb[i+1]);
                 }
             }
         }
@@ -488,6 +499,7 @@ module Main_i refines Main_s {
 
         lemma_DeduceTransitionFromDsBehavior(config, db, i-1);
         lemma_DsConsistency(config, db, i-1);
+        reveal_HostNext();
     }
 
     lemma RefinementProof(config:DS_s.H_s.ConcreteConfiguration, db:seq<DS_State>) returns (sb:seq<ServiceState>)
