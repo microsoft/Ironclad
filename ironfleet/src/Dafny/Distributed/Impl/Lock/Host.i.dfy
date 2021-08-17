@@ -43,7 +43,7 @@ module Host_i refines Host_s {
                  config)
     }
 
-    predicate HostNext(host_state:HostState, host_state':HostState, ios:seq<LIoOp<EndPoint, seq<byte>>>)
+    predicate {:opaque} HostNext(host_state:HostState, host_state':HostState, ios:seq<LIoOp<EndPoint, seq<byte>>>)
     {
       && NodeNext(host_state.node, host_state'.node, AbstractifyRawLogToIos(ios))
       && OnlySentMarshallableData(ios)
@@ -193,5 +193,6 @@ module Host_i refines Host_s {
             host_state' := host_state;
         }
         ok := okay;
+        reveal_HostNext();
     }
 }
