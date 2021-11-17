@@ -52,8 +52,8 @@ module MarshallProof_i {
         ensures  caseId == parse_Uint64(data).0.v.u;
         ensures  0 <= caseId as int < |g.cases|;
         ensures  rest == parse_Uint64(data).1;
-        ensures  parse_Val(rest, g.cases[caseId]).0.Some?;
-        ensures  val == parse_Val(rest, g.cases[caseId]).0.v;
+        ensures         parse_Val(rest, g.cases[caseId]).0.Some?;
+        ensures  val == parse_Val(rest, g.cases[caseId]).0.v
         ensures  v == VCase(caseId, val);
         ensures  ValInGrammar(val, g.cases[caseId]);
         ensures  parse_Val(data, g) == parse_Case(data, g.cases)
@@ -404,7 +404,7 @@ module MarshallProof_i {
         }
     }
 
-    lemma {:fuel ValInGrammar,5} {:timeLimitMultiplier 5} lemma_ParseMarshallReply(bytes:seq<byte>, reply:AppReply, msg:SingleMessage<Message>, reserved_bytes:seq<byte>) 
+    lemma {:fuel ValInGrammar,5} {:timeLimitMultiplier 4} lemma_ParseMarshallReply(bytes:seq<byte>, reply:AppReply, msg:SingleMessage<Message>, reserved_bytes:seq<byte>) 
         requires CSingleMessageIsAbstractable(SHTDemarshallData(bytes));
         requires AbstractifyCSingleMessageToSingleMessage(SHTDemarshallData(bytes)) == msg;
         requires CSingleMessageMarshallable(SHTDemarshallData(bytes));
@@ -484,13 +484,8 @@ module MarshallProof_i {
             assert len_dst == SeqByteToUint64(rest1[..8]) == SeqByteToUint64(data[16..24]) == |reserved_bytes| as uint64;
             assert len_dst as int == |reserved_bytes|;
 
-            calc {
-              val_dst.b;
-              rest1[8 .. 8 + len_dst];
-              data[16..][8 .. 8 + len_dst];
-              data[24 .. 24 + len_dst];
-              reserved_bytes;
-            }
+            assert val_dst.b == rest1[8 .. 8 + len_dst];
+            assert val_dst.b == data[24 .. 24 + len_dst] == reserved_bytes;
 
             assert rest2[..8] == data[24 + len_dst .. 32 + len_dst] == [0, 0, 0, 0, 0, 0, 0, 2];
             assert mCaseId == 2;
@@ -532,11 +527,6 @@ module MarshallProof_i {
             // Handle the two subcases of OptionalValue
             if reply.ov.ValuePresent? {
                 assert rest4[..8] == [ 0, 0, 0, 0, 0, 0, 0, 0];
-
-                assert rest5 == parse_Uint64(rest4).1;
-                assert |rest5| == |rest4| - 8;
-                assert |rest5| < 0x1_0000_0000_0000_0000;
-
                 var byteLen, bytesVal, rest6 := lemma_ParseValCorrectVByteArray(rest5, valCaseVal, GByteArray);
                 calc {
                     byteLen;

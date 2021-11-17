@@ -318,7 +318,7 @@ lemma {:timeLimitMultiplier 2} lemma_mod_neg_neg(x:int, d:int)
   lemma_mul_auto();
 }
 
-lemma lemma_fundamental_div_mod_converse(x:int, d:int, q:int, r:int)
+lemma {:timeLimitMultiplier 2} lemma_fundamental_div_mod_converse(x:int, d:int, q:int, r:int)
   requires d != 0
   requires 0 <= r < d
   requires x == q * d + r
@@ -326,21 +326,7 @@ lemma lemma_fundamental_div_mod_converse(x:int, d:int, q:int, r:int)
   ensures r == x%d
 {
   lemma_div_auto(d);
-
-  var f := u => u == (u * d + r) / d;
-  forall i {:trigger TMulAutoLe(0, i)} | TMulAutoLe(0, i) && f(i)
-    ensures f(i + 1)
-  {
-    calc {
-      ((i + 1) * d + r) / d;
-        { lemma_mul_is_distributive_add_other_way(d, i, 1); }
-      (i * d + 1 * d + r) / d;
-      (i * d + d + r) / d;
-      (i * d + r) / d + 1;
-      i + 1;
-    }
-  }
-  lemma_mul_auto_induction(q, f);
+  lemma_mul_auto_induction(q, u => u == (u * d + r) / d);
   lemma_mul_auto_induction(q, u => r == (u * d + r) % d);
 
 // REVIEW: this is a plausible alternative, but it times out:

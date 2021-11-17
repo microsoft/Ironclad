@@ -85,7 +85,6 @@ predicate Trigger(i:int)
 
 function method parse_Uint64(data:seq<byte>) : (Option<V>, seq<byte>)
   requires |data| < 0x1_0000_0000_0000_0000
-  ensures  if |data| >= 8 then |parse_Uint64(data).1| == |data| - 8 else |parse_Uint64(data).1| == 0
 {
   if |data| as uint64 >= Uint64Size() then
     (Some(VUint64(SeqByteToUint64(data[..Uint64Size()]))), data[Uint64Size()..])
@@ -1719,7 +1718,7 @@ method MarshallByteArray(val:V, grammar:G, data:array<byte>, index:uint64) retur
   ghost var len := tuple.0;
   ghost var rest := tuple.1;
   assert{:split_here} true;
-  assert len.v.u == |val.b| as uint64;
+  // assert len.v.u == |val.b| as uint64;
   
   assert rest == data[index + 8..(index as int) + SizeOfV(val)] == val.b;
   assert !len.None? && (len.v.u as int) <= |rest|;
