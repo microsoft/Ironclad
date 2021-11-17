@@ -37,7 +37,7 @@ IronFleet is licensed under the MIT license included in the [LICENSE](./LICENSE)
 
 To use Ironfleet, you'll need the following tools:
   * .NET 5.0 SDK (available at `https://dotnet.microsoft.com/download`)
-  * Dafny v3.2.0 (verifier, available at `https://github.com/dafny-lang/dafny`)
+  * Dafny v3.3.0 (verifier, available at `https://github.com/dafny-lang/dafny`)
   * python 2 or 3 (needed for running scons)
   * scons (installable by running `pip install scons`)
     

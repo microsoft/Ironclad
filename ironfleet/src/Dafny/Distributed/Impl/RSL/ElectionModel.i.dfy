@@ -96,7 +96,7 @@ lemma lemma_BoundCRequestSequence(s:seq<CRequest>, lengthBound:uint64)
 {
 }
 
-ghost method FindMatchingRequest(s:seq<CRequest>, headers:set<CRequestHeader>, header:CRequestHeader) returns (index:int)
+lemma FindMatchingRequest(s:seq<CRequest>, headers:set<CRequestHeader>, header:CRequestHeader) returns (index:int)
   requires HeadersMatch(s, headers)
   requires header in headers
   requires |s| >= 1
