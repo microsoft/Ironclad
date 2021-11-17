@@ -66,7 +66,7 @@ lemma HostClaimsKey_forces_FindHashTable(s:SHT_State, id:NodeIdentity, k:Key)
 }
 
 
-ghost method UniquePacketClaimsKey_forces_FindHashTable(s:SHT_State, k:Key) returns (pkt:Packet)
+lemma UniquePacketClaimsKey_forces_FindHashTable(s:SHT_State, k:Key) returns (pkt:Packet)
     requires MapComplete(s);
     requires PacketsHaveSaneHeaders(s);
     requires AllDelegationsToKnownHosts(s);
@@ -82,7 +82,7 @@ ghost method UniquePacketClaimsKey_forces_FindHashTable(s:SHT_State, k:Key) retu
 }
 
 
-ghost method HostClaimsKey_forces_FindHostHashTable(s:SHT_State, k:Key) returns (id:NodeIdentity)
+lemma HostClaimsKey_forces_FindHostHashTable(s:SHT_State, k:Key) returns (id:NodeIdentity)
     requires Inv(s);
     requires UniqueHostClaimsKey(s, k);
     ensures id in AllHostIdentities(s);
