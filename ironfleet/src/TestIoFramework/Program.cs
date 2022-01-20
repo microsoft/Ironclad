@@ -22,7 +22,7 @@ namespace TestIoFramework
       serviceIdentity = i_serviceIdentity;
       privateIdentity = i_privateIdentity;
       scheduler = IoScheduler.CreateServer(privateIdentity, ps.LocalHostNameOrAddress, ps.LocalPort,
-                                           serviceIdentity.Servers, ps.Verbose);
+                                           serviceIdentity.Servers, ps.Verbose, ps.UseSsl);
     }
 
     public void Run()
@@ -47,7 +47,7 @@ namespace TestIoFramework
         Console.WriteLine("Sending message {0} to {1}", message, IoScheduler.PublicKeyToString(serverPublicKey));
         
         scheduler.SendPacket(serverPublicKey, messageBytes);
-        Thread.Sleep(1000);
+        Thread.Sleep(10000);
       }
     }
 
@@ -89,6 +89,7 @@ Allowed keys:
   port      - port to listen to (default: whatever's specified
               in the private key file)
   verbose   - use verbose output (default: false)
+  useSsl    - whether use ssl channel (default: true)
 ");
     }
 

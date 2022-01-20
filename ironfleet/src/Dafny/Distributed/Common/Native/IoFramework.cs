@@ -331,23 +331,20 @@ namespace IronfleetIoFramework
 
   public class ReceivedPacket
   {
-    private X509Certificate2 senderCert;
-    private byte[] message;
+    public byte[] senderKey { get; }
+    public byte[] message { get; }
 
-    public ReceivedPacket(X509Certificate2 i_senderCert, byte[] i_message)
+    public ReceivedPacket(byte[] i_senderKey, byte[] i_message)
     {
-      senderCert = i_senderCert;
+      senderKey = i_senderKey;
       message = i_message;
     }
-
-    public X509Certificate2 SenderCert { get { return senderCert; } }
-    public byte[] Message { get { return message; } }
   }
 
   public class SendTask
   {
-    private byte[] destinationPublicKey;
-    private byte[] message;
+    public byte[] destinationPublicKey { get; }
+    public byte[] message { get; }
     private int numTriesSoFar;
 
     public SendTask(byte[] i_destinationPublicKey, byte[] i_message)
@@ -356,9 +353,6 @@ namespace IronfleetIoFramework
       message = i_message;
       numTriesSoFar = 0;
     }
-
-    public byte[] DestinationPublicKey { get { return destinationPublicKey; } }
-    public byte[] Message { get { return message; } }
 
     public int IncrementNumTriesSoFar()
     {
@@ -440,14 +434,14 @@ namespace IronfleetIoFramework
   public class ReceiverThread
   {
     private IoScheduler scheduler;
-    private SslStream stream;
-    private X509Certificate2 remoteCert;
+    private Stream stream;
+    private byte[] remoteKey;
 
-    private ReceiverThread(IoScheduler i_scheduler, SslStream i_stream)
+    private ReceiverThread(IoScheduler i_scheduler, byte[] i_remoteKey, Stream i_stream)
     {
       scheduler = i_scheduler;
       stream = i_stream;
-      remoteCert = stream.RemoteCertificate as X509Certificate2;
+      remoteKey = i_remoteKey;
     }
 
     public void Run()
@@ -458,13 +452,13 @@ namespace IronfleetIoFramework
       }
       catch (Exception e)
       {
-        scheduler.ReportException(e, "receiving from " + IoScheduler.GetCertificatePublicKey(remoteCert));
+        scheduler.ReportException(e, "receiving from " + scheduler.LookupPublicKeyAsString(remoteKey));
       }
     }
 
-    public static ReceiverThread Create(IoScheduler scheduler, SslStream stream)
+    public static ReceiverThread Create(IoScheduler scheduler, byte[] remoteKey, Stream stream)
     {
-      ReceiverThread receiverThread = new ReceiverThread(scheduler, stream);
+      ReceiverThread receiverThread = new ReceiverThread(scheduler, remoteKey, stream);
       Thread t = new Thread(receiverThread.Run);
       t.Start();
       return receiverThread;
@@ -475,7 +469,7 @@ namespace IronfleetIoFramework
       bool success;
 
       if (scheduler.Verbose) {
-        Console.WriteLine("Starting receive loop with remote identified as {0}", IoScheduler.CertificateToString(remoteCert));
+        Console.WriteLine("Starting receive loop with remote identified as {0}", scheduler.LookupPublicKeyAsString(remoteKey));
       }
 
       while (true)
@@ -486,12 +480,12 @@ namespace IronfleetIoFramework
         success = IoEncoder.ReadUInt64(stream, out messageSize);
         if (!success) {
           if (scheduler.Verbose) {
-            Console.Error.WriteLine("Failed to receive message size from {0}", IoScheduler.CertificateToString(remoteCert));
+            Console.Error.WriteLine("Failed to receive message size from {0}", scheduler.LookupPublicKeyAsString(remoteKey));
           }
           return;
         }
         if (scheduler.Verbose) {
-          Console.WriteLine("Received message size {0} from {1}", messageSize, IoScheduler.CertificateToString(remoteCert));
+          Console.WriteLine("Received message size {0} from {1}", messageSize, scheduler.LookupPublicKeyAsString(remoteKey));
         }
 
         byte[] messageBuf = new byte[messageSize];
@@ -499,15 +493,15 @@ namespace IronfleetIoFramework
         if (!success) {
           if (scheduler.Verbose) {
             Console.Error.WriteLine("Failed to receive message of size {0} from {1}",
-                                    messageSize, IoScheduler.CertificateToString(remoteCert));
+                                    messageSize, scheduler.LookupPublicKeyAsString(remoteKey));
           }
           return;
         }
         if (scheduler.Verbose) {
-          Console.WriteLine("Received message of size {0} from {1}", messageSize, IoScheduler.CertificateToString(remoteCert));
+          Console.WriteLine("Received message of size {0} from {1}", messageSize, scheduler.LookupPublicKeyAsString(remoteKey));
         }
 
-        ReceivedPacket packet = new ReceivedPacket(remoteCert, messageBuf);
+        ReceivedPacket packet = new ReceivedPacket(remoteKey, messageBuf);
         scheduler.NoteReceivedPacket(packet);
       }
     }
@@ -517,23 +511,24 @@ namespace IronfleetIoFramework
   {
     protected IoScheduler scheduler;
     protected byte[] destinationPublicKey;
-    protected SslStream stream;
-    protected X509Certificate2 remoteCert;
+    protected Stream stream;
     private BufferBlock<SendTask> sendQueue;
     private SendTask currentSendTask;
 
-    protected SenderThread(IoScheduler i_scheduler, byte[] i_destinationPublicKey, SslStream i_stream,
-                           X509Certificate2 i_remoteCert)
+    protected SenderThread(IoScheduler i_scheduler, byte[] i_destinationPublicKey, Stream i_stream)
     {
       scheduler = i_scheduler;
       destinationPublicKey = i_destinationPublicKey;
       stream = i_stream;
-      remoteCert = i_remoteCert;
       sendQueue = new BufferBlock<SendTask>();
       currentSendTask = null;
     }
 
-    protected abstract string EndpointDescription();
+    protected string EndpointDescription()
+    {
+      return scheduler.LookupPublicKeyAsString(destinationPublicKey);
+    }
+    
     protected abstract bool Connect();
 
     public void Start()
@@ -589,7 +584,7 @@ namespace IronfleetIoFramework
 
         // Send its length as an 8-byte value.
 
-        UInt64 messageSize = (UInt64)currentSendTask.Message.Length;
+        UInt64 messageSize = (UInt64)currentSendTask.message.Length;
         IoEncoder.WriteUInt64(stream, messageSize);
         if (scheduler.Verbose) {
           Console.WriteLine("Sent message size {0} to {1}", messageSize, EndpointDescription());
@@ -597,7 +592,7 @@ namespace IronfleetIoFramework
 
         // Send its contents.
 
-        IoEncoder.WriteBytes(stream, currentSendTask.Message, 0, messageSize);
+        IoEncoder.WriteBytes(stream, currentSendTask.message, 0, messageSize);
         if (scheduler.Verbose) {
           Console.WriteLine("Sent message of size {0} to {1}", messageSize, EndpointDescription());
         }
@@ -617,23 +612,19 @@ namespace IronfleetIoFramework
 
   public class ServerSenderThread : SenderThread
   {
-    private ServerSenderThread(IoScheduler i_scheduler, byte[] i_destinationPublicKey, SslStream i_stream,
-                               X509Certificate2 i_remoteCert) :
-      base(i_scheduler, i_destinationPublicKey, i_stream, i_remoteCert)
+    private ServerSenderThread(IoScheduler i_scheduler, byte[] i_destinationPublicKey, Stream i_stream) :
+      base(i_scheduler, i_destinationPublicKey, i_stream)
     {
     }
 
-    public static ServerSenderThread Create(IoScheduler scheduler, SslStream stream)
+    public static ServerSenderThread Create(IoScheduler scheduler, byte[] destinationPublicKey, Stream stream)
     {
-      var remoteCert = stream.RemoteCertificate as X509Certificate2;
-      var destinationPublicKey = IoScheduler.GetCertificatePublicKey(remoteCert);
-
       if (scheduler.Verbose) {
-        Console.WriteLine("Creating sender thread to send to remote certified as {0}",
-                          IoScheduler.CertificateToString(remoteCert));
+        Console.WriteLine("Creating sender thread to send to remote public key as {0}",
+                          scheduler.LookupPublicKeyAsString(destinationPublicKey));
       }
 
-      ServerSenderThread senderThread = new ServerSenderThread(scheduler, destinationPublicKey, stream, remoteCert);
+      ServerSenderThread senderThread = new ServerSenderThread(scheduler, destinationPublicKey, stream);
       senderThread.Start();
       return senderThread;
     }
@@ -643,35 +634,28 @@ namespace IronfleetIoFramework
       // There's nothing to do since server sender threads start out connected.
       return true;
     }
-
-    protected override string EndpointDescription()
-    {
-      return IoScheduler.CertificateToString(remoteCert);
-    }
   }
 
   public class ClientSenderThread : SenderThread
   {
-    private ClientSenderThread(IoScheduler i_scheduler, byte[] i_destinationPublicKey) :
-      base(i_scheduler, i_destinationPublicKey, null, null)
+    protected bool useSsl;
+
+    private ClientSenderThread(IoScheduler i_scheduler, byte[] i_destinationPublicKey, bool i_useSsl) :
+      base(i_scheduler, i_destinationPublicKey, null)
     {
+      useSsl = i_useSsl;
     }
 
-    public static ClientSenderThread Create(IoScheduler scheduler, byte[] destinationPublicKey)
+    public static ClientSenderThread Create(IoScheduler scheduler, byte[] destinationPublicKey, bool useSsl)
     {
       if (scheduler.Verbose) {
         Console.WriteLine("Creating sender thread to send to remote public key {0}",
                           scheduler.LookupPublicKeyAsString(destinationPublicKey));
       }
 
-      ClientSenderThread senderThread = new ClientSenderThread(scheduler, destinationPublicKey);
+      ClientSenderThread senderThread = new ClientSenderThread(scheduler, destinationPublicKey, useSsl);
       senderThread.Start();
       return senderThread;
-    }
-
-    protected override string EndpointDescription()
-    {
-      return scheduler.LookupPublicKeyAsString(destinationPublicKey);
     }
 
     protected override bool Connect()
@@ -700,40 +684,57 @@ namespace IronfleetIoFramework
         return false;
       }
 
-      var myCertificateCollection = new X509CertificateCollection();
-      myCertificateCollection.Add(scheduler.MyCert);
-      var myValidator = new CertificateValidator(scheduler, destinationPublicIdentity);
+      if (useSsl) {
+        var myCertificateCollection = new X509CertificateCollection();
+        myCertificateCollection.Add(scheduler.MyCert);
+        var myValidator = new CertificateValidator(scheduler, destinationPublicIdentity);
+        SslStream s;
 
-      try {
-        stream = new SslStream(client.GetStream(), leaveInnerStreamOpen: false, myValidator.ValidateSSLCertificate);
-        stream.AuthenticateAsClient(destinationPublicIdentity.FriendlyName, myCertificateCollection,
-                                    checkCertificateRevocation: false);
-      }
-      catch (Exception e) {
-        scheduler.ReportException(e, "authenticating connection to " + IoScheduler.PublicIdentityToString(destinationPublicIdentity));
-        return false;
-      }
+        try {
+          s = new SslStream(client.GetStream(), leaveInnerStreamOpen: false, myValidator.ValidateSSLCertificate);
+          s.AuthenticateAsClient(destinationPublicIdentity.FriendlyName, myCertificateCollection,
+                                      checkCertificateRevocation: false);
+        }
+        catch (Exception e) {
+          scheduler.ReportException(e, "authenticating connection to " + IoScheduler.PublicIdentityToString(destinationPublicIdentity));
+          return false;
+        }
 
-      remoteCert = stream.RemoteCertificate as X509Certificate2;
+        var remoteCert = s.RemoteCertificate as X509Certificate2;
 
-      if (!ByteArrayComparer.Default().Equals(IoScheduler.GetCertificatePublicKey(remoteCert), destinationPublicKey)) {
-        Console.Error.WriteLine("Connected to {0} expecting public key {1} but found public key {2}, so disconnecting.",
-                                IoScheduler.PublicIdentityToString(destinationPublicIdentity),
-                                IoScheduler.PublicKeyToString(destinationPublicKey),
-                                IoScheduler.PublicKeyToString(IoScheduler.GetCertificatePublicKey(remoteCert)));
-        return false;
-      }
+        if (!ByteArrayComparer.Default().Equals(IoScheduler.GetCertificatePublicKey(remoteCert), destinationPublicKey)) {
+          Console.Error.WriteLine("Connected to {0} expecting public key {1} but found public key {2}, so disconnecting.",
+                                  IoScheduler.PublicIdentityToString(destinationPublicIdentity),
+                                  IoScheduler.PublicKeyToString(destinationPublicKey),
+                                  IoScheduler.PublicKeyToString(IoScheduler.GetCertificatePublicKey(remoteCert)));
+          return false;
+        }
 
-      if (scheduler.Verbose) {
-        Console.WriteLine("Successfully connected to {0} and got certificate identifying it as {1}",
-                          IoScheduler.PublicIdentityToString(destinationPublicIdentity),
-                          IoScheduler.CertificateToString(remoteCert));
+        if (scheduler.Verbose) {
+          Console.WriteLine("Successfully connected to {0} and got certificate identifying it as {1}",
+                            IoScheduler.PublicIdentityToString(destinationPublicIdentity),
+                            IoScheduler.CertificateToString(remoteCert));
+        }
+        stream = (Stream) s;
+      } else {
+        stream = client.GetStream();
+        var myKey = IoScheduler.GetCertificatePublicKey(scheduler.MyCert);
+        if (scheduler.Verbose) {
+            Console.WriteLine("Sending my pyblic key {0} to {1}", IoScheduler.PublicKeyToString(myKey), scheduler.LookupPublicKeyAsString(destinationPublicKey));
+        }
+        IoEncoder.WriteUInt64(stream, (ulong) myKey.Length);
+        IoEncoder.WriteBytes(stream, myKey, 0, (ulong) myKey.Length);
+
+        if (scheduler.Verbose) {
+          Console.WriteLine("Successfully connected to {0} without certificate",
+                            IoScheduler.PublicIdentityToString(destinationPublicIdentity));
+        }
       }
 
       // Now that the connection is successful, create a thread to
       // receive packets on it.
 
-      ReceiverThread receiverThread = ReceiverThread.Create(scheduler, stream);
+      ReceiverThread receiverThread = ReceiverThread.Create(scheduler, destinationPublicKey, stream);
       return true;
     }
   }
@@ -743,11 +744,13 @@ namespace IronfleetIoFramework
     private IoScheduler scheduler;
     private TcpListener listener;
     private IPEndPoint myEndpoint;
+    private bool useSsl;
 
-    public ListenerThread(IoScheduler i_scheduler, IPEndPoint i_myEndpoint)
+    public ListenerThread(IoScheduler i_scheduler, IPEndPoint i_myEndpoint, bool i_useSsl)
     {
       scheduler = i_scheduler;
       myEndpoint = i_myEndpoint;
+      useSsl = i_useSsl;
     }
 
     public void Run()
@@ -781,20 +784,43 @@ namespace IronfleetIoFramework
         }
 
         TcpClient client = listener.AcceptTcpClient();
+        Stream stream = client.GetStream();
+        byte[] remoteKey;
 
-        CertificateValidator myValidator = new CertificateValidator(scheduler);
-        SslStream sslStream = new SslStream(client.GetStream(), leaveInnerStreamOpen: false, myValidator.ValidateSSLCertificate);
-        sslStream.AuthenticateAsServer(scheduler.MyCert, clientCertificateRequired: true, checkCertificateRevocation: false);
+        if (useSsl) {
+          CertificateValidator myValidator = new CertificateValidator(scheduler);
+          SslStream sslStream = new SslStream(stream, leaveInnerStreamOpen: false, myValidator.ValidateSSLCertificate);
+          sslStream.AuthenticateAsServer(scheduler.MyCert, clientCertificateRequired: true, checkCertificateRevocation: false);
 
-        var remoteCert = sslStream.RemoteCertificate as X509Certificate2;
+          var remoteCert = sslStream.RemoteCertificate as X509Certificate2;
 
-        if (scheduler.Verbose) {
-          Console.WriteLine("Received an incoming connection from remote certified as {0}",
-                            IoScheduler.CertificateToString(remoteCert));
+          stream = (Stream) sslStream;
+          var key = IoScheduler.GetCertificatePublicKey(remoteCert);
+          remoteKey = new byte[key.Length];
+          Array.Copy(key, remoteKey, key.Length);
+        } else {
+          UInt64 len;
+          bool success;
+          success = IoEncoder.ReadUInt64(stream, out len);
+          if (!success) {
+            Console.WriteLine("Failed to receive the length of public key from {0}", client.Client.RemoteEndPoint.ToString());
+            continue;
+          }
+          remoteKey = new byte[len];
+          success = IoEncoder.ReadBytes(stream, remoteKey, 0, len);
+          if (!success) {
+            Console.WriteLine("Failed to receive public key from {0}", client.Client.RemoteEndPoint.ToString());
+            continue;
+          }
         }
 
-        ReceiverThread.Create(scheduler, sslStream);
-        ServerSenderThread.Create(scheduler, sslStream);
+        if (scheduler.Verbose) {
+          Console.WriteLine("Received an incoming connection from remote identity as {0}",
+                            scheduler.LookupPublicKeyAsString(remoteKey));
+        }
+
+        ReceiverThread.Create(scheduler, remoteKey, stream);
+        ServerSenderThread.Create(scheduler, remoteKey, stream);
       }
     }
   }
@@ -802,11 +828,13 @@ namespace IronfleetIoFramework
   public class SendDispatchThread
   {
     private IoScheduler scheduler;
+    private bool useSsl;
     private BufferBlock<SendTask> sendQueue;
 
-    public SendDispatchThread(IoScheduler i_scheduler)
+    public SendDispatchThread(IoScheduler i_scheduler, bool i_useSsl)
     {
       scheduler = i_scheduler;
+      useSsl = i_useSsl;
       sendQueue = new BufferBlock<SendTask>();
     }
 
@@ -837,13 +865,13 @@ namespace IronfleetIoFramework
 
         if (scheduler.Verbose) {
           Console.WriteLine("Dispatching send of message of size {0} to {1}",
-                            sendTask.Message.Length, IoScheduler.PublicKeyToString(sendTask.DestinationPublicKey));
+                            sendTask.message.Length, scheduler.LookupPublicKeyAsString(sendTask.destinationPublicKey));
         }
 
-        SenderThread senderThread = scheduler.FindSenderForDestinationPublicKey(sendTask.DestinationPublicKey);
+        SenderThread senderThread = scheduler.FindSenderForDestinationPublicKey(sendTask.destinationPublicKey);
 
         if (senderThread == null) {
-          senderThread = ClientSenderThread.Create(scheduler, sendTask.DestinationPublicKey);
+          senderThread = ClientSenderThread.Create(scheduler, sendTask.destinationPublicKey, useSsl);
         }
 
         senderThread.EnqueueSendTask(sendTask);
@@ -861,6 +889,7 @@ namespace IronfleetIoFramework
     private X509Certificate2 myCert;
     private bool onlyClient;
     private bool verbose;
+    private bool useSsl;
     private int maxSendTries;
     private BufferBlock<ReceivedPacket> receiveQueue;
     private Dictionary<byte[], List<SenderThread>> destinationPublicKeyToSenderThreadMap;
@@ -869,9 +898,10 @@ namespace IronfleetIoFramework
     private SendDispatchThread sendDispatchThread;
 
     private IoScheduler(PrivateIdentity myIdentity, string localHostNameOrAddress, int localPort,
-                        List<PublicIdentity> knownIdentities, bool i_verbose = false, int i_maxSendTries = 3)
+                        List<PublicIdentity> knownIdentities, bool i_verbose, bool i_useSsl, int i_maxSendTries = 3)
     {
       verbose = i_verbose;
+      useSsl = i_useSsl;
       maxSendTries = i_maxSendTries;
       receiveQueue = new BufferBlock<ReceivedPacket>();
       destinationPublicKeyToSenderThreadMap = new Dictionary<byte[], List<SenderThread>>(ByteArrayComparer.Default());
@@ -890,16 +920,16 @@ namespace IronfleetIoFramework
     }
 
     public static IoScheduler CreateServer(PrivateIdentity myIdentity, string localHostNameOrAddress, int localPort,
-                                           List<PublicIdentity> knownIdentities, bool verbose = false,
+                                           List<PublicIdentity> knownIdentities, bool verbose, bool useSsl, 
                                            int maxSendTries = 3)
     {
-      return new IoScheduler(myIdentity, localHostNameOrAddress, localPort, knownIdentities, verbose, maxSendTries);
+      return new IoScheduler(myIdentity, localHostNameOrAddress, localPort, knownIdentities, verbose, useSsl, maxSendTries);
     }
 
-    public static IoScheduler CreateClient(List<PublicIdentity> serverIdentities, bool verbose = false,
+    public static IoScheduler CreateClient(List<PublicIdentity> serverIdentities, bool verbose, bool useSsl, 
                                            bool connectToAllServers = true, int maxSendTries = 3)
     {
-      var scheduler = new IoScheduler(null, null, 0, serverIdentities, verbose, maxSendTries);
+      var scheduler = new IoScheduler(null, null, 0, serverIdentities, verbose, useSsl, maxSendTries);
       if (connectToAllServers) {
         foreach (var serverIdentity in serverIdentities) {
           scheduler.Connect(serverIdentity.PublicKey);
@@ -942,13 +972,13 @@ namespace IronfleetIoFramework
                           myEndpoint, IoScheduler.CertificateToString(myCert));
       }
 
-      sendDispatchThread = new SendDispatchThread(this);
+      sendDispatchThread = new SendDispatchThread(this, useSsl);
       Thread st = new Thread(sendDispatchThread.Run);
       st.Start();
 
       // Start a thread to listen on my binding endpoint.
 
-      listenerThread = new ListenerThread(this, myEndpoint);
+      listenerThread = new ListenerThread(this, myEndpoint, useSsl);
       Thread lt = new Thread(listenerThread.Run);
       lt.Start();
     }
@@ -964,7 +994,7 @@ namespace IronfleetIoFramework
                           IoScheduler.CertificateToString(myCert));
       }
 
-      sendDispatchThread = new SendDispatchThread(this);
+      sendDispatchThread = new SendDispatchThread(this, useSsl);
       Thread st = new Thread(sendDispatchThread.Run);
       st.Start();
     }
@@ -1142,11 +1172,11 @@ namespace IronfleetIoFramework
           message = null;
         }
         else {
-          remotePublicKey = IoScheduler.GetCertificatePublicKey(packet.SenderCert);
-          message = packet.Message;
+          remotePublicKey = packet.senderKey;
+          message = packet.message;
           if (verbose) {
             Console.WriteLine("Dequeueing a packet of size {0} from {1}",
-                              message.Length, CertificateToString(packet.SenderCert));
+                              message.Length, LookupPublicKeyAsString(remotePublicKey));
           }
         }
       }
@@ -1175,7 +1205,7 @@ namespace IronfleetIoFramework
         SendTask sendTask = new SendTask(remotePublicKeyCopy, messageCopy);
         if (verbose) {
           Console.WriteLine("Enqueueing send of a message of size {0} to {1}", message.Length,
-                            PublicKeyToString(remotePublicKey));
+                            LookupPublicKeyAsString(remotePublicKey));
         }
         sendDispatchThread.EnqueueSendTask(sendTask);
         return true;
@@ -1201,7 +1231,7 @@ namespace IronfleetIoFramework
     {
       SenderThread senderThread = FindSenderForDestinationPublicKey(destinationPublicKey);
       if (senderThread == null) {
-        senderThread = ClientSenderThread.Create(this, destinationPublicKey);
+        senderThread = ClientSenderThread.Create(this, destinationPublicKey, useSsl);
       }
     }
   }
