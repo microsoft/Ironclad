@@ -13,7 +13,6 @@ namespace TestIoFramework
     private string localHostNameOrAddress;
     private int localPort;
     private bool verbose;
-    private bool useSsl;
 
     public Params()
     {
@@ -21,7 +20,6 @@ namespace TestIoFramework
       privateKeyFileName = "";
       localHostNameOrAddress = "";
       localPort = 0;
-      useSsl = true;
     }
 
     public string ServiceFileName { get { return serviceFileName; } }
@@ -29,7 +27,6 @@ namespace TestIoFramework
     public string LocalHostNameOrAddress { get { return localHostNameOrAddress; } }
     public int LocalPort { get { return localPort; } }
     public bool Verbose { get { return verbose; } }
-    public bool UseSsl {get {return useSsl; } }
 
     public bool Validate()
     {
@@ -94,19 +91,6 @@ namespace TestIoFramework
           return true;
         }
         Console.WriteLine("ERROR - Invalid verbose value {0} - should be false or true", value);
-        return false;
-      }
-
-      if (key == "usessl") {
-        if (value == "false") {
-          useSsl = false;
-          return true;
-        }
-        if (value == "true") {
-          useSsl = true;
-          return true;
-        }
-        Console.WriteLine("ERROR - Invalid useSsl value {0} - should be false or true", value);
         return false;
       }
 
