@@ -7,7 +7,10 @@
 
   <ItemGroup>
     <Compile Include="..\IronfleetCommon\Timer.cs" />
-    <PackageReference Include="IronRSLClient" Version="1.0.3" />
+    <Compile Include="..\IronfleetCommon\Networking.cs" />
+    <Compile Include="..\Dafny\Distributed\Common\Native\IoFramework.cs" />
+    <Compile Include="..\IronRSLClient\RSLClient.cs" />
+    <!-- <PackageReference Include="IronRSLClient" Version="1.0.3" /> -->
   </ItemGroup>
 
 </Project>
