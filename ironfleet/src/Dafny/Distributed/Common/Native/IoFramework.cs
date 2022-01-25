@@ -84,6 +84,7 @@ namespace IronfleetIoFramework
     public string FriendlyName { get; set; }
     public string ServiceType { get; set; }
     public List<PublicIdentity> Servers { get; set; }
+    public bool UseSsl {get; set; }
 
     public bool WriteToFile(string fileName)
     {

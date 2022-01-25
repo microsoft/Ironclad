@@ -43,12 +43,12 @@ namespace Native____Io__s_Compile {
     }
   
     public static NetClient Create(PrivateIdentity myIdentity, string localHostNameOrAddress, int localPort,
-                                   List<PublicIdentity> knownIdentities, bool verbose, int maxSendRetries = 3)
+                                   List<PublicIdentity> knownIdentities, bool verbose, bool useSsl, int maxSendRetries = 3)
     {
       try
       {
         var scheduler = IoScheduler.CreateServer(myIdentity, localHostNameOrAddress, localPort, knownIdentities,
-                                                 verbose, maxSendRetries);
+                                                 verbose, useSsl, maxSendRetries);
         var myPublicKey = IoScheduler.GetCertificatePublicKey(scheduler.MyCert);
         if (myPublicKey.Length > MaxPublicKeySize) {
           System.Console.Error.WriteLine("ERROR:  The provided public key for my identity is too big ({0} > {1} bytes)",
