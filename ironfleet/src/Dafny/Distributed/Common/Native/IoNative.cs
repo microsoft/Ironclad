@@ -39,7 +39,7 @@ namespace Native____Io__s_Compile {
 
     public Dafny.ISequence<byte> MyPublicKey()
     {
-      return Dafny.Sequence<byte>.FromArray(IoScheduler.GetCertificatePublicKey(scheduler.MyCert));
+      return Dafny.Sequence<byte>.FromArray(BitConverter.GetBytes(ByteArrayComparer.Default().GetHashCode(IoScheduler.GetCertificatePublicKey(scheduler.MyCert))));
     }
   
     public static NetClient Create(PrivateIdentity myIdentity, string localHostNameOrAddress, int localPort,
