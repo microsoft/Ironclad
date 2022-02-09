@@ -665,7 +665,7 @@ namespace IronfleetIoFramework
       if (destinationPublicIdentity == null) {
         if (scheduler.Verbose) {
           Console.Error.WriteLine("Could not connect to destination public key {0} because we don't know its address.",
-                                  IoScheduler.PublicKeyToString(destinationPublicKey));
+                                  System.Convert.ToBase64String(destinationPublicKey));
         }
         return false;
       }
@@ -703,10 +703,10 @@ namespace IronfleetIoFramework
 
         var remoteCert = s.RemoteCertificate as X509Certificate2;
 
-        if (!ByteArrayComparer.Default().Equals(IoScheduler.GetCertificatePublicKey(remoteCert), destinationPublicKey)) {
+        if (!ByteArrayComparer.Default().Equals(IoScheduler.GetCertificatePublicKey(remoteCert), destinationPublicIdentity.PublicKey)) {
           Console.Error.WriteLine("Connected to {0} expecting public key {1} but found public key {2}, so disconnecting.",
                                   IoScheduler.PublicIdentityToString(destinationPublicIdentity),
-                                  IoScheduler.PublicKeyToString(destinationPublicKey),
+                                  IoScheduler.PublicKeyToString(destinationPublicIdentity.PublicKey),
                                   IoScheduler.PublicKeyToString(IoScheduler.GetCertificatePublicKey(remoteCert)));
           return false;
         }
