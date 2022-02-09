@@ -386,6 +386,13 @@ module MarshallProof_i {
             assert valCaseId == 1;
             assert 1 == SeqByteToUint64(rest4[..8]);
             assert rest4[..8] == [ 0, 0, 0, 0, 0, 0, 0, 1];
+            assert data[..48+len_dst as int] == data[..8]
+                               + data[8..16]
+                               + data[16..24]
+                               + data[24..24+len_dst as int]
+                               + data[24+len_dst as int..32+len_dst as int]
+                               + data[32+len_dst as int..40+len_dst as int]
+                               + data[40+len_dst as int..48+len_dst as int];
             assert data[..48+len_dst as int] == [ 0, 0, 0, 0, 0, 0, 0, 0] 
                                + Uint64ToSeqByte(msg.seqno as uint64)
                                + Uint64ToSeqByte(|reserved_bytes| as uint64)
@@ -404,7 +411,17 @@ module MarshallProof_i {
         }
     }
 
-    lemma {:fuel ValInGrammar,5} {:timeLimitMultiplier 5} lemma_ParseMarshallReply(bytes:seq<byte>, reply:AppReply, msg:SingleMessage<Message>, reserved_bytes:seq<byte>) 
+    lemma lemma_ParseMarshallReplyHelper(bytes:seq<byte>, reply:AppReply, reserved_bytes:seq<byte>)
+      requires bytes == MarshallServiceReply(reply, reserved_bytes)
+      requires 0 <= reply.seqno < 0x1_0000_0000_0000_0000
+      requires |reserved_bytes| < 0x10_0000
+      ensures  |bytes| >= 24 + |reserved_bytes|
+      ensures  bytes[24..24 + |reserved_bytes|] == reserved_bytes
+    {
+    }
+
+    lemma {:fuel ValInGrammar,5} {:timeLimitMultiplier 2} lemma_ParseMarshallReply(
+        bytes:seq<byte>, reply:AppReply, msg:SingleMessage<Message>, reserved_bytes:seq<byte>) 
         requires CSingleMessageIsAbstractable(SHTDemarshallData(bytes));
         requires AbstractifyCSingleMessageToSingleMessage(SHTDemarshallData(bytes)) == msg;
         requires CSingleMessageMarshallable(SHTDemarshallData(bytes));
@@ -449,7 +466,8 @@ module MarshallProof_i {
             assert msg.seqno == u as int;
             assert reply.seqno == msg.seqno;
 
-            var len_dst, val_dst, rest_dst := lemma_ParseValCorrectVByteArray(rest1, dstVal, EndPoint_grammar());
+            var len_dst_uint64, val_dst, rest_dst := lemma_ParseValCorrectVByteArray(rest1, dstVal, EndPoint_grammar());
+            var len_dst := len_dst_uint64 as int;
 
             // Prove some length relationships to show that our indices are within bounds
             calc ==> {
@@ -464,7 +482,7 @@ module MarshallProof_i {
             }
             calc ==> {
                true;
-               |rest2| == |rest1| - 8 - len_dst as int;
+               |rest2| == |rest1| - 8 - len_dst;
             }
             calc ==> {
                true;
@@ -481,14 +499,20 @@ module MarshallProof_i {
             assert SeqByteToUint64(data[16..24]) == |reserved_bytes| as uint64 by {
               lemma_BEByteSeqToInt_BEUintToSeqByte_invertability();
             }
-            assert len_dst == SeqByteToUint64(rest1[..8]) == SeqByteToUint64(data[16..24]) == |reserved_bytes| as uint64;
-            assert len_dst as int == |reserved_bytes|;
+            assert len_dst_uint64 == SeqByteToUint64(rest1[..8]) == SeqByteToUint64(data[16..24]) == |reserved_bytes| as uint64;
+            assert len_dst == |reserved_bytes|;
 
             calc {
               val_dst.b;
+              rest_dst[0..len_dst_uint64];
+              rest_dst[0..len_dst];
+              rest1[8..][0..len_dst];
+                { lemma_SeqOffset(rest1, rest1[8..], 8, 0, len_dst); }
               rest1[8 .. 8 + len_dst];
               data[16..][8 .. 8 + len_dst];
+                { lemma_SeqOffset(data, data[16..], 16, 8, 8 + len_dst); }
               data[24 .. 24 + len_dst];
+                { lemma_ParseMarshallReplyHelper(bytes, reply, reserved_bytes); }
               reserved_bytes;
             }
 
@@ -517,16 +541,17 @@ module MarshallProof_i {
 
             calc {
               rest4[..8];
+              rest4[0..8];
                 { lemma_SeqOffset(rest3, rest4, 8, 0, 8); }
               rest3[8..16];
                 { lemma_SeqOffset(rest2, rest3, 8, 8, 16); }
               rest2[16..24];
-                { lemma_SeqOffset(rest1, rest2, 8 + len_dst as int, 16, 24); }
-              rest1[24+len_dst as int..32+len_dst as int];
-                { lemma_SeqOffset(rest0, rest1, 8, 24 + len_dst as int, 32 + len_dst as int); }
-              rest0[32+len_dst as int..40+len_dst as int];
-                { lemma_SeqOffset(data, rest0, 8, 32 + len_dst as int, 40 + len_dst as int); }
-              data[40+len_dst as int..48+len_dst as int];
+                { lemma_SeqOffset(rest1, rest2, 8 + len_dst, 16, 24); }
+              rest1[24+len_dst..32+len_dst];
+                { lemma_SeqOffset(rest0, rest1, 8, 24 + len_dst, 32 + len_dst); }
+              rest0[32+len_dst..40+len_dst];
+                { lemma_SeqOffset(data, rest0, 8, 32 + len_dst, 40 + len_dst); }
+              data[40+len_dst..48+len_dst];
             }
 
             // Handle the two subcases of OptionalValue

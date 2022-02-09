@@ -467,9 +467,9 @@ lemma SequenceIndexingHelper<T>(a:seq<T>, b:seq<T>, c:seq<T>, d:seq<T>, combined
 {
 }
 
-lemma {:timeLimitMultiplier 16} UpdateCDelegationMap_RHS_Helper(m:CDelegationMap, newkr:KeyRange, id:EndPoint, m':CDelegationMap,
-                               left_index:int, right_index:int, new_left:seq<Mapping>, new_right:seq<Mapping>,
-                               k:Key, new_index:int)
+lemma UpdateCDelegationMap_RHS_Helper(m:CDelegationMap, newkr:KeyRange, id:EndPoint, m':CDelegationMap,
+                                      left_index:int, right_index:int, new_left:seq<Mapping>, new_right:seq<Mapping>,
+                                      k:Key, new_index:int)
     requires CDelegationMapIsValid(m);
     requires EndPointIsValidPublicKey(id);
     requires !EmptyKeyRange(newkr);
@@ -487,7 +487,6 @@ lemma {:timeLimitMultiplier 16} UpdateCDelegationMap_RHS_Helper(m:CDelegationMap
     ensures  AbstractifyCDelegationMapToDelegationMap(m')[k] == UpdateDelegationMap(AbstractifyCDelegationMapToDelegationMap(m), newkr, AbstractifyEndPointToNodeIdentity(id))[k];
 
 {
-
     var rm  := AbstractifyCDelegationMapToDelegationMap(m);
     var rm' := AbstractifyCDelegationMapToDelegationMap(m');
     var updated_rm := UpdateDelegationMap(rm, newkr, AbstractifyEndPointToNodeIdentity(id));
@@ -501,12 +500,12 @@ lemma {:timeLimitMultiplier 16} UpdateCDelegationMap_RHS_Helper(m:CDelegationMap
     assert KeyRangeContains(cr, KeyPlus(k));
     assert m'.lows == m.lows[..new_index] + [Mapping(newkr.klo, id)] + [Mapping(newkr.khi, m.lows[right_index].id)] + m.lows[right_index+1..];
 
-//    assert {:split_here} true;
+    assert {:split_here} true;
 
     assert |m.lows[..new_index]| == new_index == new_index;
     assert |m.lows[..new_index] + [Mapping(newkr.klo, id)] + [Mapping(newkr.khi, m.lows[right_index].id)]| == new_index + 2;
     if |m.lows[right_index+1..]| > k_index as int - new_index - 2 {
-//        assert {:split_here} true;
+        assert {:split_here} true;
         SequenceIndexingHelper(m.lows[..new_index], [Mapping(newkr.klo, id)], [Mapping(newkr.khi, m.lows[right_index].id)], m.lows[right_index+1..], m'.lows, k_index);
         assert m'.lows[k_index] == m.lows[right_index+1..][k_index-new_index - 2];
     } else {

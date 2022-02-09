@@ -211,6 +211,7 @@ lemma TemporalWF1RealTimeDelayed(i:int, P:temporal, Q:temporal, action:temporal,
       else
       {
         assert sat(k-1, next(or(P, Q)));
+        assert sat(k, or(P, Q)) by { assert nextstep(k-1) == k; }
         step := k;
       }
     }
