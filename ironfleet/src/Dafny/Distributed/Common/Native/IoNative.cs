@@ -29,19 +29,19 @@ namespace Native____Io__s_Compile {
   public partial class NetClient
   {
     internal IoScheduler scheduler;
+
+    Dafny.ISequence<byte> myPublicKey;
   
-    internal NetClient(IoScheduler i_scheduler)
+    internal NetClient(IoScheduler i_scheduler, byte[] publicKey)
     {
       scheduler = i_scheduler;
+      myPublicKey = Dafny.Sequence<byte>.FromArray(BitConverter.GetBytes(ByteArrayComparer.Default().GetHashCode(publicKey)));
     }
 
     public static int MaxPublicKeySize { get { return 0xFFFFF; } }
 
-    public Dafny.ISequence<byte> MyPublicKey()
-    {
-      return Dafny.Sequence<byte>.FromArray(BitConverter.GetBytes(ByteArrayComparer.Default().GetHashCode(IoScheduler.GetCertificatePublicKey(scheduler.MyCert))));
-    }
-  
+    public Dafny.ISequence<byte> MyPublicKey() { return myPublicKey; }
+
     public static NetClient Create(PrivateIdentity myIdentity, string localHostNameOrAddress, int localPort,
                                    List<PublicIdentity> knownIdentities, bool verbose, bool useSsl, int maxSendRetries = 3)
     {
@@ -55,7 +55,7 @@ namespace Native____Io__s_Compile {
                                          myPublicKey.Length, MaxPublicKeySize);
           return null;
         }
-        return new NetClient(scheduler);
+        return new NetClient(scheduler, myPublicKey);
       }
       catch (Exception e)
       {

@@ -578,6 +578,7 @@ namespace IronSHTClient
     private void Send(MessageBase msg, byte[] remote)
     {
       var a = msg.ToBigEndianByteArray();
+      remote = BitConverter.GetBytes(ByteArrayComparer.Default().GetHashCode(remote));
       if (!scheduler.SendPacket(remote, a))
       {
         throw new InvalidOperationException("failed to send complete message.");
