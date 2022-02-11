@@ -35,7 +35,7 @@ namespace Native____Io__s_Compile {
     internal NetClient(IoScheduler i_scheduler, byte[] publicKey)
     {
       scheduler = i_scheduler;
-      myPublicKey = Dafny.Sequence<byte>.FromArray(BitConverter.GetBytes(ByteArrayComparer.Default().GetHashCode(publicKey)));
+      myPublicKey = Dafny.Sequence<byte>.FromArray(IoScheduler.HashPublicKey(publicKey));
     }
 
     public static int MaxPublicKeySize { get { return 0xFFFFF; } }
