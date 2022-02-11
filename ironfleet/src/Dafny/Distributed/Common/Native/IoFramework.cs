@@ -935,7 +935,7 @@ namespace IronfleetIoFramework
       var scheduler = new IoScheduler(null, null, 0, serverIdentities, verbose, useSsl, maxSendTries);
       if (connectToAllServers) {
         foreach (var serverIdentity in serverIdentities) {
-          scheduler.Connect(serverIdentity.PublicKey);
+          scheduler.Connect(IoScheduler.HashPublicKey(serverIdentity.PublicKey));
         }
       }
       return scheduler;
@@ -1120,7 +1120,7 @@ namespace IronfleetIoFramework
     {
       var publicIdentity = LookupPublicKey(destinationPublicKey);
       if (publicIdentity == null) {
-        return PublicKeyToString(destinationPublicKey);
+        return System.Convert.ToBase64String(destinationPublicKey);
       }
       else {
         return PublicIdentityToString(publicIdentity);

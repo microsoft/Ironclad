@@ -47,7 +47,7 @@ namespace TestIoFramework
         Console.WriteLine("Sending message {0} to {1}", message, IoScheduler.PublicKeyToString(serverPublicKey));
         
         scheduler.SendPacket(serverPublicKey, messageBytes);
-        Thread.Sleep(10000);
+        Thread.Sleep(1000);
       }
     }
 
@@ -89,7 +89,6 @@ Allowed keys:
   port      - port to listen to (default: whatever's specified
               in the private key file)
   verbose   - use verbose output (default: false)
-  useSsl    - whether use ssl channel (default: true)
 ");
     }
 
