@@ -69,7 +69,7 @@ Allowed keys:
       var nc = Native____Io__s_Compile.NetClient.Create(privateIdentity, ps.LocalHostNameOrAddress, ps.LocalPort,
                                                         serviceIdentity.Servers, ps.Verbose, serviceIdentity.UseSsl);
       Dafny.ISequence<byte>[] serverPublicKeys =
-        serviceIdentity.Servers.Select(server => Dafny.Sequence<byte>.FromArray(server.PublicKey)).ToArray();
+        serviceIdentity.Servers.Select(server => Dafny.Sequence<byte>.FromArray(IoScheduler.HashPublicKey(server.PublicKey))).ToArray();
       var ironArgs = Dafny.Sequence<Dafny.ISequence<byte>>.FromArray(serverPublicKeys);
 
       Profiler.Initialize();

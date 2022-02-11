@@ -24,7 +24,7 @@ namespace IronRSLClient
                                 serviceIdentity.ServiceType, serviceName);
         throw new Exception("Wrong service type");
       }
-      serverPublicKeys = serviceIdentity.Servers.Select(server => BitConverter.GetBytes(ByteArrayComparer.Default().GetHashCode(server.PublicKey))).ToArray();
+      serverPublicKeys = serviceIdentity.Servers.Select(server => IoScheduler.HashPublicKey(server.PublicKey)).ToArray();
       verbose = i_verbose;
       nextSeqNum = 0;
       primaryServerIndex = 0;

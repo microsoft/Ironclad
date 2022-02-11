@@ -815,7 +815,7 @@ namespace IronfleetIoFramework
           }
         }
 
-        remoteKey = BitConverter.GetBytes(ByteArrayComparer.Default().GetHashCode(remoteKey)); //Hash the key
+        remoteKey = IoScheduler.HashPublicKey(remoteKey); //Hash the key
 
         if (scheduler.Verbose) {
           Console.WriteLine("Received an incoming connection from remote identity as {0}",
@@ -911,7 +911,7 @@ namespace IronfleetIoFramework
       publicKeyToPublicIdentityMap = new Dictionary<byte[], PublicIdentity>(ByteArrayComparer.Default());
 
       foreach (var knownIdentity in knownIdentities) {
-        publicKeyToPublicIdentityMap[BitConverter.GetBytes(ByteArrayComparer.Default().GetHashCode(knownIdentity.PublicKey))] = knownIdentity;
+        publicKeyToPublicIdentityMap[HashPublicKey(knownIdentity.PublicKey)] = knownIdentity;
       }
 
       if (myIdentity == null) {
@@ -1081,6 +1081,11 @@ namespace IronfleetIoFramework
     public static byte[] GetCertificatePublicKey(X509Certificate2 cert)
     {
       return cert.PublicKey.EncodedKeyValue.RawData;
+    }
+
+    public static byte[] HashPublicKey(byte[] publicKey)
+    {
+      return BitConverter.GetBytes(ByteArrayComparer.Default().GetHashCode(publicKey));
     }
 
     public static string PublicKeyToString(byte[] destinationPublicKey)
