@@ -30,17 +30,17 @@ namespace Native____Io__s_Compile {
   {
     internal IoScheduler scheduler;
 
-    Dafny.ISequence<byte> myPublicKey;
+    Dafny.ISequence<byte> myPublicKeyHash;
   
     internal NetClient(IoScheduler i_scheduler, byte[] publicKey)
     {
       scheduler = i_scheduler;
-      myPublicKey = Dafny.Sequence<byte>.FromArray(IoScheduler.HashPublicKey(publicKey));
+      myPublicKeyHash = Dafny.Sequence<byte>.FromArray(IoScheduler.HashPublicKey(publicKey));
     }
 
     public static int MaxPublicKeySize { get { return 0xFFFFF; } }
 
-    public Dafny.ISequence<byte> MyPublicKey() { return myPublicKey; }
+    public Dafny.ISequence<byte> MyPublicKey() { return myPublicKeyHash; }
 
     public static NetClient Create(PrivateIdentity myIdentity, string localHostNameOrAddress, int localPort,
                                    List<PublicIdentity> knownIdentities, bool verbose, bool useSsl, int maxSendRetries = 3)
