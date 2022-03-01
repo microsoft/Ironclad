@@ -31,7 +31,7 @@ namespace Native____Io__s_Compile {
     internal IoScheduler scheduler;
 
     Dafny.ISequence<byte> myPublicKeyHash;
-  
+
     internal NetClient(IoScheduler i_scheduler, byte[] publicKey)
     {
       scheduler = i_scheduler;

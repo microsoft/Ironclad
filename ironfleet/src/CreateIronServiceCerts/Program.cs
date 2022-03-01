@@ -23,7 +23,7 @@ Allowed keys:
   addr<n>      - public address (host name or IP) of server #<n>
   port<n>      - public port of server #<n>
   verbose      - print verbose output (false or true, default false)
-  useSsl       - whether use ssl channel (default: true)
+  useSSL       - whether to use SSL (default: true)
 ");
     }
 

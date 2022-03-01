@@ -35,7 +35,7 @@ namespace CreateIronServiceCerts
     public string ServiceType { get { return serviceType; } }
     public string OutputDir { get { return outputDir; } }
     public bool Verbose { get { return verbose; } }
-    public bool UseSsl {get {return useSsl; } }
+    public bool UseSsl { get { return useSsl; } }
 
     public bool GetServerData (int serverIndex, out string addr, out int port)
     {
@@ -132,7 +132,7 @@ namespace CreateIronServiceCerts
           useSsl = true;
           return true;
         }
-        Console.WriteLine("ERROR - Invalid useSsl value {0} - should be false or true", value);
+        Console.WriteLine("ERROR - Invalid useSSL value {0} - should be false or true", value);
         return false;
       }
 

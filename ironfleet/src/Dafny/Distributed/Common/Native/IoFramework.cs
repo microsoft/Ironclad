@@ -84,7 +84,7 @@ namespace IronfleetIoFramework
     public string FriendlyName { get; set; }
     public string ServiceType { get; set; }
     public List<PublicIdentity> Servers { get; set; }
-    public bool UseSsl {get; set; }
+    public bool UseSsl { get; set; }
 
     public bool WriteToFile(string fileName)
     {
@@ -621,7 +621,7 @@ namespace IronfleetIoFramework
     public static ServerSenderThread Create(IoScheduler scheduler, byte[] destinationPublicKeyHash, Stream stream)
     {
       if (scheduler.Verbose) {
-        Console.WriteLine("Creating sender thread to send to remote public key as {0}",
+        Console.WriteLine("Creating sender thread to send to remote {0}",
                           scheduler.LookupPublicKeyHashAsString(destinationPublicKeyHash));
       }
 
@@ -650,7 +650,7 @@ namespace IronfleetIoFramework
     public static ClientSenderThread Create(IoScheduler scheduler, byte[] destinationPublicKeyHash, bool useSsl)
     {
       if (scheduler.Verbose) {
-        Console.WriteLine("Creating sender thread to send to remote public key {0}",
+        Console.WriteLine("Creating sender thread to send to remote {0}",
                           scheduler.LookupPublicKeyHashAsString(destinationPublicKeyHash));
       }
 
@@ -664,7 +664,7 @@ namespace IronfleetIoFramework
       var destinationPublicIdentity = scheduler.LookupPublicKeyHash(destinationPublicKeyHash);
       if (destinationPublicIdentity == null) {
         if (scheduler.Verbose) {
-          Console.Error.WriteLine("Could not connect to destination public key {0} because we don't know its address.",
+          Console.Error.WriteLine("Could not connect to destination public key hash {0} because we don't know its address.",
                                   System.Convert.ToBase64String(destinationPublicKeyHash));
         }
         return false;
@@ -721,7 +721,8 @@ namespace IronfleetIoFramework
         stream = client.GetStream();
         var myKey = IoScheduler.GetCertificatePublicKey(scheduler.MyCert);
         if (scheduler.Verbose) {
-            Console.WriteLine("Sending my pyblic key {0} to {1}", IoScheduler.PublicKeyToString(myKey), scheduler.LookupPublicKeyHashAsString(destinationPublicKeyHash));
+          Console.WriteLine("Sending my public key {0} to {1}", IoScheduler.PublicKeyToString(myKey),
+                            scheduler.LookupPublicKeyHashAsString(destinationPublicKeyHash));
         }
         IoEncoder.WriteUInt64(stream, (ulong) myKey.Length);
         IoEncoder.WriteBytes(stream, myKey, 0, (ulong) myKey.Length);
