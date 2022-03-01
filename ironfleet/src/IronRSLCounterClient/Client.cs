@@ -78,7 +78,7 @@ namespace IronRSLCounterClient
         var request = new IncrementRequest();
         byte[] requestBytes = request.Encode();
         var startTime = HiResTimer.Ticks;
-        byte[] replyBytes = rslClient.SubmitRequest(requestBytes, ps.Verbose);
+        byte[] replyBytes = rslClient.SubmitRequest(requestBytes);
         var endTime = HiResTimer.Ticks;
         var reply = IncrementReply.Decode(replyBytes);
         if (ps.PrintReplies) {

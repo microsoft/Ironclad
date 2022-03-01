@@ -23,6 +23,7 @@ Allowed keys:
   addr<n>      - public address (host name or IP) of server #<n>
   port<n>      - public port of server #<n>
   verbose      - print verbose output (false or true, default false)
+  useSSL       - whether to use SSL (default: true)
 ");
     }
 
@@ -69,7 +70,8 @@ Allowed keys:
       var serviceIdentity = new ServiceIdentity {
         FriendlyName = ps.ServiceName,
         ServiceType = ps.ServiceType,
-        Servers = serverPublicIdentities
+        Servers = serverPublicIdentities,
+        UseSsl = ps.UseSsl
       };
       var serviceFileName = Path.Join(ps.OutputDir, string.Format("{0}.{1}.service.txt", ps.ServiceName, ps.ServiceType));
       if (!serviceIdentity.WriteToFile(serviceFileName)) {

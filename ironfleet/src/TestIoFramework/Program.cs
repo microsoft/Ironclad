@@ -22,7 +22,7 @@ namespace TestIoFramework
       serviceIdentity = i_serviceIdentity;
       privateIdentity = i_privateIdentity;
       scheduler = IoScheduler.CreateServer(privateIdentity, ps.LocalHostNameOrAddress, ps.LocalPort,
-                                           serviceIdentity.Servers, ps.Verbose);
+                                           serviceIdentity.Servers, ps.Verbose, serviceIdentity.UseSsl);
     }
 
     public void Run()

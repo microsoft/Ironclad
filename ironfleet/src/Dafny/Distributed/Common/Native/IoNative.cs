@@ -29,33 +29,33 @@ namespace Native____Io__s_Compile {
   public partial class NetClient
   {
     internal IoScheduler scheduler;
-  
-    internal NetClient(IoScheduler i_scheduler)
+
+    Dafny.ISequence<byte> myPublicKeyHash;
+
+    internal NetClient(IoScheduler i_scheduler, byte[] publicKey)
     {
       scheduler = i_scheduler;
+      myPublicKeyHash = Dafny.Sequence<byte>.FromArray(IoScheduler.HashPublicKey(publicKey));
     }
 
     public static int MaxPublicKeySize { get { return 0xFFFFF; } }
 
-    public Dafny.ISequence<byte> MyPublicKey()
-    {
-      return Dafny.Sequence<byte>.FromArray(IoScheduler.GetCertificatePublicKey(scheduler.MyCert));
-    }
-  
+    public Dafny.ISequence<byte> MyPublicKey() { return myPublicKeyHash; }
+
     public static NetClient Create(PrivateIdentity myIdentity, string localHostNameOrAddress, int localPort,
-                                   List<PublicIdentity> knownIdentities, bool verbose, int maxSendRetries = 3)
+                                   List<PublicIdentity> knownIdentities, bool verbose, bool useSsl, int maxSendRetries = 3)
     {
       try
       {
         var scheduler = IoScheduler.CreateServer(myIdentity, localHostNameOrAddress, localPort, knownIdentities,
-                                                 verbose, maxSendRetries);
+                                                 verbose, useSsl, maxSendRetries);
         var myPublicKey = IoScheduler.GetCertificatePublicKey(scheduler.MyCert);
         if (myPublicKey.Length > MaxPublicKeySize) {
           System.Console.Error.WriteLine("ERROR:  The provided public key for my identity is too big ({0} > {1} bytes)",
                                          myPublicKey.Length, MaxPublicKeySize);
           return null;
         }
-        return new NetClient(scheduler);
+        return new NetClient(scheduler, myPublicKey);
       }
       catch (Exception e)
       {

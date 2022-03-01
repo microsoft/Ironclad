@@ -16,6 +16,7 @@ namespace CreateIronServiceCerts
     private Dictionary<int, string> serverAddrs;
     private Dictionary<int, int> serverPorts;
     private bool verbose;
+    private bool useSsl;
 
     public Params()
     {
@@ -26,6 +27,7 @@ namespace CreateIronServiceCerts
       serverAddrs = new Dictionary<int, string>();
       serverPorts = new Dictionary<int, int>();
       verbose = false;
+      useSsl = true;
     }
 
     public int MaxServerIndex { get { return maxServerIndex; } }
@@ -33,6 +35,7 @@ namespace CreateIronServiceCerts
     public string ServiceType { get { return serviceType; } }
     public string OutputDir { get { return outputDir; } }
     public bool Verbose { get { return verbose; } }
+    public bool UseSsl { get { return useSsl; } }
 
     public bool GetServerData (int serverIndex, out string addr, out int port)
     {
@@ -117,6 +120,19 @@ namespace CreateIronServiceCerts
           return true;
         }
         Console.WriteLine("ERROR - Invalid verbose value {0} - should be false or true", value);
+        return false;
+      }
+
+      if (key == "usessl") {
+        if (value == "false") {
+          useSsl = false;
+          return true;
+        }
+        if (value == "true") {
+          useSsl = true;
+          return true;
+        }
+        Console.WriteLine("ERROR - Invalid useSSL value {0} - should be false or true", value);
         return false;
       }
 

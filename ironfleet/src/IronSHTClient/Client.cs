@@ -295,7 +295,7 @@ namespace IronSHTClient
 
     public void Setup()
     {
-      scheduler = IoScheduler.CreateClient(serviceIdentity.Servers, ps.Verbose);
+      scheduler = IoScheduler.CreateClient(serviceIdentity.Servers, ps.Verbose, serviceIdentity.UseSsl);
       byte[] myPublicKey = IoScheduler.GetCertificatePublicKey(scheduler.MyCert);
             
       int serverIdx = 0;
@@ -437,7 +437,7 @@ namespace IronSHTClient
       ulong requestKey;
       int serverIdx = 0;
             
-      scheduler = IoScheduler.CreateClient(serviceIdentity.Servers, ps.Verbose);
+      scheduler = IoScheduler.CreateClient(serviceIdentity.Servers, ps.Verbose, serviceIdentity.UseSsl);
 
       byte[] myPublicKey = IoScheduler.GetCertificatePublicKey(scheduler.MyCert);
       ulong seqNum = 0;
@@ -578,6 +578,7 @@ namespace IronSHTClient
     private void Send(MessageBase msg, byte[] remote)
     {
       var a = msg.ToBigEndianByteArray();
+      remote = IoScheduler.HashPublicKey(remote);
       if (!scheduler.SendPacket(remote, a))
       {
         throw new InvalidOperationException("failed to send complete message.");

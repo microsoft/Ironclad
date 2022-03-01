@@ -16,7 +16,7 @@ namespace IronRSLClient
     int primaryServerIndex;
     IoScheduler scheduler;
 
-    public RSLClient(ServiceIdentity i_serviceIdentity, string serviceName, bool i_verbose = false)
+    public RSLClient(ServiceIdentity i_serviceIdentity, string serviceName, bool i_verbose)
     {
       serviceIdentity = i_serviceIdentity;
       if (serviceIdentity.ServiceType != "IronRSL" + serviceName) {
@@ -24,14 +24,14 @@ namespace IronRSLClient
                                 serviceIdentity.ServiceType, serviceName);
         throw new Exception("Wrong service type");
       }
-      serverPublicKeys = serviceIdentity.Servers.Select(server => server.PublicKey).ToArray();
+      serverPublicKeys = serviceIdentity.Servers.Select(server => IoScheduler.HashPublicKey(server.PublicKey)).ToArray();
       verbose = i_verbose;
       nextSeqNum = 0;
       primaryServerIndex = 0;
-      scheduler = IoScheduler.CreateClient(serviceIdentity.Servers, verbose);
+      scheduler = IoScheduler.CreateClient(serviceIdentity.Servers, verbose, serviceIdentity.UseSsl);
     }
 
-    public byte[] SubmitRequest (byte[] request, bool verbose = false, int timeBeforeServerSwitchMs = 1000)
+    public byte[] SubmitRequest (byte[] request, int timeBeforeServerSwitchMs = 1000)
     {
       UInt64 seqNum = nextSeqNum++;
       byte[] requestMessage;

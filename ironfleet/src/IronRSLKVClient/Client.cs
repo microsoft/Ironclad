@@ -88,7 +88,7 @@ namespace IronRSLKVClient
         KVRequest request = GetRandomRequest(rng, ps);
         byte[] requestBytes = request.Encode();
         var startTime = HiResTimer.Ticks;
-        byte[] replyBytes = rslClient.SubmitRequest(requestBytes, ps.Verbose);
+        byte[] replyBytes = rslClient.SubmitRequest(requestBytes);
         var endTime = HiResTimer.Ticks;
         KVReply reply = KVReply.Decode(replyBytes, 0);
 
