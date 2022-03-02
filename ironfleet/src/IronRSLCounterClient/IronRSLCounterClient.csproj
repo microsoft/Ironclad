@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net5.0</TargetFramework>
+    <TargetFramework>net6.0</TargetFramework>
   </PropertyGroup>
 
   <ItemGroup>
@@ -10,7 +10,7 @@
     <Compile Include="..\IronfleetCommon\Networking.cs" />
     <Compile Include="..\Dafny\Distributed\Common\Native\IoFramework.cs" />
     <Compile Include="..\IronRSLClient\RSLClient.cs" />
-    <!-- <PackageReference Include="IronRSLClient" Version="1.0.3" /> -->
+    <!-- <PackageReference Include="IronRSLClient" Version="1.0.4" /> -->
   </ItemGroup>
 
 </Project>

@@ -1,9 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net5.0</TargetFramework>
+    <TargetFramework>net6.0</TargetFramework>
     <PackageId>IronRSLClient</PackageId>
-    <Version>1.0.3</Version>
+    <Version>1.0.4</Version>
     <Authors>Jay Lorch and Chris Hawblitzel</Authors>
     <Company>Microsoft Corporation</Company>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
