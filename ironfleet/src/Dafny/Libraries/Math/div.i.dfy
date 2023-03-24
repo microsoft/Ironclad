@@ -318,7 +318,7 @@ lemma {:timeLimitMultiplier 2} lemma_mod_neg_neg(x:int, d:int)
   lemma_mul_auto();
 }
 
-lemma lemma_fundamental_div_mod_converse(x:int, d:int, q:int, r:int)
+lemma {:timeLimitMultiplier 2} lemma_fundamental_div_mod_converse(x:int, d:int, q:int, r:int)
   requires d != 0
   requires 0 <= r < d
   requires x == q * d + r

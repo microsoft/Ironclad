@@ -595,7 +595,7 @@ lemma SetPreservesRefinement_ExpandFindHashTable(s:SHT_State, s':SHT_State, id:N
 }
 
 
-lemma SetPreservesRefinement_HostClaims(s:SHT_State, s':SHT_State, id:NodeIdentity, recv:set<Packet>, out:set<Packet>, rpkt:Packet, ko:Key, sm:SingleMessage<Message>, m:Message)
+lemma {:timeLimitMultiplier 2} SetPreservesRefinement_HostClaims(s:SHT_State, s':SHT_State, id:NodeIdentity, recv:set<Packet>, out:set<Packet>, rpkt:Packet, ko:Key, sm:SingleMessage<Message>, m:Message)
     requires HiddenInv(s) && InvBasics(s);
     requires HiddenInv(s') && InvBasics(s');
     requires SHT_Next(s, s');

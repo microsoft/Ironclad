@@ -416,7 +416,7 @@ namespace IronfleetIoFramework
         // matches what we expect.  This is just a paranoid check; it
         // should never fail.
 
-        expectedPublicIdentity = scheduler.LookupPublicKeyHash(IoScheduler.HashPublicKey(IoScheduler.GetCertificatePublicKey(cert2)));
+        expectedPublicIdentity = scheduler.LookupPublicKeyHash(scheduler.HashPublicKey(IoScheduler.GetCertificatePublicKey(cert2)));
         if (expectedPublicIdentity != null) {
           if (cert2.SubjectName.Name != "CN=" + expectedPublicIdentity.FriendlyName) {
             Console.Error.WriteLine("Received a certificate we expected to have subject CN={1} but found {2}, so disconnecting.",
@@ -798,9 +798,7 @@ namespace IronfleetIoFramework
 
           stream = (Stream) sslStream;
           var key = IoScheduler.GetCertificatePublicKey(remoteCert);
-          remoteKeyHash = new byte[key.Length];
-          Array.Copy(key, remoteKeyHash, key.Length);
-          remoteKeyHash = IoScheduler.HashPublicKey(remoteKeyHash); //Hash the key
+          remoteKeyHash = scheduler.HashPublicKey(key); //Hash the key
         } else {
           UInt64 len;
           bool success;
@@ -809,9 +807,9 @@ namespace IronfleetIoFramework
             Console.WriteLine("Failed to receive the length of public key from {0}", client.Client.RemoteEndPoint.ToString());
             continue;
           }
-          remoteKeyHash = new byte[len];
-          success = IoEncoder.ReadBytes(stream, remoteKeyHash, 0, len);
-          remoteKeyHash = IoScheduler.HashPublicKey(remoteKeyHash); //Hash the key
+          byte[] remoteKey = new byte[len];
+          success = IoEncoder.ReadBytes(stream, remoteKey, 0, len);
+          remoteKeyHash = scheduler.HashPublicKey(remoteKey); //Hash the key
           if (!success) {
             Console.WriteLine("Failed to receive public key from {0}", client.Client.RemoteEndPoint.ToString());
             continue;
@@ -900,6 +898,7 @@ namespace IronfleetIoFramework
     private Dictionary<byte[], PublicIdentity> publicKeyHashToPublicIdentityMap;
     private ListenerThread listenerThread;
     private SendDispatchThread sendDispatchThread;
+    private SHA256 hasher;
 
     private IoScheduler(PrivateIdentity myIdentity, string localHostNameOrAddress, int localPort,
                         List<PublicIdentity> knownIdentities, bool i_verbose, bool i_useSsl, int i_maxSendTries = 3)
@@ -910,6 +909,7 @@ namespace IronfleetIoFramework
       receiveQueue = new BufferBlock<ReceivedPacket>();
       destinationPublicKeyHashToSenderThreadMap = new Dictionary<byte[], List<SenderThread>>(ByteArrayComparer.Default());
       publicKeyHashToPublicIdentityMap = new Dictionary<byte[], PublicIdentity>(ByteArrayComparer.Default());
+      hasher = SHA256.Create();
 
       foreach (var knownIdentity in knownIdentities) {
         publicKeyHashToPublicIdentityMap[HashPublicKey(knownIdentity.PublicKey)] = knownIdentity;
@@ -936,7 +936,7 @@ namespace IronfleetIoFramework
       var scheduler = new IoScheduler(null, null, 0, serverIdentities, verbose, useSsl, maxSendTries);
       if (connectToAllServers) {
         foreach (var serverIdentity in serverIdentities) {
-          scheduler.Connect(HashPublicKey(serverIdentity.PublicKey));
+          scheduler.Connect(scheduler.HashPublicKey(serverIdentity.PublicKey));
         }
       }
       return scheduler;
@@ -1084,9 +1084,9 @@ namespace IronfleetIoFramework
       return cert.PublicKey.EncodedKeyValue.RawData;
     }
 
-    public static byte[] HashPublicKey(byte[] publicKeyHash)
+    public byte[] HashPublicKey(byte[] publicKey)
     {
-      return BitConverter.GetBytes(ByteArrayComparer.Default().GetHashCode(publicKeyHash));
+      return hasher.ComputeHash(publicKey);
     }
 
     public static string PublicKeyToString(byte[] destinationPublicKey)

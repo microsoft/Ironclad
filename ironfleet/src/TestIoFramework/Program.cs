@@ -39,14 +39,15 @@ namespace TestIoFramework
         int serverIndex = rng.Next(serviceIdentity.Servers.Count);
         PublicIdentity serverIdentity = serviceIdentity.Servers[serverIndex];
         byte[] serverPublicKey = serverIdentity.PublicKey;
+        byte[] serverPublicKeyHash = scheduler.HashPublicKey(serverPublicKey);
 
         int randomNumber = rng.Next(10000);
         string message = string.Format("Hello {0}", randomNumber);
         byte[] messageBytes = Encoding.UTF8.GetBytes(message);
 
-        Console.WriteLine("Sending message {0} to {1}", message, IoScheduler.PublicKeyToString(serverPublicKey));
+        Console.WriteLine("Sending message {0} to {1}", message, IoScheduler.PublicKeyToString(serverPublicKeyHash));
         
-        scheduler.SendPacket(serverPublicKey, messageBytes);
+        scheduler.SendPacket(serverPublicKeyHash, messageBytes);
         Thread.Sleep(1000);
       }
     }
