@@ -27,6 +27,8 @@ namespace TestIoFramework
 
     public void Run()
     {
+      Console.WriteLine("Starting on {0}",
+                        IoScheduler.PublicKeyToString(IoScheduler.GetCertificatePublicKey(scheduler.MyCert)));
       Thread t = new Thread(this.SenderThread);
       t.Start();
       this.ReceiverThread();
@@ -45,7 +47,8 @@ namespace TestIoFramework
         string message = string.Format("Hello {0}", randomNumber);
         byte[] messageBytes = Encoding.UTF8.GetBytes(message);
 
-        Console.WriteLine("Sending message {0} to {1}", message, IoScheduler.PublicKeyToString(serverPublicKeyHash));
+        Console.WriteLine("Sending message {0} to {1}", message,
+                          scheduler.LookupPublicKeyHashAsString(serverPublicKeyHash));
         
         scheduler.SendPacket(serverPublicKeyHash, messageBytes);
         Thread.Sleep(1000);
@@ -57,9 +60,9 @@ namespace TestIoFramework
       while (true) {
         bool ok;
         bool timedOut;
-        byte[] remote;
+        byte[] remotePublicKeyHash;
         byte[] messageBytes;
-        scheduler.ReceivePacket(0, out ok, out timedOut, out remote, out messageBytes);
+        scheduler.ReceivePacket(0, out ok, out timedOut, out remotePublicKeyHash, out messageBytes);
         if (!ok) {
           Console.WriteLine("Not OK, so terminating receiver thread");
           return;
@@ -69,7 +72,8 @@ namespace TestIoFramework
           continue;
         }
         string message = Encoding.UTF8.GetString(messageBytes);
-        Console.WriteLine("Received message {0} from {1}", message, IoScheduler.PublicKeyToString(remote));
+        Console.WriteLine("Received message {0} from {1}", message,
+                          scheduler.LookupPublicKeyHashAsString(remotePublicKeyHash));
       }
     }
   }
