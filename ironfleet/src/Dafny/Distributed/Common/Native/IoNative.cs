@@ -35,7 +35,7 @@ namespace Native____Io__s_Compile {
     internal NetClient(IoScheduler i_scheduler, byte[] publicKey)
     {
       scheduler = i_scheduler;
-      myPublicKeyHash = Dafny.Sequence<byte>.FromArray(IoScheduler.HashPublicKey(publicKey));
+      myPublicKeyHash = Dafny.Sequence<byte>.FromArray(scheduler.HashPublicKey(publicKey));
     }
 
     public static int MaxPublicKeySize { get { return 0xFFFFF; } }
@@ -82,6 +82,11 @@ namespace Native____Io__s_Compile {
     public bool Send(Dafny.ISequence<byte> remote, byte[] buffer)
     {
       return scheduler.SendPacket(remote.Elements, buffer);
+    }
+
+    public byte[] HashPublicKey(byte[] key)
+    {
+      return scheduler.HashPublicKey(key);
     }
   }
   

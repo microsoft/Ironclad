@@ -578,7 +578,7 @@ namespace IronSHTClient
     private void Send(MessageBase msg, byte[] remote)
     {
       var a = msg.ToBigEndianByteArray();
-      remote = IoScheduler.HashPublicKey(remote);
+      remote = scheduler.HashPublicKey(remote);
       if (!scheduler.SendPacket(remote, a))
       {
         throw new InvalidOperationException("failed to send complete message.");

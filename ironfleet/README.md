@@ -255,7 +255,8 @@ Finally, run this client command in yet another window:
   dotnet bin/IronSHTClient.dll certs/MySHT.IronSHT.service.txt nthreads=10 duration=30 workload=g numkeys=1000
 ```
 The client's output will primarily consist of reports of the form `#req
-<thread-ID> <request-number> <time-in-ms>`.
+<thread-ID> <request-number> <time-in-ms>`. This output won't start for
+several seconds since the client has a lot of setup to do.
 
 We haven't implemented crash recovery, so if you restart a server its state will
 be empty.
